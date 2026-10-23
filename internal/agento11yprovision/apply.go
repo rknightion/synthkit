@@ -1815,7 +1815,10 @@ func engineVerifyPrefix(ctx context.Context, c *Client, p enginePlan, s Snapshot
 			return e
 		}
 		actual, _, e := engineReadExact(ctx, c, p, inv, co)
-		if e != nil || actual.Presence != PresencePresent {
+		if e != nil {
+			return fmt.Errorf("%w: verify prefix exact read: %w", ErrConflict, e)
+		}
+		if actual.Presence != PresencePresent {
 			return ErrConflict
 		}
 		expected, e := engineResolved(p, r, s)
@@ -1891,7 +1894,10 @@ func enginePreflight(ctx context.Context, c *Client, p enginePlan, s Snapshot, i
 			continue
 		}
 		o, _, e := engineReadExact(ctx, c, p, inv, co)
-		if e != nil || o.Presence != PresenceAbsent {
+		if e != nil {
+			return fmt.Errorf("%w: preflight exact read: %w", ErrConflict, e)
+		}
+		if o.Presence != PresenceAbsent {
 			return ErrConflict
 		}
 		if co.Kind == KindHook || co.Kind == KindRule {
@@ -2074,7 +2080,10 @@ func engineBefore(ctx context.Context, c *Client, p enginePlan, s Snapshot, inv 
 	}
 	if !co.Unassigned && co.Kind != KindBindings && co.Kind != KindPublication {
 		o, _, e := engineReadExact(ctx, c, p, inv, co)
-		if e != nil || o.Presence != PresenceAbsent {
+		if e != nil {
+			return co, spec, "", fmt.Errorf("%w: before exact read: %w", ErrConflict, e)
+		}
+		if o.Presence != PresenceAbsent {
 			return co, spec, "", ErrConflict
 		}
 		if co.Kind == KindHook || co.Kind == KindRule {
@@ -2238,7 +2247,10 @@ func engineReceipt(ctx context.Context, c *Client, p enginePlan, s Snapshot, con
 			return Receipt{}, ErrConflict
 		}
 		o, _, e := engineReadExact(ctx, c, p, inv, rec.Coordinate)
-		if e != nil || o.Presence != PresencePresent || o.ManagedHash != rec.ManagedHash {
+		if e != nil {
+			return Receipt{}, fmt.Errorf("%w: receipt exact read: %w", ErrConflict, e)
+		}
+		if o.Presence != PresencePresent || o.ManagedHash != rec.ManagedHash {
 			return Receipt{}, ErrConflict
 		}
 		members = append(members, ReceiptMember{ResourceKey: r.Key, Coordinate: rec.Coordinate, Outcome: OutcomePresent, Observation: &o, Evidence: o.Evidence})

@@ -804,8 +804,8 @@ func (m *marginProbe) returned() {
 // and an error whose chain carries a caller or HTTP deadline or a cancellation
 // does not satisfy it: the fixture's other timing bounds are unchanged, so a
 // test that passed on a deadline would otherwise pass for the wrong reason.
-// Where the engine reports a bare ErrConflict that drops the underlying cause,
-// a deadline is not yet detectable here (SKT-0153.03.04.04).
+// Exact-read conflicts retain their causes, so these checks reject deadlines
+// even when the outer error also matches ErrConflict.
 func requireEngineError(t *testing.T, site string, err, want error) {
 	t.Helper()
 	requireNotInterrupted(t, site, err)
