@@ -26,6 +26,7 @@ import (
 
 	"github.com/rknightion/synthkit/internal/blueprint"
 	"github.com/rknightion/synthkit/internal/core"
+	"github.com/rknightion/synthkit/internal/failuremode"
 )
 
 // Field is one schema field. Nested objects carry child Fields; slices of objects describe
@@ -320,10 +321,24 @@ func yamlKey(sf reflect.StructField) string {
 
 // failureModeSection lists the incident/scenario `mode:` vocabulary (union across kinds).
 func failureModeSection(reg *core.Registry) Section {
+	return Section{
+		Title:  "Failure modes",
+		Path:   "incidents[].mode / scenarios[].effects[].mode",
+		Doc:    "The valid `mode:` values an incident or scenario effect may reference (union across all registered kinds).",
+		Group:  "failure_modes",
+		Fields: failureModeFields(reg.AllFailureModes()),
+	}
+}
+
+// failureModeFields dedups modes on the full (name, axis, help) tuple and orders them by it.
+// A mode name may legitimately recur under several axes or with differing help text, so name
+// alone is not a total order: an unstable sort over name ties would let an unrelated registry
+// change reshuffle every tied row between generator runs.
+func failureModeFields(modes []failuremode.Mode) []Field {
 	type modeKey struct{ name, axis, help string }
 	seen := map[modeKey]bool{}
 	var fields []Field
-	for _, m := range reg.AllFailureModes() {
+	for _, m := range modes {
 		k := modeKey{m.Name, string(m.Axis), m.Help}
 		if seen[k] {
 			continue
@@ -331,12 +346,15 @@ func failureModeSection(reg *core.Registry) Section {
 		seen[k] = true
 		fields = append(fields, Field{Key: m.Name, Type: "axis: " + string(m.Axis), Doc: m.Help})
 	}
-	sort.Slice(fields, func(i, j int) bool { return fields[i].Key < fields[j].Key })
-	return Section{
-		Title:  "Failure modes",
-		Path:   "incidents[].mode / scenarios[].effects[].mode",
-		Doc:    "The valid `mode:` values an incident or scenario effect may reference (union across all registered kinds).",
-		Group:  "failure_modes",
-		Fields: fields,
-	}
+	sort.Slice(fields, func(i, j int) bool {
+		a, b := fields[i], fields[j]
+		if a.Key != b.Key {
+			return a.Key < b.Key
+		}
+		if a.Type != b.Type {
+			return a.Type < b.Type
+		}
+		return a.Doc < b.Doc
+	})
+	return fields
 }

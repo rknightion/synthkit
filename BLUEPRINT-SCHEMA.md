@@ -1553,8 +1553,8 @@ The valid `mode:` values an incident or scenario effect may reference (union acr
 | `bedrock_throttle` | axis: cloud |  | Bedrock invocation throttling climbs |
 | `connection_saturation` | axis: database |  | active connections climb toward max |
 | `cpu_hotspot` | axis: cluster |  | elevated CPU concentrated in a hot frame on the cluster's profiled pods |
-| `cpu_hotspot` | axis: workload |  | elevated CPU concentrated in a hot frame (visible in process_cpu flamegraph) |
 | `cpu_hotspot` | axis: service |  | elevated CPU concentrated in a hot frame on the targeted service node |
+| `cpu_hotspot` | axis: workload |  | elevated CPU concentrated in a hot frame (visible in process_cpu flamegraph) |
 | `dcgm_ecc_error_growth` | axis: gpu |  | Declared ECC and row-remap collection events |
 | `dcgm_health_failure` | axis: gpu |  | Source-supported memory health failure |
 | `error_burst` | axis: workload |  | elevated 5xx error rate |
@@ -1571,43 +1571,43 @@ The valid `mode:` values an incident or scenario effect may reference (union acr
 | `goroutine_leak` | axis: service |  | goroutine accumulation on the targeted service node |
 | `goroutine_leak` | axis: workload |  | goroutine accumulation — raises goroutines/goroutine profile sample values |
 | `gpu_backend_congestion` | axis: gpu_fabric |  | slowdown |
-| `gpu_backend_congestion` | axis: gpu_switch |  | slowdown |
 | `gpu_backend_congestion` | axis: gpu_port |  | slowdown |
-| `gpu_cooling_fault` | axis: gpu_rack |  | cooling |
+| `gpu_backend_congestion` | axis: gpu_switch |  | slowdown |
 | `gpu_cooling_fault` | axis: gpu_device |  | cooling |
-| `gpu_fallen_off_bus` | axis: gpu_tray |  | unavailable |
+| `gpu_cooling_fault` | axis: gpu_rack |  | cooling |
 | `gpu_fallen_off_bus` | axis: gpu |  | unavailable |
 | `gpu_fallen_off_bus` | axis: gpu_node |  | unavailable |
+| `gpu_fallen_off_bus` | axis: gpu_tray |  | unavailable |
+| `gpu_node_drain` | axis: gpu_node |  | unavailable |
 | `gpu_node_drain` | axis: gpu_rack |  | unavailable |
 | `gpu_node_drain` | axis: gpu_tray |  | unavailable |
-| `gpu_node_drain` | axis: gpu_node |  | unavailable |
-| `gpu_nvlink_degraded` | axis: nvlink_partition |  | slowdown |
 | `gpu_nvlink_degraded` | axis: nvlink_domain |  | slowdown |
-| `gpu_nvlink_error_burst` | axis: nvlink_domain |  | confirmed edge errors |
+| `gpu_nvlink_degraded` | axis: nvlink_partition |  | slowdown |
 | `gpu_nvlink_error_burst` | axis: gpu |  | confirmed edge errors |
+| `gpu_nvlink_error_burst` | axis: nvlink_domain |  | confirmed edge errors |
 | `gpu_nvlink_error_burst` | axis: nvlink_partition |  | confirmed edge errors |
-| `gpu_nvlink_error_burst` | axis: nvlink_switch |  | confirmed edge errors |
 | `gpu_nvlink_error_burst` | axis: nvlink_port |  | confirmed edge errors |
+| `gpu_nvlink_error_burst` | axis: nvlink_switch |  | confirmed edge errors |
 | `gpu_nvswitch_tray_failure` | axis: gpu_tray |  | slowdown |
 | `gpu_operand_unavailable` | axis: gpu_node |  | unavailable |
 | `gpu_power_constraint` | axis: gpu |  | Declared workload demand exceeds the configured GPU power budget |
 | `gpu_power_constraint` | axis: gpu_node |  | Declared workload demand exceeds the configured GPU power budget |
 | `gpu_preemption_storm` | axis: gpu_project |  | preemption |
-| `gpu_preemption_storm` | axis: gpu_workload |  | preemption |
 | `gpu_preemption_storm` | axis: gpu_scheduler |  | preemption |
+| `gpu_preemption_storm` | axis: gpu_workload |  | preemption |
 | `gpu_quota_exhaustion` | axis: gpu_project |  | quota |
 | `gpu_storage_latency` | axis: gpu_storage |  | slowdown |
 | `gpu_xid_burst` | axis: gpu |  | nonfatal event |
-| `gpu_xid_burst` | axis: gpu_tray |  | nonfatal event |
 | `gpu_xid_burst` | axis: gpu_node |  | nonfatal event |
 | `gpu_xid_burst` | axis: gpu_rack |  | nonfatal event |
+| `gpu_xid_burst` | axis: gpu_tray |  | nonfatal event |
 | `latency_spike` | axis: workload |  | elevated request latency (up to 4× at full intensity) |
 | `latency_storm` | axis: service |  | elevated request latency on the targeted service node |
 | `lock_contention` | axis: database |  | lock waits climb |
-| `lock_contention` | axis: workload |  | elevated mutex/block contention — raises mutex and block profile sample values |
 | `lock_contention` | axis: service |  | elevated mutex/block contention on the targeted service node |
-| `memory_leak` | axis: workload |  | growing heap — raises memory inuse/alloc profile sample values |
+| `lock_contention` | axis: workload |  | elevated mutex/block contention — raises mutex and block profile sample values |
 | `memory_leak` | axis: service |  | growing heap on the targeted service node — raises memory inuse/alloc profile values |
+| `memory_leak` | axis: workload |  | growing heap — raises memory inuse/alloc profile sample values |
 | `nettopo_auth_failures` | axis: network |  | SNMP credential trials fail (credential_trials_total error rate rises) |
 | `nettopo_devices_unreachable` | axis: network |  | SNMP polling fails for a fraction of devices (walk errors spike, device discovery drops) |
 | `nettopo_discovery_slow` | axis: network |  | discovery cycle duration inflates (cycle_duration_seconds and module walk times rise) |
