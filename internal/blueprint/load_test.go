@@ -809,6 +809,48 @@ func TestAlloyVersionCanonicalized(t *testing.T) {
 	}
 }
 
+// Exercise YAML decoding and shared effect validation through the public loader.
+func TestLoadIncidentIntensityRange(t *testing.T) {
+	for _, form := range []string{"inline", "scenario"} {
+		for _, tc := range []struct {
+			name  string
+			value string
+			valid bool
+		}{
+			{"nan", ".nan", false},
+			{"positive infinity", ".inf", false},
+			{"negative infinity", "-.inf", false},
+			{"negative", "-0.1", false},
+			{"above one", "1.1", false},
+			{"omitted", "", true},
+			{"zero", "0", true},
+			{"fraction", "0.35", true},
+			{"one", "1", true},
+		} {
+			t.Run(form+"/"+tc.name, func(t *testing.T) {
+				field := ""
+				if tc.value != "" {
+					field = ", intensity: " + tc.value
+				}
+				y := strings.Replace(minimalYAML, ", intensity: 0.8", field, 1)
+				if form == "scenario" {
+					y = strings.Replace(minimalYAML, "kind: latency_spike, target: mini-api", "scenario: intensity_test", 1)
+					y = strings.Replace(y, ", intensity: 0.8", "", 1)
+					y += "scenarios:\n  - name: intensity_test\n    effects:\n      - { mode: latency_spike, target: mini-api" + field + " }\n"
+				}
+				_, err := Load([]byte(y), testRegistry(t))
+				if tc.valid {
+					if err != nil {
+						t.Fatalf("valid intensity rejected: %v", err)
+					}
+				} else if err == nil || !strings.Contains(err.Error(), "intensity") || !strings.Contains(err.Error(), "[0,1]") {
+					t.Fatalf("want intensity range error for %s, got %v", tc.value, err)
+				}
+			})
+		}
+	}
+}
+
 func TestIncidentScheduleEntries(t *testing.T) {
 	r := load(t, minimalYAML)
 	if len(r.Incidents) != 1 {

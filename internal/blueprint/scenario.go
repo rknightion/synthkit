@@ -210,7 +210,7 @@ func soleAxis(vocab []failuremode.Mode, mode string) (failuremode.Axis, bool) {
 
 // validateEffect checks one (mode, target, intensity) against the target index + vocabulary.
 func validateEffect(e EffectDecl, axes map[string]failuremode.Axis, vocab []failuremode.Mode, multi map[string]bool) error {
-	if e.Intensity < 0 || e.Intensity > 1 {
+	if !(e.Intensity >= 0 && e.Intensity <= 1) {
 		return fmt.Errorf("effect %q: intensity %v out of [0,1]", e.Mode, e.Intensity)
 	}
 	switch {
