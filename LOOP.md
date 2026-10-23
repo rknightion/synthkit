@@ -39,6 +39,11 @@ grafana-stack: none
   file needs the AGPL SPDX header (`just spdx-check`).
 - `just race` excludes `internal/integration` on purpose (OOMs a 16 GB runner); `just test` covers it.
   Do not "fix" the exclusion.
+- The three measured dominant teardown-forecast tests in `scripts/race-isolated.txt` join the
+  existing isolated package invocation because hosted package aggregate work exceeded 600 s even
+  after the decoder shortcut. This is separate from caller-margin admission: retain every case,
+  `-race`, caller bound and default 600 s package timeout in both invocations. Other forecast tests
+  remain in the sweep; prove unchanged exactly-once selection before full final gates and hosted CI.
 - Slow tier: `just lab` (about 35 minutes in CI) and `just race` (about 10 minutes). Run once on the
   final candidate, never in the inner loop.
 - `cmd/synthkit-control-dash` under `just race` runs against Go's default 600 s test timeout (562 s in

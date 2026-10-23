@@ -103,11 +103,16 @@ just ci </dev/null
 maintain a copied checklist of every recipe. It includes the full plain Go suite and a slow race
 suite. The race recipe deliberately excludes `internal/integration` for runner memory limits;
 that package is still covered by the plain suite. The race recipe also splits out the
-timing-sensitive tests listed in `scripts/race-isolated.txt`: the parallel sweep skips them and
-they run once afterwards in their own `go test -race -v` invocation, because their bounds can miss
-under contention from the sweep. They are the HA subprocess tests, with sub-second lease and
-renewal bounds, and the Agent Observability lifecycle engine tests, with 4 s and 20 s caller
-budgets, which probe those budgets and log a `deadline-margin` line after each engine return.
+bound-sensitive tests listed in `scripts/race-isolated.txt`: the parallel sweep skips them and
+they run once afterwards, grouped by package, in a `go test -race -v` invocation. The HA subprocess
+tests have sub-second lease and renewal bounds; the Agent Observability lifecycle engine tests
+have 4 s and 20 s caller budgets, which they probe and log as `deadline-margin` after each engine
+return. A separate package aggregate resource-bound rule admits exactly three measured dominant
+teardown-forecast tests: admitted constructions, deactivation and bound dominance. Repeated
+large-state work pushed the hosted package past Go's default 600 s deadline even after the decoder
+shortcut; this is not caller-margin admission or evidence that an individual test hangs. These
+three join the existing isolated invocation for that package, preserving every test case, `-race`,
+caller bound and the default 600 s timeout in both invocations; other forecast tests stay in the sweep.
 To isolate another package's tests, add lines to that file; `just race-split-check` (part of
 `just check`) proves each listed test runs exactly once and that every test whose own body
 calls the deadline-margin probe is listed (a test reaching the probe only through a helper is

@@ -266,6 +266,11 @@ evidence. Provenance never reaches the wire; captured reality and the sole exemp
 - Every new tracked `.go` file needs the AGPL-3.0-only SPDX header on line 1 (`just spdx-check`).
 - `just race` deliberately excludes `internal/integration`, which OOMs a 16 GB runner. The plain
   `just test` leg still covers it - do not "fix" the exclusion.
+- The race isolation list admits exactly three measured dominant teardown-forecast tests under a
+  package aggregate resource-bound rule, separate from lifecycle caller-margin admission. They
+  join the existing isolated package invocation, retaining all cases, `-race`, caller bounds and
+  Go's default 600 s timeout; all other forecast tests stay in the sweep. The canonical rationale
+  and exact names are in `scripts/race-isolated.txt`; see `docs/contributing.md` for the split proof.
 
 ## Task interface
 

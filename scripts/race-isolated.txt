@@ -54,3 +54,14 @@ internal/agento11yprovision TestEngineHistoricalConsumerBarrierReadsEveryKindTLS
 internal/agento11yprovision TestEngineStaleAndWrongScopeRefuseTLS                    # 4s caller; S2 0.222
 internal/agento11yprovision TestEngineOwnedEvaluatorInventoryCannotHideOtherVersionTLS  # 4s caller; S4 0.294
 internal/agento11yprovision TestEngineSourceNormalizationAdmissionTLS                # 4s/20s fixture applies; M2 0.344
+
+# Forecast package aggregate resource-bound admission, NOT the caller-margin rule above.
+# These three dominated the initial focused race profile: 124.80 / 44.82 / 40.51 s.
+# Hosted x64 package runs hit the default 600 s deadline at 600.052 s, then 600.043 s
+# even after the canonical-byte decoder shortcut. Repeated large-state commits/loads
+# dominate this work; the test named at the kill is not evidence of an individual hang.
+# Move only these names into the existing isolated package invocation: retain -race,
+# every case and caller bound, and the default 600 s timeout in both invocations.
+internal/agento11yprovision TestTeardownForecastAdmittedConstructionsTearDown
+internal/agento11yprovision TestTeardownForecastDeactivateChecksItself
+internal/agento11yprovision TestTeardownForecastBoundDominatesBudget
