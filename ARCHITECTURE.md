@@ -123,8 +123,10 @@ the hand-encoded OTLP seam):
   before author labels (so two nodes sharing a profile never collide).
 - `telemetryspec.{MetricSpec,LogSpec,SpanSpec}` built from `ValueModel` one-of value generators
   (`const`/`const_str`/`enum`/`int_range`/`float_range`/`normal`/`bool`/`shape`/`ref`). `shape` is
-  driven by the incident engine (incident-responsive values); `ref` pulls a correlation field (the
-  request-correlation glue). A load-time CAPABILITY MATRIX enforces: a high-card `ref` is legal ONLY in a
+  driven by the incident engine (incident-responsive values); its optional metric-only
+  `incident_value` endpoint preserves the legacy calculation when omitted. See the
+  [canonical value-model guide](docs/workloads.md#telemetry-dsl) for interpolation, scope,
+  pause and scheduled-intensity caveats. `ref` pulls a correlation field (the request-correlation glue). A load-time CAPABILITY MATRIX enforces: a high-card `ref` is legal ONLY in a
   log body / span attribute (never a label/stream-label); a label source must be
   `const`/`const_str`/`enum` with a stable, total domain (I32 determinism, I40). The canonical
   high-card key set lives in `internal/highcard`, shared by the loki + promrw sinks AND the DSL — so
@@ -883,7 +885,8 @@ Custom-telemetry DSL (`app` workload — §2)
 - **I40** A DSL value model feeding a metric/stream LABEL must be `const`/`const_str`/`enum` with a
   total, non-empty domain (enum labels expand to the FULL cross-product every tick); `int_range`/
   `normal`/`ref`/etc. are rejected as label sources — so the `-once -dump` name+label-key inventory
-  is run-stable (I32). Metric VALUES, log body fields, and span attribute values are unconstrained.
+  is run-stable (I32). Numeric metric values and log/span values follow the
+  [canonical capability matrix](docs/workloads.md#telemetry-dsl); `shape.incident_value` is metric-only.
   The `app` workload auto-stamps node identity on every series/stream/span before author labels, so
   two nodes sharing a profile never produce duplicate series.
 - **I41** Sink DELIVERY is decoupled from EMISSION. Each signal's scoped writer feeds a bounded

@@ -44,6 +44,19 @@ custom declarations reject regardless of labels, units or bounds. Follow the wor
 for cumulative value semantics, transport behavior and realistic volume assumptions; do not copy
 its illustrative fixture values as production defaults.
 
+For a sourced custom gauge that is truly empty in ordinary operation, keep `base: 0` and use
+`value: {shape: {base: 0, mode: error_spike, incident_value: 12}}` only with a deployment-justified
+endpoint (12 here is a fixture illustration). The metric-only opt-in interpolates from `base` to
+`incident_value` with scoped intensity, then scales by business load and master volume; it does
+not apply the legacy ×3 amplification. At unit load it returns to zero as soon as the matching
+incident ends; volume 0 pauses the shape gauge at zero. It models no backlog persistence or drain.
+Both endpoints must be finite and `mode` nonblank; use an existing registered service failure mode
+and an exact service-node target to constrain scope. Do not add incident-dependent label values.
+Omit the option to preserve legacy multiplicative shape output. Follow the canonical workload
+DSL section for intensity/default caveats (in particular scheduled `intensity: 0` currently means
+default full intensity, not recovery) and verify baseline → scoped onset → recovery through a
+loaded fixture before using the value in a composition.
+
 ## Procedure
 
 1. Give the blueprint a unique, stable `name` and `label`. `name` is the deterministic seed;

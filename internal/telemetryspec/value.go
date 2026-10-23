@@ -15,6 +15,7 @@ package telemetryspec
 
 import (
 	"fmt"
+	"math"
 	"strings"
 )
 
@@ -79,13 +80,15 @@ type BoolModel struct {
 	PTrue float64 `yaml:"p_true"`
 }
 
-// ShapeModel drives a value from the shape/incident engine: the emitted value is Base ×
-// EvalCtx.ShapeVal. Mode (optional) names the failure mode this value amplifies under — the
-// workload feeds the matching shape.Eval reading into EvalCtx.ShapeVal so the value responds to
-// incidents automatically (design §3.1/§6.5).
+// ShapeModel drives a value from the shape/incident engine. Without IncidentValue it emits
+// Base × EvalCtx.ShapeVal, preserving the legacy multiplicative incident response. IncidentValue
+// opts metric values into an explicit endpoint: interpolate Base→IncidentValue at the scoped
+// IncidentIntensity, then multiply by the unamplified load in ShapeVal. Mode is required for
+// that opt-in. This is an instantaneous reading, not a backlog accumulation/drain model.
 type ShapeModel struct {
-	Base float64 `yaml:"base"`
-	Mode string  `yaml:"mode"`
+	Base          float64  `yaml:"base"`
+	Mode          string   `yaml:"mode"`
+	IncidentValue *float64 `yaml:"incident_value"` // metric-only endpoint at intensity 1, before load scaling
 }
 
 // EvalCtx carries the per-evaluation inputs: correlation refs + the shape reading + the
@@ -93,10 +96,11 @@ type ShapeModel struct {
 // NormFloat64) for consistency with the rest of synthkit — it affects emitted VALUES only and
 // must NEVER influence which label keys/values appear (the -dump inventory, design §3.4).
 type EvalCtx struct {
-	Ref      map[string]string // correlation fields (trace_id, route, model, status, env, ...)
-	ShapeVal float64           // the shape.Engine reading for this node/mode (incident-aware); 0 ⇒ treated as 1.0
-	Rand     func() float64    // uniform [0,1) — the shape engine's Float64; nil ⇒ deterministic 0.5
-	Norm     func() float64    // standard-normal — the shape engine's NormFloat64; nil ⇒ deterministic 0
+	Ref               map[string]string // correlation fields (trace_id, route, model, status, env, ...)
+	ShapeVal          float64           // load (legacy: incident-amplified); 0 ⇒ treated as 1.0
+	IncidentIntensity float64           // scoped intensity in [0,1], only for shape.incident_value; zero when inactive
+	Rand              func() float64    // uniform [0,1) — the shape engine's Float64; nil ⇒ deterministic 0.5
+	Norm              func() float64    // standard-normal — the shape engine's NormFloat64; nil ⇒ deterministic 0
 }
 
 func (c EvalCtx) rand() float64 {
@@ -152,6 +156,11 @@ func (v ValueModel) Eval(ctx EvalCtx) (float64, string) {
 		mult := ctx.ShapeVal
 		if mult == 0 {
 			mult = 1.0
+		}
+		if v.Shape.IncidentValue != nil {
+			// A convex sum avoids overflow from subtracting opposite finite endpoints.
+			i := ctx.IncidentIntensity
+			return ((1-i)*v.Shape.Base + i*(*v.Shape.IncidentValue)) * mult, ""
 		}
 		return v.Shape.Base * mult, ""
 	case KindRef:
@@ -290,6 +299,16 @@ func (v ValueModel) Validate() error {
 	case KindBool:
 		if v.Bool.PTrue < 0 || v.Bool.PTrue > 1 {
 			return fmt.Errorf("bool: p_true %v out of [0,1]", v.Bool.PTrue)
+		}
+	case KindShape:
+		if v.Shape.IncidentValue != nil {
+			if strings.TrimSpace(v.Shape.Mode) == "" {
+				return fmt.Errorf("shape: incident_value requires a nonblank mode")
+			}
+			if math.IsNaN(v.Shape.Base) || math.IsInf(v.Shape.Base, 0) ||
+				math.IsNaN(*v.Shape.IncidentValue) || math.IsInf(*v.Shape.IncidentValue, 0) {
+				return fmt.Errorf("shape: base and incident_value must be finite")
+			}
 		}
 	case KindRef:
 		if strings.TrimSpace(v.Ref) == "" {

@@ -64,6 +64,18 @@ func TestCapabilityMatrix_BodyAndAttrAllowHighCardRef(t *testing.T) {
 	}
 }
 
+func TestCapabilityMatrix_IncidentEndpointMetricOnly(t *testing.T) {
+	v := ValueModel{Shape: &ShapeModel{Base: 0, Mode: "error_spike", IncidentValue: ptr(12.0)}}
+	for _, pos := range []position{posLabel, posBody, posAttr} {
+		if err := checkValue(v, pos, "fixture"); err == nil || !strings.Contains(err.Error(), "metric value only") {
+			t.Errorf("incident endpoint at position %v must reject, got %v", pos, err)
+		}
+	}
+	if err := checkValue(v, posMetricValue, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestCapabilityMatrix_MetricValueMustBeNumeric(t *testing.T) {
 	// enum (string) as a metric value → rejected
 	m := MetricSpec{Name: "x", Instrument: "counter", Value: ValueModel{Enum: []EnumEntry{{Value: "a", Weight: 1}}}}

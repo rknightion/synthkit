@@ -73,16 +73,24 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 
 // metricCtx builds the eval context for one metric: a `shape` value reads the node's load
 // (BusinessFactor) amplified by any active incident on the value's declared mode, scoped to the
-// node (per-node incident responsiveness, §6.5). Non-shape values ignore ShapeVal.
+// node (per-node incident responsiveness, §6.5). With incident_value, load and scoped intensity
+// stay separate: the DSL interpolates the declared endpoints instead of multiplying by FailFactor.
+// Non-shape values ignore these inputs.
 func (w *Workload) metricCtx(now time.Time, world *core.World, id nodeIdentity, spec telemetryspec.MetricSpec) telemetryspec.EvalCtx {
 	shapeVal := world.Shape.BusinessFactor(now)
+	var intensity float64
 	if spec.Value.Kind() == telemetryspec.KindShape && spec.Value.Shape != nil && spec.Value.Shape.Mode != "" {
-		shapeVal *= world.Shape.FailFactor(now, spec.Value.Shape.Mode, id.service, incidentAmplification)
+		if spec.Value.Shape.IncidentValue != nil {
+			_, intensity = world.Shape.Eval(now, spec.Value.Shape.Mode, id.service)
+		} else {
+			shapeVal *= world.Shape.FailFactor(now, spec.Value.Shape.Mode, id.service, incidentAmplification)
+		}
 	}
 	return telemetryspec.EvalCtx{
-		ShapeVal: shapeVal,
-		Rand:     world.Shape.Float64,
-		Norm:     world.Shape.NormFloat64,
+		ShapeVal:          shapeVal,
+		IncidentIntensity: intensity,
+		Rand:              world.Shape.Float64,
+		Norm:              world.Shape.NormFloat64,
 	}
 }
 

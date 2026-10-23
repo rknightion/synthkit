@@ -27,6 +27,11 @@ func checkValue(vm ValueModel, pos position, where string) error {
 	if err := vm.Validate(); err != nil {
 		return fmt.Errorf("%s: %w", where, err)
 	}
+	// Only the metric lane supplies scoped incident intensity. Reject the opt-in elsewhere
+	// rather than silently emitting the base from a log/span evaluator with no incident input.
+	if vm.Shape != nil && vm.Shape.IncidentValue != nil && pos != posMetricValue {
+		return fmt.Errorf("%s: shape incident_value is metric value only", where)
+	}
 	switch pos {
 	case posLabel:
 		// The high-card ref footgun gets a precise message (highcard is the single source of truth).

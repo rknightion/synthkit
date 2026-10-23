@@ -256,14 +256,46 @@ Each node can declare custom metrics, log streams, and extra span attributes via
 | `float_range` | `float_range: {min: 0.001, max: 2.5}` | Bounded float |
 | `normal` | `normal: {mean: 50.0, stddev: 10.0}` | Gaussian draw (negative clamped to 0) |
 | `bool` | `bool: {p_true: 0.1}` | Weighted boolean |
-| `shape` | `shape: {base: 100.0, mode: latency_storm}` | `base × shape-engine reading`; incident-responsive when `mode` is set |
+| `shape` | `shape: {base: 100.0, mode: latency_storm}` | Legacy `base × load × incident multiplier`; optional metric-only `incident_value` selects an explicit endpoint instead (see below) |
 | `ref` | `ref: trace_id` | Pulls a correlation field by name |
 
 **Capability matrix** (enforced at load time):
 
 - **Metric labels** and **Loki stream labels**: only `const` / `const_str` / `enum`. These must enumerate a stable, total domain on every run.
 - **Metric values**: only numeric models — `const`, `int_range`, `float_range`, `normal`, `bool`, `shape`.
-- **Log body fields** and **span attributes**: any model, including `ref`. High-cardinality correlation keys (`trace_id`, `portkey_trace_id`, `run_id`, etc.) ride here — never as labels or stream labels.
+- **Log body fields** and **span attributes**: any model, including `ref`, except `shape.incident_value` (metric values only). High-cardinality correlation keys (`trace_id`, `portkey_trace_id`, `run_id`, etc.) ride here — never as labels or stream labels.
+
+For a metric that is genuinely zero normally but nonzero during an incident, opt into a finite,
+explicit endpoint rather than fabricating a positive baseline:
+
+```yaml
+value:
+  shape: {base: 0, mode: error_spike, incident_value: 12}
+```
+
+This value-only fixture illustrates the contract, not a catalog metric or a production backlog
+size. Cite the real instrument and choose its endpoint from the modeled deployment. With the
+option present, the metric value is `load × ((1 - intensity) × base + intensity × incident_value)`.
+`load` is the app's business-hours/weekly factor including the master volume multiplier;
+there is **no additional legacy ×3 incident amplification**. At unit load, the example emits
+0 normally, 3 at intensity 0.25, 12 at intensity 1, then 0 immediately on recovery. A nonzero
+base or an explicit zero endpoint is also supported; both endpoints must be finite numbers.
+
+`mode` must be nonblank. Intensity comes from the existing shape engine's matching mode and
+service-node scope: an exact target affects only that node, an unscoped incident affects all
+nodes, overlapping contributors use their maximum intensity, and an inactive mode supplies 0.
+A resolved intensity of 0 leaves the base unchanged. The existing scheduled-incident encoder
+currently treats authored `intensity: 0` like omission (default 1); use an absent/ended window
+for scheduled recovery, not a zero-intensity window. Live zero intensity remains a no-op.
+Master volume 0 retains the same series but emits shape gauges as exactly 0, even during an
+incident; counters and histograms stop observing while paused as before.
+
+`incident_value` is admitted only for metric values, never labels, log fields or span attributes.
+It is stateless interpolation, not a queue growth/drain or recovery state machine: for a reversible
+backlog reading choose a **gauge**. Counter values remain per-tick increments and histogram values
+remain per-tick observations. Omitting `incident_value` preserves the legacy shape calculation,
+including its zero-load evaluator fallback; in the metric lane an explicit master-volume pause
+continues to bypass that fallback.
 
 Example inline metric:
 
