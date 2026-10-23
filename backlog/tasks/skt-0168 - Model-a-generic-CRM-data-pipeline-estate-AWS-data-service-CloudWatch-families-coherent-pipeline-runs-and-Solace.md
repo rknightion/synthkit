@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-22T05:34:00Z'
-updated_date: '2026-10-23T05:45:00Z'
+updated_date: '2026-10-23T10:25:00Z'
 labels:
   - feature
   - cw
@@ -39,4 +39,6 @@ Owner-approved 2026-10-22. Backs a one-off demo: a CRM -> MDM -> integration -> 
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-10-23 re-scope: the demo now covers one flow, MDM data change requests (DCRs, the standard term in public CRM and MDM vendor docs) handled by a serverless intake service on Lambda, SQS and DynamoDB, with a broker response leg. Needed first: SKT-0168.02's Lambda, SQS and DynamoDB families. SKT-0168.04 (Solace) is a stretch. SKT-0168.03 and SKT-0168.05 are parked until after the demo. DCR state metrics keep demo-chosen names and live in the private external blueprint, never here.
+
+Loop53 delivered sourced Solace, generic incident endpoint, shared pipeline mechanic slice, MWAA outcomes and sparse queue carry. The external bounded offline packet validates at unchanged rates with real nominal-cadence queue emission and metadata/onset proof; it is not full demo/backend/deployment acceptance. AWS service-family capture and dependent adapters remain owner-blocked on the exact private gate-route decision; no live apply or activation occurred.
 <!-- SECTION:NOTES:END -->
