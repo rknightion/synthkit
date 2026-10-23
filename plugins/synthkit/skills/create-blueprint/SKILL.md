@@ -53,9 +53,15 @@ incident ends; volume 0 pauses the shape gauge at zero. It models no backlog per
 Both endpoints must be finite and `mode` nonblank; use an existing registered service failure mode
 and an exact service-node target to constrain scope. Do not add incident-dependent label values.
 Omit the option to preserve legacy multiplicative shape output. Follow the canonical workload
-DSL section for intensity/default caveats (in particular scheduled `intensity: 0` currently means
-default full intensity, not recovery) and verify baseline → scoped onset → recovery through a
-loaded fixture before using the value in a composition.
+DSL section for metric value semantics and the
+[canonical incident guide](https://github.com/rknightion/synthkit/blob/main/docs/incidents.md#incidents-scheduled-activations)
+for scheduled intensity: explicit `intensity: 0` is preserved as zero, omission defaults to 1,
+and fractional values are preserved. This applies to inline incidents and each effect of a
+scheduled scenario; put scenario intensity on the effect, not the referencing incident. Zero
+does not bypass target validation. It leaves intensity-scaled values at baseline, but consumers
+that check only window activity ignore intensity; end or omit their window to disable the effect.
+Live resolved-zero semantics are unchanged. Verify baseline → scoped onset → recovery through
+a loaded fixture before using the value in a composition.
 
 Declare batch pipelines once in an environment's `cloud.pipelines`; follow
 [the canonical pipeline guide](https://github.com/rknightion/synthkit/blob/main/docs/constructs.md#declared-pipelines)

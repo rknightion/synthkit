@@ -659,7 +659,7 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `incidents[].at` | string |  | RFC3339 or "2006-01-02T15:04[:05]" (blueprint timezone) |
 | `incidents[].every` | string |  | Every, when set, makes the incident INTERVAL-RECURRING: it fires for For out of every Every (a Go duration, e.g. "10m"), repeating continuously and anchored on the Unix epoch. At is ignored and must be empty when Every is set (load rejects setting both). |
 | `incidents[].for` | string |  | Go duration ("20m") |
-| `incidents[].intensity` | float |  |  |
+| `incidents[].intensity` | float |  | [0,1]; scheduled default 1.0 only when omitted |
 | `scenarios[]` | object |  |  |
 | `scenarios[].name` | string |  |  |
 | `scenarios[].title` | string |  | human display; defaults to Name |
@@ -667,7 +667,7 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `scenarios[].effects[]` | object |  |  |
 | `scenarios[].effects[].mode` | string |  |  |
 | `scenarios[].effects[].target` | string |  |  |
-| `scenarios[].effects[].intensity` | float |  | [0,1]; default 1.0 when <= 0 |
+| `scenarios[].effects[].intensity` | float |  | [0,1]; scheduled default 1.0 only when omitted |
 | `hosts[]` | object |  | traditional non-k8s machines (node/windows/macos exporter + optional docker) |
 | `hosts[].name` | string |  | Name is the hostname — the `instance` label and identity. Required, unique. |
 | `hosts[].os` | string |  | OS selects the exporter vocabulary: linux \| windows \| macos. Default: linux. |

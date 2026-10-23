@@ -451,9 +451,10 @@ type IncidentDecl struct {
 	// Every, when set, makes the incident INTERVAL-RECURRING: it fires for For out of every Every
 	// (a Go duration, e.g. "10m"), repeating continuously and anchored on the Unix epoch. At is
 	// ignored and must be empty when Every is set (load rejects setting both).
-	Every     string  `yaml:"every"`
-	For       string  `yaml:"for"` // Go duration ("20m")
-	Intensity float64 `yaml:"intensity"`
+	Every        string  `yaml:"every"`
+	For          string  `yaml:"for"`       // Go duration ("20m")
+	Intensity    float64 `yaml:"intensity"` // [0,1]; scheduled default 1.0 only when omitted
+	intensitySet bool    // authored presence, separate from the resolved/live numeric value
 }
 
 // ScenarioDecl is a named, reusable, correlated incident bundle. It can be fired by schedule (an
@@ -470,7 +471,8 @@ type ScenarioDecl struct {
 // Target grammar: a declared instance name | "<axis>:*" (all instances of an axis) | "" (the
 // mode's sole axis; rejected at load for a multi-axis mode).
 type EffectDecl struct {
-	Mode      string  `yaml:"mode"`
-	Target    string  `yaml:"target"`
-	Intensity float64 `yaml:"intensity"` // [0,1]; default 1.0 when <= 0
+	Mode         string  `yaml:"mode"`
+	Target       string  `yaml:"target"`
+	Intensity    float64 `yaml:"intensity"` // [0,1]; scheduled default 1.0 only when omitted
+	intensitySet bool    // scheduling only; live resolved-zero behavior is unchanged
 }

@@ -284,9 +284,10 @@ base or an explicit zero endpoint is also supported; both endpoints must be fini
 `mode` must be nonblank. Intensity comes from the existing shape engine's matching mode and
 service-node scope: an exact target affects only that node, an unscoped incident affects all
 nodes, overlapping contributors use their maximum intensity, and an inactive mode supplies 0.
-A resolved intensity of 0 leaves the base unchanged. The existing scheduled-incident encoder
-currently treats authored `intensity: 0` like omission (default 1); use an absent/ended window
-for scheduled recovery, not a zero-intensity window. Live zero intensity remains a no-op.
+A resolved intensity of 0 leaves the base unchanged. Scheduled explicit `intensity: 0` is a
+no-op; omitted intensity defaults to 1. This applies to inline incidents and the effects of
+scheduled scenario references. See the [incident presence contract](incidents.md#incidents-scheduled-activations).
+Live zero intensity remains a no-op.
 Master volume 0 retains the same series but emits shape gauges as exactly 0, even during an
 incident; counters and histograms stop observing while paused as before.
 

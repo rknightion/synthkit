@@ -243,10 +243,68 @@ func validateEffect(e EffectDecl, axes map[string]failuremode.Axis, vocab []fail
 	}
 }
 
-// scheduleEntry builds a shape-engine schedule entry: kind@at/for[#intensity][@scope].
-func scheduleEntry(kind, at, forDur string, intensity float64, scope string) string {
+// UnmarshalYAML preserves authored intensity presence without changing the numeric
+// value used by live scenario activation. The callback form retains the caller's
+// KnownFields policy and document-wide YAML anchors (unlike a node round-trip).
+func (inc *IncidentDecl) UnmarshalYAML(unmarshal func(any) error) error {
+	type plain IncidentDecl
+	var decoded plain
+	if err := unmarshal(&decoded); err != nil {
+		return err
+	}
+	var present intensityPresence
+	if err := unmarshal(&present); err != nil {
+		return err
+	}
+	*inc = IncidentDecl(decoded)
+	inc.intensitySet = bool(present)
+	return nil
+}
+
+func (e *EffectDecl) UnmarshalYAML(unmarshal func(any) error) error {
+	type plain EffectDecl
+	var decoded plain
+	if err := unmarshal(&decoded); err != nil {
+		return err
+	}
+	var present intensityPresence
+	if err := unmarshal(&present); err != nil {
+		return err
+	}
+	*e = EffectDecl(decoded)
+	e.intensitySet = bool(present)
+	return nil
+}
+
+type intensityPresence bool
+
+func (p *intensityPresence) UnmarshalYAML(node *yaml.Node) error {
+	var presence struct {
+		Intensity *float64 `yaml:"intensity"`
+	}
+	// The full declaration has already passed strict decoding. Decode presence
+	// separately so YAML aliases/merges follow the same rules as the numeric value.
+	if err := node.Decode(&presence); err != nil {
+		return err
+	}
+	*p = presence.Intensity != nil
+	return nil
+}
+
+// scheduledIntensity keeps programmatic zero-value declarations at their legacy
+// default, while an authored zero remains a no-op. Nonzero declarations are unchanged.
+func scheduledIntensity(value float64, present bool) float64 {
+	if value == 0 && !present {
+		return 1
+	}
+	return value
+}
+
+// scheduleEntry builds a shape-engine schedule entry, retaining an explicit zero
+// while leaving omitted single-mode intensities to the engine's default of one.
+func scheduleEntry(kind, at, forDur string, intensity float64, scope string, intensitySet bool) string {
 	entry := kind + "@" + at + "/" + forDur
-	if intensity > 0 {
+	if intensitySet || intensity != 0 {
 		entry += "#" + strconv.FormatFloat(intensity, 'g', -1, 64)
 	}
 	if scope != "" {

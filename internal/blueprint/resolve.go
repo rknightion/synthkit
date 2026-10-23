@@ -1060,12 +1060,9 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 				return nil, fmt.Errorf("blueprint %q: incident references unknown scenario %q", d.Name, inc.Scenario)
 			}
 			for _, e := range sc.Effects {
-				inten := e.Intensity
-				if inten <= 0 {
-					inten = 1.0
-				}
+				inten := scheduledIntensity(e.Intensity, e.intensitySet)
 				for _, scope := range expandScopes(e.Target, r.Targets) {
-					r.Incidents = append(r.Incidents, scheduleEntry(e.Mode, inc.At, inc.For, inten, scope))
+					r.Incidents = append(r.Incidents, scheduleEntry(e.Mode, inc.At, inc.For, inten, scope, true))
 				}
 			}
 			continue
@@ -1088,7 +1085,7 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 			timeTok = "every" + inc.Every
 		}
 		for _, scope := range expandScopes(inc.Target, r.Targets) {
-			r.Incidents = append(r.Incidents, scheduleEntry(inc.Kind, timeTok, inc.For, inc.Intensity, scope))
+			r.Incidents = append(r.Incidents, scheduleEntry(inc.Kind, timeTok, inc.For, inc.Intensity, scope, inc.intensitySet))
 		}
 	}
 	for _, w := range zeroConstructWarnings(r, d) {

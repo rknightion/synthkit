@@ -91,7 +91,17 @@ An `incidents:` block schedules when a scenario or single-mode effect fires:
 
 `scenario:` and `kind:` are mutually exclusive in one entry, and an entry needs exactly one of `at:` or `every:`. `at:` accepts either a full wall-clock timestamp (fires once) or a bare `HH:MM` (fires daily at that time); `every:` fires on the given interval continuously for the lifetime of the process.
 
-`intensity` in `[0, 1]`: 0 is a no-op; 1 is the maximum effect the construct physics implement. Fractional intensities affect a proportional fraction of pods or metric series.
+`intensity` is in `[0, 1]`: explicit `intensity: 0` is preserved as zero, while omission
+defaults to 1 (the maximum effect the construct physics implement). Fractional values are
+preserved. This presence rule applies to inline single-mode incidents and to each effect in a
+scheduled scenario reference; set the intensity on the scenario's effect, not on its referencing
+incident. Zero-intensity effects still undergo normal mode and target validation.
+
+For intensity-scaled effects, zero leaves the baseline unchanged and fractional intensities
+scale the effect. A zero-intensity window still exists: consumers that check only whether a
+window is active ignore intensity (for example, `node_not_ready` and `stage_stall`). End or omit
+the window to disable those effects. Scheduled presence handling does not change live
+resolved-zero values or live activation semantics.
 
 ## Available failure modes
 

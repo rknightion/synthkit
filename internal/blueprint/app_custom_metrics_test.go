@@ -66,6 +66,14 @@ func (c *customNativeCapture) Write(_ context.Context, rs []otlp.MetricResource)
 
 // This fixture owns its generic metric name and bounded dimension; it is not a catalog signal.
 func TestCustomMetricIncidentOnset(t *testing.T) {
+	for _, scenario := range []bool{false, true} {
+		t.Run(fmt.Sprintf("scenario=%t", scenario), func(t *testing.T) {
+			testCustomMetricIncidentOnset(t, scenario)
+		})
+	}
+}
+
+func testCustomMetricIncidentOnset(t *testing.T, scenario bool) {
 	prefix, _, _ := strings.Cut(fmt.Sprintf(customMetricBlueprint, true), "    services:")
 	metric := `        custom_metrics:
           - name: declared_backlog
@@ -82,13 +90,48 @@ func TestCustomMetricIncidentOnset(t *testing.T) {
 		"      - name: worker\n        type: web\n" + metric + `incidents:
   - {kind: error_spike, target: api, at: '2026-06-17T11:00:00Z', for: 2m, intensity: 1}
   - {kind: error_spike, target: api, at: '2026-06-17T11:02:00Z', for: 1m, intensity: 0.25}
+  - {kind: error_spike, target: api, at: '2026-06-17T11:03:00Z', for: 1m, intensity: 0}
   - {kind: error_spike, at: '2026-06-17T11:04:00Z', for: 1m, intensity: 0.5}
   - {kind: latency_storm, target: api, at: '2026-06-17T11:05:00Z', for: 1m, intensity: 1}
+  - {kind: error_spike, target: api, at: '2026-06-17T11:06:00Z', for: 1m}
 `
+	if scenario {
+		// Schedule the same effects through named scenario references, not inline modes.
+		prefix, incidents, _ := strings.Cut(src, "incidents:\n")
+		var scenarios, schedules strings.Builder
+		scenarios.WriteString("scenarios:\n")
+		schedules.WriteString("incidents:\n")
+		for i, line := range strings.Split(strings.TrimSpace(incidents), "\n") {
+			effect, timing, _ := strings.Cut(strings.TrimSpace(line), ", at:")
+			timing, intensity, hasIntensity := strings.Cut(timing, ", intensity:")
+			effect = strings.Replace(effect, "- {kind:", "      - {mode:", 1)
+			if hasIntensity {
+				effect += ", intensity:" + intensity
+			} else {
+				effect += "}"
+			}
+			fmt.Fprintf(&scenarios, "  - name: effect-%d\n    effects:\n%s\n", i, effect)
+			fmt.Fprintf(&schedules, "  - {scenario: effect-%d, at:%s\n", i, strings.TrimSuffix(timing, "}")+"}")
+		}
+		src = prefix + scenarios.String() + schedules.String()
+	}
 	reg := runner.Catalog()
 	res, err := blueprint.Load([]byte(src), reg)
 	if err != nil {
 		t.Fatal(err)
+	}
+	// A disabled effect is still validated; it must not hide misspelled fields,
+	// unknown targets, wrong axes, or invalid intensity bounds.
+	for _, invalid := range []struct{ from, to, want string }{
+		{"target: api", "target: missing", "unknown target"},
+		{"target: api", "target: custom-proof-cluster", "axis"},
+		{"intensity: 0}", "intensitty: 0}", "intensitty"},
+		{"intensity: 0}", "intensity: -0.1}", "out of [0,1]"},
+		{"intensity: 0}", "intensity: 1.1}", "out of [0,1]"},
+	} {
+		if _, err := blueprint.Load([]byte(strings.ReplaceAll(src, invalid.from, invalid.to)), reg); err == nil || !strings.Contains(err.Error(), invalid.want) {
+			t.Fatalf("invalid %q: want %q error, got %v", invalid.to, invalid.want, err)
+		}
 	}
 	wi := res.Workloads[0]
 	wr, _ := reg.Workload(wi.Kind)
@@ -112,18 +155,19 @@ func TestCustomMetricIncidentOnset(t *testing.T) {
 		{"onset", 0, 1, 12, 0, 12, 4},
 		{"paused during incident", time.Minute, 0, 0, 0, 0, 0},
 		{"fractional intensity", 2 * time.Minute, 1, 3, 0, 6, 4},
-		{"zero intensity", 3 * time.Minute, 1, 0, 0, 4, 4},
+		{"scheduled zero intensity", 3 * time.Minute, 1, 0, 0, 4, 4},
 		{"unscoped incident and scaled volume", 4 * time.Minute, 2, 12, 12, 16, 16},
 		{"recovery with unrelated mode", 5 * time.Minute, 1, 0, 0, 4, 4},
+		{"omitted intensity defaults to one", 6 * time.Minute, 1, 12, 0, 12, 4},
+		{"live resolved zero intensity", 7 * time.Minute, 1, 0, 0, 4, 4},
 	} {
 		t.Run(step.name, func(t *testing.T) {
 			mc := &coretest.MetricCapture{}
 			world.Metrics = mc
 			world.Shape.SetVolumeMultiplier(step.volume)
-			// Exercise a resolved zero intensity through the existing live input seam. The
-			// public schedule encoder currently treats authored 0 as its omitted/default 1.
+			// Retain the separate live resolved-zero contract after scheduled windows end.
 			world.Shape.Live = nil
-			if step.name == "zero intensity" {
+			if step.name == "live resolved zero intensity" {
 				world.Shape.Live = func(mode string) []shape.LiveFailure {
 					if mode == "error_spike" {
 						return []shape.LiveFailure{{Enabled: true, Intensity: 0, Scope: "api"}}
