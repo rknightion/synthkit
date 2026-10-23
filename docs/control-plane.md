@@ -10,7 +10,8 @@ synthkit embeds an operator control plane served on port **8088** (configured vi
 - **Operator UI** at `/control/ui` — a browser dashboard for live runtime management.
 - **HTTP API** — a JSON API used by the UI, the Grafana Infinity datasource, and curl/automation.
 
-With `CONTROL_TOKEN` set, every control route except sanitized `GET /control/readiness` requires
+With `CONTROL_TOKEN` set, every control route except sanitized `GET /control/readiness` and
+minimal `GET /control/startup` requires
 HTTP Basic auth. The sibling Infinity JSON host keeps only `/healthz` public. Loopback may remain
 token-free; non-loopback exposure has an additional fail-closed acknowledgement gate.
 
@@ -109,7 +110,7 @@ has completed its intended delivery lanes.
 
 When `CONTROL_TOKEN` is set:
 
-- All control reads except sanitized `/control/readiness`, all Infinity data routes except
+- All control reads except sanitized `/control/readiness` and minimal `/control/startup`, all Infinity data routes except
   `/healthz`, and every mutation require **HTTP Basic auth**: username `control`, password =
   `CONTROL_TOKEN`.
 - A browser hitting a guarded route for the first time triggers Chrome/Firefox's native credential dialog.
@@ -180,11 +181,12 @@ when the target node has no matching emitted metric or log family.
 
 ## Endpoint reference
 
-### Read-only (GET; authenticated when `CONTROL_TOKEN` is set, except readiness)
+### Read-only (GET; authenticated when `CONTROL_TOKEN` is set, except startup/readiness)
 
 | Endpoint | Description |
 |---|---|
 | `GET /control/ui/` | Embedded operator UI (SPA). Redirect from `/control/ui`. |
+| `GET /control/startup` | Public boot-completion probe with only `started`; HTTP 200 when boot is complete, otherwise 503. No delivery or admission claim. See [Startup versus delivery readiness](#startup-versus-delivery-readiness). |
 | `GET /control/readiness` | Public sanitized readiness probe: process, HTTP, blueprint counts, and state-writable boolean only. With `READINESS_BLUEPRINT_FLAGS=true` it also carries `blueprint_emitting`, one boolean per loaded blueprint name; see [Per-blueprint flags on the public probe](#per-blueprint-flags-on-the-public-probe). |
 | `GET /control/schema` | Blueprint-derived schema: all modes, addressable targets, scenarios, scalable workloads, construct instances, and startup cost projections for explicit high-DPM blueprints. Add `?audience=customer` for a reduced view without operator-internal fields. |
 | `GET /control/state` | Current control snapshot (volume multiplier, active scenarios, failures, scaling, disabled blueprints/constructs/kinds). |
@@ -238,6 +240,38 @@ changes, use `/control/scenarios/{activate,deactivate}` and
 another operator's change.
 
 ---
+
+### Startup versus delivery readiness
+
+`/app/synthkit -startupcheck` makes a credential-free GET to `/control/startup` and succeeds
+only on HTTP 200. The JSON body contains only `{"started":true}` or `{"started":false}`.
+An unwired/incomplete boot predicate returns 503; an unstarted process or fatal initialization
+failure cannot serve a successful probe. The endpoint is available at the root control mount
+and the configured `CONTROL_BASE_PATH` mount, like readiness. POST is not supported.
+
+In ordinary mode, startup means the existing fatal boot checks and runner/control construction
+finished and HTTP is serving. In lease mode, the existing config/build/credential preflight
+boundary must also have completed before the view is published. It does **not** require election,
+a writable state volume, every selected source loading successfully, or a first event/ACK.
+Existing fail-closed configuration and source-admission rules are not bypassed or redefined.
+A degraded process that the existing startup rules allow to run can pass this check.
+
+Both CLI probes use `JSON_HTTP_ADDR` directly (default `127.0.0.1:8088`, unspecified binds mapped
+to loopback), without reading `-env` or starting telemetry. Both retain a five-second context
+and four-second HTTP-client timeout. `-startupcheck` cannot be combined with another operating
+mode or `-one-shot-deadline`.
+
+Startup success is **not** ongoing liveness, delivery readiness, backend readback, state
+writability, HA leadership/fencing authority, or source/custody admission. A selected
+`DRY_RUN=true` process can finish boot while `-healthcheck` still exits nonzero and
+`/control/readiness` reports `ready=false`, `live_ready=false`. A sparse live request lane has
+no guaranteed first-event deadline: missing delivery must still hold readiness red. Do not raise
+traffic rates, synthesize an event, disable a probe, or relax readiness to finish boot.
+
+Older images do not recognize `-startupcheck`. Chart defaults retain the existing `-healthcheck`
+for startup and readiness for compatibility with their pinned image. Only opt into a startup-only
+command after verifying the exact compatible image; do not change readiness to this command or
+claim that a successful startup probe makes a selected dry-run deployment live-ready.
 
 ### Per-blueprint flags on the public probe
 

@@ -26,6 +26,7 @@ loads the complete catalog.
 | `-validate` | false | Offline validation of the selected local blueprint set; print JSON cardinality projections and diagnostics, then exit non-zero on errors. |
 | `-preflight` | false | Validate and probe mandatory live Grafana endpoints, then exit with redacted lane/reason output. |
 | `-healthcheck` | false | Exit successfully only when the local control plane reports delivery readiness; used by Compose. |
+| `-startupcheck` | false | Read-only local `/control/startup` probe: boot completion only, never delivery or admission. Uses `JSON_HTTP_ADDR` directly, not `-env`; cannot combine with other modes or `-one-shot-deadline`. Requires a compatible image. See [startup versus delivery readiness](control-plane.md#startup-versus-delivery-readiness). |
 | `-version` | false | Print `{"version":"X.Y.Z","revision":"<40-hex>"}` as JSON, then exit. Local builds report `dev`/`unknown` unless stamped. |
 | `-env <path>` | `.env` | Path to the `.env` file (optional; falls back to process environment). |
 
@@ -61,7 +62,8 @@ Stdout is one JSON object with `ok`, `blueprints` and `diagnostics`. Each bluepr
 number of distinct metric series observed in one throwaway dry cycle (including native OTLP
 metrics), **not** a long-term upper bound; low-volume request lanes and time-dependent families may
 vary or be absent in that cycle. `cardinality: -1` means the projection was unavailable. Runtime
-control overrides are not applied. Validation takes precedence over other mode flags.
+control overrides are not applied. Validation takes precedence over other mode flags except
+`-startupcheck`, which refuses combinations with any other mode.
 
 **What `-dump` output is deterministic, and what isn't.** The authoritative section of a
 `-dump` — each sink's `<name> {[sorted label/attribute keys]}` inventory block — is the

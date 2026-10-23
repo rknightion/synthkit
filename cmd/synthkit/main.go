@@ -95,6 +95,7 @@ func main() {
 	preflightCheck := flag.Bool("preflight", false, "validate and probe mandatory live Grafana endpoints, then exit")
 	validateCheck := flag.Bool("validate", false, "validate the selected local blueprint set and print JSON series projections, then exit")
 	healthcheck := flag.Bool("healthcheck", false, "exit successfully only when the local control plane is delivery-ready")
+	startupcheck := flag.Bool("startupcheck", false, "exit successfully only when the local control plane has completed boot (not delivery readiness)")
 	showVersion := flag.Bool("version", false, "print the release version and source revision as JSON, then exit")
 	oneShotDeadline := flag.String("one-shot-deadline", "", "absolute RFC3339 deadline for -validate or -preflight")
 	envPath := flag.String("env", ".env", "path to .env file (optional)")
@@ -105,12 +106,27 @@ func main() {
 			deadlinePresent = true
 		}
 	})
-	allowedDeadline := (*validateCheck != *preflightCheck) && !*once && !*dump && !*inventoryJSON && !*healthcheck && !*showVersion && !*fleetUnregister && !*fleetUnregisterOwned
+	allowedDeadline := (*validateCheck != *preflightCheck) && !*once && !*dump && !*inventoryJSON && !*healthcheck && !*startupcheck && !*showVersion && !*fleetUnregister && !*fleetUnregisterOwned
 	operationCtx, operationCancel, deadlineErr := oneShotContext(*oneShotDeadline, deadlinePresent, allowedDeadline)
 	if deadlineErr != nil {
 		log.Fatalf("synthkit: %v", deadlineErr)
 	}
 	defer operationCancel()
+	if *startupcheck {
+		if *fleetUnregister || *fleetUnregisterOwned || *once || *dump || *inventoryJSON || *preflightCheck || *validateCheck || *healthcheck || *showVersion {
+			log.Fatal("synthkit: -startupcheck cannot be combined with another mode")
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		endpoint, err := controlProbeEndpoint(os.Getenv("JSON_HTTP_ADDR"), "/control/startup")
+		if err != nil {
+			log.Fatalf("synthkit startupcheck: %v", err)
+		}
+		if err := checkControlProbe(ctx, &http.Client{Timeout: 4 * time.Second}, endpoint, "startup"); err != nil {
+			log.Fatalf("synthkit startupcheck: %v", err)
+		}
+		return
+	}
 	if *fleetUnregisterOwned {
 		if *fleetUnregister || *once || *dump || *inventoryJSON || *preflightCheck || *validateCheck || *healthcheck || *showVersion {
 			log.Fatal("synthkit: -fleet-unregister-owned cannot be combined with another mode")
@@ -308,6 +324,10 @@ func ownedFleetTeardown(out io.Writer) func(context.Context, fleet.Config) error
 }
 
 func readinessEndpoint(bindAddr string) (string, error) {
+	return controlProbeEndpoint(bindAddr, "/control/readiness")
+}
+
+func controlProbeEndpoint(bindAddr, path string) (string, error) {
 	if bindAddr == "" {
 		bindAddr = "127.0.0.1:8088"
 	}
@@ -319,10 +339,14 @@ func readinessEndpoint(bindAddr string) (string, error) {
 	if host == "" || (ip != nil && ip.IsUnspecified()) {
 		host = "127.0.0.1"
 	}
-	return "http://" + net.JoinHostPort(host, port) + "/control/readiness", nil
+	return "http://" + net.JoinHostPort(host, port) + path, nil
 }
 
 func checkReadiness(ctx context.Context, client *http.Client, endpoint string) error {
+	return checkControlProbe(ctx, client, endpoint, "readiness")
+}
+
+func checkControlProbe(ctx context.Context, client *http.Client, endpoint, name string) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return err
@@ -333,7 +357,7 @@ func checkReadiness(ctx context.Context, client *http.Client, endpoint string) e
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("readiness returned HTTP %d", resp.StatusCode)
+		return fmt.Errorf("%s returned HTTP %d", name, resp.StatusCode)
 	}
 	return nil
 }
@@ -861,7 +885,10 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 			LiveDeliveryExpected: !cfg.DryRun,
 		})
 	}
+	// This handler is constructed only after all fatal boot steps above complete.
+	// Reaching it over HTTP proves serving too; it claims nothing about delivery.
 	handler := control.NewHandler(store, r.ApplyControl, cfg.ControlToken, r).
+		SetStartup(func() bool { return true }).
 		SetBasePath(cfg.ControlBasePath).
 		SetManagedFeatures(cfg.ControlManagedFeatures).
 		SetStatus(control.StatusSources{

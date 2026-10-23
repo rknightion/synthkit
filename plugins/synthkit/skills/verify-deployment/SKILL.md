@@ -66,7 +66,13 @@ deployment records.
 
 Resolve `SYNTHKIT_BIND` from `.env` (default `127.0.0.1`) and detect only whether
 `CONTROL_TOKEN` is non-empty. Never print its value. Use Basic auth for protected routes when set,
-and call the public readiness probe without credentials:
+and call the public readiness probe without credentials. On an exact image verified to support
+`-startupcheck`, `GET /control/startup` (or that CLI command inside the container) separately proves
+boot completion only. See [startup versus delivery readiness](../../../../docs/control-plane.md#startup-versus-delivery-readiness).
+A selected dry-run or sparse lane can pass startup while delivery readiness remains 503; do not
+replace readiness with startup, inflate traffic, or claim source admission, HA authority or live
+landing from startup success. Chart startup defaults retain `-healthcheck` for older pinned images;
+opt into the new command only after image compatibility is verified:
 
 ```bash
 curl -fsS "http://<bind>:8088/control/readiness"

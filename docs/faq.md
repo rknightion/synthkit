@@ -90,8 +90,10 @@ it. See [Deployment](deployment.md#counter-resets-and-rate-windows).
 ### Is the control plane authenticated?
 
 When `CONTROL_TOKEN` is set, HTTP Basic auth (username `control`) protects every mutation,
-sensitive control reads, and Infinity data routes. Only `/healthz` and sanitized
-`/control/readiness` stay public. Loopback can remain token-free; non-loopback startup additionally
+sensitive control reads, and Infinity data routes. Only `/healthz`, sanitized
+`/control/readiness`, and boot-only `/control/startup` stay public. Startup exposes only `started`,
+not delivery or admission evidence; see [startup versus delivery readiness](control-plane.md#startup-versus-delivery-readiness).
+Loopback can remain token-free; non-loopback startup additionally
 requires `CONTROL_EXPOSURE_ACK=trusted-network|tls-proxy`. See [Control Plane](control-plane.md).
 
 ### My control-plane changes aren't surviving a restart — why?

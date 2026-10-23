@@ -598,6 +598,15 @@ func newHAView(ctx context.Context, cfg *config.Config, gate ha.LeaderGate, boun
 	}
 	mutationBound := ha.Bounded{Gate: gate, Timeout: 2 * time.Second, Margin: cfg.HAFenceMargin, Crash: bound.Crash}
 	handler := control.NewHandler(store, v.runner.ApplyControl, cfg.ControlToken, v.runner).SetHA(gate, mutationBound).
+		SetStartup(func() bool {
+			// Installed before publication, only after build and preflight. Boot
+			// completion is independent of election, delivery and transition state.
+			if v.readinessFacts == nil {
+				return false
+			}
+			facts := v.readinessFacts()
+			return facts.ConfigLoaded && facts.RunnerBuilt && facts.PreflightPassed
+		}).
 		SetBasePath(cfg.ControlBasePath).
 		SetManagedFeatures(cfg.ControlManagedFeatures).
 		SetStatus(control.StatusSources{Sinks: ps.Snapshot, Queues: func() []pushstatus.QueueStat { return ps.SnapshotQueues(v.runner.QueueDepths()) }, ByBlueprint: ps.SnapshotByBlueprint, Fleet: fs.Snapshot, DryRun: cfg.DryRun, Readiness: readiness, Optional: func() []optionallane.Disposition {

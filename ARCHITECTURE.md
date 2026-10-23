@@ -792,6 +792,27 @@ ConfigMap repurposing, runtime restore/replay wiring or Docker-default change. A
 filesystem semantics still require validation before HA use. See
 [checkpoint foundations](docs/checkpoint-foundations.md) for the admitted and missing behavior.
 
+### 6.3 Process startup versus delivery readiness
+
+`GET /control/startup` is a read-only public boot probe with only `{"started":bool}`.
+The composition root supplies its predicate; an absent/false predicate returns 503.
+Ordinary mode supplies true only after the existing fatal configuration, selection,
+validation and runner/control construction steps complete. Reaching the endpoint also
+proves that the HTTP listener is serving. Lease mode additionally requires the existing
+configuration/build/preflight completion facts installed before view publication, not
+election or delivery. A process that exits during fatal initialization cannot serve it.
+
+`-startupcheck` calls this endpoint using `JSON_HTTP_ADDR` directly, with the same
+five-second context/four-second client bounds and wildcard-to-loopback resolution as
+`-healthcheck`. Neither probe loads configuration or starts an emitter. Startup is not
+ongoing liveness, state writability, successful loading of every requested source,
+source/custody admission, HA leadership/fencing authority, or receiver/backend evidence.
+It may succeed in selected dry-run or before a sparse lane's first event, while the
+unchanged `-healthcheck`, `/control/readiness` and `live_ready` remain delivery-unready.
+Do not inflate rates or force first events to satisfy a startup budget. Older images lack
+this command; chart defaults must retain `-healthcheck` until an operator explicitly opts
+into startup-only probing with a verified compatible image.
+
 ## 7. Invariants (each enforced by types/asserts/tests — never comments alone)
 
 Metric mechanics

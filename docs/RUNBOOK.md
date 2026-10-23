@@ -262,7 +262,9 @@ The operator UI (`/control/ui`) drives the live runtime without a restart: maste
 per-blueprint incident scenarios, ad-hoc failure injection, live service/node scaling, and
 per-construct / per-kind / per-blueprint enable toggles. When `CONTROL_TOKEN` is set, HTTP Basic
 auth (username `control`) protects every mutation, all Infinity data routes, and control reads
-other than sanitized `/control/readiness`. `/healthz` is also public. The Infinity datasource's
+other than sanitized `/control/readiness` and boot-only `/control/startup`. `/healthz` is also public.
+Startup exposes only `started`, not delivery or admission evidence; see
+[startup versus delivery readiness](control-plane.md#startup-versus-delivery-readiness). The Infinity datasource's
 secure Basic-auth configuration covers server-side reads only. Browser-direct action buttons use
 a separate browser challenge, so verify them through a browser-trusted HTTPS endpoint. State
 persists across restarts via the snapshot file.
