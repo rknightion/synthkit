@@ -1,11 +1,11 @@
 ---
 id: SKT-0176
 title: Separate chart startup health from first-delivery readiness
-status: In Progress
+status: Done
 assignee:
   - '@loop54'
 created_date: '2026-10-23T21:12:00Z'
-updated_date: '2026-10-23T22:45:00Z'
+updated_date: '2026-10-23T23:44:00Z'
 labels: []
 dependencies: []
 priority: high
@@ -23,7 +23,7 @@ The pinned runtime uses delivery-aware -healthcheck for chart startup. With an e
 <!-- AC:BEGIN -->
 - [x] #1 Real CLI/control-boundary red reproduction demonstrates selected dry-run startup failure before the change; distinct startup proof passes after initialization while existing healthcheck/readiness still refuses unacknowledged live delivery
 - [x] #2 Existing readiness, live_ready, HA fencing, request/observation bounds and sparse-rate semantics are unchanged; startup success makes no delivery or source-admission claim
-- [ ] #3 Chart wiring is backward compatible with existing pinned images and uses the new startup command only with an explicitly compatible image; canonical operator guidance and focused public-boundary proof agree
+- [x] #3 Chart wiring is backward compatible with existing pinned images and uses the new startup command only with an explicitly compatible image; canonical operator guidance and focused public-boundary proof agree
 <!-- AC:END -->
 
 ## Definition of Done
@@ -44,3 +44,9 @@ Runtime-first bounded startup seam: real selected-dry-run CLI reproduction, dist
 <!-- SECTION:NOTES:BEGIN -->
 Runtime and opt-in chart command landed7573924 with real CLI/control red-green, unchanged existing readiness/auth/HA/bounds, old-image default preserved, full independent/CodeRabbit reviews and exact fullcheck/race passed. AC3 retained pending root exact published-image/binary verification before private opt-in; chart rendering is not image execution or delivery proof.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Published757 startup/chart source passed full independent/delta reviews, CodeRabbit, exact fullcheck/race and hosted CI. Actual immutable arm64 publication executed startup HTTP200 while existing delivery readiness remained503; full binary revision, signature/provenance and negative controls verified. Existing closed index-with-platform-descriptor runtime identity independently reviewed; strict config-ID literal remains false and documentation discrepancy is separately tracked. Live private deployment remains separate.
+<!-- SECTION:FINAL_SUMMARY:END -->
