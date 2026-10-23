@@ -203,6 +203,34 @@ func proofOldCustodyDecode(raw []byte, out any, max int) error {
 	return nil
 }
 
+// Frozen b2ec4b3 custodyDecode: the current two-scan/tree-comparison baseline,
+// independent of the older oracle's additional canonical tree marshals.
+func proofTwoScanCustodyDecode(raw []byte, out any, max int) error {
+	original, e := custodyJSON(raw, max, 64, true)
+	if e != nil {
+		return e
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.DisallowUnknownFields()
+	if d.Decode(out) != nil {
+		return ErrCorrupt
+	}
+	encoded, e := json.Marshal(out)
+	if e != nil {
+		return ErrCorrupt
+	}
+	round, e := custodyJSON(encoded, max, 64, true)
+	if e != nil {
+		return e
+	}
+	// Required zero-valued fields cannot silently disappear; integer spellings and
+	// nullable pointers are also checked by this complete typed wire comparison.
+	if !custodyTreeEqual(original, round) {
+		return ErrCorrupt
+	}
+	return nil
+}
+
 func TestCustodyTreeComparisonOracle(t *testing.T) {
 	// All pairings exercise symmetry, exact types, lexical numbers, order and
 	// absent-vs-null keys. Equivalent escapes/order must remain equal too.
@@ -268,15 +296,17 @@ func TestCustodyDecodeComparisonOracle(t *testing.T) {
 		t.Run(f.name, func(t *testing.T) {
 			compare := func(t *testing.T, raw []byte, max int, want error) {
 				t.Helper()
-				old, actual := f.newWire(), f.newWire()
+				old, twoScan, actual := f.newWire(), f.newWire(), f.newWire()
 				oe := proofOldCustodyDecode(raw, old, max)
+				te := proofTwoScanCustodyDecode(raw, twoScan, max)
 				ne := custodyDecode(raw, actual, max)
-				if oe != ne || oe != want {
-					t.Fatalf("decoder errors old=%v actual=%v want=%v", oe, ne, want)
+				if oe != ne || te != ne || oe != want {
+					t.Fatalf("decoder errors old=%v two-scan=%v actual=%v want=%v", oe, te, ne, want)
 				}
 				ob, _ := json.Marshal(old)
+				tb, _ := json.Marshal(twoScan)
 				nb, _ := json.Marshal(actual)
-				if !bytes.Equal(ob, nb) {
+				if !bytes.Equal(ob, nb) || !bytes.Equal(tb, nb) {
 					t.Fatal("typed output differs, including on rejected input")
 				}
 				if ne == nil {
@@ -310,6 +340,8 @@ func TestCustodyDecodeComparisonOracle(t *testing.T) {
 			compare(t, f.raw, len(f.raw), nil)
 			compare(t, f.raw, len(f.raw)-1, ErrCapacity)
 			compare(t, f.raw, len(f.raw)+1, nil)
+			// Noncanonical whitespace must retain the full comparison fallback.
+			compare(t, append([]byte(" \n"), f.raw...), custodyStateV2Bytes, nil)
 			for _, tc := range []struct {
 				name, from, to string
 				want           error
@@ -366,13 +398,17 @@ func TestCustodyDecodeComparisonOracle(t *testing.T) {
 			// still owns their meaning. Compare them without asserting admission.
 			for _, replacement := range []string{`"contract-other"`, `""`, `"` + custodyStateV2Revision + `"`} {
 				raw := bytes.Replace(f.raw, []byte(`"contract-1"`), []byte(replacement), -1)
-				old, actual := f.newWire(), f.newWire()
-				if proofOldCustodyDecode(raw, old, custodyStateV2Bytes) != custodyDecode(raw, actual, custodyStateV2Bytes) {
+				old, twoScan, actual := f.newWire(), f.newWire(), f.newWire()
+				oe := proofOldCustodyDecode(raw, old, custodyStateV2Bytes)
+				te := proofTwoScanCustodyDecode(raw, twoScan, custodyStateV2Bytes)
+				ne := custodyDecode(raw, actual, custodyStateV2Bytes)
+				if oe != ne || te != ne {
 					t.Fatal("revision decode changed")
 				}
 				ob, _ := json.Marshal(old)
+				tb, _ := json.Marshal(twoScan)
 				nb, _ := json.Marshal(actual)
-				if !bytes.Equal(ob, nb) {
+				if !bytes.Equal(ob, nb) || !bytes.Equal(tb, nb) {
 					t.Fatal("binding/revision wire changed")
 				}
 			}
@@ -397,17 +433,18 @@ func TestCustodyDecodeComparisonOracle(t *testing.T) {
 		{`{"zero":0,"spec":` + strings.Repeat("[", 63) + `0` + strings.Repeat("]", 63) + `}`, nil},
 		{`{"zero":0,"spec":` + strings.Repeat("[", 64) + `0` + strings.Repeat("]", 64) + `}`, ErrCapacity},
 	} {
-		var old, actual record
+		var old, twoScan, actual record
 		oe := proofOldCustodyDecode([]byte(tc.raw), &old, 4096)
+		te := proofTwoScanCustodyDecode([]byte(tc.raw), &twoScan, 4096)
 		ne := custodyDecode([]byte(tc.raw), &actual, 4096)
-		if oe != ne || oe != tc.want || old.Zero != actual.Zero || !bytes.Equal(old.Spec, actual.Spec) {
-			t.Fatalf("open/depth control differs: %s old=%v actual=%v want=%v", tc.raw, oe, ne, tc.want)
+		if oe != ne || te != ne || oe != tc.want || old.Zero != actual.Zero || twoScan.Zero != actual.Zero || !bytes.Equal(old.Spec, actual.Spec) || !bytes.Equal(twoScan.Spec, actual.Spec) {
+			t.Fatalf("open/depth control differs: %s old=%v two-scan=%v actual=%v want=%v", tc.raw, oe, te, ne, tc.want)
 		}
 	}
 	// The typed re-encoding, not just input bytes, remains independently bounded.
 	raw := []byte(`{"spec":{}}`)
-	var old, actual record
-	if proofOldCustodyDecode(raw, &old, len(raw)) != ErrCapacity || custodyDecode(raw, &actual, len(raw)) != ErrCapacity {
+	var old, twoScan, actual record
+	if proofOldCustodyDecode(raw, &old, len(raw)) != ErrCapacity || proofTwoScanCustodyDecode(raw, &twoScan, len(raw)) != ErrCapacity || custodyDecode(raw, &actual, len(raw)) != ErrCapacity {
 		t.Fatal("second scan byte bound lost")
 	}
 }
@@ -432,6 +469,58 @@ func TestCustodyDecodeAllocationReduction(t *testing.T) {
 	t.Logf("allocations/decode old=%.0f actual=%.0f saved=%.0f", old, actual, old-actual)
 	if actual >= old {
 		t.Fatalf("strict allocation reduction absent: old=%.0f actual=%.0f", old, actual)
+	}
+}
+
+func TestCustodyDecodeCanonicalAllocationReduction(t *testing.T) {
+	// Generate a real completed custody document through public state operations;
+	// no filesystem, clock or fixture construction belongs in the allocation sample.
+	snap, _ := proofApply(t, proofStore(t, proofDirectory(t), false))
+	document, e := custodyDocumentBytes(*snap.Document)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = custodyDocumentDecode(document); e != nil {
+		t.Fatal("canonical document fixture invalid", e)
+	}
+	w := enrollmentWire{Schema: 1, Binding: bindingToWire(proofBinding())}
+	pre, _ := json.Marshal(w)
+	w.Checksum = custodyHash("enrollment", pre)
+	enrollment, _ := json.Marshal(w)
+	for _, f := range []struct {
+		name    string
+		raw     []byte
+		newWire func() any
+	}{
+		{"document", document, func() any { return new(documentWire) }},
+		{"enrollment", enrollment, func() any { return new(enrollmentWire) }},
+	} {
+		t.Run(f.name, func(t *testing.T) {
+			// Exact typed bytes and errors must match the current two-scan baseline.
+			// Equality to the input also establishes eligibility for the fast path.
+			for _, decode := range []func([]byte, any, int) error{proofTwoScanCustodyDecode, custodyDecode} {
+				out := f.newWire()
+				if e := decode(f.raw, out, len(f.raw)); e != nil {
+					t.Fatal(e)
+				}
+				raw, e := json.Marshal(out)
+				if e != nil || !bytes.Equal(raw, f.raw) {
+					t.Fatal("canonical typed output changed", e)
+				}
+			}
+			measure := func(decode func([]byte, any, int) error) float64 {
+				return testing.AllocsPerRun(20, func() {
+					if e := decode(f.raw, f.newWire(), len(f.raw)); e != nil {
+						t.Fatal(e)
+					}
+				})
+			}
+			twoScan, actual := measure(proofTwoScanCustodyDecode), measure(custodyDecode)
+			t.Logf("canonical bytes=%d allocations/decode two-scan=%.0f actual=%.0f saved=%.0f", len(f.raw), twoScan, actual, twoScan-actual)
+			if actual >= twoScan {
+				t.Fatalf("strict canonical allocation reduction absent: two-scan=%.0f actual=%.0f", twoScan, actual)
+			}
+		})
 	}
 }
 

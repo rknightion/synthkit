@@ -222,6 +222,12 @@ func custodyDecode(raw []byte, out any, max int) error {
 	if e != nil {
 		return ErrCorrupt
 	}
+	// The first scan already validated every byte. If strict typed re-encoding
+	// reproduces those bytes exactly, a second scan can only yield the same
+	// tree (and the same bounds). Noncanonical input keeps the full comparison.
+	if bytes.Equal(raw, encoded) {
+		return nil
+	}
 	round, e := custodyJSON(encoded, max, 64, true)
 	if e != nil {
 		return e
