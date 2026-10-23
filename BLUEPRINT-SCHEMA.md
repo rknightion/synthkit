@@ -562,6 +562,9 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `environments[].cloud.glue` | raw yaml (see per-kind config sections) |  | AWS Glue ETL (jobs:); absent ⇒ not emitted |
 | `environments[].cloud.bedrock` | raw yaml (see per-kind config sections) |  | AWS Bedrock CloudWatch (models:/sub_signals:); absent ⇒ not emitted |
 | `environments[].cloud.agentcore` | raw yaml (see per-kind config sections) |  | AWS Bedrock-AgentCore CloudWatch (agents:/sub_signals:); absent ⇒ not emitted |
+| `environments[].cloud.lambda` | raw yaml (see per-kind config sections) |  | FunctionName-only CloudWatch (functions:); remote-write only; absent ⇒ not emitted |
+| `environments[].cloud.sqs` | raw yaml (see per-kind config sections) |  | Ordinary CloudWatch queue metrics (queues:); remote-write only; absent ⇒ not emitted |
+| `environments[].cloud.dynamodb` | raw yaml (see per-kind config sections) |  | Provisioned CloudWatch table metrics (tables:); remote-write only; absent ⇒ not emitted |
 | `environments[].cloud.pipelines[]` | object |  | Pipelines declares the env's batch data pipelines once (internal/pipelinerun). The resolver hands them to every consuming cloud-service construct (glue, mwaa) and adds each stage as a pipeline_stage failure target named <pipeline>.<stage>. Pipeline names must be unique across all blueprint environments. A glue stage needs a glue block; an orchestrating environment needs an mwaa block that lists it. |
 | `environments[].cloud.pipelines[].name` | string |  |  |
 | `environments[].cloud.pipelines[].environment` | string |  |  |
@@ -947,6 +950,43 @@ aws_docdb_* CloudWatch metrics for one DocumentDB cluster (WRITER/READER role sp
 
 _(no configurable fields)_
 
+## dynamodb config
+
+**Location:** `(config-gated by env/cloud/cluster/database declarations)`  ·  **group:** topology
+
+Explicit provisioned DynamoDB tables (remote-write only)
+
+| key | type | optional | description |
+|---|---|---|---|
+| `account` | object |  |  |
+| `account.max_reads` | float |  |  |
+| `account.max_writes` | float |  |  |
+| `account.max_table_reads` | float |  |  |
+| `account.max_table_writes` | float |  |  |
+| `tables[]` | object |  |  |
+| `tables[].name` | string |  |  |
+| `tables[].collector_name` | string |  |  |
+| `tables[].provisioned_reads` | float |  |  |
+| `tables[].provisioned_writes` | float |  |  |
+| `tables[].write_source` | string |  | Omitted selects TableName-only. Customer selects customer-origin writes; GlobalTable selects replicated writes, excluding customer-origin writes. The declared operation write demand belongs exclusively to that source. |
+| `tables[].replication` | object | yes | Replication is required only with GlobalTable; replica writes are not successful customer PutItem API calls and produce no PutItem latency. |
+| `tables[].replication.writes_per_second` | float |  |  |
+| `tables[].replication.units_per_write` | float |  |  |
+| `tables[].conditional_failures_per_second` | float |  |  |
+| `tables[].operations[]` | object |  |  |
+| `tables[].operations[].name` | string |  |  |
+| `tables[].operations[].requests_per_second` | float |  |  |
+| `tables[].operations[].read_units` | float |  |  |
+| `tables[].operations[].write_units` | float |  |  |
+| `tables[].operations[].latency_ms` | float |  |  |
+| `tables[].operations[].returned_items` | float |  |  |
+| `tables[].stream` | object | yes |  |
+| `tables[].stream.label` | string |  |  |
+| `tables[].stream.requests_per_second` | float |  |  |
+| `tables[].stream.records_per_request` | float |  |  |
+| `tables[].stream.bytes_per_record` | float |  |  |
+| `tables[].stream.latency_ms` | float |  |  |
+
 ## ebs_csi config
 
 **Location:** `(config-gated by env/cloud/cluster/database declarations)`  ·  **group:** topology
@@ -1084,6 +1124,27 @@ KSM kube_ingress_* metrics with mandatory cluster label injection (I16)
 | `ingresses[].service_name` | string |  | required |
 | `ingresses[].service_port` | int |  | default: 80 |
 | `ingresses[].tls` | bool |  | default: false |
+
+## lambda config
+
+**Location:** `(config-gated by env/cloud/cluster/database declarations)`  ·  **group:** topology
+
+FunctionName-only Lambda CloudWatch metrics (remote-write only)
+
+| key | type | optional | description |
+|---|---|---|---|
+| `functions[]` | object |  |  |
+| `functions[].name` | string |  |  |
+| `functions[].invocations_per_min` | float |  |  |
+| `functions[].duration_ms` | float |  |  |
+| `functions[].error_fraction` | float |  |  |
+| `functions[].throttles_per_min` | float |  |  |
+| `functions[].async_received_per_min` | float |  |  |
+| `functions[].async_dropped_fraction` | float |  |  |
+| `functions[].async_age_ms` | float |  |  |
+| `functions[].stream_batches_per_min` | float |  |  |
+| `functions[].iterator_age_ms` | float |  |  |
+| `reserved_concurrency` | float |  | ReservedConcurrency is account capacity reserved/provisioned outside these unreserved functions. Must be an integer capacity count. Claimed concurrency = this allocation + modelled activity. |
 
 ## langsmith_eval config
 
@@ -1264,6 +1325,31 @@ Solace event-broker telemetry (solace_prometheus_exporter v1.21.0: per-queue and
 | `brokers[].vpns[].queues[].consumers` | int | yes | Consumers is the number of bound consumer flows (solace_queue_binds). Default 1. A queue with 0 consumers drains nothing unless ConsumeMsgsPerSec is declared. |
 | `brokers[].vpns[].queues[].subscriptions` | int | yes | Subscriptions is the queue's topic subscription count (solace_queue_subscriptions). Default 1. |
 | `brokers[].vpns[].queues[].spool_quota_mb` | float |  | SpoolQuotaMB is the queue's maximum spool usage in MB. Default 5000, the Solace default for a queue's max spool usage. Messages arriving once it is full are discarded and counted in solace_queue_msg_spool_usage_exceeded. |
+
+## sqs config
+
+**Location:** `(config-gated by env/cloud/cluster/database declarations)`  ·  **group:** topology
+
+AWS/SQS ordinary queue metrics (remote-write only)
+
+| key | type | optional | description |
+|---|---|---|---|
+| `queues[]` | object |  |  |
+| `queues[].name` | string |  |  |
+| `queues[].collector_name` | string |  | CollectorName is the stable non-global collector identity (name label), NOT an ARN inferred from the queue name. Both identities must be supplied. |
+| `queues[].arrivals_per_second` | float |  |  |
+| `queues[].receives_per_second` | float |  |  |
+| `queues[].message_bytes` | float |  | MessageBytes is a fixed whole-byte payload, in the documented 1..1 MiB range: https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/quotas-messages.html |
+| `queues[].delay_seconds` | int |  |  |
+| `queues[].processing_seconds` | int |  |  |
+| `queues[].enrichment` | object |  | Enrichment selects only the P2 key vocabulary. All values are declared; omitted keys stay absent. P1/P3 tag alternatives cannot be union-filled. |
+| `queues[].enrichment.asserts_env` | string |  |  |
+| `queues[].enrichment.asserts_site` | string |  |  |
+| `queues[].enrichment.service` | string |  |  |
+| `queues[].enrichment.environment` | string |  |  |
+| `queues[].enrichment.owner` | string |  |  |
+| `queues[].enrichment.purpose` | string |  |  |
+| `queues[].enrichment.terraform` | string |  |  |
 
 ## synthetic_monitoring config
 

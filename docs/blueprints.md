@@ -40,6 +40,83 @@ Use `GET /control/blueprints/staged` to see staged custom/git blueprints and
 `GET /control/blueprints/pending` to see whether restart will change what is running. See
 [Custom blueprints](custom-blueprints.md) for the request formats.
 
+## Captured CloudWatch consumers
+
+Optional environment blocks `cloud.lambda`, `cloud.sqs` and `cloud.dynamodb` each build an
+independent blueprint-scoped metrics construct. Omit the block to emit nothing for that kind.
+They are **remote-write only**: `cloudwatch_export: otlp` fails Build, without fallback or aliases.
+AWS does have a native Metric Streams form, but these consumers do not yet implement it. The
+[canonical emitted contract](https://github.com/rknightion/synthkit/blob/main/signals/cw.md#initial-captured-service-emitters-slug-cw-captured-emitted)
+lists the 35 admitted bases and exact alternative dimensions separately from positive source tables.
+ESM/fair-queue/info families remain withheld. There are no pipeline adapters, failure modes or
+cross-service request joins in this subset.
+
+Declare **at most one block per blueprint/account/region/kind**, putting all resources in its
+`functions`, `queues` or `tables` list. A second environment in the same account/region rejects
+even with different resources: account snapshots and resource identities must not be duplicated.
+Different kinds, account/regions and blueprint scopes remain distinct. The scoped writer alone
+adds `blueprint`; environment names do not distinguish these CloudWatch series.
+
+All inputs are synthetic operator assumptions, not captured numeric fidelity. Omitted numerical
+traffic inputs are zero, not hidden traffic defaults. Positive master volume keeps the configured
+fixed rates; volume zero emits nothing, freezes active carry and advances the observation fence.
+The first observed positive tick after a pause is a silent boundary, not catch-up. First ordinary
+startup assumes one preceding minute; later observations use bounded elapsed windows, not replay.
+Sparse families need not appear in a single dump; never raise shipped rates to force them.
+Use the deliberate all-family test populations only in `e2e/fixtures/e2e-cw-consumers.yaml`.
+
+```yaml
+# Example cloud block: small application assumptions, not capture statistics or AWS defaults.
+cloud:
+  provider: aws
+  account_id: "111122223333"
+  region: us-east-1
+  vpc_id: vpc-example
+  lambda:
+    reserved_concurrency: 2 # Two explicitly reserved slots outside the unreserved function.
+    functions:
+      # One synchronous task every two minutes, taking 20 ms, with no async/stream traffic.
+      - {name: example-handler, invocations_per_min: 0.5, duration_ms: 20}
+  sqs:
+    queues:
+      # A small worker handles one 128-byte message per 100 seconds; polls every 10 seconds.
+      - {name: example-jobs, collector_name: declared-jobs, arrivals_per_second: 0.01, receives_per_second: 0.1, message_bytes: 128, processing_seconds: 2}
+  dynamodb:
+    # Explicit application inventory quota assumptions with headroom, not AWS default quotas.
+    account: {max_reads: 1000, max_writes: 1000, max_table_reads: 500, max_table_writes: 500}
+    tables:
+      - name: example-orders
+        collector_name: declared-orders
+        provisioned_reads: 10 # Ten reads/s reserved for this small provisioned application.
+        provisioned_writes: 5 # Five writes/s reserved; no write traffic declared here.
+        # One successful two-item eventual-read query every ten seconds, 4 ms service time.
+        operations: [{name: Query, requests_per_second: 0.1, read_units: 0.5, returned_items: 2, latency_ms: 4}]
+```
+
+Lambda accepts unqualified function names only; `name=global` is the sourced collector profile,
+not a generated ARN. Total invocation rate must cover admitted async (received minus dropped) plus
+stream batch rates; the residual is synchronous traffic. Counts/ages use those disjoint populations.
+Reserved concurrency is a whole count; duration/ages are fixed per observation. Lambda has no
+resource-tag/ESM/Resource alias config.
+
+SQS and DynamoDB require explicit non-global `collector_name`, never an ARN guessed from resource
+names. SQS models one-message successful receives/deletes, declared delay/processing time, whole
+bytes, four-day retention and six-hour activity retention. It does not model retries, DLQs or fair
+queue groups; optional `enrichment` accepts only explicit supported P2 metadata keys. DynamoDB
+requires positive provisioned capacities/quotas; its account snapshots have no table dimensions.
+`write_source` is omitted, `Customer` or `GlobalTable`; the last requires independent `replication`.
+Table operations are GetItem, PutItem, Query, Scan and SELECT-only ExecuteStatement. Returned items
+apply only to the three selection operations. An optional `stream` declares its own `label` and
+GetRecords polling; StreamLabel is absent from ordinary operations. Whole returned items/records/
+bytes and fractional read units/rates are distinct. Capacity samples may exist at zero traffic;
+latency/returned observations are sparse. Floating-point floors may delay a decimal-boundary
+request; this is not measured throughput or a promise of numerical fidelity.
+
+See [field reference](blueprint-reference.md#captured-cloudwatch-config) and the generated schema
+for the complete accepted keys and engineering bounds. Unknown fields reject, including withheld
+family switches. Validate via the ordinary selected-directory CLI and compare actual dump inventory
+to the canonical emitted blocks, not the larger source tables.
+
 ## Anatomy of a blueprint
 
 A blueprint has a small set of top-level keys that you control at the YAML level, plus the sections that fan into constructs.
@@ -63,7 +140,7 @@ A blueprint has a small set of top-level keys that you control at the YAML level
 
 Within an environment:
 
-- `cloud` — AWS account, region, VPC, and the `cloudwatch` sub-family toggles (ALBs, EBS, NAT Gateway, S3, Firehose, EKS control-plane, PrivateLink). Also the home for AWS-native service configs: `aoss`, `mwaa`, `glue`, `bedrock`, `agentcore`.
+- `cloud` — AWS account, region, VPC, and the `cloudwatch` sub-family toggles (ALBs, EBS, NAT Gateway, S3, Firehose, EKS control-plane, PrivateLink). Also the home for cloud-service configs: `aoss`, `mwaa`, `glue`, `bedrock`, `agentcore`, and the remote-write-only `lambda`, `sqs`, `dynamodb` consumers.
 - `cluster` — EKS cluster name, node groups, k8s-monitoring config (Alloy, OpenCost, Kepler, Fleet Management, feature gates, control-plane), add-ons, and cluster-level `observability` switches.
 - `databases` — one entry per RDS/DocumentDB/Neptune instance: engine, version, name, instance class, and the `observability` block that gates the CloudWatch lane and/or the Database Observability lane.
 - `caches` — ElastiCache clusters with engine, version, name, and CloudWatch gate.

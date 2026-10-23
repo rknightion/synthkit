@@ -533,6 +533,15 @@ gcx metrics query 'http_server_active_requests'
 ```
 
 
+## CloudWatch consumer implementation boundary
+
+The initial `lambda`, `sqs` and `dynamodb` constructs emit only remote-write metrics and reject
+`cloudwatch_export: otlp` at Build. AWS has a native Metric Streams source form; the
+[source-form verdict matrix](otlp-native-verdicts.md) must not be mistaken for implemented export.
+Their [35-base emitted subset](cw.md#initial-captured-service-emitters-slug-cw-captured-emitted)
+installs no native aliases. Historical Lambda unit cases do not establish full native profiles;
+SQS/DynamoDB source-ready units/dimensions alone do not establish complete native envelopes.
+
 ## Captured native infrastructure emitters
 
 - Beyla internal metrics: [`beyla.md`](beyla.md) [slug: beyla-internal-otlp] records the captured names, instruments and units, plus explicit remaining contract boundaries.

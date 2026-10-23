@@ -1,0 +1,50 @@
+# Public offline all-family fixture, not a deployable blueprint or captured numeric data.
+# Deliberate test populations finish inside one CLI tick; never copy these rates to production.
+name: e2e-cw-consumers
+label: e2e-cw-consumers
+environments:
+  - name: prod
+    cloud:
+      provider: aws
+      account_id: "111122223333"
+      region: us-east-1
+      vpc_id: vpc-fixture
+      cloudwatch: {albs: 0, s3_buckets: 0, nlb: false, ebs: false, nat_gateway: false, eks: false, firehose: false, private_link: false}
+      lambda:
+        reserved_concurrency: 10
+        functions:
+          # 12 executions = 6 admitted async + 6 stream batches; no synchronous residual.
+          - {name: fixture-handler, invocations_per_min: 12, duration_ms: 20, error_fraction: 0.25, throttles_per_min: 2, async_received_per_min: 8, async_dropped_fraction: 0.25, async_age_ms: 50, stream_batches_per_min: 6, iterator_age_ms: 100}
+          - {name: fixture-idle-handler}
+      sqs:
+        queues:
+          # Two messages/s and one receive/s retain all stock classes and complete deletions.
+          - {name: fixture-jobs, collector_name: declared-jobs-collector, arrivals_per_second: 2, receives_per_second: 1, message_bytes: 128, delay_seconds: 2, processing_seconds: 3}
+          # Independent empty-poll population, not capacity banked for the busy queue.
+          - {name: fixture-empty, collector_name: declared-empty-collector, receives_per_second: 1}
+      dynamodb:
+        # Explicit synthetic quotas with headroom for the test inventory, not AWS defaults.
+        account: {max_reads: 1000, max_writes: 1000, max_table_reads: 500, max_table_writes: 500}
+        tables:
+          - name: fixture-orders
+            collector_name: declared-orders-collector
+            provisioned_reads: 10
+            provisioned_writes: 10
+            conditional_failures_per_second: 0.1
+            # One service-side request/s; whole item/record/byte observations.
+            operations:
+              - {name: Query, requests_per_second: 1, read_units: 0.5, latency_ms: 4, returned_items: 2}
+              - {name: PutItem, requests_per_second: 1, write_units: 1, latency_ms: 3}
+            stream: {label: declared-orders-stream, requests_per_second: 1, records_per_request: 2, bytes_per_record: 100, latency_ms: 8}
+          - name: fixture-customer
+            collector_name: declared-customer-collector
+            provisioned_reads: 10
+            provisioned_writes: 10
+            write_source: Customer
+            operations: [{name: PutItem, requests_per_second: 1, write_units: 1, latency_ms: 3}]
+          - name: fixture-replica
+            collector_name: declared-replica-collector
+            provisioned_reads: 10
+            provisioned_writes: 10
+            write_source: GlobalTable
+            replication: {writes_per_second: 0.5, units_per_write: 1}

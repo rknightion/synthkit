@@ -76,6 +76,14 @@ These constructs are **blueprint-scoped** (they carry the `blueprint` selector l
 |---|---|---|
 | `glue` | AWS Glue job and crawler CloudWatch metrics. | [cw](signal-areas.md) |
 | `mwaa` | Amazon Managed Workflows for Apache Airflow CloudWatch metrics. | [cw](signal-areas.md) |
+| `lambda` | 11 FunctionName/account bases; optional `cloud.lambda.functions`. Remote-write only. | [cw](signal-areas.md) |
+| `sqs` | Nine ordinary queue bases; optional `cloud.sqs.queues`. Remote-write only. | [cw](signal-areas.md) |
+| `dynamodb` | 15 provisioned table/account bases; optional `cloud.dynamodb.tables`. Remote-write only. | [cw](signal-areas.md) |
+
+The three captured-service consumers have conservative one-declaration-per-blueprint/account/
+region/kind admission. See [authoring and explicit model assumptions](blueprints.md#captured-cloudwatch-consumers)
+and the [canonical emitted subset](https://github.com/rknightion/synthkit/blob/main/signals/cw.md#initial-captured-service-emitters-slug-cw-captured-emitted).
+Four Lambda ESM, five SQS fair-queue and three metadata info families remain withheld.
 
 #### Declared pipelines
 
@@ -128,8 +136,9 @@ cloud:
   [CloudWatch signal catalogue](https://github.com/rknightion/synthkit/blob/main/signals/cw.md).
 - A glue stage needs a `cloud.glue` block and an `environment` needs a `cloud.mwaa` block; the
   loader rejects either missing.
-- `lambda`, `sqs` and `redshift` stages are accepted and take part in the timeline, but nothing
-  emits for them yet: their CloudWatch families are not sourced in `signals/cw.md`.
+- `lambda`, `sqs` and `redshift` stages are accepted and take part in the timeline, but have no
+  emitting pipeline adapters. The independent `cloud.lambda` and `cloud.sqs` consumers do not
+  consume that timeline; positive Redshift source observations do not install a consumer.
 - Stages are failure targets: see [Incidents](incidents.md#pipeline_stage-axis).
 
 ## Database Observability (dbo11y)

@@ -141,6 +141,9 @@ type CloudDecl struct {
 	Glue             yaml.Node `yaml:"glue"`       // AWS Glue ETL (jobs:); absent ⇒ not emitted
 	Bedrock          yaml.Node `yaml:"bedrock"`    // AWS Bedrock CloudWatch (models:/sub_signals:); absent ⇒ not emitted
 	AgentCore        yaml.Node `yaml:"agentcore"`  // AWS Bedrock-AgentCore CloudWatch (agents:/sub_signals:); absent ⇒ not emitted
+	Lambda           yaml.Node `yaml:"lambda"`     // FunctionName-only CloudWatch (functions:); remote-write only; absent ⇒ not emitted
+	SQS              yaml.Node `yaml:"sqs"`        // Ordinary CloudWatch queue metrics (queues:); remote-write only; absent ⇒ not emitted
+	DynamoDB         yaml.Node `yaml:"dynamodb"`   // Provisioned CloudWatch table metrics (tables:); remote-write only; absent ⇒ not emitted
 	// Pipelines declares the env's batch data pipelines once (internal/pipelinerun). The resolver
 	// hands them to every consuming cloud-service construct (glue, mwaa) and adds each stage as a
 	// pipeline_stage failure target named <pipeline>.<stage>. Pipeline names must be unique across

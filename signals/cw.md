@@ -76,6 +76,156 @@ stat suffix) with `scrape_job`; it does not add resource dimensions or `tag_VpcI
 `AWS/NATGateway`→`aws_natgateway_` · `AWS/S3`→`aws_s3_` · `AWS/EKS`→`aws_eks_` ·
 `AWS/Firehose`→`aws_firehose_` · `AWS/RDS`→`aws_rds_` · `AWS/ElastiCache`→`aws_elasticache_`.
 
+## Initial captured-service emitters [slug: cw-captured-emitted]
+
+The optional `cloud.lambda`, `cloud.sqs` and `cloud.dynamodb` declarations emit **only these
+35 bases (175 final statistic names)** over remote-write. They are separate blueprint-scoped
+constructs, not pipeline-stage adapters. Omission emits nothing for that kind. One declaration
+per blueprint/account/region/kind owns the entire resource list; duplicate declarations across
+environments reject even with disjoint resources. Different kinds and blueprints remain distinct.
+Build rejects `cloudwatch_export: otlp` for all three: this is an implementation boundary, not a
+claim that AWS lacks native Metric Streams. No native aliases are installed by these consumers.
+The source tables below remain positive-only source evidence, **not emission allowlists**.
+
+All statistics are independent per-period gauges. Inputs are explicit synthetic operator
+assumptions, not captured numeric distributions or verified native fidelity. Sparse arrivals
+retain active fractional carry. Master volume zero emits no batches and accrues no traffic;
+observed resume establishes a new active boundary without paused-time backfill. Positive master
+volume retains fixed configured rates (no new diurnal or positive scaling guarantee). A pause
+and resume entirely between observations cannot be detected. Sample counts count observations,
+never duration/byte magnitudes. Missed intervals are not replayed.
+
+In these three blocks, `dimension_profiles` and each metric's `profiles` describe **exact
+alternative vendor-dimension key sets**, not their union. The common labels are `account_id`,
+`region`, `namespace`, `job`, `name`, plus the writer-stamped `blueprint`. No caller metadata is
+guessed. The public fixture exercises all profiles without enrichment. SQS alone permits optional
+explicit P2-vocabulary enrichment (`asserts_env`, `asserts_site`, `service`, `tag_Environment`,
+`tag_Owner`, `tag_Purpose`, `tag_Terraform`); omitted keys stay absent and these are not dimensions.
+
+### Lambda emitted subset [slug: cw-lambda-emitted]
+
+Function resources use FunctionName only and `name=global`; no Resource aliases, versions,
+EventSourceMappingUUID or tags are inferred. Account concurrency is emitted once without resource
+dimensions. Total execution attempts comprise admitted async executions (received minus dropped),
+stream batches and a nonnegative synchronous residual. Duration observes each execution; async
+age observes admitted async executions, iterator age observes stream batches. Errors are a
+subset of executions; throttles are separate. Durations/ages are explicit constants; concurrency
+is a synthetic snapshot, not an AWS scheduler simulation. Reserved concurrency must be whole.
+Units retain the exact historical U1–U9 scope below; the modeled FunctionName-only profile does
+not authorize other historical/native profiles.
+
+```yaml signals
+family: aws_lambda
+scope: blueprint
+sink: promrw
+stats: [_sum, _average, _maximum, _minimum, _sample_count]
+labels: {account_id: <account>, region: <region>, namespace: AWS/Lambda, job: cloud/aws/lambda, name: global}
+dimension_profiles:
+  account: []
+  function: [dimension_FunctionName]
+metrics:
+  - {root: async_event_age, type: gauge, unit: milliseconds, profiles: [function], note: U1 only}
+  - {root: async_events_dropped, type: gauge, unit: count, profiles: [function], note: U2 only}
+  - {root: async_events_received, type: gauge, unit: count, profiles: [function], note: U3 only}
+  - {root: claimed_account_concurrency, type: gauge, unit: count, profiles: [account], note: U4 only}
+  - {root: concurrent_executions, type: gauge, unit: count, profiles: [function], note: U5 only}
+  - {root: duration, type: gauge, unit: milliseconds, profiles: [function]}
+  - {root: errors, type: gauge, unit: count, profiles: [function], note: U6 only}
+  - {root: invocations, type: gauge, unit: count, profiles: [function], note: U7 only}
+  - {root: iterator_age, type: gauge, unit: milliseconds, profiles: [function]}
+  - {root: throttles, type: gauge, unit: count, profiles: [function], note: U8 only}
+  - {root: unreserved_concurrent_executions, type: gauge, unit: count, profiles: [account], note: U9 only}
+```
+
+Withheld: `deleted_event_count`, `failed_invoke_event_count`, `invoked_event_count`,
+`polled_event_count` (ESM identity/unit barriers) and unsuffixed `aws_lambda_info` (no admitted
+metadata projection). Their positive source observations remain unchanged below.
+
+### SQS emitted subset [slug: cw-sqs-emitted]
+
+Every resource requires QueueName and an explicit non-global `collector_name` for `name`;
+that value is not an inferred ARN. Each receive attempt handles at most one message. Successful
+deliveries delete after the declared processing delay; no retries, DLQ or tenant-group attribution
+is modeled. Fractional arrivals and receive capacity persist across active windows, but unused
+whole idle receive tokens are empty receives, not banked service capacity. Stock is sampled once
+per synthetic active second; default four-day retention and six-hour activity retention are model
+assumptions, not captured publication/sample-count guarantees. Message size is whole bytes.
+
+```yaml signals
+family: aws_sqs
+scope: blueprint
+sink: promrw
+stats: [_sum, _average, _maximum, _minimum, _sample_count]
+labels: {account_id: <account>, region: <region>, namespace: AWS/SQS, job: cloud/aws/sqs, name: <declared-collector-name>}
+dimension_profiles:
+  queue: [dimension_QueueName]
+metrics:
+  - {root: approximate_age_of_oldest_message, type: gauge, unit: seconds, profiles: [queue]}
+  - {root: approximate_number_of_messages_delayed, type: gauge, unit: count, profiles: [queue]}
+  - {root: approximate_number_of_messages_not_visible, type: gauge, unit: count, profiles: [queue]}
+  - {root: approximate_number_of_messages_visible, type: gauge, unit: count, profiles: [queue]}
+  - {root: number_of_empty_receives, type: gauge, unit: count, profiles: [queue]}
+  - {root: number_of_messages_deleted, type: gauge, unit: count, profiles: [queue]}
+  - {root: number_of_messages_received, type: gauge, unit: count, profiles: [queue]}
+  - {root: number_of_messages_sent, type: gauge, unit: count, profiles: [queue]}
+  - {root: sent_message_size, type: gauge, unit: bytes, profiles: [queue]}
+```
+
+Withheld: `approximate_age_of_oldest_message_in_quiet_groups`,
+`approximate_number_of_messages_delayed_in_quiet_groups`,
+`approximate_number_of_messages_not_visible_in_quiet_groups`,
+`approximate_number_of_messages_visible_in_quiet_groups`, `approximate_number_of_noisy_groups`
+(no fair-queue model) and unsuffixed `aws_sqs_info` (no admitted metadata projection).
+
+### DynamoDB emitted subset [slug: cw-dynamodb-emitted]
+
+Provisioned tables require explicit TableName and non-global `collector_name`. Account quotas and
+utilization snapshots emit once without table identity. Consumed capacity is sampled per second,
+including idle zero traffic; request latency/items/Streams observations are sparse. Latency is
+service-side only, never client/network time. Supported successful table operations are GetItem,
+PutItem, Query, Scan and SELECT-only ExecuteStatement. ReturnedItemCount belongs only to Query,
+Scan and SELECT ExecuteStatement. Declared Streams GetRecords uses StreamLabel+Operation+TableName;
+it is never union-filled into table-operation observations. Write Source is omitted, Customer or
+GlobalTable; GlobalTable replication is independently declared applied writes, not PutItem calls.
+Quotas, provisioned capacity, per-request capacity/latency and fixed whole returned items/records/
+bytes are explicit assumptions. Fractional rates/read units are valid; floating-point floor can
+delay a request at a decimal exact boundary. No overload, on-demand or cross-service join is claimed.
+
+```yaml signals
+family: aws_dynamodb
+scope: blueprint
+sink: promrw
+stats: [_sum, _average, _maximum, _minimum, _sample_count]
+labels: {account_id: <account>, region: <region>, namespace: AWS/DynamoDB, job: cloud/aws/dynamodb, name: global|<declared-collector-name>}
+dimension_profiles:
+  account: []
+  table: [dimension_TableName]
+  source_table: [dimension_Source, dimension_TableName]
+  operation_table: [dimension_Operation, dimension_TableName]
+  stream: [dimension_Operation, dimension_StreamLabel, dimension_TableName]
+metrics:
+  - {root: account_max_reads, type: gauge, unit: count, profiles: [account]}
+  - {root: account_max_writes, type: gauge, unit: count, profiles: [account]}
+  - {root: account_max_table_level_reads, type: gauge, unit: count, profiles: [account]}
+  - {root: account_max_table_level_writes, type: gauge, unit: count, profiles: [account]}
+  - {root: account_provisioned_read_capacity_utilization, type: gauge, unit: percent, profiles: [account]}
+  - {root: account_provisioned_write_capacity_utilization, type: gauge, unit: percent, profiles: [account]}
+  - {root: max_provisioned_table_read_capacity_utilization, type: gauge, unit: percent, profiles: [account]}
+  - {root: max_provisioned_table_write_capacity_utilization, type: gauge, unit: percent, profiles: [account]}
+  - {root: conditional_check_failed_requests, type: gauge, unit: count, profiles: [table]}
+  - {root: consumed_read_capacity_units, type: gauge, unit: count, profiles: [table]}
+  - {root: consumed_write_capacity_units, type: gauge, unit: count, profiles: [table, source_table]}
+  - {root: returned_bytes, type: gauge, unit: bytes, profiles: [stream]}
+  - {root: returned_records_count, type: gauge, unit: count, profiles: [stream]}
+  - {root: returned_item_count, type: gauge, unit: count, profiles: [operation_table]}
+  - {root: successful_request_latency, type: gauge, unit: milliseconds, profiles: [operation_table, stream]}
+```
+
+Unsuffixed `aws_dynamodb_info` remains withheld; the observed metadata shape does not establish
+an explicit synthetic metadata projection. See [authoring](../docs/blueprints.md#captured-cloudwatch-consumers)
+for configuration and model limits. These blocks do not add Redshift/Logs consumers, Glue expansion,
+new source/unit evidence or native admission.
+
 ## Retained positive CloudWatch observations — 2026-10-23 [slug: cw-captured]
 
 This identity-elided series-key catalogue freezes **141 observed bases, 56 exact label-key

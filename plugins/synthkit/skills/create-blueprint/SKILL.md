@@ -107,6 +107,17 @@ full pipeline/demo coverage or raise shipped rates to force a run; use a selecte
    Compare the dumped series inventory with the selected `signals/` contracts; do not make the
    catalogue match a new dump.
 
+For captured Lambda/SQS/DynamoDB CloudWatch output, follow
+[the public consumer guide](https://github.com/rknightion/synthkit/blob/main/docs/blueprints.md#captured-cloudwatch-consumers)
+and the explicit emitted sections in `signals/cw.md`, not the larger positive-source tables.
+Use optional `cloud.lambda.functions`, `cloud.sqs.queues` and `cloud.dynamodb.tables`; at most one
+block per blueprint/account/region/kind, including across environments with disjoint resources.
+These consumers reject native OTLP export and have no pipeline adapters. Preserve explicit
+non-global SQS/DynamoDB collector names, exact alternative dimensions and once-only account
+snapshots. ESM/fair/info families remain withheld. Fixed rates/value assumptions need a real-world
+basis beside them; do not copy deliberate all-family populations from `e2e/fixtures/` into a
+shipped blueprint. Ordinary sparse rates may not emit every family in one CLI tick.
+
 For native OTLP pod logs, select `k8s_monitoring.pod_logs_collector: otel_collector`
 when modelling the captured OTel Collector shape. Inspect `collector_profile` in
 `-inventory-json` and follow the collector comparison procedure in

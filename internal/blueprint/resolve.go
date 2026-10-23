@@ -47,6 +47,10 @@ const (
 	// New in catalog-expansion 2b (AI cloud-services):
 	KindBedrock   = "bedrock"
 	KindAgentCore = "agentcore"
+	// Bounded captured CloudWatch consumers (remote-write only).
+	KindLambda   = "lambda"
+	KindSQS      = "sqs"
+	KindDynamoDB = "dynamodb"
 	// Fleet Management mirror: emitted from the cluster path when k8s_monitoring.fleet_management
 	// is true. Must equal the string the fleetmgmt construct registers as its Kind.
 	KindFleetManagement = "fleet_management"
@@ -62,7 +66,7 @@ func TopologyKinds() []string {
 		KindK8sCluster, KindEC2, KindCWInfra, KindRDS, KindElastiCache, KindHost,
 		KindDbo11yMySQL, KindDbo11yPostgres,
 		KindDocDB, KindNeptune, KindAOSS, KindMWAA, KindGlue,
-		KindBedrock, KindAgentCore,
+		KindBedrock, KindAgentCore, KindLambda, KindSQS, KindDynamoDB,
 		KindFleetManagement,
 		KindK8sProfiling,
 	}
@@ -649,6 +653,12 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 		return nil, err
 	}
 
+	// New CW kinds own account-region aggregates/resource lists in one declaration.
+	// Environment names do not distinguish their series. Keep this conservative,
+	// blueprint-local admission until a broader pure-claims design is supported.
+	type cwDeclarationKey struct{ kind, account, region string }
+	cwDeclarations := map[cwDeclarationKey]string{}
+
 	// Pass 3 — emit construct instances. A cluster's explicit emission gate
 	// affects only its derived constructs; earlier topology/workload binding stays.
 	for _, ec := range envs {
@@ -793,6 +803,9 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 				{KindGlue, &e.Cloud.Glue},
 				{KindBedrock, &e.Cloud.Bedrock},
 				{KindAgentCore, &e.Cloud.AgentCore},
+				{KindLambda, &e.Cloud.Lambda},
+				{KindSQS, &e.Cloud.SQS},
+				{KindDynamoDB, &e.Cloud.DynamoDB},
 			}
 			for _, cs := range cloudServices {
 				if cs.node.Kind == 0 {
@@ -806,6 +819,14 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 				cscfg := csreg.NewConfig()
 				if err := strictDecode(cs.node, cscfg, fmt.Sprintf("blueprint %q: env %q %s config", d.Name, e.Name, cs.kind)); err != nil {
 					return nil, err
+				}
+				switch cs.kind {
+				case KindLambda, KindSQS, KindDynamoDB:
+					key := cwDeclarationKey{cs.kind, ec.cloud.AccountID, ec.cloud.Region}
+					if previous, exists := cwDeclarations[key]; exists {
+						return nil, fmt.Errorf("blueprint %q: %s declaration collision: account_id %q region %q declared by environments %q and %q; use one resource list per blueprint/account/region/kind", d.Name, cs.kind, key.account, key.region, previous, e.Name)
+					}
+					cwDeclarations[key] = e.Name
 				}
 				// One pipelines declaration fans into every consuming construct.
 				if pc, ok := cscfg.(pipelinerun.Consumer); ok && len(e.Cloud.Pipelines) > 0 {

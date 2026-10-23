@@ -20,6 +20,7 @@ import (
 	"github.com/rknightion/synthkit/internal/construct/dbo11ymysql"
 	"github.com/rknightion/synthkit/internal/construct/dbo11ypg"
 	"github.com/rknightion/synthkit/internal/construct/docdb"
+	"github.com/rknightion/synthkit/internal/construct/dynamodb"
 	"github.com/rknightion/synthkit/internal/construct/ebscsi"
 	"github.com/rknightion/synthkit/internal/construct/ec2"
 	"github.com/rknightion/synthkit/internal/construct/elasticache"
@@ -33,6 +34,7 @@ import (
 	"github.com/rknightion/synthkit/internal/construct/k8sprofiling"
 	"github.com/rknightion/synthkit/internal/construct/karpenter"
 	"github.com/rknightion/synthkit/internal/construct/ksmingress"
+	"github.com/rknightion/synthkit/internal/construct/lambda"
 	"github.com/rknightion/synthkit/internal/construct/langsmitheval"
 	"github.com/rknightion/synthkit/internal/construct/langsmithplatform"
 	"github.com/rknightion/synthkit/internal/construct/lbc"
@@ -46,6 +48,7 @@ import (
 	"github.com/rknightion/synthkit/internal/construct/sm"
 	"github.com/rknightion/synthkit/internal/construct/snowflake"
 	"github.com/rknightion/synthkit/internal/construct/solace"
+	"github.com/rknightion/synthkit/internal/construct/sqs"
 	"github.com/rknightion/synthkit/internal/construct/vpccni"
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/workload/aiagent"
@@ -134,6 +137,10 @@ func Catalog() *core.Registry {
 	reg.RegisterConstruct(withMetricProducers(glue.Registration(), producerUnlabelled, producerOTLPNative))
 	reg.RegisterConstruct(withMetricProducers(bedrock.Registration(), producerUnlabelled, producerOTLPNative))
 	reg.RegisterConstruct(withMetricProducers(agentcore.Registration(), producerUnlabelled, producerOTLPNative))
+	// Initial captured CW consumers have no implemented native export admission.
+	reg.RegisterConstruct(withMetricProducer(lambda.Registration(), producerUnlabelled))
+	reg.RegisterConstruct(withMetricProducer(sqs.Registration(), producerUnlabelled))
+	reg.RegisterConstruct(withMetricProducer(dynamodb.Registration(), producerUnlabelled))
 
 	// Cluster add-ons (blueprint addons: list).
 	reg.RegisterConstruct(withMetricProducer(lbc.Registration(), producerPromRW))
