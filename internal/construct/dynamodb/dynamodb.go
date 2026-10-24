@@ -85,6 +85,16 @@ type Operation struct {
 	LatencyMinMS float64 `yaml:"latency_min_ms"`
 	// LatencyMaxMS is the upper per-request latency bound; see LatencyMinMS.
 	LatencyMaxMS float64 `yaml:"latency_max_ms"`
+	// ThrottledRequestsPerSecond optionally declares requests of this operation rejected
+	// for exceeding provisioned throughput, an explicit operator assumption (omitted or
+	// zero: no throttling and no throttle series). Throttled requests are separate from
+	// requests_per_second: they consume no capacity and have no latency or returned
+	// items. Admitted only for GetItem and PutItem, the operations a lab capture of a
+	// provisioned table observed. Each throttled request is one sample of 1 in
+	// ThrottledRequests (TableName+Operation) and in ReadThrottleEvents (GetItem) or
+	// WriteThrottleEvents (PutItem) on TableName; unthrottled requests add no zero
+	// samples. Follows the operation's load.
+	ThrottledRequestsPerSecond float64 `yaml:"throttled_requests_per_second"`
 }
 
 // Stream explicitly declares the Streams identity and successful GetRecords
@@ -109,6 +119,7 @@ type tableState struct {
 	business                  []bool
 	replBusiness              bool
 	failures, polls, replicas float64
+	throttles                 []float64
 }
 
 const (
@@ -184,7 +195,7 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 				return nil, fmt.Errorf("dynamodb: duplicate operation %q", o.Name)
 			}
 			seen[o.Name] = true
-			for _, v := range []float64{o.RequestsPerSecond, o.ReadUnits, o.WriteUnits, o.LatencyMS, o.ReturnedItems, o.LatencyMinMS, o.LatencyMaxMS} {
+			for _, v := range []float64{o.RequestsPerSecond, o.ReadUnits, o.WriteUnits, o.LatencyMS, o.ReturnedItems, o.LatencyMinMS, o.LatencyMaxMS, o.ThrottledRequestsPerSecond} {
 				if !number(v) {
 					return nil, fmt.Errorf("dynamodb: invalid finite nonnegative operation assumption")
 				}
@@ -207,6 +218,12 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 				}
 			default:
 				return nil, fmt.Errorf("dynamodb: unsupported operation %q", o.Name)
+			}
+			if o.ThrottledRequestsPerSecond != 0 && o.Name != "GetItem" && o.Name != "PutItem" {
+				return nil, fmt.Errorf("dynamodb: throttled_requests_per_second is admitted only for GetItem and PutItem")
+			}
+			if o.ThrottledRequestsPerSecond != 0 && o.Name == "PutItem" && t.WriteSource == "GlobalTable" {
+				return nil, fmt.Errorf("dynamodb: GlobalTable excludes customer PutItem operations, including throttled ones")
 			}
 			if o.LatencyMS == 0 {
 				return nil, fmt.Errorf("dynamodb: positive service latency required")
@@ -256,7 +273,7 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 			t.Stream = &s
 		}
 		t.Operations = append([]Operation(nil), t.Operations...)
-		ts := tableState{table: t, carry: make([]float64, len(t.Operations)), business: make([]bool, len(t.Operations)), replBusiness: t.Load == loadBusiness}
+		ts := tableState{table: t, carry: make([]float64, len(t.Operations)), throttles: make([]float64, len(t.Operations)), business: make([]bool, len(t.Operations)), replBusiness: t.Load == loadBusiness}
 		for j, o := range t.Operations {
 			ts.business[j] = o.Load == loadBusiness || (o.Load == "" && t.Load == loadBusiness)
 		}
@@ -370,13 +387,27 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		t := ts.table
 		l := c.labels(t.CollectorName)
 		l["dimension_TableName"] = t.Name
-		var readSum, writeSum, readPeak, writePeak, readMin, writeMin float64
+		var readSum, writeSum, readPeak, writePeak, readMin, writeMin, readThrottled, writeThrottled float64
 		for j, o := range t.Operations {
-			rate := o.RequestsPerSecond
+			rate, throttleRate := o.RequestsPerSecond, o.ThrottledRequestsPerSecond
 			if ts.business[j] {
-				rate *= loadFactor(w, now, "dynamodb|"+t.Name+"|"+o.Name)
+				f := loadFactor(w, now, "dynamodb|"+t.Name+"|"+o.Name)
+				rate *= f
+				throttleRate *= f
 			}
 			n := take(rate, seconds, &ts.carry[j])
+			// Rejected requests: no capacity consumed and no successful-request series.
+			if throttled := take(throttleRate, seconds, &ts.throttles[j]); throttled > 0 {
+				op := c.labels(t.CollectorName)
+				op["dimension_TableName"] = t.Name
+				op["dimension_Operation"] = o.Name
+				cw.EmitStats(st, "aws_dynamodb_throttled_requests", op, cw.StatSet{Sum: throttled, Average: 1, Maximum: 1, Minimum: 1, SampleCount: throttled})
+				if o.Name == "GetItem" {
+					readThrottled += throttled
+				} else {
+					writeThrottled += throttled
+				}
+			}
 			readSum += n * o.ReadUnits
 			writeSum += n * o.WriteUnits
 			// Evenly scheduled requests across second-sized capacity observations.
@@ -396,6 +427,12 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 				// Count: fixed returned-item count per select request, including empty responses.
 				cw.EmitStats(st, "aws_dynamodb_returned_item_count", op, cw.StatSet{Sum: n * o.ReturnedItems, Average: o.ReturnedItems, Maximum: o.ReturnedItems, Minimum: o.ReturnedItems, SampleCount: n})
 			}
+		}
+		if readThrottled > 0 {
+			cw.EmitStats(st, "aws_dynamodb_read_throttle_events", l, cw.StatSet{Sum: readThrottled, Average: 1, Maximum: 1, Minimum: 1, SampleCount: readThrottled})
+		}
+		if writeThrottled > 0 {
+			cw.EmitStats(st, "aws_dynamodb_write_throttle_events", l, cw.StatSet{Sum: writeThrottled, Average: 1, Maximum: 1, Minimum: 1, SampleCount: writeThrottled})
 		}
 		// Count: synthetic one-per-second capacity observations, including idle zero
 		// samples. This explicit sampling assumption is not a captured AWS cadence.

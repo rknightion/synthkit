@@ -48,7 +48,7 @@ independent blueprint-scoped metrics construct. Omit the block to emit nothing f
 They are **remote-write only**: `cloudwatch_export: otlp` fails Build, without fallback or aliases.
 AWS does have a native Metric Streams form, but these consumers do not yet implement it. The
 [canonical emitted contract](https://github.com/rknightion/synthkit/blob/main/signals/cw.md#initial-captured-service-emitters-slug-cw-captured-emitted)
-lists the 51 admitted bases (35 original plus ten Redshift, two Logs intake and four optional Lambda delivery observations) and exact alternative dimensions separately from positive source tables.
+lists the 51 admitted bases (35 original plus ten Redshift, two Logs intake and four optional Lambda delivery observations; plus three opt-in DynamoDB throttle bases) and exact alternative dimensions separately from positive source tables.
 ESM/fair-queue/info families remain withheld. There are no pipeline adapters, failure modes or
 cross-service request joins in this subset.
 

@@ -74,6 +74,14 @@ type Function struct {
 	// milliseconds, with the same rules as duration_ms_min. It must not be below
 	// duration_ms.
 	DurationMSMax float64 `yaml:"duration_ms_max"`
+	// ZeroValuedSamples makes Throttles and Errors observe every request (execution
+	// attempts plus throttled requests) with 1 for the event and 0 otherwise, as a lab
+	// capture of this service reported, instead of only the events. Throttles then has
+	// Sum = throttles and SampleCount = requests; Errors has Sum = errors and the same
+	// SampleCount, throttled requests contributing 0. A window with no request still
+	// emits neither. Omitted keeps the event-only observations, so default output is
+	// unchanged.
+	ZeroValuedSamples bool `yaml:"zero_valued_samples"`
 }
 
 type functionState struct {
@@ -240,11 +248,21 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 			active += concurrent
 			cw.EmitStats(st, "aws_lambda_concurrent_executions", labels, cw.StatSet{Sum: concurrent, Average: concurrent, Minimum: concurrent, Maximum: concurrent, SampleCount: 1})
 		}
-		if errors > 0 {
-			cw.EmitStats(st, "aws_lambda_errors", labels, cw.StatSet{Sum: errors, Average: 1, Minimum: 1, Maximum: 1, SampleCount: errors})
-		}
-		if throttles > 0 {
-			cw.EmitStats(st, "aws_lambda_throttles", labels, cw.StatSet{Sum: throttles, Average: 1, Minimum: 1, Maximum: 1, SampleCount: throttles})
+		if cfg.ZeroValuedSamples {
+			// Capture: Errors and Throttles SampleCount both equalled invocations plus
+			// throttled requests, with 0-valued samples for requests that did not err
+			// or throttle. Each request is one binary observation.
+			if requests := n + throttles; requests > 0 {
+				cw.EmitStats(st, "aws_lambda_errors", labels, binaryStats(errors, requests))
+				cw.EmitStats(st, "aws_lambda_throttles", labels, binaryStats(throttles, requests))
+			}
+		} else {
+			if errors > 0 {
+				cw.EmitStats(st, "aws_lambda_errors", labels, cw.StatSet{Sum: errors, Average: 1, Minimum: 1, Maximum: 1, SampleCount: errors})
+			}
+			if throttles > 0 {
+				cw.EmitStats(st, "aws_lambda_throttles", labels, cw.StatSet{Sum: throttles, Average: 1, Minimum: 1, Maximum: 1, SampleCount: throttles})
+			}
 		}
 		if received > 0 {
 			cw.EmitStats(st, "aws_lambda_async_events_received", labels, cw.StatSet{Sum: received, Average: 1, Minimum: 1, Maximum: 1, SampleCount: received})
@@ -265,6 +283,18 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	cw.EmitStats(st, "aws_lambda_claimed_account_concurrency", c.labels(""), cw.StatSet{Sum: claimed, Average: claimed, Minimum: claimed, Maximum: claimed, SampleCount: 1})
 	cw.EmitStats(st, "aws_lambda_unreserved_concurrent_executions", c.labels(""), cw.StatSet{Sum: active, Average: active, Minimum: active, Maximum: active, SampleCount: 1})
 	return w.Metrics.Write(ctx, st.Collect(now))
+}
+
+// binaryStats returns the statistics of n 0/1 observations of which events are 1.
+func binaryStats(events, n float64) cw.StatSet {
+	s := cw.StatSet{Sum: events, Average: events / n, SampleCount: n}
+	if events > 0 {
+		s.Maximum = 1
+	}
+	if events == n {
+		s.Minimum = 1
+	}
+	return s
 }
 
 // durationExtremes returns the observed Minimum and Maximum of n executions whose mean

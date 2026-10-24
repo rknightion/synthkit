@@ -476,7 +476,7 @@ once-only account snapshots, without inventing shared discovery types. Different
 blueprint scopes remain distinct. The scoped writer alone stamps blueprint after cloning.
 This conservative ceiling remains until broader pure identity claims are separately designed.
 The [canonical emitted subset](signals/cw.md#initial-captured-service-emitters-slug-cw-captured-emitted)
-is 51 stat bases (35 original plus ten Redshift, two Logs intake and four optional Logs delivery);
+is 51 stat bases (35 original plus ten Redshift, two Logs intake and four optional Logs delivery; plus three opt-in DynamoDB throttle bases);
 positive source tables are not emission allowlists. Redshift snapshots/queue stocks and sparse
 fixed-second I/O latency, Logs uncompressed per-event intake and independent Lambda
 subscription-delivery period observations are explicit operator assumptions. Optional filters are declared under the owning group, with P21

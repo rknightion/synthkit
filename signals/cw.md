@@ -87,6 +87,10 @@ environments reject even with disjoint resources. Different kinds and blueprints
 Build rejects `cloudwatch_export: otlp` for all five: this is an implementation boundary, not a
 claim that AWS lacks native Metric Streams. No native aliases are installed by these consumers.
 The source tables below remain positive-only source evidence, **not emission allowlists**.
+Three further DynamoDB bases (`aws_dynamodb_throttled_requests`, `aws_dynamodb_read_throttle_events`,
+`aws_dynamodb_write_throttle_events`) are opt-in per operation and are absent from the default
+set; they are specified under the throttle capture section [slug: cw-throttle-capture] and are deliberately not in
+the canonical yaml block below, which stays the default emission contract. Lambda gains no base.
 
 All statistics are independent per-period gauges. Inputs are explicit synthetic operator
 assumptions, not captured numeric distributions or verified native fidelity. Sparse arrivals
@@ -113,8 +117,9 @@ age observes admitted async executions, iterator age observes stream batches. Er
 subset of executions; throttles are separate. Ages are explicit constants; durations are constant
 unless `duration_ms_min`/`duration_ms_max` declare operator-assumed bounds (the mean stays
 `duration_ms`); `load: business` is an opt-in operator assumption scaling arrival rates by the
-business curve, not a sourced AWS behaviour. Errors stay emitted only when an error occurs (no
-sourced zero-value Errors observation); concurrency
+business curve, not a sourced AWS behaviour. By default Errors and Throttles are emitted only when an
+event occurs; a function's opt-in `zero_valued_samples` instead observes every request with 0 or 1
+as in the throttle capture section [slug: cw-throttle-capture]; concurrency
 is a synthetic snapshot, not an AWS scheduler simulation. Reserved concurrency must be whole.
 Units retain the exact historical U1–U9 scope below; the modeled FunctionName-only profile does
 not authorize other historical/native profiles.
@@ -197,7 +202,9 @@ bytes are explicit assumptions. Already-earned operation, conditional-failure, S
 replication fractions survive cadence jitter and long observation gaps; new accrual is capped at
 60 seconds per observation without replaying the gap. Fractional rates/read units are valid;
 floating-point floor can delay a request at a decimal exact boundary. No overload, on-demand or
-cross-service join is claimed.
+cross-service join is claimed. An operation's opt-in `throttled_requests_per_second` (GetItem or
+PutItem only) additionally emits the three throttle bases described under
+the throttle capture section [slug: cw-throttle-capture].
 
 ```yaml signals
 family: aws_dynamodb
@@ -658,10 +665,51 @@ establish neither Loki stream labels, collector profiles, nor output body shape.
 | `aws_dynamodb_info` | collector metadata | not a CW unit | P52 |
 | `aws_dynamodb_max_provisioned_table_read_capacity_utilization` | `MaxProvisionedTableReadCapacityUtilization` | Percent | P0 |
 | `aws_dynamodb_max_provisioned_table_write_capacity_utilization` | `MaxProvisionedTableWriteCapacityUtilization` | Percent | P0 |
+| `aws_dynamodb_read_throttle_events` | `ReadThrottleEvents` | Count | T1 |
 | `aws_dynamodb_returned_bytes` | `ReturnedBytes` | Bytes | P43 |
 | `aws_dynamodb_returned_item_count` | `ReturnedItemCount` | Count | P44 |
 | `aws_dynamodb_returned_records_count` | `ReturnedRecordsCount` | Count | P43 |
 | `aws_dynamodb_successful_request_latency` | `SuccessfulRequestLatency` | Milliseconds | P43, P44 |
+| `aws_dynamodb_throttled_requests` | `ThrottledRequests` | Count | T1 |
+| `aws_dynamodb_write_throttle_events` | `WriteThrottleEvents` | Count | T1 |
+
+### Lambda and DynamoDB throttle capture [slug: cw-throttle-capture]
+
+**Provenance.** Live CloudWatch capture in a lab AWS account, region eu-west-1, 2026-10-24
+(`get-metric-data` window 16:26:21Z to 16:49:56Z, period 60 s, statistics Sum, Average, Maximum,
+Minimum and SampleCount, raw output retained by the maintainer outside the repository). Method: a
+128 MB Python Lambda function with reserved concurrency 1 and no retries, driven with 300 synchronous
+invocations at 8 in flight (so most were rejected for lack of concurrency; one invocation raised on
+purpose) plus a one-per-minute schedule, writing and consistently reading a 1 KB item per
+operation against a **provisioned 1 RCU / 1 WCU** table (on-demand tables only throttle far past
+what a short burst reaches). Identifiers are deliberately omitted; the profile labels below are
+`T1`, this capture, and are not part of the historical P-numbering. The units (Count) are from the
+[DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/metrics-dimensions.html)
+and [Lambda](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-metrics-types.html) pages,
+retrieved 2026-10-24; `get-metric-data` returns none.
+
+**Lambda (FunctionName, and also FunctionName+Resource with Resource equal to the function name).**
+Over 13 one-minute points: `Invocations` Sum 46, SampleCount 46, Minimum = Maximum = 1;
+`Throttles` Sum 268, SampleCount 314, Minimum 0, Maximum 1; `Errors` Sum 1, SampleCount 314,
+Minimum 0, Maximum 1. In **every** minute `Throttles` and `Errors` SampleCount equalled
+`Invocations` plus throttled requests (1 + 7 = 8, 20 + 149 = 169, 15 + 112 = 127), so each request
+contributes one 0 or 1 sample to both, throttled requests contributing 0 to `Errors`. A minute with
+a single invocation and no throttle reported `Throttles` and `Errors` with Sum 0, SampleCount 1,
+Minimum = Maximum = 0 (AWS documents that throttled requests are not recorded as Invocations or
+Errors; the capture shows Errors zero samples for them regardless). Opt-in `zero_valued_samples`
+reproduces this: Sum = events, SampleCount = invocations + throttles, Minimum 0 unless every
+request was the event, Maximum 1 only when an event occurred; no request emits neither series.
+
+**DynamoDB (provisioned table).** `ReadThrottleEvents` and `WriteThrottleEvents` (TableName) had Sum
+77 and 556; `ThrottledRequests` (TableName+Operation) had Operation `GetItem` 77 and `PutItem` 556.
+Each was present in only the 2 of 19 minutes with throttling, with Sum = SampleCount and
+Minimum = Maximum = Average = 1: **no zero-valued samples** for unthrottled requests, unlike
+`ConsumedReadCapacityUnits`/`ConsumedWriteCapacityUnits`, whose zero samples continue. Operations
+`Query`, `Scan` and `ExecuteStatement` were not captured and are not admitted. For single-item
+requests (no batch, no secondary index) each throttled request is one `ThrottledRequests` and one
+`ReadThrottleEvents` (GetItem) or `WriteThrottleEvents` (PutItem) event; batch and index-fan-out
+divergence documented by AWS is not modelled. Opt-in `throttled_requests_per_second` emits exactly
+this and consumes no capacity and no successful-request latency.
 
 ### AWS/Redshift positive series-key observations [slug: cw-redshift]
 
