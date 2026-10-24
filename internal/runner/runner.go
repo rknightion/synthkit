@@ -1466,19 +1466,27 @@ func (r *Runner) ValidateRuntimeIncident(ri control.RuntimeIncident) error {
 			return fmt.Errorf("mode %q not declared on axis %q", ri.Mode, axis)
 		}
 	default:
-		var axis failuremode.Axis
-		found := false
+		// A name may be a target on several axes (an app service node and its Lambda function):
+		// the incident resolves on the one axis that declares its mode, mirroring the loader.
+		var named, declaring []string
 		for _, t := range bp.targets {
-			if t.Name == ri.Target {
-				axis, found = t.Axis, true
-				break
+			if t.Name != ri.Target || slices.Contains(named, string(t.Axis)) {
+				continue
+			}
+			named = append(named, string(t.Axis))
+			if modeOnAxisVocab(vocab, ri.Mode, t.Axis) {
+				declaring = append(declaring, string(t.Axis))
 			}
 		}
-		if !found {
+		switch {
+		case len(named) == 0:
 			return fmt.Errorf("unknown target %q in blueprint %q", ri.Target, ri.Blueprint)
-		}
-		if !modeOnAxisVocab(vocab, ri.Mode, axis) {
-			return fmt.Errorf("mode %q not declared on target %q's axis %q", ri.Mode, ri.Target, axis)
+		case len(declaring) > 1:
+			return fmt.Errorf("target %q is ambiguous: mode %q is declared on its axes %s", ri.Target, ri.Mode, strings.Join(declaring, ", "))
+		case len(declaring) == 0 && len(named) == 1:
+			return fmt.Errorf("mode %q not declared on target %q's axis %q", ri.Mode, ri.Target, named[0])
+		case len(declaring) == 0:
+			return fmt.Errorf("mode %q not declared on any of target %q's axes %s", ri.Mode, ri.Target, strings.Join(named, ", "))
 		}
 	}
 	// at/for required, then delegate grammar validation to shape: build a throwaway engine from the

@@ -323,32 +323,31 @@ func TestChainScenarioLiveActivation(t *testing.T) {
 	}
 }
 
-// A declared function or queue whose name is already a target on another axis stays loadable,
-// is not added as an ambiguous target, and is reported as a warning.
-func TestChainCrossAxisNameIsWarnedNotAmbiguous(t *testing.T) {
+// A declared function or queue whose name is already a target on another axis is a target on
+// both axes, and each effect resolves on the axis that declares its mode, without a warning.
+func TestChainCrossAxisNameResolvesByMode(t *testing.T) {
 	text := strings.Replace(chainBlueprint, "name: response-auditor", "name: prod", 1)
 	text = strings.Replace(text, "- name: audit\n", "- name: response-publisher\n", 1)
-	text = strings.Replace(text, "target: audit,", "target: response-publisher,", 1)
-	r, err := blueprint.Load([]byte(text), runner.Catalog())
-	if err == nil {
-		t.Fatal("queue_consumer_stall on a function-axis name must be rejected")
-	}
-	text = strings.Replace(text, "      - {mode: queue_consumer_stall, target: response-publisher, intensity: 0}\n", "", 1)
-	if r, err = blueprint.Load([]byte(text), runner.Catalog()); err != nil {
+	text = strings.Replace(text, "target: audit, intensity: 0}", "target: response-publisher, intensity: 1}\n      - {mode: function_throttle_storm, target: prod, intensity: 1}", 1)
+	r, err := blueprint.Load([]byte(text+chainSchedule), runner.Catalog())
+	if err != nil {
 		t.Fatal(err)
 	}
 	axes := map[string][]failuremode.Axis{}
 	for _, tg := range r.Targets {
 		axes[tg.Name] = append(axes[tg.Name], tg.Axis)
 	}
-	if fmt.Sprint(axes["prod"]) != "[cloud]" || fmt.Sprint(axes["response-publisher"]) != "[function]" {
-		t.Fatalf("collisions changed the inventory: prod=%v response-publisher=%v", axes["prod"], axes["response-publisher"])
+	if fmt.Sprint(axes["prod"]) != "[cloud function]" || fmt.Sprint(axes["response-publisher"]) != "[function queue]" {
+		t.Fatalf("shared names: prod=%v response-publisher=%v", axes["prod"], axes["response-publisher"])
 	}
-	joined := strings.Join(r.Warnings, "\n")
-	for _, want := range []string{`function "prod" is not an incident target`, `queue "response-publisher" is not an incident target`} {
+	joined := strings.Join(r.Incidents, "\n")
+	for _, want := range []string{"queue_consumer_stall@2026-10-24T09:10/10m#1@response-publisher", "function_throttle_storm@2026-10-24T09:10/10m#1@prod", "function_error_spike@2026-10-24T09:10/10m#1@response-publisher"} {
 		if !strings.Contains(joined, want) {
-			t.Errorf("warning %q missing; have:\n%s", want, joined)
+			t.Errorf("incident %q not compiled; have:\n%s", want, joined)
 		}
+	}
+	if len(r.Warnings) != 0 {
+		t.Errorf("resolvable shared names are warned: %v", r.Warnings)
 	}
 }
 

@@ -1026,16 +1026,18 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 			r.Targets = append(r.Targets, Target{Name: target.Key, Axis: target.Axis})
 		}
 	}
+	// The structural inventory keeps rejecting a name reused across its own axes; construct-
+	// declared targets (functions, queues) may share a name with it and resolve by mode.
+	if _, err := targetIndex(r.Targets); err != nil {
+		return nil, fmt.Errorf("blueprint %q: %w", d.Name, err)
+	}
 	declared, targetWarns, skippedTargets := declaredConstructTargets(r.Constructs, r.Targets)
 	r.Targets = append(r.Targets, declared...)
 	for _, w := range targetWarns {
 		log.Printf("WARN blueprint %q: %s", d.Name, w)
 		r.Warnings = append(r.Warnings, w)
 	}
-	axes, err := targetIndex(r.Targets)
-	if err != nil {
-		return nil, fmt.Errorf("blueprint %q: %w", d.Name, err)
-	}
+	axes := targetAxes(r.Targets)
 	vocab := vocabulary(reg)
 	multi := failuremode.MultiAxis(vocab)
 

@@ -4,6 +4,7 @@ package blueprint
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -85,17 +86,17 @@ type failureTargeter interface {
 // declaredConstructTargets collects the failure targets owned by the built construct
 // declarations, in BoM order, once per (name, axis). A name the incident schedule grammar
 // cannot carry as a scope (it contains '@', '/', '#', whitespace, or ends in ":*") is not
-// addressable; naming it in an effect is the ordinary loud unknown-target error. A name already
-// addressable on another axis (existing, or an earlier declared target) is skipped with a
-// warning rather than failing a blueprint that loaded before these axes existed. Every skipped
+// addressable; naming it in an effect is the ordinary loud unknown-target error. Every skipped
 // name is warned and returned by axis, so an "<axis>:*" effect can say what it does not reach.
+// A name that is also a target on another axis (an app service node and its Lambda function,
+// say) is kept on both: an effect naming it resolves on the axis that declares its mode.
 func declaredConstructTargets(cs []ConstructInstance, existing []Target) ([]Target, []string, map[failuremode.Axis][]string) {
 	var out []Target
 	var warns []string
 	skipped := map[failuremode.Axis][]string{}
-	axisOf := map[string]failuremode.Axis{}
+	seen := map[failuremode.Target]bool{}
 	for _, t := range existing {
-		axisOf[t.Name] = t.Axis
+		seen[failuremode.Target{Name: t.Name, Axis: t.Axis}] = true
 	}
 	for _, ci := range cs {
 		ft, ok := ci.Config.(failureTargeter)
@@ -108,14 +109,10 @@ func declaredConstructTargets(cs []ConstructInstance, existing []Target) ([]Targ
 				skipped[x.Axis] = append(skipped[x.Axis], x.Name)
 				continue
 			}
-			if axis, dup := axisOf[x.Name]; dup {
-				if axis != x.Axis {
-					warns = append(warns, fmt.Sprintf("%s %q is not an incident target: the name is already a %s target", x.Axis, x.Name, axis))
-					skipped[x.Axis] = append(skipped[x.Axis], x.Name)
-				}
+			if seen[x] {
 				continue
 			}
-			axisOf[x.Name] = x.Axis
+			seen[x] = true
 			out = append(out, Target{Name: x.Name, Axis: x.Axis})
 		}
 	}
@@ -136,6 +133,17 @@ func wildcardSkipWarning(where, target string, skipped map[failuremode.Axis][]st
 
 func scopeSafe(name string) bool {
 	return name != "" && !strings.ContainsAny(name, "@/# \t\n\r") && !strings.HasSuffix(name, ":*")
+}
+
+// targetAxes maps every target name to the axes it is a target on, in inventory order.
+func targetAxes(targets []Target) map[string][]failuremode.Axis {
+	out := map[string][]failuremode.Axis{}
+	for _, t := range targets {
+		if !slices.Contains(out[t.Name], t.Axis) {
+			out[t.Name] = append(out[t.Name], t.Axis)
+		}
+	}
+	return out
 }
 
 // targetIndex maps target name → axis and rejects duplicate names across axes (ambiguous). A
@@ -271,8 +279,19 @@ func soleAxis(vocab []failuremode.Mode, mode string) (failuremode.Axis, bool) {
 	return found, n == 1
 }
 
-// validateEffect checks one (mode, target, intensity) against the target index + vocabulary.
+// validateEffect checks one (mode, target, intensity) against a single-axis target index.
 func validateEffect(e EffectDecl, axes map[string]failuremode.Axis, vocab []failuremode.Mode, multi map[string]bool) error {
+	byName := make(map[string][]failuremode.Axis, len(axes))
+	for name, axis := range axes {
+		byName[name] = []failuremode.Axis{axis}
+	}
+	return validateEffectAxes(e, byName, vocab, multi)
+}
+
+// validateEffectAxes checks one (mode, target, intensity) against the target inventory +
+// vocabulary. A named target on several axes resolves on the one axis that declares the mode;
+// none or several such axes is a loud error.
+func validateEffectAxes(e EffectDecl, axes map[string][]failuremode.Axis, vocab []failuremode.Mode, multi map[string]bool) error {
 	if !(e.Intensity >= 0 && e.Intensity <= 1) {
 		return fmt.Errorf("effect %q: intensity %v out of [0,1]", e.Mode, e.Intensity)
 	}
@@ -295,14 +314,30 @@ func validateEffect(e EffectDecl, axes map[string]failuremode.Axis, vocab []fail
 		}
 		return nil
 	default:
-		axis, ok := axes[e.Target]
+		named, ok := axes[e.Target]
 		if !ok {
 			return fmt.Errorf("effect %q: unknown target %q", e.Mode, e.Target)
 		}
-		if !modeOnAxis(vocab, e.Mode, axis) {
-			return fmt.Errorf("effect %q: mode not declared on target %q's axis %q", e.Mode, e.Target, axis)
+		var declaring []string
+		for _, axis := range named {
+			if modeOnAxis(vocab, e.Mode, axis) {
+				declaring = append(declaring, string(axis))
+			}
 		}
-		return nil
+		switch {
+		case len(declaring) == 1:
+			return nil
+		case len(declaring) > 1:
+			return fmt.Errorf("effect %q: target %q is ambiguous: the mode is declared on its axes %s", e.Mode, e.Target, strings.Join(declaring, ", "))
+		case len(named) == 1:
+			return fmt.Errorf("effect %q: mode not declared on target %q's axis %q", e.Mode, e.Target, named[0])
+		default:
+			list := make([]string, len(named))
+			for i, a := range named {
+				list[i] = string(a)
+			}
+			return fmt.Errorf("effect %q: mode not declared on any of target %q's axes %s", e.Mode, e.Target, strings.Join(list, ", "))
+		}
 	}
 }
 

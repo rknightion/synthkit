@@ -394,8 +394,8 @@ func splitGPUSelectors(t *fixture.GPUTopology, kind string, node *yaml.Node) (*f
 	s, err := fixture.SelectGPUTopology(t, p, f, st, sc)
 	return s, rest, err
 }
-func validateResolvedEffect(r *Resolved, reg *core.Registry, e EffectDecl, axes map[string]failuremode.Axis, vocab []failuremode.Mode, multi map[string]bool) error {
-	if err := validateEffect(e, axes, vocab, multi); err != nil {
+func validateResolvedEffect(r *Resolved, reg *core.Registry, e EffectDecl, axes map[string][]failuremode.Axis, vocab []failuremode.Mode, multi map[string]bool) error {
+	if err := validateEffectAxes(e, axes, vocab, multi); err != nil {
 		return err
 	}
 	if r.GPU == nil {
@@ -424,6 +424,9 @@ func validateResolvedEffect(r *Resolved, reg *core.Registry, e EffectDecl, axes 
 				return fmt.Errorf("shared GPU mode cannot target non-GPU identity %q", key)
 			}
 			continue
+		}
+		if !modeOnAxis(vocab, e.Mode, x.Axis) {
+			continue // the name is also a non-GPU target and the mode resolved on that axis
 		}
 		covered := false
 		for _, ci := range r.Constructs {

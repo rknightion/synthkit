@@ -225,10 +225,15 @@ There is no separate discard mode: the sourced discard counter records spool-ful
 `queue_consumer_stall` reaches when the quota fills.
 
 A function or queue name must be usable as a schedule scope: a name containing `@`, `/`, `#` or
-whitespace is not addressable, and naming it is an unknown-target error. A function or queue whose
-name is already a target on another axis (for example an environment or service node) stays
-declared but is not added as a target. The loader logs a warning for every such name, and again
-for each `function:*` or `queue:*` effect, listing the declared names that wildcard does not reach. With no incident
+whitespace is not addressable, and naming it is an unknown-target error. The loader logs a warning
+for every such name, and again for each `function:*` or `queue:*` effect, listing the declared
+names that wildcard does not reach.
+
+A function or queue may share its name with a target on another axis, for example an app service
+node and the Lambda function that publishes for it. The name is then a target on both axes, and an
+effect naming it resolves on the axis that declares the effect's mode: `function_error_spike` on
+the function, `latency_storm` on the service node. It is an error when none of the name's axes
+declares the mode, or when more than one does. With no incident
 active on these axes the output is unchanged.
 
 One scenario can couple both with other axes, for example a publisher failing while its output
