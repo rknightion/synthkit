@@ -9,7 +9,10 @@ and lives here `[slug: cw-naming]`.
 > `metrics:`; the 5-stat suffix expansion is declared once per block as `stats:` and is NOT
 > repeated per metric. All CW stat series are per-period **gauges** (`type: gauge`) — never
 > `rate()` a `_sum` (canon `[slug: cardinality]`). Families/series marked 📋 (documented, not yet
-> modelled) stay in prose and are deliberately ABSENT from `metrics:`.
+> modelled) stay in prose and are deliberately ABSENT from `metrics:`. A block fenced exactly
+> `yaml signals` is the **default-emission** contract; bases emitted only when a blueprint field
+> opts in live in a separate `yaml signals opt-in` block (schema in `SIGNALS.md`) and never in a
+> default block.
 
 ---
 
@@ -89,8 +92,9 @@ claim that AWS lacks native Metric Streams. No native aliases are installed by t
 The source tables below remain positive-only source evidence, **not emission allowlists**.
 Three further DynamoDB bases (`aws_dynamodb_throttled_requests`, `aws_dynamodb_read_throttle_events`,
 `aws_dynamodb_write_throttle_events`) are opt-in per operation and are absent from the default
-set; they are specified under the throttle capture section [slug: cw-throttle-capture] and are deliberately not in
-the canonical yaml block below, which stays the default emission contract. Lambda gains no base.
+set; they are specified under the throttle capture section [slug: cw-throttle-capture], whose
+`yaml signals opt-in` block declares them. They are deliberately not in the canonical yaml block
+below, which stays the default emission contract. Lambda gains no base.
 
 All statistics are independent per-period gauges. Inputs are explicit synthetic operator
 assumptions, not captured numeric distributions or verified native fidelity. Sparse arrivals
@@ -409,8 +413,24 @@ dimension_profiles:
   group: [dimension_ScheduleGroup]
 metrics:
   - {root: invocation_attempt_count, type: gauge, unit: count, profiles: [account, group], v: ok}
-  - {root: target_error_count, type: gauge, unit: count, profiles: [account, group], note: documented-not-observed; opt-in}
-  - {root: invocation_dropped_count, type: gauge, unit: count, profiles: [account, group], note: documented-not-observed; opt-in}
+```
+
+The two failure bases are emitted only when a schedule declares `target_error_fraction`:
+
+```yaml signals opt-in
+family: aws_scheduler
+scope: blueprint
+sink: promrw
+opt_in: cloud.scheduler.schedules[].target_error_fraction
+source: "signals/cw.md [slug: cw-scheduler]; AWS Scheduler CloudWatch metrics page, retrieved 2026-10-24"
+stats: [_sum, _average, _maximum, _minimum, _sample_count]
+labels: {account_id: <account>, region: <region>, namespace: AWS/Scheduler, job: cloud/aws/scheduler, name: global}
+dimension_profiles:
+  account: []
+  group: [dimension_ScheduleGroup]
+metrics:
+  - {root: target_error_count, type: gauge, unit: count, profiles: [account, group], v: assumed, note: documented-not-observed}
+  - {root: invocation_dropped_count, type: gauge, unit: count, profiles: [account, group], v: assumed, note: documented-not-observed; no retries modelled}
 ```
 
 Withheld (documented, not modelled): `TargetErrorThrottledCount` (whether it is a subset of
@@ -772,6 +792,23 @@ requests (no batch, no secondary index) each throttled request is one `Throttled
 `ReadThrottleEvents` (GetItem) or `WriteThrottleEvents` (PutItem) event; batch and index-fan-out
 divergence documented by AWS is not modelled. Opt-in `throttled_requests_per_second` emits exactly
 this and consumes no capacity and no successful-request latency.
+
+```yaml signals opt-in
+family: aws_dynamodb
+scope: blueprint
+sink: promrw
+opt_in: cloud.dynamodb.tables[].operations[].throttled_requests_per_second
+source: "signals/cw.md [slug: cw-throttle-capture], profile T1 (lab capture, eu-west-1, 2026-10-24)"
+stats: [_sum, _average, _maximum, _minimum, _sample_count]
+labels: {account_id: <account>, region: <region>, namespace: AWS/DynamoDB, job: cloud/aws/dynamodb, name: <declared-collector-name>}
+dimension_profiles:
+  table: [dimension_TableName]
+  operation_table: [dimension_Operation, dimension_TableName]
+metrics:
+  - {root: read_throttle_events, type: gauge, unit: count, profiles: [table], v: ok, note: GetItem throttles only}
+  - {root: throttled_requests, type: gauge, unit: count, profiles: [operation_table], v: ok, note: Operation GetItem or PutItem only}
+  - {root: write_throttle_events, type: gauge, unit: count, profiles: [table], v: ok, note: PutItem throttles only}
+```
 
 ### AWS/Redshift positive series-key observations [slug: cw-redshift]
 

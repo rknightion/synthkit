@@ -37,6 +37,23 @@ exact emitted contract.
   legend (`ok`=✅ / `assumed`=Ⓐ / `trap`=⚠) is defined in
   [`signals/00-canon.md`](./signals/00-canon.md). An absent dimension/label is **omitted** from the
   map (never `""`/`NA`).
+- **Default and opt-in blocks.** A block fenced exactly ` ```yaml signals ` is the
+  **default-emission** contract: every base the declaration can emit from its ordinary
+  traffic and resource fields (a base that needs a nonzero rate, such as a conditional-failure or
+  stream rate, stays here). Its name sets are pinned by tests and stay unchanged when an opt-in
+  base is added. A base that the declaration never emits unless a dedicated opt-in field switches
+  it on (such as a throttle or failure-injection field) goes in a separate block fenced
+  ` ```yaml signals opt-in `,
+  with the same schema plus two required keys: `opt_in` (the enabling blueprint field, spelled as in
+  [`BLUEPRINT-SCHEMA.md`](./BLUEPRINT-SCHEMA.md) and prefixed by its declaration, e.g.
+  `cloud.dynamodb.tables[].operations[].throttled_requests_per_second`) and `source` (provenance:
+  the capture slug or vendor page). Each `metrics` root is one concrete name; `profiles` must name
+  `dimension_profiles` keys. An opt-in name never also appears in a default block, and any other
+  fence tag is rejected. The checker (`internal/conformance`, run by `just test`; the
+  `signals-conformance` recipe applies the same parser to a dump) runs the engine once with each
+  `opt_in` field set and once without it: every declared name and profile must be emitted when
+  set, and none when unset. A new opt-in block therefore also needs an engine fixture entry in
+  `internal/conformance/optin_test.go`.
 - **Discovered a real signal via any pathway** (live capture, exporter/agent inspection,
   metric-stream output, vendor docs)? This catalogue is meant to GROW. Add/adjust the family's
   `yaml signals` block + prose in the right area file, resolve the matching `cantfind.md` SK-N
@@ -57,7 +74,7 @@ Cross-cutting rules that span ALL families (area files reference these by slug, 
 
 | Area file | What it covers | Scope | Sink(s) | Family slugs |
 |---|---|---|---|---|
-| [`signals/cw.md`](./signals/cw.md) | AWS CloudWatch emitted families (51 RW-only captured-service bases: Lambda/SQS/DynamoDB plus ten Redshift/two Logs intake/four optional Lambda-delivery observations; plus three opt-in DynamoDB throttle bases) + separate positive-only source contracts (no Glue expansion/native admission) | blueprint | promrw; verified native aliases: otlp | `cw-naming` (LAW), `cw-captured-emitted`, `cw-lambda-emitted`, `cw-sqs-emitted`, `cw-dynamodb-emitted`, `cw-redshift-emitted`, `cw-logs-emitted`, `cw-captured`, `cw-lambda`, `cw-sqs`, `cw-dynamodb`, `cw-redshift`, `cw-logs`, `cw-glue-captured`, `cw-alb`, `cw-nlb`, `cw-ec2`, `cw-ebs`, `cw-natgw`, `cw-s3`, `cw-eks`, `cw-firehose`, `cw-rds`, `cw-elasticache`, `cw-mwaa`, `cw-docdb`, `cw-neptune`, `cw-aoss`, `cw-glue`, `cw-privatelink`, `cw-metric-stream-otlp` |
+| [`signals/cw.md`](./signals/cw.md) | AWS CloudWatch emitted families (51 RW-only captured-service bases: Lambda/SQS/DynamoDB plus ten Redshift/two Logs intake/four optional Lambda-delivery observations; plus three opt-in DynamoDB throttle bases and the EventBridge Scheduler family with two opt-in failure bases, each opt-in set in a `yaml signals opt-in` block) + separate positive-only source contracts (no Glue expansion/native admission) | blueprint | promrw; verified native aliases: otlp | `cw-naming` (LAW), `cw-captured-emitted`, `cw-lambda-emitted`, `cw-sqs-emitted`, `cw-dynamodb-emitted`, `cw-redshift-emitted`, `cw-logs-emitted`, `cw-scheduler`, `cw-captured`, `cw-lambda`, `cw-sqs`, `cw-dynamodb`, `cw-redshift`, `cw-logs`, `cw-glue-captured`, `cw-throttle-capture`, `cw-alb`, `cw-nlb`, `cw-ec2`, `cw-ebs`, `cw-natgw`, `cw-s3`, `cw-eks`, `cw-firehose`, `cw-rds`, `cw-elasticache`, `cw-mwaa`, `cw-docdb`, `cw-neptune`, `cw-aoss`, `cw-glue`, `cw-privatelink`, `cw-metric-stream-otlp` |
 | [`signals/k8s.md`](./signals/k8s.md) | k8s-monitoring substrate (KSM, node-exporter, cAdvisor, kubelet, conformance, events) + addon pod correlation | substrate | promrw (+ loki events) | `k8s-label-types`, `k8s-ksm`, `k8s-node-exporter`, `k8s-cadvisor`, `k8s-kubelet`, `k8s-conformance`, `k8s-events`, `k8s-addon-pod-correlation` |
 | [`signals/k8s-addons.md`](./signals/k8s-addons.md) | k8s add-on controllers | substrate | promrw | `k8s-lbc`, `k8s-externaldns`, `k8s-coredns`, `k8s-vpc-cni`, `k8s-cert-manager`, `k8s-cluster-autoscaler`, `k8s-ebs-csi`, `k8s-ksm-ingress`, `k8s-karpenter`, `k8s-argocd`, `k8s-envoy-gateway` |
 | [`signals/dbo11y.md`](./signals/dbo11y.md) | Database Observability (MySQL, Postgres) | substrate | promrw + loki | `dbo11y-identity`, `dbo11y-shared-labels`, `dbo11ymysql`, `dbo11ymysql-logs`, `dbo11ypg`, `dbo11ypg-logs` |
