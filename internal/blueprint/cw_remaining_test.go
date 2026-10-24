@@ -175,6 +175,16 @@ func TestRemainingCWCLI(t *testing.T) {
 		return out, []byte(stderr.String()), err
 	}
 	fixture := remainingFixture(t)
+	for _, kind := range []string{"lambda", "sqs", "dynamodb", "redshift", "cloudwatch_logs"} {
+		for _, route := range []string{"mixed", "addons", "crossenv"} {
+			t.Run(kind+" "+route+" CLI ceiling", func(t *testing.T) {
+				out, stderr, err := run(string(capturedCWRoute(t, kind, route, "")), "-validate")
+				if err == nil || !strings.Contains(string(out)+string(stderr), kind+" declaration collision") {
+					t.Fatalf("duplicate CLI admission: %v\n%s\n%s", err, out, stderr)
+				}
+			})
+		}
+	}
 	for _, args := range [][]string{{"-validate"}, {"-once", "-dump"}, {"-once", "-inventory-json"}} {
 		out, stderr, err := run(fixture, args...)
 		if err != nil {
@@ -315,6 +325,96 @@ func TestRemainingCWCLI(t *testing.T) {
 				t.Fatalf("distinct region rejected: %v %s %s", err, out, stderr)
 			}
 		})
+	}
+}
+
+// Build alternate public authoring routes from the same valid resource configs.
+// No component imports or invented identities: addons receive the environment fixture.
+func capturedCWRoute(t *testing.T, kind, route, separation string) []byte {
+	t.Helper()
+	text := remainingFixture(t)
+	if kind == "lambda" || kind == "sqs" || kind == "dynamodb" {
+		text = strings.ReplaceAll(string(cwConsumerFixture(t)), "e2e-cw-consumers", "e2e-cw-remaining")
+	}
+	var doc map[string]any
+	if err := yaml.Unmarshal([]byte(text), &doc); err != nil {
+		t.Fatal(err)
+	}
+	env := doc["environments"].([]any)[0].(map[string]any)
+	cloud := env["cloud"].(map[string]any)
+	config := cloud[kind].(map[string]any)
+	for _, k := range []string{"lambda", "sqs", "dynamodb", "redshift", "cloudwatch_logs"} {
+		delete(cloud, k)
+	}
+	addon := map[string]any{"name": kind}
+	for k, v := range config {
+		addon[k] = v
+	}
+	cluster := func(name string, addons ...any) map[string]any {
+		return map[string]any{"name": name, "type": "eks", "node_groups": []any{map[string]any{"name": "main", "instance_type": "t3.medium", "desired": 1}}, "addons": addons}
+	}
+	env["cluster"] = cluster("fixture-cluster", addon)
+	switch route {
+	case "mixed":
+		cloud[kind] = config
+	case "addons":
+		env["cluster"] = cluster("fixture-cluster", addon, addon)
+	case "crossenv":
+		secondCloud := map[string]any{}
+		for k, v := range cloud {
+			secondCloud[k] = v
+		}
+		if separation == "region" {
+			secondCloud["region"] = "us-west-2"
+		} else if separation == "account" {
+			secondCloud["account_id"] = "444455556666"
+		}
+		doc["environments"] = []any{env, map[string]any{"name": "shadow", "cloud": secondCloud, "cluster": cluster("shadow-cluster", addon)}}
+	case "single":
+	default:
+		t.Fatalf("unknown test route %q", route)
+	}
+	b, err := yaml.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+func TestCapturedCWAllRouteCeiling(t *testing.T) {
+	for _, kind := range []string{"lambda", "sqs", "dynamodb", "redshift", "cloudwatch_logs"} {
+		for _, tc := range []struct {
+			route, separation string
+			collision         bool
+		}{
+			{"mixed", "", true}, {"addons", "", true}, {"crossenv", "", true},
+			{"single", "", false}, {"crossenv", "region", false}, {"crossenv", "account", false},
+		} {
+			t.Run(kind+"/"+tc.route+"/"+tc.separation, func(t *testing.T) {
+				reg := runner.Catalog()
+				res, err := blueprint.Load(capturedCWRoute(t, kind, tc.route, tc.separation), reg)
+				if err != nil {
+					if tc.collision && strings.Contains(err.Error(), kind+" declaration collision") {
+						return
+					}
+					t.Fatal(err)
+				}
+				mc := &coretest.MetricCapture{}
+				r := runner.New(runner.Sinks{Metrics: mc, Logs: &coretest.LogCapture{}}, reg, runner.Options{SendShards: 1, SendDrainDeadline: time.Second})
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				defer r.DrainQueues(ctx)
+				if err := r.AddBlueprint(res); err != nil {
+					t.Fatal(err)
+				}
+				if err := r.RunOnce(ctx, time.Date(2026, 10, 23, 12, 0, 0, 0, time.UTC)); err != nil {
+					t.Fatal(err)
+				}
+				if tc.collision {
+					t.Fatalf("duplicate %s declarations admitted through %s and executed (%d series)", kind, tc.route, len(mc.All()))
+				}
+			})
+		}
 	}
 }
 

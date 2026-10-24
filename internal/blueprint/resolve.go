@@ -655,12 +655,6 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 		return nil, err
 	}
 
-	// New CW kinds own account-region aggregates/resource lists in one declaration.
-	// Environment names do not distinguish their series. Keep this conservative,
-	// blueprint-local admission until a broader pure-claims design is supported.
-	type cwDeclarationKey struct{ kind, account, region string }
-	cwDeclarations := map[cwDeclarationKey]string{}
-
 	// Pass 3 — emit construct instances. A cluster's explicit emission gate
 	// affects only its derived constructs; earlier topology/workload binding stays.
 	for _, ec := range envs {
@@ -823,14 +817,6 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 				cscfg := csreg.NewConfig()
 				if err := strictDecode(cs.node, cscfg, fmt.Sprintf("blueprint %q: env %q %s config", d.Name, e.Name, cs.kind)); err != nil {
 					return nil, err
-				}
-				switch cs.kind {
-				case KindLambda, KindSQS, KindDynamoDB, KindRedshift, KindCloudWatchLogs:
-					key := cwDeclarationKey{cs.kind, ec.cloud.AccountID, ec.cloud.Region}
-					if previous, exists := cwDeclarations[key]; exists {
-						return nil, fmt.Errorf("blueprint %q: %s declaration collision: account_id %q region %q declared by environments %q and %q; use one resource list per blueprint/account/region/kind", d.Name, cs.kind, key.account, key.region, previous, e.Name)
-					}
-					cwDeclarations[key] = e.Name
 				}
 				// One pipelines declaration fans into every consuming construct.
 				if pc, ok := cscfg.(pipelinerun.Consumer); ok && len(e.Cloud.Pipelines) > 0 {
@@ -1111,6 +1097,25 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 		}
 		for _, scope := range expandScopes(inc.Target, r.Targets) {
 			r.Incidents = append(r.Incidents, scheduleEntry(inc.Kind, timeTok, inc.For, inc.Intensity, scope, inc.intensitySet))
+		}
+	}
+	// Captured CW kinds own account-region aggregates/resource lists once per
+	// blueprint. Check the final BoM, including addons and cross-env routes:
+	// neither environment nor construct instance names distinguish their series.
+	type cwDeclarationKey struct{ kind, account, region string }
+	cwDeclarations := map[cwDeclarationKey]string{}
+	for _, ci := range r.Constructs {
+		switch ci.Kind {
+		case KindLambda, KindSQS, KindDynamoDB, KindRedshift, KindCloudWatchLogs:
+			if ci.Fixtures == nil || ci.Fixtures.Cloud == nil {
+				continue // Missing cloud remains the construct Build's normal refusal.
+			}
+			cloud := ci.Fixtures.Cloud
+			key := cwDeclarationKey{ci.Kind, cloud.AccountID, cloud.Region}
+			if previous, exists := cwDeclarations[key]; exists {
+				return nil, fmt.Errorf("blueprint %q: %s declaration collision: account_id %q region %q declared by constructs %q and %q; use one resource list per blueprint/account/region/kind", d.Name, ci.Kind, key.account, key.region, previous, ci.Name)
+			}
+			cwDeclarations[key] = ci.Name
 		}
 	}
 	for _, w := range zeroConstructWarnings(r, d) {
