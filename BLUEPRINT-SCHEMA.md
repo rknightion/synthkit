@@ -567,6 +567,7 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `environments[].cloud.dynamodb` | raw yaml (see per-kind config sections) |  | Provisioned CloudWatch table metrics (tables:); remote-write only; absent ⇒ not emitted |
 | `environments[].cloud.redshift` | raw yaml (see per-kind config sections) |  | Provisioned cluster snapshots and sparse I/O (clusters:); remote-write only; absent ⇒ not emitted |
 | `environments[].cloud.cloudwatch_logs` | raw yaml (see per-kind config sections) |  | Log-group intake metrics (log_groups:); remote-write only; absent ⇒ not emitted |
+| `environments[].cloud.scheduler` | raw yaml (see per-kind config sections) |  | EventBridge Scheduler fixed-rate schedules (schedules:); remote-write only; absent ⇒ not emitted |
 | `environments[].cloud.pipelines[]` | object |  | Pipelines declares the env's batch data pipelines once (internal/pipelinerun). The resolver hands them to every consuming cloud-service construct (glue, mwaa) and adds each stage as a pipeline_stage failure target named <pipeline>.<stage>. Pipeline names must be unique across all blueprint environments. A glue stage needs a glue block; an orchestrating environment needs an mwaa block that lists it. |
 | `environments[].cloud.pipelines[].name` | string |  |  |
 | `environments[].cloud.pipelines[].environment` | string |  |  |
@@ -1344,6 +1345,20 @@ Provisioned AWS/Redshift snapshots and sparse I/O latency (remote-write only)
 | `clusters[].wlm_queues[].name` | string |  |  |
 | `clusters[].wlm_queues[].waiting` | float | yes |  |
 | `clusters[].wlm_queues[].running` | float | yes |  |
+
+## scheduler config
+
+**Location:** `(config-gated by env/cloud/cluster/database declarations)`  ·  **group:** topology
+
+EventBridge Scheduler fixed-rate schedule CloudWatch metrics (remote-write only)
+
+| key | type | optional | description |
+|---|---|---|---|
+| `schedules[]` | object |  |  |
+| `schedules[].name` | string |  | Name is the schedule name, unique within its group (1..64 letters, digits, '.', '_' or '-'). |
+| `schedules[].group` | string |  | Group is the schedule group and the ScheduleGroup dimension value. Omitted means "default", the group EventBridge Scheduler uses for a schedule created without one. |
+| `schedules[].rate` | string |  | Rate is an EventBridge Scheduler rate expression, rate(<value> <unit>) with a whole positive value and unit minute(s), hour(s) or day(s), for example "rate(5 minutes)". Cron and one-time at() expressions are rejected. |
+| `schedules[].target_error_fraction` | float |  | TargetErrorFraction is the opt-in failure mode: the fraction of runs, in [0,1], whose target API call returns an error. Each failed run adds one TargetErrorCount and, with no retries modelled, one InvocationDroppedCount. Failed runs are evenly spaced with fractional carry. Zero (the default) emits neither metric. |
 
 ## snowflake config
 
