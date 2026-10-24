@@ -1596,6 +1596,8 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].custom_metrics[].value.enum[]` | object |  |  |
 | `services[].custom_metrics[].value.enum[].value` | string |  |  |
 | `services[].custom_metrics[].value.enum[].weight` | float |  |  |
+| `services[].custom_metrics[].value.enum[].rate_scale` | float | yes |  |
+| `services[].custom_metrics[].value.enum[].value_scale` | float | yes |  |
 | `services[].custom_metrics[].value.int_range` | object | yes |  |
 | `services[].custom_metrics[].value.int_range.min` | int |  |  |
 | `services[].custom_metrics[].value.int_range.max` | int |  |  |
@@ -1613,8 +1615,15 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].custom_metrics[].value.shape.mode` | string |  |  |
 | `services[].custom_metrics[].value.shape.incident_value` | float | yes |  |
 | `services[].custom_metrics[].value.ref` | string |  |  |
+| `services[].custom_metrics[].value.lognormal` | object | yes |  |
+| `services[].custom_metrics[].value.lognormal.median` | float |  |  |
+| `services[].custom_metrics[].value.lognormal.p95` | float |  |  |
 | `services[].custom_metrics[].buckets[]` | float |  |  |
 | `services[].custom_metrics[].le_style` | string |  |  |
+| `services[].custom_metrics[].stock_of` | object | yes |  |
+| `services[].custom_metrics[].stock_of.metric` | string |  |  |
+| `services[].custom_metrics[].stock_of.dwell_seconds` | float |  |  |
+| `services[].custom_metrics[].count_of` | string |  |  |
 | `services[].metrics[]` | object |  | legacy inline metrics (the DSL escape hatch) |
 | `services[].metrics[].name` | string |  |  |
 | `services[].metrics[].source` | string |  |  |
@@ -1628,6 +1637,8 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].metrics[].value.enum[]` | object |  |  |
 | `services[].metrics[].value.enum[].value` | string |  |  |
 | `services[].metrics[].value.enum[].weight` | float |  |  |
+| `services[].metrics[].value.enum[].rate_scale` | float | yes |  |
+| `services[].metrics[].value.enum[].value_scale` | float | yes |  |
 | `services[].metrics[].value.int_range` | object | yes |  |
 | `services[].metrics[].value.int_range.min` | int |  |  |
 | `services[].metrics[].value.int_range.max` | int |  |  |
@@ -1645,8 +1656,15 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].metrics[].value.shape.mode` | string |  |  |
 | `services[].metrics[].value.shape.incident_value` | float | yes |  |
 | `services[].metrics[].value.ref` | string |  |  |
+| `services[].metrics[].value.lognormal` | object | yes |  |
+| `services[].metrics[].value.lognormal.median` | float |  |  |
+| `services[].metrics[].value.lognormal.p95` | float |  |  |
 | `services[].metrics[].buckets[]` | float |  |  |
 | `services[].metrics[].le_style` | string |  |  |
+| `services[].metrics[].stock_of` | object | yes |  |
+| `services[].metrics[].stock_of.metric` | string |  |  |
+| `services[].metrics[].stock_of.dwell_seconds` | float |  |  |
+| `services[].metrics[].count_of` | string |  |  |
 | `services[].logs[]` | object |  | inline custom log streams |
 | `services[].logs[].source` | string |  |  |
 | `services[].logs[].stream_labels` | map[string]ValueModel |  |  |
@@ -1683,6 +1701,15 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].controller` | string |  | Controller/HasHPA/VolumeClaims are placement facts (like Resources): the blueprint resolver copies them onto fixture.Workload so this node is modelled as the right k8s controller kind (Deployment default \| StatefulSet) with optional HPA/PVC. They affect ONLY the k8s substrate lane (KSM family, pod naming, PVC/HPA), never this workload's own emitted telemetry. `controller: daemonset` is rejected on an app service node at resolve time (DaemonSets don't emit app traces — spec Q4); declare a DaemonSet via a `runs_in_cluster` integration instead. |
 | `services[].hpa` | bool |  | opt-in kube_horizontalpodautoscaler_* (Deployment/StatefulSet) |
 | `services[].volume_claims[]` | string |  | PVC template names → kube_persistentvolumeclaim_*/kubelet_volume_stats_*/pv cost |
+| `services[].error_rate` | float | yes | ErrorRate is the entry service's baseline request error fraction in [0,1]: the share of requests with a non-success outcome (split 50% 5xx, 30% 4xx, 20% 429, as before). It replaces the default 0.01; error_spike still raises from it. Entry service only: the build rejects it on any other service. |
+| `services[].shape_profile` | object | yes | ShapeProfile overrides the workload's shape_profile for this service's metrics (and, on the entry, the request volume). Each field it sets replaces the workload's; omitted fields keep the workload's, then the blueprint default. Omitted keeps the workload's profile. |
+| `services[].shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty uses the blueprint timezone (the first region's when the blueprint declares regions). |
+| `services[].shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `services[].shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `services[].shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `services[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `services[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `services[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the blueprint defaults: 0.3 for metrics, 0.2 (production) or 0.02 (non-production) for request volume. |
 | `traffic` | object |  | Traffic shapes the entry node's invocation volume (the correlated narrative sample). |
 | `traffic.shape` | string |  | shape profile name (informational) |
 | `traffic.off_peak_rps` | float |  | trough rate (default 5) |
@@ -1693,6 +1720,14 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `models[]` | object |  | Models is the set of valid (model, provider) routings this app's requests draw from. The minter picks ONE pair per request and stamps it into the correlation, so the gen_ai spans + gateway export logs of every gen_ai-composed node carry the REAL model AND provider (the names-are-law value behind the gen_ai_client / gateway_export_log profiles). Pairing them (vs two independent lists) prevents impossible combinations like a Claude model on the Azure-OpenAI provider. Empty ⇒ a non-AI app. These feed body/attr FIELDS only (never labels), so the per-request draw does not affect the -dump inventory (I32). Values are blueprint-declared (customer model lists stay out of the catalog). |
 | `models[].model` | string |  | gen_ai.request.model (e.g. gpt-4o, claude-3.5-sonnet) |
 | `models[].provider` | string |  | gen_ai.provider.name (e.g. azure-openai, bedrock) |
+| `shape_profile` | object | yes | ShapeProfile optionally gives this workload its own daily load curve (timezone, business hours, weekend factor) instead of the blueprint's shared curve. It drives entry request volume and every shape-scaled metric of the workload. Omitted keeps the blueprint curve. |
+| `shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty uses the blueprint timezone (the first region's when the blueprint declares regions). |
+| `shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the blueprint defaults: 0.3 for metrics, 0.2 (production) or 0.02 (non-production) for request volume. |
 
 ## web_service workload config
 
