@@ -38,6 +38,16 @@ type Queue struct {
 	MessageBytes      float64 `yaml:"message_bytes"`
 	DelaySeconds      int     `yaml:"delay_seconds"`
 	ProcessingSeconds int     `yaml:"processing_seconds"`
+	// Load selects how the queue's traffic follows the blueprint's business curve.
+	// Empty (the default) keeps arrivals_per_second and receives_per_second constant.
+	// "business" treats arrivals_per_second as the peak-plateau arrival rate and
+	// scales it each second by the shape engine's business factor (diurnal x weekly
+	// x volume). Consumers then take what is visible, one message per receive, but
+	// never faster than receives_per_second, which becomes the maximum consumer
+	// throughput: a backlog forms only while scaled arrivals exceed it and drains
+	// once they fall back. Receives follow arrivals, so idle consumers add no
+	// empty-receive polling. Without a shape engine the factor is 1.
+	Load string `yaml:"load"`
 	// Enrichment selects only the P2 key vocabulary. All values are declared;
 	// omitted keys stay absent. P1/P3 tag alternatives cannot be union-filled.
 	Enrichment Enrichment `yaml:"enrichment"`
@@ -53,6 +63,9 @@ type Enrichment struct {
 	Purpose     string `yaml:"purpose"`
 	Terraform   string `yaml:"terraform"`
 }
+
+// loadBusiness is the only non-default Load value.
+const loadBusiness = "business"
 
 func Registration() core.ConstructReg {
 	return core.ConstructReg{Kind: "sqs", Doc: "AWS/SQS ordinary queue metrics (remote-write only)", Scope: core.ScopeBlueprint, NewConfig: func() any { return &Config{} }, Build: Build}
@@ -115,6 +128,9 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 		if math.IsNaN(q.MessageBytes) || math.IsInf(q.MessageBytes, 0) || q.MessageBytes != math.Trunc(q.MessageBytes) || q.MessageBytes < 0 || q.MessageBytes > 1048576 || q.ArrivalsPerSecond > 0 && q.MessageBytes < 1 {
 			return nil, fmt.Errorf("sqs %s: message_bytes must be whole finite bytes, 1..1048576 for nonzero arrivals", q.Name)
 		}
+		if q.Load != "" && q.Load != loadBusiness {
+			return nil, fmt.Errorf("sqs %s: load must be empty or %q, got %q", q.Name, loadBusiness, q.Load)
+		}
 		if q.DelaySeconds < 0 || q.DelaySeconds > 900 || q.ProcessingSeconds < 0 || q.ProcessingSeconds > 43200 {
 			return nil, fmt.Errorf("sqs %s: delay_seconds must be 0..900, processing_seconds 0..43200", q.Name)
 		}
@@ -176,6 +192,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	end := start.Add(time.Duration(seconds) * time.Second)
 	start = start.Add(-c.pausedFor) // cohort deadlines live on the unpaused clock
 	st := state.NewState()          // sparse output: never retain a prior period's observations
+	factors := c.businessFactors(w, start, seconds)
 	for i := range c.queues {
 		q := &c.queues[i]
 		var age, delayed, invisible, visible cw.StatSet
@@ -195,7 +212,12 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 				}
 				q.flying.take(b.count)
 			}
-			arrivals := whole(&q.arrival, q.cfg.ArrivalsPerSecond)
+			arrivalRate := q.cfg.ArrivalsPerSecond
+			business := q.cfg.Load == loadBusiness
+			if business {
+				arrivalRate *= factors[s-1]
+			}
+			arrivals := whole(&q.arrival, arrivalRate)
 			if arrivals > 0 {
 				q.delayed.push(cohort{born: at, ready: at.Add(time.Duration(q.cfg.DelaySeconds) * time.Second), count: arrivals})
 			}
@@ -205,6 +227,10 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 			// Each token is an attempted one-message ReceiveMessage call. Whole
 			// idle tokens become empty receives, not banked future service capacity.
 			polls := whole(&q.drain, q.cfg.ReceivesPerSecond)
+			if business {
+				// Consumers poll for what is visible, up to their throughput ceiling.
+				polls = math.Min(polls, q.visible.total)
+			}
 			remaining := polls
 			var deliveries float64
 			for q.visible.front() != nil && remaining > 0 {
@@ -280,6 +306,32 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		return nil
 	}
 	return w.Metrics.Write(ctx, batch)
+}
+
+// businessFactors returns the per-second business factor for the window
+// (start, start+seconds] when any queue follows the business curve, else nil.
+// start is on the unpaused clock, so master-paused time is added back to
+// reach the wall clock the shape engine is defined on. Without a shape engine
+// the factor is 1 (constant load).
+func (c *Construct) businessFactors(w *core.World, start time.Time, seconds int) []float64 {
+	has := false
+	for i := range c.queues {
+		if c.queues[i].cfg.Load == loadBusiness {
+			has = true
+			break
+		}
+	}
+	if !has {
+		return nil
+	}
+	f := make([]float64, seconds)
+	for s := range f {
+		f[s] = 1
+		if w != nil && w.Shape != nil {
+			f[s] = w.Shape.BusinessFactor(start.Add(c.pausedFor + time.Duration(s+1)*time.Second))
+		}
+	}
+	return f
 }
 
 // whole preserves sub-message residuals across observation windows. The small
