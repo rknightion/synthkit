@@ -187,3 +187,15 @@ func TestRejectsUnknownLoad(t *testing.T) {
 		t.Fatal("accepted unknown load")
 	}
 }
+
+func TestAcceptsExplicitConstantLoad(t *testing.T) {
+	cfg := Registration().NewConfig()
+	dec := yaml.NewDecoder(strings.NewReader("queues:\n  - name: jobs\n    collector_name: declared-collector\n    load: constant\n    arrivals_per_second: 1\n    message_bytes: 8\n"))
+	dec.KnownFields(true)
+	if err := dec.Decode(cfg); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if _, err := Registration().Build(cfg, cloud()); err != nil {
+		t.Fatalf("rejected the documented default load: %v", err)
+	}
+}

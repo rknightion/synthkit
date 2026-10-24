@@ -64,8 +64,11 @@ type Enrichment struct {
 	Terraform   string `yaml:"terraform"`
 }
 
-// loadBusiness is the only non-default Load value.
-const loadBusiness = "business"
+// loadBusiness is the only non-default Load value; empty or loadConstant is the default.
+const (
+	loadBusiness = "business"
+	loadConstant = "constant"
+)
 
 func Registration() core.ConstructReg {
 	return core.ConstructReg{Kind: "sqs", Doc: "AWS/SQS ordinary queue metrics (remote-write only)", Scope: core.ScopeBlueprint, NewConfig: func() any { return &Config{} }, Build: Build}
@@ -128,8 +131,8 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 		if math.IsNaN(q.MessageBytes) || math.IsInf(q.MessageBytes, 0) || q.MessageBytes != math.Trunc(q.MessageBytes) || q.MessageBytes < 0 || q.MessageBytes > 1048576 || q.ArrivalsPerSecond > 0 && q.MessageBytes < 1 {
 			return nil, fmt.Errorf("sqs %s: message_bytes must be whole finite bytes, 1..1048576 for nonzero arrivals", q.Name)
 		}
-		if q.Load != "" && q.Load != loadBusiness {
-			return nil, fmt.Errorf("sqs %s: load must be empty or %q, got %q", q.Name, loadBusiness, q.Load)
+		if q.Load != "" && q.Load != loadConstant && q.Load != loadBusiness {
+			return nil, fmt.Errorf("sqs %s: load must be empty, %q or %q, got %q", q.Name, loadConstant, loadBusiness, q.Load)
 		}
 		if q.DelaySeconds < 0 || q.DelaySeconds > 900 || q.ProcessingSeconds < 0 || q.ProcessingSeconds > 43200 {
 			return nil, fmt.Errorf("sqs %s: delay_seconds must be 0..900, processing_seconds 0..43200", q.Name)
