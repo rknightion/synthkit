@@ -175,7 +175,9 @@ func (r ReadinessReport) Probe() ReadinessProbe {
 
 // EvaluateReadiness folds independently observed process, HTTP, blueprint, persisted-state, and
 // lane-delivery facts into a strict readiness verdict. A missing first push remains red; only a
-// current success for every declared live lane is green. Disabled lanes are intentional and remain
+// LiveReady lane is green. pushstatus decides LiveReady: a scheduled lane needs a success within
+// its missing-evidence bound, while a request-driven lane needs its last outcome to be a success
+// and is never stale for silence. Disabled lanes are intentional and remain
 // visible, but a mode with no expected live delivery (DRY_RUN) is never LiveReady.
 func EvaluateReadiness(in ReadinessInput) ReadinessReport {
 	report := ReadinessReport{

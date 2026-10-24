@@ -754,17 +754,7 @@ func runMode(once, dump, inventoryJSON bool, envPath string) error {
 	// status view). pushstatus and selfobs both consume each event without coupling.
 	ps := pushstatus.NewStore()
 	configureReadinessLanes := func() {
-		lanes := r.DeliveryReadinessLanes()
-		configs := make([]pushstatus.LaneConfig, 0, len(lanes))
-		for _, lane := range lanes {
-			lc := pushstatus.LaneConfig{Name: lane.Name, FreshAfter: lane.EmissionInterval + cfg.SendDeadline}
-			if cfg.DryRun {
-				lc.Disabled = true
-				lc.DisabledReason = "dry_run"
-			}
-			configs = append(configs, lc)
-		}
-		ps.ConfigureLanes(configs)
+		ps.ConfigureLanes(readinessLaneConfigs(r.DeliveryReadinessLanes(), cfg.SendDeadline, cfg.DryRun))
 	}
 	configureReadinessLanes()
 	fan := func(a, b pushhook.Observer) pushhook.Observer {
@@ -1272,4 +1262,23 @@ func countEnabledFailures(f map[string]control.FailureSetting) int {
 		}
 	}
 	return n
+}
+
+// readinessLaneConfigs maps the runner's expected delivery lanes to pushstatus lane configs. The
+// ordinary and HA composition roots both configure readiness through it, so they cannot drift.
+// A request-driven lane keeps its first-attempt and current-error checks but is never stale.
+func readinessLaneConfigs(lanes []runner.DeliveryReadinessLane, sendDeadline time.Duration, dryRun bool) []pushstatus.LaneConfig {
+	configs := make([]pushstatus.LaneConfig, 0, len(lanes))
+	for _, lane := range lanes {
+		lc := pushstatus.LaneConfig{
+			Name: lane.Name, FreshAfter: lane.EmissionInterval + sendDeadline,
+			RequestDriven: lane.Freshness == runner.FreshnessRequestDriven,
+		}
+		if dryRun {
+			lc.Disabled = true
+			lc.DisabledReason = "dry_run"
+		}
+		configs = append(configs, lc)
+	}
+	return configs
 }

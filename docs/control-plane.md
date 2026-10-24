@@ -273,6 +273,23 @@ for startup and readiness for compatibility with their pinned image. Only opt in
 command after verifying the exact compatible image; do not change readiness to this command or
 claim that a successful startup probe makes a selected dry-run deployment live-ready.
 
+### Delivery lanes in readiness
+
+Readiness requires every `expected` lane of the
+[delivery manifest](self-observability.md#delivery-manifest) to be live-ready. Each lane in
+`readiness.lanes` of authenticated `GET /control/status` carries the manifest's freshness class as
+`request_driven`, and the class decides what live-ready means:
+
+| Lane class | Live-ready when | Fails readiness with |
+|---|---|---|
+| Scheduled (`request_driven: false`): constructs, workload metric and profile lanes | The last push succeeded and is younger than the slowest declared interval plus `SEND_BATCH_DEADLINE` | `delivery_not_attempted` before the first push, `delivery_error` on a current error, `delivery_stale` past the bound |
+| Request-driven (`request_driven: true`): workload trace, log, Sigil and RUM lanes | The last push succeeded, however long ago | `delivery_not_attempted` before the first push, `delivery_error` on a current error; never `delivery_stale` |
+
+A request-driven lane pushes only when requests were minted, so at a real low-traffic rate a
+quiet period after a success is not evidence of a fault and keeps readiness green. Its first push
+is still required: a request-driven lane that has never pushed holds readiness red, as above.
+A lane fed by both a scheduled and a request-driven contributor is scheduled.
+
 ### Per-blueprint flags on the public probe
 
 `GET /control/readiness` is public so Docker can call it without credentials, and by default it

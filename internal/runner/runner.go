@@ -161,10 +161,13 @@ type boundWorkload struct {
 
 // DeliveryReadinessLane is one sink lane an active blueprint intends to emit. EmissionInterval is
 // the slowest declared instance cadence feeding that lane and therefore the earliest safe stale
-// threshold before adding the queue delivery deadline.
+// threshold before adding the queue delivery deadline. Freshness is the manifest lane's class: only
+// a FreshnessScheduled lane has a missing-evidence bound; a FreshnessRequestDriven lane pushes only
+// when requests were minted, so its silence is not evidence of a fault.
 type DeliveryReadinessLane struct {
 	Name             string
 	EmissionInterval time.Duration
+	Freshness        LaneFreshness
 }
 
 // bpRuntime is one blueprint's running state: its own shape engine (its incidents +
@@ -1681,7 +1684,7 @@ func (r *Runner) DeliveryReadinessLanes() []DeliveryReadinessLane {
 	out := make([]DeliveryReadinessLane, 0, len(m.Lanes))
 	for _, lane := range m.Lanes {
 		if lane.State == LaneExpected {
-			out = append(out, DeliveryReadinessLane{Name: lane.Sink, EmissionInterval: lane.EmissionInterval})
+			out = append(out, DeliveryReadinessLane{Name: lane.Sink, EmissionInterval: lane.EmissionInterval, Freshness: lane.Freshness})
 		}
 	}
 	return out

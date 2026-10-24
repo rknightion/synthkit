@@ -126,3 +126,38 @@ func byLane(lanes []LaneStatus) map[string]LaneStatus {
 	}
 	return out
 }
+
+// A request-driven lane pushes only when requests were minted, so a quiet window after a success
+// is not stale; the same age on a scheduled lane is. A request-driven lane still waits for its
+// first attempt and still reports a current error.
+func TestDeliverySnapshotRequestDrivenLaneIsJudgedByOutcomeNotAge(t *testing.T) {
+	s := NewStore()
+	s.ConfigureLanes([]LaneConfig{
+		{Name: "promrw", FreshAfter: time.Minute},
+		{Name: "otlp", FreshAfter: time.Minute, RequestDriven: true},
+		{Name: "loki", FreshAfter: time.Minute, RequestDriven: true},
+	})
+	obs := s.Observer()
+
+	waiting := byLane(s.SnapshotLanes())["loki"]
+	if !waiting.RequestDriven || waiting.Attempted || waiting.State != LaneNotAttempted || waiting.LiveReady {
+		t.Fatalf("never-attempted request-driven lane must still be waiting, got %+v", waiting)
+	}
+
+	s.now = fixedNow(1_000)
+	obs(context.Background(), pushhook.Event{Sink: "promrw", Status: 200, Items: 1})
+	obs(context.Background(), pushhook.Event{Sink: "otlp", Status: 200, Items: 1})
+	s.now = fixedNow(1_000 + int64(time.Hour/time.Millisecond))
+	lanes := byLane(s.SnapshotLanes())
+	if got := lanes["promrw"]; got.RequestDriven || !got.Stale || got.State != LaneStaleSuccess || got.LiveReady {
+		t.Fatalf("scheduled lane past its bound must be stale, got %+v", got)
+	}
+	if got := lanes["otlp"]; !got.RequestDriven || got.Stale || got.State != LaneSuccess || !got.LiveReady {
+		t.Fatalf("quiet request-driven lane after a success must stay live-ready, got %+v", got)
+	}
+
+	obs(context.Background(), pushhook.Event{Sink: "otlp", ErrorCode: operationalerr.CodeTransport})
+	if got := byLane(s.SnapshotLanes())["otlp"]; !got.CurrentError || got.State != LaneError || got.LiveReady {
+		t.Fatalf("request-driven lane with a current error must not be live-ready, got %+v", got)
+	}
+}

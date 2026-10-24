@@ -515,16 +515,7 @@ func newHAView(ctx context.Context, cfg *config.Config, gate ha.LeaderGate, boun
 	fs := fleetstatus.NewStore()
 	hs := healthstatus.NewStore()
 	configure := func() {
-		var lanes []pushstatus.LaneConfig
-		for _, l := range v.runner.DeliveryReadinessLanes() {
-			lc := pushstatus.LaneConfig{Name: l.Name, FreshAfter: l.EmissionInterval + cfg.SendDeadline}
-			if cfg.DryRun {
-				lc.Disabled = true
-				lc.DisabledReason = "dry_run"
-			}
-			lanes = append(lanes, lc)
-		}
-		ps.ConfigureLanes(lanes)
+		ps.ConfigureLanes(readinessLaneConfigs(v.runner.DeliveryReadinessLanes(), cfg.SendDeadline, cfg.DryRun))
 	}
 	configure()
 	obs := func(ctx context.Context, ev pushhook.Event) {

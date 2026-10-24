@@ -92,12 +92,17 @@ const (
 
 // LaneConfig declares a sink lane that the process intends to deliver. FreshAfter is the
 // declared emission interval plus the delivery deadline; zero leaves staleness disabled for
-// callers that are displaying delivery history rather than evaluating readiness.
+// callers that are displaying delivery history rather than evaluating readiness. RequestDriven
+// marks a lane whose producers push only when requests were minted (the delivery manifest's
+// request_driven class): its health is judged from push outcomes, never from push age, so a
+// quiet window after a success is not stale. It still waits for its first attempt and still
+// reports a current error.
 type LaneConfig struct {
 	Name           string
 	Disabled       bool
 	DisabledReason string
 	FreshAfter     time.Duration
+	RequestDriven  bool
 }
 
 // LaneStatus joins a LaneConfig with observed delivery history. State is mutually exclusive;
@@ -115,6 +120,7 @@ type LaneStatus struct {
 	LastError      string              `json:"last_error"`
 	LastErrorCode  operationalerr.Code `json:"last_error_code"`
 	CurrentError   bool                `json:"current_error"`
+	RequestDriven  bool                `json:"request_driven"`
 	Stale          bool                `json:"stale"`
 	State          LaneState           `json:"state"`
 	LiveReady      bool                `json:"live_ready"`
@@ -335,7 +341,10 @@ func foldLane(name string, configured bool, cfg LaneConfig, stat SinkStat, curre
 		LastErrorCode:  stat.LastErrorCode,
 	}
 	st.CurrentError = currentError
-	st.Stale = st.LastSuccessMs > 0 && cfg.FreshAfter > 0 && now.Sub(time.UnixMilli(st.LastSuccessMs)) > cfg.FreshAfter
+	st.RequestDriven = configured && cfg.RequestDriven
+	// Only a scheduled lane's bound is missing-evidence: a request-driven lane's silence after a
+	// success says nothing about delivery, so it is judged by its last outcome alone.
+	st.Stale = !st.RequestDriven && st.LastSuccessMs > 0 && cfg.FreshAfter > 0 && now.Sub(time.UnixMilli(st.LastSuccessMs)) > cfg.FreshAfter
 	switch {
 	case !configured:
 		st.State = LaneUnconfigured
