@@ -1019,7 +1019,8 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 
 	// Pass 6 — addressable-target inventory, scenario resolution, then incident compilation.
 	//
-	// Target inventory + ambiguity check (a name reused across two axes is rejected).
+	// Target inventory + ambiguity check (a name reused across two structural axes is rejected;
+	// a construct-declared function or queue name may share one and resolves by its mode).
 	r.Targets = buildTargets(d)
 	if r.GPU != nil {
 		for _, target := range r.GPU.Targets {
