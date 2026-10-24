@@ -388,6 +388,12 @@ func (s *LockedState) publish(ctx context.Context, name string, raw []byte) erro
 		}
 		return ErrOutcomeUnknown
 	}
+	// A caller deadline or cancellation that lands mid-publication still makes
+	// the outcome unknown (and poisons the store), but its cause stays in the
+	// chain so callers can tell an interrupted commit from a durability fault.
+	interrupted := func() error {
+		return errors.Join(unknown(), ctx.Err(), s.ctx.Err())
+	}
 	for rest := raw; len(rest) > 0; {
 		n, e := f.Write(rest)
 		if e != nil || n == 0 {
@@ -408,7 +414,7 @@ func (s *LockedState) publish(ctx context.Context, name string, raw []byte) erro
 		return unknown()
 	}
 	if ctx.Err() != nil || s.ctx.Err() != nil {
-		return unknown()
+		return interrupted()
 	}
 	if unix.Renameat(int(s.dir.Fd()), temp, int(s.dir.Fd()), name) != nil {
 		return unknown()
@@ -424,7 +430,7 @@ func (s *LockedState) publish(ctx context.Context, name string, raw []byte) erro
 	}
 	check, e := s.read(name, limit)
 	if e != nil || !bytes.Equal(raw, check) || s.identity() != nil || ctx.Err() != nil || s.ctx.Err() != nil {
-		return unknown()
+		return interrupted()
 	}
 	return nil
 }

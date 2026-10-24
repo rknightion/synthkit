@@ -127,14 +127,23 @@ func writeHAJSON(t *testing.T, path string, value any) {
 }
 func haGet(t *testing.T, url string) (int, []byte) {
 	t.Helper()
+	code, body, _ := haGetDetail(url)
+	return code, body
+}
+
+// haGetDetail is haGet with the transport error kept, so a failed single-shot
+// observation can say whether it was a client timeout, a refused or reset
+// connection, or a completed response. It changes no bound or assertion.
+func haGetDetail(url string) (int, []byte, error) {
 	client := &http.Client{Timeout: 300 * time.Millisecond}
+	start := time.Now()
 	resp, err := client.Get(url)
 	if err != nil {
-		return 0, nil
+		return 0, nil, fmt.Errorf("after %s: %w", time.Since(start).Round(time.Millisecond), err)
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
-	return resp.StatusCode, body
+	return resp.StatusCode, body, nil
 }
 func awaitHA(t *testing.T, fn func() bool) {
 	t.Helper()
@@ -302,9 +311,9 @@ func exerciseHALeaseFileLifecycle(t *testing.T, expire, incompleteHeaders bool) 
 		var current control.State
 		return json.Unmarshal(body, &current) == nil && current.VolumeMultiplier == 7 && len(current.BlueprintSources) == 1 && current.BlueprintSources[0].LoadedSHA == "after"
 	})
-	code, body := haGet(t, endpoint+"/control/inventory")
+	code, body, getErr := haGetDetail(endpoint + "/control/inventory")
 	if code != 200 || !strings.Contains(string(body), "second") {
-		t.Fatalf("acquisition retained stale topology: %d %s", code, body)
+		t.Fatalf("acquisition retained stale topology: %d %s (transport: %v)", code, body, getErr)
 	}
 	if incompleteHeaders {
 		conn, err := net.DialTimeout("tcp", boundAddr, time.Second)

@@ -395,8 +395,14 @@ func TestKubernetesProvisionLeaseSerializesAndLossClosesAdmission(t *testing.T) 
 		p := startProvision(t, a, cfg)
 		select {
 		case <-observed:
+		case err := <-p.done:
+			// Diagnostic only: the child ended before any mutation reached the
+			// handler (for example its Lease was lost before dispatch).
+			t.Fatalf("no real mutation receipt before loss: provision process exited first: %v\n%s", err, p.output.String())
 		case <-time.After(3 * time.Second):
-			t.Fatal("no real mutation receipt before loss")
+			p.cancel()
+			err := <-p.done
+			t.Fatalf("no real mutation receipt before loss: provision process still running at the bound (killed: %v)\n%s", err, p.output.String())
 		}
 		a.Mu.Lock()
 		a.LoseLease = true

@@ -765,6 +765,42 @@ func TestFoundationDurabilityFailuresPoison(t *testing.T) {
 	}
 }
 
+// A caller context that ends mid-publication leaves the commit outcome unknown
+// and poisons the store, and the cancellation stays visible in the error chain,
+// so an interrupted commit is not mistaken for a durability fault. The edge
+// hook ends the context at an exact publication stage, after the entry checks.
+func TestFoundationInterruptedPublicationKeepsCause(t *testing.T) {
+	for _, stage := range []string{"state.json-file-sync", "state.json-dir-sync"} {
+		t.Run(stage, func(t *testing.T) {
+			s := proofStore(t, proofDirectory(t), false)
+			snap, a, p, _ := proofBootstrap(t, s)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			reached := false
+			s.edges.after = func(at string) error {
+				if at == stage {
+					cancel()
+					reached = true
+				}
+				return nil
+			}
+			_, e := s.Commit(ctx, *snap.Base.Head, a, Change{Kind: ChangeIntent, ExpectedInventory: proofDigest('1'), ConstructionID: "initial", AttemptID: "interrupted", Step: 1, Intent: &IntentEvidence{p.input.Resources[0].Spec, proofDigest('2'), []Coordinate{}}})
+			if !reached {
+				t.Fatalf("interruption edge %s not reached: %v", stage, e)
+			}
+			if !errors.Is(e, ErrOutcomeUnknown) {
+				t.Fatalf("interrupted publication lost its unknown outcome: %v", e)
+			}
+			if !errors.Is(e, context.Canceled) {
+				t.Fatalf("interrupted publication dropped its cause: %v", e)
+			}
+			if _, e = s.Authorize(context.Background(), a.approval, a.preview, proofDigest('1')); !errors.Is(e, ErrOutcomeUnknown) {
+				t.Fatalf("interrupted publication did not poison authority: %v", e)
+			}
+		})
+	}
+}
+
 func TestFoundationUnsupportedDurabilityPoisons(t *testing.T) {
 	s := proofStore(t, proofDirectory(t), false)
 	snap, a, p, _ := proofBootstrap(t, s)
