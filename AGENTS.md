@@ -223,6 +223,10 @@ Corpus comparison scopes known profiles to their matching captured collector; un
 unattributed evidence remains independently compared. Missing matching profiles retain wrong-profile
 evidence. Provenance never reaches the wire; captured reality and the sole exemption stay unchanged.
 
+- Loki query results can merge structured metadata into the returned stream map. Verify the
+  indexed-label boundary with `/loki/api/v1/series`, not query-result labels alone; a metadata key
+  in a query response is not evidence that the emitter indexed it.
+
 - Synthetic Monitoring probe coordinates resolve once from paired blueprint latitude/longitude;
   omitted coordinates retain Frankfurt and explicit zero is valid. Shared probe names require
   identical region and coordinates across blueprints. The provisioner snapshot and emitted geohash
