@@ -4,7 +4,7 @@ title: Diagnose bounded HA helper HTTP readiness failure under the full race gat
 status: Parked
 assignee: []
 created_date: '2026-10-21T03:00:00Z'
-updated_date: '2026-10-24T02:12:00Z'
+updated_date: '2026-10-24T05:10:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -39,4 +39,6 @@ loop52 BATCH2: landed e2cea58 (pushed 45ff131). Cause 1 (reserve-and-close port 
 Loop54 authorized bounded remote measurement at source8f5a75e (runtime source unchanged from a0554b6), run20261023T194726Z-synthkit-f2a5755f. One quiet-host race job ran HA then Fleet sequentially: 10 top-level HA iterations/40 scenario subtests and 10 Fleet iterations/20 restart-teardown subtests all passed, zero skipped. The same 40 HA cases cover helper readiness, not an extra independent sample. Bounds/source/assertions/isolation unchanged. No reproduction, repair, cleared full-gate failure, loaded A/B or measured isolation benefit established; retain Parked pending naturally failing same-context request/startup/scheduler evidence.
 
 Loop54 closeout: remains Parked after quiet-host measurements showed no attributable readiness defect or isolation benefit. Resume only on fresh reproducible evidence; no bound/helper policy weakened.
+
+No new timing measurement ran: the documented runner exposes free slots but no guaranteed idle or preemptible gate-host route. Existing quiet results do not clear the park; request/startup/scheduling attribution remains required. No timeout or test was weakened.
 <!-- SECTION:NOTES:END -->

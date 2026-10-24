@@ -4,7 +4,7 @@ title: Diagnose intermittent HA renewal-loss observation timeout under loaded ga
 status: Parked
 assignee: []
 created_date: '2026-10-21T15:25:00Z'
-updated_date: '2026-10-24T02:12:00Z'
+updated_date: '2026-10-24T05:10:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -41,4 +41,6 @@ Owner ruling 2026-10-22 (loop52 Q05): isolated race invocation with bounds uncha
 Loop54 authorized bounded remote measurement at source8f5a75e (runtime source unchanged from a0554b6), run20261023T194726Z-synthkit-f2a5755f. One quiet-host race job ran HA then Fleet sequentially: 10 top-level HA iterations/40 scenario subtests and 10 Fleet iterations/20 restart-teardown subtests all passed, zero skipped. The same 40 HA cases cover helper readiness, not an extra independent sample. Bounds/source/assertions/isolation unchanged. No reproduction, repair, cleared full-gate failure, loaded A/B or measured isolation benefit established; retain Parked pending naturally failing same-context request/startup/scheduler evidence.
 
 Loop54 closeout: remains Parked. Read-only quiet-host HA measurements passed40HA/20Fleet scenarios without reproducing the failure or proving isolation benefit. Resume on fresh attributable reproduction; caller deadlines, test bounds and isolation unchanged.
+
+This loop performed only route discovery for the permitted quiet-host measurement. The installed runner has slot admission but no documented idle-only or preemptible measurement path guaranteeing required gates are not blocked. No remote job or test started; this is an unavailable measurement, not a green result or proof the host is busy. Retain the park until a compliant route or attributable reproduction is available.
 <!-- SECTION:NOTES:END -->
