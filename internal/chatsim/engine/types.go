@@ -126,6 +126,7 @@ type BeatView struct {
 	Goal      string   `json:"goal"`
 	Channel   string   `json:"channel,omitempty"`
 	Speakers  []string `json:"speakers"`
+	TurnsUsed int      `json:"turns_used"`
 	TurnsLeft int      `json:"turns_left"`
 	Claims    []Claim  `json:"claims,omitempty"`
 }

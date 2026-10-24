@@ -1,0 +1,21 @@
+# Workspace bindings for synthkit-chat. Copy to a private location (never commit a real one) and
+# fill in your workspace's ids. This file holds identifiers and the NAMES of the environment
+# variables that carry secrets; the secrets themselves stay in the environment.
+channels:
+  ops: C0000000001            # the static channel the scenario calls "ops"
+operator_user_id: U0000000001 # the only human; the /chatsim kill switch accepts only this user
+irm:
+  bot_ids: [B0000000001]      # Grafana IRM's bot_id: run "synthkit-chat tap" and read it off an alert post
+  app_ids: []
+control:
+  url: http://127.0.0.1:8088  # SynthKit control plane root (GET /control/state)
+  token_env: CONTROL_TOKEN    # HTTP Basic control:<token>
+  poll_interval: 1s
+slack:
+  bot_token_env: SLACK_BOT_TOKEN  # xoxb- bot token
+  app_token_env: SLACK_APP_TOKEN  # app-level token with connections:write
+openrouter:
+  api_key_env: OPENROUTER_API_KEY
+  provider_order: []          # optional: fastest measured endpoints first
+  zdr: false                  # true restricts to zero-data-retention endpoints
+journal_dir: chatsim-runs     # one JSONL journal per run

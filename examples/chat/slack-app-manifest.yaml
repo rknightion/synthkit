@@ -1,0 +1,42 @@
+# Slack app manifest for synthkit-chat (docs/chat-scenarios.md).
+# Create the app at https://api.slack.com/apps?new_app=1 -> "From a manifest", paste this, install
+# it to your workspace, then create an app-level token with the connections:write scope.
+# Socket Mode means no public URL is needed. Not machine-validated: the manifest editor reports
+# any field error inline.
+_metadata:
+  major_version: 2
+display_information:
+  name: Incident Sim
+  description: Simulated coworkers for incident-response drills (synthkit-chat)
+features:
+  bot_user:
+    display_name: Incident Sim
+    always_online: true
+  slash_commands:
+    - command: /chatsim
+      description: Control the running chat scenario (only the bound operator)
+      usage_hint: "start | pause | resume | stop | status | skip <beat> | say <persona> <text>"
+      should_escape: false
+oauth_config:
+  scopes:
+    bot:
+      - chat:write
+      - chat:write.customize   # per-message username and icon_emoji for personas
+      - channels:read          # channel_created
+      - channels:history       # message.channels and the post-join backfill
+      - channels:join          # auto-join new public incident channels
+      - groups:history         # private channels the app was invited to
+      - commands               # /chatsim
+      - users:read
+settings:
+  event_subscriptions:
+    bot_events:
+      - message.channels
+      - message.groups
+      - channel_created
+      - member_joined_channel
+  interactivity:
+    is_enabled: false
+  socket_mode_enabled: true
+  org_deploy_enabled: false
+  token_rotation_enabled: false

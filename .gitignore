@@ -12,6 +12,9 @@ control-state-data/
 /runtime/
 /.env.bak-*
 
+# synthkit-chat run journals (default journal_dir); local runtime records, never committed.
+/chatsim-runs/
+
 # Host-local blueprint staging dir (custom uploads + git-fetched sources + boot manifest);
 # default BLUEPRINT_DATA_DIR. Runtime state — never committed (in compose this lives on /data).
 /data/

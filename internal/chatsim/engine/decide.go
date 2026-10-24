@@ -58,7 +58,7 @@ func (m *Machine) buildCall(now time.Time) (Effect, bool) {
 		if len(speakers) == 0 {
 			continue
 		}
-		bv := BeatView{ID: b.def.ID, Goal: b.def.Goal, Channel: b.def.Channel, Speakers: speakers, TurnsLeft: b.def.MaxTurns - b.turns}
+		bv := BeatView{ID: b.def.ID, Goal: b.def.Goal, Channel: b.def.Channel, Speakers: speakers, TurnsUsed: b.turns, TurnsLeft: b.def.MaxTurns - b.turns}
 		for i, c := range b.def.MayClaim {
 			bv.Claims = append(bv.Claims, Claim{ID: fmt.Sprintf("%s.claim%d", b.def.ID, i+1), Text: c})
 		}
@@ -172,9 +172,15 @@ func (m *Machine) DirectorDone(now time.Time, d Decision, err error) {
 				m.closeBeat(now, b, beatDone, "max_turns")
 			}
 		}
+		// Personas type in parallel: each line is due after its own read-and-type delay, kept
+		// in the director's order (at least a second apart), and after the same persona's
+		// previous line.
 		ps := m.personas[v.line.Persona]
 		delay := TypingDelay(m.rng, v.line.Text, ps.def.TypingWPM, *ps.def.Responsiveness)
-		due := at.Add(delay)
+		due := now.Add(delay)
+		if prev := at.Add(time.Second); at.After(now) && due.Before(prev) {
+			due = prev
+		}
 		if due.Before(ps.lastDue) {
 			due = ps.lastDue.Add(delay / 2)
 		}

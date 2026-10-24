@@ -14,8 +14,8 @@ import (
 // FakeLLM is a deterministic LLM for tests and rehearsal (-llm fake). It reads the structured
 // turn (never the prompt text) and answers in the real response schema, so the director's
 // parse and validation path runs exactly as it does against a model: for each open beat, the
-// first eligible speaker who did not speak last says the beat's goal; an addressed persona
-// acknowledges the operator; an idle turn gets one nudge.
+// next speaker in rotation says the first clause of the beat's goal; an addressed persona
+// acknowledges the operator; an idle turn gets one nudge. Speakers rotate with the beat's turns.
 type FakeLLM struct {
 	// Calls counts Complete calls.
 	Calls int
@@ -42,11 +42,13 @@ func (f *FakeLLM) Complete(_ context.Context, p Prompt) (Completion, error) {
 		if len(out.Lines) >= t.MaxLines {
 			break
 		}
-		speaker := b.Speakers[0]
-		for _, s := range b.Speakers {
-			if names[s] != last && !spoken[s] {
-				speaker = s
-				break
+		speaker := b.Speakers[b.TurnsUsed%len(b.Speakers)]
+		if spoken[speaker] || names[speaker] == last {
+			for _, s := range b.Speakers {
+				if names[s] != last && !spoken[s] {
+					speaker = s
+					break
+				}
 			}
 		}
 		spoken[speaker] = true
