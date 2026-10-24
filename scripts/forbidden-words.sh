@@ -24,7 +24,7 @@ cd "$(git rev-parse --show-toplevel)"
 
 # (1) Built-in credential shapes — public, non-sensitive patterns; always scanned.
 # Includes Grafana glc_/glsa_ token prefixes in addition to the standard set.
-BASE_PATTERN='-----BEGIN [A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}|ghp_[0-9A-Za-z]{36}|github_pat_[0-9A-Za-z_]{40,}|glpat-[0-9A-Za-z_-]{20}|xox[baprs]-[0-9A-Za-z-]{10,}|glc_[0-9A-Za-z]{32,}|glsa_[0-9A-Za-z]{32,}'
+BASE_PATTERN='-----BEGIN [A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}|ghp_[0-9A-Za-z]{36}|github_pat_[0-9A-Za-z_]{40,}|glpat-[0-9A-Za-z_-]{20}|xox[baprs]-[0-9A-Za-z-]{10,}|xapp-[0-9A-Za-z-]{10,}|glc_[0-9A-Za-z]{32,}|glsa_[0-9A-Za-z]{32,}'
 
 # (2) Deployment-specific identifiers (sensitive): env var wins, else the gitignored local file.
 TERMS="${FORBIDDEN_WORDS_PATTERN:-}"

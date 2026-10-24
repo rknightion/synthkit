@@ -91,6 +91,7 @@ Home = "index.md"
     { "Kubernetes monitoring deployment permutations" = "k8s-monitoring-permutations.md" },
     { Runbook = "RUNBOOK.md" },
     { "Control Plane" = "control-plane.md" },
+    { "Chat Scenarios" = "chat-scenarios.md" },
     { "Checkpoint Foundations" = "checkpoint-foundations.md" },
     { "Synthetic Monitoring" = "synthetic-monitoring.md" },
     { "Fleet Management" = "fleet-management.md" },

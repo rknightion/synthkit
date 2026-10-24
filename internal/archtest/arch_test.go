@@ -330,6 +330,81 @@ func TestDashboardSDKIsolation(t *testing.T) {
 	}
 }
 
+// TestChatSimIsolation: the chat-scenario engine is offline tooling. Only cmd/synthkit-chat and
+// internal/chatsim may import internal/chatsim; only the Slack transport may import slack-go; and
+// the engine imports none of the emit path (runner, catalog, blueprint, sinks, selfobs, control).
+// It decodes its own view of the control plane's state instead of linking internal/control.
+func TestChatSimIsolation(t *testing.T) {
+	root := repoRoot(t)
+	const mod = "github.com/rknightion/synthkit/"
+	chatsim := mod + "internal/chatsim"
+	slackGo := "github.com/slack-go/slack"
+	slackDir := filepath.Join(root, "internal", "chatsim", "transport", "slack") + string(filepath.Separator)
+	allowed := []string{
+		filepath.Join(root, "cmd", "synthkit-chat") + string(filepath.Separator),
+		filepath.Join(root, "internal", "chatsim") + string(filepath.Separator),
+	}
+	var emitPath []string
+	for _, p := range []string{"runner", "construct", "workload", "blueprint", "sink", "selfobs", "control"} {
+		emitPath = append(emitPath, mod+"internal/"+p)
+	}
+	under := func(path string, prefixes ...string) bool {
+		for _, p := range prefixes {
+			if strings.HasPrefix(path, p) {
+				return true
+			}
+		}
+		return false
+	}
+	is := func(path, pkg string) bool { return path == pkg || strings.HasPrefix(path, pkg+"/") }
+	fset := token.NewFileSet()
+	scanned := 0
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			switch d.Name() {
+			case ".git", "node_modules", "codex", ".tools", "dist", "site":
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(path, ".go") {
+			return nil
+		}
+		astF, perr := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
+		if perr != nil {
+			return perr
+		}
+		scanned++
+		inChat := under(path, allowed[1])
+		for _, imp := range astF.Imports {
+			ip := strings.Trim(imp.Path.Value, `"`)
+			switch {
+			case is(ip, chatsim) && !under(path, allowed...):
+				t.Errorf("%s imports %q: only cmd/synthkit-chat and internal/chatsim may import the chat engine", path, ip)
+			case is(ip, slackGo) && !under(path, slackDir):
+				t.Errorf("%s imports %q: slack-go is confined to internal/chatsim/transport/slack", path, ip)
+			}
+			if inChat {
+				for _, bad := range emitPath {
+					if is(ip, bad) {
+						t.Errorf("%s imports %q: the chat engine must stay off the emit path", path, ip)
+					}
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if scanned == 0 {
+		t.Fatal("no Go sources scanned")
+	}
+}
+
 func TestPodLogTransportsAreExplicitAndExclusive(t *testing.T) {
 	type monitoring struct {
 		Features struct {
