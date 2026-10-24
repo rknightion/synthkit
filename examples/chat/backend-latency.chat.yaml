@@ -1,0 +1,149 @@
+# Generic example chat scenario for synthkit-chat (docs/chat-scenarios.md).
+#
+# Triggered by the bundled acme-ai-platform blueprint's backend_latency_storm scenario: when an
+# operator activates it, a small invented cast reacts in Slack around the real Grafana IRM alert.
+# Every name here is invented. The operator (the only human) drives every IRM button; personas ask
+# him to act and never claim an IRM action themselves.
+apiVersion: synthkit.chatsim/v1
+kind: ChatScenario
+name: content-gen-latency-drill
+description: Backend latency storm; the incident commander pulls in the backend owner when asked.
+seed: 7
+
+trigger:
+  synthkit_scenario: acme-ai-platform/backend_latency_storm
+  delay: 20s
+  on_deactivate: wind_down
+
+llm:
+  model: deepseek/deepseek-v4.1-flash-1017
+  temperature: 0.7
+  max_llm_calls: 250
+  zdr: false
+
+operator:
+  name: Casey
+  role: on-call SRE
+
+channels:
+  ops: {}
+  incident:
+    bind: { on: channel_created, name_match: "^incident-" }
+    fallback: ops
+
+personas:
+  - id: alex
+    name: Alex Moreno
+    role: Incident commander
+    personality: calm, decisive, delegates, asks for an update every few minutes
+    style: short sentences, lowercase starts, no emoji, uses first names
+    examples:
+      - "ok. casey, can you ack that and take a first look?"
+      - "thanks. what are we seeing on the backend?"
+    avatar: { emoji: ":large_blue_circle:" }
+    typing_wpm: 75
+    responsiveness: 0.9
+    present: [ops, incident]
+  - id: jordan
+    name: Jordan Pike
+    role: Backend owner, content-gen service
+    personality: helpful, a bit terse when busy, precise about what has and has not been checked
+    style: technical, uses backticks for service names, asks one question at a time
+    examples:
+      - "hey, here. what have you seen so far?"
+    avatar: { emoji: ":wrench:" }
+    typing_wpm: 60
+    responsiveness: 0.7
+    present: []
+  - id: lee
+    name: Lee Navarro
+    role: Customer support lead
+    personality: friendly, relays what users are saying, not technical
+    style: plain language, the occasional exclamation mark
+    avatar: { emoji: ":telephone_receiver:" }
+    typing_wpm: 80
+    present: [ops]
+  - id: sam
+    name: Sam Ortiz
+    role: Frontend engineer
+    personality: relaxed, a little sceptical of early alarms
+    style: casual, short, lowercase
+    avatar: { emoji: ":art:" }
+    typing_wpm: 70
+    present: [ops]
+
+facts:
+  - { id: svc, text: "acme-backend-api-content-gen serves the content generate endpoint" }
+  - { id: fe_ok, text: "the frontend itself is healthy" }
+
+beats:
+  - id: early_grumble
+    at: +0s
+    channel: ops
+    speakers: [lee, sam]
+    goal: Lee says a couple of users report that generating content feels slow; Sam says the frontend looks fine and wonders if it is a blip.
+    max_turns: 2
+
+  - id: alert_lands
+    when: { slack: { from: irm, channel: ops, text_match: "(?i)firing|alert group" } }
+    channel: ops
+    speakers: [alex]
+    goal: Alex reacts to the alert and asks Casey to acknowledge it in IRM and take a first look.
+    record: { fact: alert_fired, from: event }
+    max_turns: 1
+
+  - id: acked
+    when: { slack: { from: irm, kind: message_changed, text_match: "(?i)acknowledged" } }
+    channel: ops
+    speakers: [alex]
+    goal: Alex thanks Casey and asks for a first read in a few minutes.
+    max_turns: 1
+
+  - id: get_owner
+    when:
+      operator:
+        match: "(?i)\\b(get|grab|page|pull|bring|loop)\\b.*\\bjordan\\b"
+    speakers: [alex]
+    goal: Alex says she is pinging Jordan, the backend owner.
+    max_turns: 1
+    then:
+      - { summon: jordan, channel: incident, after: 20s..35s }
+
+  - id: owner_arrives
+    when: { summoned: jordan }
+    channel: incident
+    speakers: [jordan]
+    goal: Jordan appears, says hi, and asks what has been seen so far.
+    may_claim: ["has the content-gen service dashboard open"]
+    max_turns: 1
+
+  - id: check_in
+    after: owner_arrives+90s
+    channel: incident
+    speakers: [alex]
+    goal: Alex asks Casey and Jordan for a short status update.
+    max_turns: 1
+
+  - id: incident_channel
+    when: { slack: { kind: channel_created, text_match: "^incident-" } }
+    channel: incident
+    speakers: [alex]
+    goal: Alex says the conversation moves to the new incident channel and restates what is known.
+    max_turns: 1
+
+  - id: wind_down
+    when: { synthkit: deactivated }
+    channel: incident
+    speakers: [alex, jordan]
+    goal: Latency recovers; Jordan says the graphs look back to normal; Alex asks Casey to resolve the alert group in IRM and closes out.
+    max_turns: 3
+    final: true
+
+end: { after: 25m }
+
+guardrails:
+  max_messages_per_minute: 6
+  max_per_persona_per_minute: 3
+  quiet_after_operator: 6s
+  idle_nudge_after: 90s
+  max_line_chars: 400
