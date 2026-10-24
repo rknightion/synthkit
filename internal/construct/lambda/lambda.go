@@ -20,8 +20,9 @@ import (
 )
 
 // Config declares resources explicitly; no generated identities or metadata aliases.
-// All positive-volume rates are constant operator assumptions, independent of the
-// blueprint shape. Master volume zero pauses all emission and event accrual.
+// Positive-volume rates are constant operator assumptions by default, independent of the
+// blueprint shape; a function's opt-in `load: business` scales them by the business
+// curve instead. Master volume zero pauses all emission and event accrual.
 // Omitted numerical inputs are zero (no traffic), never defaults that create load.
 // One instance owns the account-region concurrency series; root must not duplicate it.
 type Config struct {
@@ -53,12 +54,34 @@ type Function struct {
 	AsyncAgeMS           float64 `yaml:"async_age_ms"`
 	StreamBatchesPerMin  float64 `yaml:"stream_batches_per_min"`
 	IteratorAgeMS        float64 `yaml:"iterator_age_ms"`
+	// Load selects how the arrival rates follow time. Empty or "constant" keeps every
+	// rate fixed (the default). "business" scales invocations_per_min,
+	// async_received_per_min, stream_batches_per_min and throttles_per_min together by
+	// the blueprint's business curve (diurnal x weekly x master volume), so the
+	// disjoint populations stay coherent and error_fraction applies to the scaled
+	// executions. The configured rates are then the rate at a curve value of 1.0
+	// (weekday business-hours plateau). Operator assumption, not an AWS behaviour.
+	Load string `yaml:"load"`
+	// DurationMSMin is the lower bound of the per-execution duration distribution, in
+	// milliseconds. duration_ms stays the mean (Duration _sum and _average unchanged).
+	// Must be declared together with duration_ms_max (both zero means constant
+	// duration) and not exceed duration_ms. The observed Minimum moves from the mean
+	// toward this bound as executions per window increase and is limited so a sample
+	// set with the window's sum exists; one execution has no spread. A bound equal to
+	// duration_ms leaves no room for spread on either side.
+	DurationMSMin float64 `yaml:"duration_ms_min"`
+	// DurationMSMax is the upper bound of the per-execution duration distribution, in
+	// milliseconds, with the same rules as duration_ms_min. It must not be below
+	// duration_ms.
+	DurationMSMax float64 `yaml:"duration_ms_max"`
 }
 
 type functionState struct {
 	cfg                                                        Function
 	synchronous, errors, throttles, received, dropped, records eventCarry
 	synchronousPerMin                                          float64
+	durMin, durMax                                             float64
+	business                                                   bool
 }
 
 type construct struct {
@@ -111,18 +134,35 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 		}{
 			{"invocations_per_min", f.InvocationsPerMin, 1e9}, {"throttles_per_min", f.ThrottlesPerMin, 1e9},
 			{"async_received_per_min", f.AsyncReceivedPerMin, 1e9}, {"stream_batches_per_min", f.StreamBatchesPerMin, 1e9},
-			{"duration_ms", f.DurationMS, 60000}, {"async_age_ms", f.AsyncAgeMS, 604800000}, {"iterator_age_ms", f.IteratorAgeMS, 604800000},
+			{"duration_ms", f.DurationMS, 60000}, {"duration_ms_min", f.DurationMSMin, 60000}, {"duration_ms_max", f.DurationMSMax, 60000}, {"async_age_ms", f.AsyncAgeMS, 604800000}, {"iterator_age_ms", f.IteratorAgeMS, 604800000},
 			{"error_fraction", f.ErrorFraction, 1}, {"async_dropped_fraction", f.AsyncDroppedFraction, 1},
 		} {
 			if !bounded(v.value, v.max) {
 				return nil, fmt.Errorf("lambda: function %q %s must be finite in [0,%g]", f.Name, v.name, v.max)
 			}
 		}
+		if f.Load != "" && f.Load != "constant" && f.Load != "business" {
+			return nil, fmt.Errorf("lambda: function %q load must be \"constant\" or \"business\", got %q", f.Name, f.Load)
+		}
+		if (f.DurationMSMin > 0) != (f.DurationMSMax > 0) {
+			return nil, fmt.Errorf("lambda: function %q duration_ms_min and duration_ms_max must be declared together", f.Name)
+		}
+		if (f.DurationMSMin > 0 && f.DurationMSMin > f.DurationMS) || (f.DurationMSMax > 0 && f.DurationMSMax < f.DurationMS) {
+			return nil, fmt.Errorf("lambda: function %q duration_ms_min <= duration_ms <= duration_ms_max is required when a bound is set", f.Name)
+		}
+		// Resolved duration bounds; both equal duration_ms when no spread is declared.
+		durMin, durMax := f.DurationMS, f.DurationMS
+		if f.DurationMSMin > 0 {
+			durMin = f.DurationMSMin
+		}
+		if f.DurationMSMax > 0 {
+			durMax = f.DurationMSMax
+		}
 		synchronous := f.InvocationsPerMin - f.AsyncReceivedPerMin*(1-f.AsyncDroppedFraction) - f.StreamBatchesPerMin
 		if synchronous < 0 {
 			return nil, fmt.Errorf("lambda: function %q invocations_per_min must cover disjoint admitted async and stream batch rates", f.Name)
 		}
-		c.functions = append(c.functions, functionState{cfg: f, synchronousPerMin: synchronous})
+		c.functions = append(c.functions, functionState{cfg: f, synchronousPerMin: synchronous, durMin: durMin, durMax: durMax, business: f.Load == "business"})
 	}
 	return c, nil
 }
@@ -169,21 +209,31 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		f := &c.functions[i]
 		cfg := f.cfg
 		labels := c.labels(cfg.Name)
-		received := take(&f.received, cfg.AsyncReceivedPerMin*seconds/60)
+		// Constant load multiplies by exactly 1: default output is unchanged.
+		bf := 1.0
+		if f.business && w.Shape != nil {
+			bf = w.Shape.BusinessFactor(now)
+		}
+		received := take(&f.received, cfg.AsyncReceivedPerMin*bf*seconds/60)
 		dropped := take(&f.dropped, received*cfg.AsyncDroppedFraction)
 		invokedAsync := received - dropped
-		records := take(&f.records, cfg.StreamBatchesPerMin*seconds/60)
+		records := take(&f.records, cfg.StreamBatchesPerMin*bf*seconds/60)
 		// Sum actual constituent counts, not an independent total-rate carry: even
 		// short sparse windows cannot observe ages without the same executions.
-		n := invokedAsync + records + take(&f.synchronous, f.synchronousPerMin*seconds/60)
+		n := invokedAsync + records + take(&f.synchronous, f.synchronousPerMin*bf*seconds/60)
 		errors := take(&f.errors, n*cfg.ErrorFraction)
-		throttles := take(&f.throttles, cfg.ThrottlesPerMin*seconds/60)
+		throttles := take(&f.throttles, cfg.ThrottlesPerMin*bf*seconds/60)
 		// Binary event populations consist of one observation of 1 per event. Failed
 		// executions alone contribute Errors; successful executions are not fake zeros.
 		if n > 0 {
 			cw.EmitStats(st, "aws_lambda_invocations", labels, cw.StatSet{Sum: n, Average: 1, Minimum: 1, Maximum: 1, SampleCount: n})
-			// Constant-duration execution observations: count is executions, not milliseconds.
-			cw.EmitStats(st, "aws_lambda_duration", labels, cw.StatSet{Sum: n * cfg.DurationMS, Average: cfg.DurationMS, Minimum: cfg.DurationMS, Maximum: cfg.DurationMS, SampleCount: n})
+			// Execution observations: count is executions, not milliseconds. The mean is the
+			// declared duration; extremes move from the mean toward the declared bounds as
+			// executions accumulate (a single execution has none) and are clamped so a
+			// sample set with this Sum, SampleCount, Minimum and Maximum exists. Without
+			// bounds all stats equal the constant duration.
+			lo, hi := durationExtremes(cfg.DurationMS, f.durMin, f.durMax, n)
+			cw.EmitStats(st, "aws_lambda_duration", labels, cw.StatSet{Sum: n * cfg.DurationMS, Average: cfg.DurationMS, Minimum: lo, Maximum: hi, SampleCount: n})
 			// Operator schedule: uniformly spaced executions, constant duration, all in the
 			// unreserved pool. This is a synthetic peak estimate, not an AWS transfer curve.
 			concurrent := math.Min(n, math.Ceil(n*cfg.DurationMS/(seconds*1000)))
@@ -215,6 +265,26 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	cw.EmitStats(st, "aws_lambda_claimed_account_concurrency", c.labels(""), cw.StatSet{Sum: claimed, Average: claimed, Minimum: claimed, Maximum: claimed, SampleCount: 1})
 	cw.EmitStats(st, "aws_lambda_unreserved_concurrent_executions", c.labels(""), cw.StatSet{Sum: active, Average: active, Minimum: active, Maximum: active, SampleCount: 1})
 	return w.Metrics.Write(ctx, st.Collect(now))
+}
+
+// durationExtremes returns the observed Minimum and Maximum of n executions whose mean
+// is mean and whose per-execution duration lies in [lo, hi]. No spread (lo == hi ==
+// mean) returns the mean exactly. Otherwise they move from the mean
+// toward the bounds by 1-1/n, then are clamped so that n samples with sum n*mean exist:
+// max <= sum-(n-1)*min and min >= sum-(n-1)*max. n == 1 or equal bounds give the mean.
+func durationExtremes(mean, lo, hi, n float64) (float64, float64) {
+	if lo == mean && hi == mean {
+		return mean, mean
+	}
+	spread := 1 - 1/n
+	minimum := mean - (mean-lo)*spread
+	maximum := mean + (hi-mean)*spread
+	sum := n * mean
+	maximum = math.Min(maximum, sum-(n-1)*minimum)
+	minimum = math.Max(minimum, sum-(n-1)*maximum)
+	// Rounding in the feasibility bounds must never invert or move the mean.
+	minimum, maximum = math.Min(minimum, mean), math.Max(maximum, mean)
+	return minimum, maximum
 }
 
 // eventCarry retains fractional arrivals, not unused service capacity. Compensated

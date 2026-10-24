@@ -110,7 +110,11 @@ EventSourceMappingUUID or tags are inferred. Account concurrency is emitted once
 dimensions. Total execution attempts comprise admitted async executions (received minus dropped),
 stream batches and a nonnegative synchronous residual. Duration observes each execution; async
 age observes admitted async executions, iterator age observes stream batches. Errors are a
-subset of executions; throttles are separate. Durations/ages are explicit constants; concurrency
+subset of executions; throttles are separate. Ages are explicit constants; durations are constant
+unless `duration_ms_min`/`duration_ms_max` declare operator-assumed bounds (the mean stays
+`duration_ms`); `load: business` is an opt-in operator assumption scaling arrival rates by the
+business curve, not a sourced AWS behaviour. Errors stay emitted only when an error occurs (no
+sourced zero-value Errors observation); concurrency
 is a synthetic snapshot, not an AWS scheduler simulation. Reserved concurrency must be whole.
 Units retain the exact historical U1–U9 scope below; the modeled FunctionName-only profile does
 not authorize other historical/native profiles.

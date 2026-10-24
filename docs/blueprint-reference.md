@@ -115,7 +115,7 @@ These engineering bounds are not AWS service quotas.
 | Object | Accepted fields / constraints |
 |---|---|
 | `cloud.lambda` | `functions` (1..1000); `reserved_concurrency` (whole 0..1,000,000). |
-| `functions[]` | `name` (unique unqualified 1..64 letters/digits/underscore/hyphen); `invocations_per_min`, `throttles_per_min`, `async_received_per_min`, `stream_batches_per_min` (0..1e9); `duration_ms` (0..60000); `async_age_ms`, `iterator_age_ms` (0..604800000); `error_fraction`, `async_dropped_fraction` (0..1). Total executions cover admitted async plus stream rates. |
+| `functions[]` | `name` (unique unqualified 1..64 letters/digits/underscore/hyphen); `invocations_per_min`, `throttles_per_min`, `async_received_per_min`, `stream_batches_per_min` (0..1e9); `duration_ms` (0..60000); `async_age_ms`, `iterator_age_ms` (0..604800000); `error_fraction`, `async_dropped_fraction` (0..1); optional `duration_ms_min`/`duration_ms_max` (0..60000, declared together, bracketing `duration_ms`, which stays the mean) widen Duration Minimum/Maximum; optional `load: business` scales the four arrival rates by the business curve (default `constant`). Total executions cover admitted async plus stream rates. |
 | `cloud.sqs` | `queues` (1..64). |
 | `queues[]` | Unique `name`, unique non-global `collector_name`; `arrivals_per_second`, `receives_per_second` (0..1e6); whole `message_bytes` (0..1048576, at least 1 for positive arrivals); `delay_seconds` (integer 0..900), `processing_seconds` (integer 0..43200); optional `enrichment`. |
 | `queues[].enrichment` | Optional explicit `asserts_env`, `asserts_site`, `service`, `environment`, `owner`, `purpose`, `terraform`; the last four project `tag_*` labels, not dimensions. |

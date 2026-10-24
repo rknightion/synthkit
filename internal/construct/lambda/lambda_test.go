@@ -242,3 +242,158 @@ func TestValidation(t *testing.T) {
 		t.Fatal("nil fixtures")
 	}
 }
+
+// businessTick runs one function for two consecutive minutes at the given weekday
+// wall-clock hour (UTC engine) and returns the second, steady-state batch.
+func businessTick(t *testing.T, f lambda.Function, hour int) []promrw.Series {
+	t.Helper()
+	c := build(t, &lambda.Config{Functions: []lambda.Function{f}})
+	out := &capture{}
+	world := &core.World{Shape: shape.New("UTC", nil), Metrics: out}
+	at := time.Date(2023, 11, 14, hour, 0, 0, 0, time.UTC) // a Tuesday
+	for _, now := range []time.Time{at, at.Add(time.Minute)} {
+		out.batch = nil
+		if e := c.Tick(context.Background(), now, world); e != nil {
+			t.Fatal(e)
+		}
+	}
+	return out.batch
+}
+
+func TestBusinessLoadFollowsTheBusinessCurve(t *testing.T) {
+	f := lambda.Function{Name: "api", Load: "business", InvocationsPerMin: 600, DurationMS: 40, ErrorFraction: 0.1,
+		ThrottlesPerMin: 30, AsyncReceivedPerMin: 100, AsyncDroppedFraction: 0.2, AsyncAgeMS: 5, StreamBatchesPerMin: 60, IteratorAgeMS: 9}
+	noon, night := businessTick(t, f, 12), businessTick(t, f, 3)
+	nn, nt := value(noon, "aws_lambda_invocations_sum"), value(night, "aws_lambda_invocations_sum")
+	if nn != 600 {
+		t.Fatalf("business plateau must reproduce the configured rate: %g", nn)
+	}
+	if nt <= 0 || nt >= nn*0.25 {
+		t.Fatalf("overnight invocations %g not scaled below the plateau %g", nt, nn)
+	}
+	// Disjoint populations scale together and stay coherent.
+	for _, b := range [][]promrw.Series{noon, night} {
+		n := value(b, "aws_lambda_invocations_sum")
+		a := value(b, "aws_lambda_async_event_age_sample_count")
+		s := value(b, "aws_lambda_iterator_age_sample_count")
+		if value(b, "aws_lambda_duration_sample_count") != n || n < a+s || a != value(b, "aws_lambda_async_events_received_sum")-value(b, "aws_lambda_async_events_dropped_sum") {
+			t.Fatalf("incoherent scaled populations: n=%g async=%g stream=%g", n, a, s)
+		}
+	}
+	// error_fraction applies to the scaled executions, not the configured rate.
+	for _, b := range [][]promrw.Series{noon, night} {
+		n, e := value(b, "aws_lambda_invocations_sum"), value(b, "aws_lambda_errors_sum")
+		if math.Abs(e-n*0.1) > 1 {
+			t.Fatalf("errors %g not error_fraction of scaled executions %g", e, n)
+		}
+	}
+	if value(night, "aws_lambda_throttles_sum") >= value(noon, "aws_lambda_throttles_sum") {
+		t.Fatal("throttles did not follow the curve")
+	}
+}
+
+func TestConstantLoadIgnoresTheShapeEngine(t *testing.T) {
+	for _, load := range []string{"", "constant"} {
+		f := lambda.Function{Name: "api", Load: load, InvocationsPerMin: 600, DurationMS: 40}
+		if n, d := value(businessTick(t, f, 12), "aws_lambda_invocations_sum"), value(businessTick(t, f, 3), "aws_lambda_invocations_sum"); n != 600 || d != 600 {
+			t.Fatalf("load %q must stay constant: noon=%g night=%g", load, n, d)
+		}
+	}
+}
+
+func TestBusinessLoadWithoutShapeIsUnscaled(t *testing.T) {
+	c := build(t, &lambda.Config{Functions: []lambda.Function{{Name: "api", Load: "business", InvocationsPerMin: 12, DurationMS: 5}}})
+	if v := value(tick(t, c, time.Unix(1700000000, 0)), "aws_lambda_invocations_sum"); v != 12 {
+		t.Fatal(v)
+	}
+}
+
+func TestDurationSpreadDifferentiatesFiveStats(t *testing.T) {
+	f := lambda.Function{Name: "api", InvocationsPerMin: 120, DurationMS: 40, DurationMSMin: 12, DurationMSMax: 900}
+	b := tick(t, build(t, &lambda.Config{Functions: []lambda.Function{f}}), time.Unix(1700000000, 0))
+	min, avg, max, sum, cnt := value(b, "aws_lambda_duration_minimum"), value(b, "aws_lambda_duration_average"), value(b, "aws_lambda_duration_maximum"), value(b, "aws_lambda_duration_sum"), value(b, "aws_lambda_duration_sample_count")
+	if cnt != 120 || avg != 40 || sum != 4800 {
+		t.Fatalf("mean/sum must stay the declared duration: sum=%g avg=%g count=%g", sum, avg, cnt)
+	}
+	if !(min < avg && avg < max) || min < 12 || max > 900 || min == max {
+		t.Fatalf("spread not realised: min=%g avg=%g max=%g", min, avg, max)
+	}
+	// One execution cannot have a spread.
+	one := tick(t, build(t, &lambda.Config{Functions: []lambda.Function{{Name: "one", InvocationsPerMin: 1, DurationMS: 40, DurationMSMin: 12, DurationMSMax: 900}}}), time.Unix(1700000000, 0))
+	if value(one, "aws_lambda_duration_minimum") != 40 || value(one, "aws_lambda_duration_maximum") != 40 {
+		t.Fatalf("single execution spread: %v", one)
+	}
+	// Deterministic.
+	again := tick(t, build(t, &lambda.Config{Functions: []lambda.Function{f}}), time.Unix(1700000000, 0))
+	if !reflect.DeepEqual(b, again) {
+		t.Fatal("not deterministic")
+	}
+}
+
+func TestSpreadAndLoadValidation(t *testing.T) {
+	for _, f := range []lambda.Function{
+		{Name: "x", Load: "bursty"},
+		{Name: "x", DurationMS: 40, DurationMSMax: 900}, // half-open: no silent no-op
+		{Name: "x", DurationMS: 40, DurationMSMin: 12},
+		{Name: "x", DurationMS: 40, DurationMSMin: 50},
+		{Name: "x", DurationMS: 40, DurationMSMax: 30},
+		{Name: "x", DurationMS: 40, DurationMSMin: 30, DurationMSMax: 20},
+		{Name: "x", DurationMSMax: 60001},
+		{Name: "x", DurationMSMin: math.NaN()},
+		{Name: "x", DurationMSMin: -1},
+	} {
+		if _, e := lambda.Build(&lambda.Config{Functions: []lambda.Function{f}}, fx()); e == nil {
+			t.Errorf("accepted %+v", f)
+		}
+	}
+}
+
+func durationStats(t *testing.T, n int, mean, lo, hi float64) (min, max, sum, cnt float64) {
+	t.Helper()
+	f := lambda.Function{Name: "api", InvocationsPerMin: float64(n), DurationMS: mean, DurationMSMin: lo, DurationMSMax: hi}
+	b := tick(t, build(t, &lambda.Config{Functions: []lambda.Function{f}}), time.Unix(1700000000, 0))
+	return value(b, "aws_lambda_duration_minimum"), value(b, "aws_lambda_duration_maximum"), value(b, "aws_lambda_duration_sum"), value(b, "aws_lambda_duration_sample_count")
+}
+
+func TestDurationExtremesAreFeasibleForTheSample(t *testing.T) {
+	// Two executions averaging 40 ms with bounds 12..900 cannot have max 470 and min 26.
+	min, max, sum, cnt := durationStats(t, 2, 40, 12, 900)
+	if sum != 80 || cnt != 2 {
+		t.Fatalf("sum/count changed: %g %g", sum, cnt)
+	}
+	if min+max != sum {
+		t.Fatalf("n=2 extremes must be the whole sample: min=%g max=%g sum=%g", min, max, sum)
+	}
+	// Property: for every small n and bound set a sample with this sum and these
+	// extremes exists, and the extremes stay inside the declared bounds.
+	const eps = 1e-9
+	for _, c := range [][3]float64{{40, 12, 900}, {40, 39, 41}, {40, 1, 40}, {40, 40, 900}, {1, 0.5, 60000}, {250, 10, 300}} {
+		for n := 1; n <= 12; n++ {
+			min, max, sum, cnt := durationStats(t, n, c[0], c[1], c[2])
+			if cnt != float64(n) || math.Abs(sum-float64(n)*c[0]) > eps {
+				t.Fatalf("n=%d %v: sum/count %g %g", n, c, sum, cnt)
+			}
+			mean := sum / cnt
+			if min > mean+eps || max < mean-eps || min < c[1]-eps || max > c[2]+eps {
+				t.Fatalf("n=%d %v: min=%g mean=%g max=%g outside bounds", n, c, min, mean, max)
+			}
+			if max > sum-float64(n-1)*min+eps || min < sum-float64(n-1)*max-eps {
+				t.Fatalf("n=%d %v: infeasible min=%g max=%g sum=%g", n, c, min, max, sum)
+			}
+			if n == 1 && (min != c[0] || max != c[0]) {
+				t.Fatalf("n=1 %v: %g %g", c, min, max)
+			}
+		}
+	}
+}
+
+func TestUnboundedDurationStaysExactForInexactMeans(t *testing.T) {
+	// 10*0.1 and 9*0.1 do not round-trip in binary; the feasibility clamp must not run
+	// (or invert the stats) when no spread is declared.
+	for n := 1; n <= 12; n++ {
+		min, max, _, _ := durationStats(t, n, 0.1, 0, 0)
+		if min != 0.1 || max != 0.1 {
+			t.Fatalf("n=%d: %v %v", n, min, max)
+		}
+	}
+}
