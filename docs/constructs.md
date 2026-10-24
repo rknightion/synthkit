@@ -80,14 +80,16 @@ These constructs are **blueprint-scoped** (they carry the `blueprint` selector l
 | `sqs` | Nine ordinary queue bases; optional `cloud.sqs.queues`. Remote-write only. | [cw](signal-areas.md) |
 | `dynamodb` | 15 provisioned table/account bases; optional `cloud.dynamodb.tables`. Remote-write only. | [cw](signal-areas.md) |
 | `redshift` | Ten provisioned-cluster/queue/latency bases; optional `cloud.redshift.clusters`. Remote-write only. | [cw](signal-areas.md) |
-| `cloudwatch_logs` | Two uncompressed log-group intake bases; optional `cloud.cloudwatch_logs.log_groups`. Remote-write only. | [cw](signal-areas.md) |
+| `cloudwatch_logs` | Two uncompressed intake bases and four optional independent Lambda delivery-observation bases; `cloud.cloudwatch_logs.log_groups`. Remote-write only. | [cw](signal-areas.md) |
 
 The five captured-service consumers have conservative one-declaration-per-blueprint/account/
 region/kind admission. See [authoring and explicit model assumptions](blueprints.md#captured-cloudwatch-consumers)
 and the [canonical emitted subset](https://github.com/rknightion/synthkit/blob/main/signals/cw.md#initial-captured-service-emitters-slug-cw-captured-emitted).
 ESM/fair/info families remain withheld. Redshift user-query/NodeID/managed-storage expansions and
-Logs delivery/by-data-source profiles are also withheld; no selector, compression, pipeline or
-cross-service join is inferred from this intake/snapshot subset.
+Logs by-data-source and other delivery selectors/profiles are withheld. Optional group-owned
+`subscription_filters` use literal Lambda/P21 only and four required independent period values;
+bytes are already compressed. No compression, retry/loss, intake relationship, pipeline or
+cross-service join is inferred.
 
 #### Declared pipelines
 

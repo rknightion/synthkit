@@ -107,7 +107,7 @@ full pipeline/demo coverage or raise shipped rates to force a run; use a selecte
    Compare the dumped series inventory with the selected `signals/` contracts; do not make the
    catalogue match a new dump.
 
-For captured Lambda/SQS/DynamoDB/Redshift/Logs-intake CloudWatch output, follow
+For captured Lambda/SQS/DynamoDB/Redshift/Logs CloudWatch output, follow
 [the public consumer guide](https://github.com/rknightion/synthkit/blob/main/docs/blueprints.md#captured-cloudwatch-consumers)
 and the explicit emitted sections in `signals/cw.md`, not the larger positive-source tables.
 Use optional `cloud.lambda.functions`, `cloud.sqs.queues`, `cloud.dynamodb.tables`,
@@ -119,9 +119,15 @@ snapshots. Redshift additionally requires non-global collector names and all sna
 including explicit zero/false. Optional read/write I/O uses seconds and independent completed-I/O
 rates; named queue stocks use the exact separate QueueName projection. Logs requires explicit
 rate and whole uncompressed bytes per event; its event unit remains AWS None, not Count.
+Optional group-owned `subscription_filters` require an unpadded unique name within the group,
+`destination_type: Lambda` and all four whole finite nonnegative `period_observation` fields:
+`delivery_errors`, `delivery_throttling`, `forwarded_log_events`, `forwarded_bytes`. Bytes are
+already compressed. These independent authored values observe once per active minute with
+four value statistics=x, sample_count=1, including explicit zero. Progress is independent of
+intake, even zero intake; this is not a delivery simulator, compression/retry/loss or intake model.
 Follow the guide's required-presence/bounds and exact carry/pause/first-resume rules. No captured
-enrichment, NodeID/user-query/managed-storage exception, Logs delivery/selectors/by-data-source,
-compression, info, pipeline or lifecycle attribution is admitted. ESM/fair/info remain withheld. Fixed rates/value assumptions need a real-world
+enrichment, NodeID/user-query/managed-storage exception, other Logs selectors/profiles/by-data-source,
+compression calculation, info, pipeline or lifecycle attribution is admitted. ESM/fair/info remain withheld. Fixed rates/value assumptions need a real-world
 basis beside them; do not copy deliberate all-family populations from `e2e/fixtures/` into a
 shipped blueprint. Ordinary sparse rates may not emit every family in one CLI tick.
 

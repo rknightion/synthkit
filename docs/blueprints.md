@@ -48,7 +48,7 @@ independent blueprint-scoped metrics construct. Omit the block to emit nothing f
 They are **remote-write only**: `cloudwatch_export: otlp` fails Build, without fallback or aliases.
 AWS does have a native Metric Streams form, but these consumers do not yet implement it. The
 [canonical emitted contract](https://github.com/rknightion/synthkit/blob/main/signals/cw.md#initial-captured-service-emitters-slug-cw-captured-emitted)
-lists the 47 admitted bases (35 original plus ten Redshift and two Logs intake) and exact alternative dimensions separately from positive source tables.
+lists the 51 admitted bases (35 original plus ten Redshift, two Logs intake and four optional Lambda delivery observations) and exact alternative dimensions separately from positive source tables.
 ESM/fair-queue/info families remain withheld. There are no pipeline adapters, failure modes or
 cross-service request joins in this subset.
 
@@ -67,7 +67,8 @@ The first observed positive tick after a pause is a silent boundary, not catch-u
 startup assumes one preceding minute; later observations use bounded elapsed windows, not replay.
 Sparse families need not appear in a single dump; never raise shipped rates to force them.
 Use the deliberate all-family test populations only in `e2e/fixtures/e2e-cw-consumers.yaml` and
-`e2e/fixtures/e2e-cw-remaining.yaml`.
+`e2e/fixtures/e2e-cw-remaining.yaml` (intake/snapshots), and
+`e2e/fixtures/e2e-cw-delivery.yaml` (independent delivery observations).
 
 ```yaml
 # Example cloud block: small application assumptions, not capture statistics or AWS defaults.
@@ -130,10 +131,36 @@ Logs `log_groups[]` require explicit unique `name`, `events_per_second` and whol
 `uncompressed_bytes_per_event`. Zero rate emits neither intake family. For N uploads of size B,
 event sum/count=N and average/min/max=1; byte sum=N×B, count=N and average/min/max=B.
 Source event unit is AWS **None**, not Count; bytes are uncompressed. LogGroupName is the only
-vendor dimension and `name=global` is the selected collector projection. No bodies, Loki output,
-compression ratio, DestinationType/delivery/filter, by-data-source, info or lifecycle joins follow.
-The selected Redshift P18/P14 and Logs P36 vendor-dimension projections omit captured enrichment;
-they are not complete collector envelopes or native evidence.
+vendor dimension for intake and `name=global` is the selected collector projection. No bodies,
+Loki output, compression ratio, by-data-source, info or lifecycle joins follow.
+
+Optionally declare `subscription_filters[]` under an existing log group. Each filter needs a unique
+unpadded `name` within that group, `destination_type: Lambda` (case-sensitive; alternatives reject)
+and all four `period_observation` values: `delivery_errors`, `delivery_throttling`,
+`forwarded_log_events`, `forwarded_bytes`. All must be finite whole nonnegative numbers; absence
+rejects and explicit zero is valid. These independent authored observations mean errored events,
+throttled events, forwarded events and **already-compressed bytes** respectively, not terminal
+loss, API requests, invocations or incoming bytes. There is no inferred compression ratio,
+retry/duplication/loss partition, batching, lag or relationship to intake or each other. This is
+**period-observation synthesis, not a delivery simulator**.
+
+Each filter observes each value x exactly once per synthetic active minute: sum/average/min/max=x
+and sample_count=1, not the event or byte magnitude. Zero is an explicit synthetic observation,
+not an AWS idle-publication guarantee. A group with zero intake still progresses and emits its
+explicit delivery observations. Nonzero master amplitude never scales these authored values.
+The first ordinary active tick admits one bootstrap period, not measured historical delivery;
+later ticks retain exact active-nanosecond fractions, cap only new progress at 60 seconds and
+emit at most one period per tick without gap replay. The pause/resume/error rules below apply.
+Omitting filters leaves previous intake output unchanged. For a fully populated **offline-only**
+example, select `e2e/fixtures/e2e-cw-delivery.yaml`; its deliberately independent values are not
+production defaults. Supply deployment-justified observations rather than deriving them from intake.
+
+The selected Redshift P18/P14 and Logs P36 (intake)/P21 (Lambda delivery) vendor-dimension
+projections omit captured enrichment; they are not complete collector envelopes or native evidence.
+Delivery uses exactly LogGroupName+FilterName+DestinationType, without tags, ARN, function identity
+or a cross-service join. P24 only corroborates the Lambda literal; it does not authorize a tag union.
+SELECT is now observed as a Redshift P13 literal, but its numerical population/timing/statistic
+semantics remain held; do not author a user-query emitter.
 
 These two consumers retain exact fractional carry over decoded binary-float rates and integer
 nanoseconds; decimal-intent boundaries may be delayed, never rounded up with an epsilon. Only

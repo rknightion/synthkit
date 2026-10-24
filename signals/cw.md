@@ -79,8 +79,8 @@ stat suffix) with `scrape_job`; it does not add resource dimensions or `tag_VpcI
 ## Initial captured-service emitters [slug: cw-captured-emitted]
 
 The optional `cloud.lambda`, `cloud.sqs`, `cloud.dynamodb`, `cloud.redshift` and
-`cloud.cloudwatch_logs` declarations emit **only these 47 bases (235 final statistic names)**
-over remote-write (35 original bases plus ten Redshift and two Logs intake bases). They are separate blueprint-scoped
+`cloud.cloudwatch_logs` declarations emit **only these 51 bases (255 final statistic names)**
+over remote-write (35 original bases plus ten Redshift, two Logs intake and four optional Logs delivery bases). They are separate blueprint-scoped
 constructs, not pipeline-stage adapters. Omission emits nothing for that kind. One declaration
 per blueprint/account/region/kind owns the entire resource list; duplicate declarations across
 environments reject even with disjoint resources. Different kinds and blueprints remain distinct.
@@ -270,13 +270,14 @@ metrics:
   - {root: wlmrunning_queries, type: gauge, unit: count, profiles: [queue]}
 ```
 
-Withheld: NodeID, service-class/wlmid/priority/stage alternatives, user-query families (no admitted
-QueryType vocabulary), managed-storage associations (no naming exception), info and all other
+Withheld: NodeID, service-class/wlmid/priority/stage alternatives, user-query families (SELECT is
+observed in P13 only, but numerical population/timing/statistic semantics remain held),
+managed-storage associations (no naming exception), info and all other
 unselected families. No automatic cluster pause, failure-mode, pipeline or cross-service adapter.
 
-### CloudWatch Logs intake emitted subset [slug: cw-logs-emitted]
+### CloudWatch Logs emitted subset [slug: cw-logs-emitted]
 
-Each independently declared log group selects only LogGroupName, the P36 vendor-dimension
+Intake from each independently declared log group selects only LogGroupName, the P36 vendor-dimension
 projection with `name=global`; no captured enrichment is copied. Source names/units and the
 uncompressed-byte meaning are confirmed by [AWS Logs metrics](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch-Logs-Monitoring-CloudWatch-Metrics.html).
 For N newly earned upload events, event observations have sum=N, average/minimum/maximum=1,
@@ -294,14 +295,46 @@ stats: [_sum, _average, _maximum, _minimum, _sample_count]
 labels: {account_id: <account>, region: <region>, namespace: AWS/Logs, job: cloud/aws/logs, name: global}
 dimension_profiles:
   log_group: [dimension_LogGroupName]
+  subscription: [dimension_DestinationType, dimension_FilterName, dimension_LogGroupName]
 metrics:
   - {root: incoming_bytes, type: gauge, unit: bytes, profiles: [log_group]}
   - {root: incoming_log_events, type: gauge, unit: none, profiles: [log_group]}
+  - {root: delivery_errors, type: gauge, unit: none, profiles: [subscription]}
+  - {root: delivery_throttling, type: gauge, unit: none, profiles: [subscription]}
+  - {root: forwarded_log_events, type: gauge, unit: none, profiles: [subscription]}
+  - {root: forwarded_bytes, type: gauge, unit: bytes, profiles: [subscription]}
 ```
 
-Delivery/forwarding/error/throttle families remain blocked on exact DestinationType literal
-admission and a separately bounded model. No FilterName, compression multiplier, by-data-source
-association, account aggregate, info, enrichment, pipeline or lifecycle attribution is added.
+Optional `subscription_filters[]` under an existing log group select **P21 vendor dimensions
+only**, with explicit FilterName and DestinationType **exactly `Lambda`**, and `name=global`.
+The safe literal-positive projection of retained response SHA-256
+`16565c9f119377f6385f1a7e39292ccdf44bea3c4c0b81dc43df0eb0c39e18bc`
+establishes Lambda for each of DeliveryErrors, DeliveryThrottling, ForwardedLogEvents and
+ForwardedBytes, all five suffixes each, in P21 and P24 (one positive row per suffix/profile).
+P24 corroborates the selector, never union-fills tags or collector identity into P21. These are
+positive/truncated names/keys/literal facts, not captured values, cadence, units or completeness.
+The existing API dimension-name and official source references supply the raw names/dimensions
+and documented meanings/units. Other destination literals/profiles remain unselected.
+
+Delivery is **independent explicitly authored period-observation synthesis, not a delivery
+simulator**. All four whole nonnegative finite values must be supplied: `delivery_errors` means
+errored log events, not permanent losses; `delivery_throttling` means throttled log events, not
+API requests; `forwarded_log_events` means forwarded events, not invocations/batches;
+`forwarded_bytes` means **already-compressed bytes**. No compression multiplier, retry/loss,
+subset/disjointness, temporal-lag, batch or intake relationship is inferred. Each metric observes
+its supplied x once per synthetic active minute: sum/average/minimum/maximum=x, sample_count=1,
+not x. Explicit x=0 is an authored zero observation, not an AWS idle-publication claim. Even a
+zero-intake group progresses independently. Omitted filters preserve intake output unchanged.
+
+The first ordinary active tick may observe exactly one bootstrap period under the existing
+startup convention. Integer active-nanosecond progress retains earned fractions; only new elapsed
+progress is capped at 60 seconds, with at most one observation per tick and no gap replay. The
+pause/silent-resume/repeated-timestamp/attempt-consumption rules below apply equally. Positive
+master amplitude does not scale authored snapshots. At most 100 filters total reuse the existing
+resource safety bound; each event observation is at most 60,000,001 and compressed bytes at most
+3,932,160,065,536, reusing the admitted intake-window/product bounds. These are engineering refusal
+bounds, not AWS quotas or recommended values. No function ARN/identity, tags, native, by-data-source,
+account aggregate, info, pipeline, log-wire or lifecycle attribution is added.
 
 For these two new consumers, resource lists and required numerical pointers have no defaults.
 The first ordinary active tick explicitly models a synthetic bootstrap minute, not prior measured
@@ -310,7 +343,7 @@ are not replayed and earned fractions survive gaps. Exact rational carry over th
 float rate and integer nanoseconds avoids epsilon-created events; decimal-intent boundaries may
 still be delayed. Observed real master-zero pause emits nothing (including stocks), advances the
 boundary and accrues nothing. First positive observation after a pause is silent, retaining carry;
-initially paused instances do not bootstrap on resume. Positive master values leave rates fixed;
+initially paused instances do not bootstrap on resume. Positive master values leave rates and authored period values fixed;
 pause/resume wholly between observations is unobservable. Writer failure consumes the attempted
 window with no replay. No durable checkpoint, native/backend or deployment acceptance is implied.
 

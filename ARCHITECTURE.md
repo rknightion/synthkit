@@ -476,13 +476,20 @@ once-only account snapshots, without inventing shared discovery types. Different
 blueprint scopes remain distinct. The scoped writer alone stamps blueprint after cloning.
 This conservative ceiling remains until broader pure identity claims are separately designed.
 The [canonical emitted subset](signals/cw.md#initial-captured-service-emitters-slug-cw-captured-emitted)
-is 47 stat bases (35 original plus ten Redshift and two Logs intake); positive source tables are
-not emission allowlists. Redshift snapshots/queue stocks and sparse fixed-second I/O latency,
-and Logs uncompressed per-event intake, are explicit operator assumptions. The new consumers
+is 51 stat bases (35 original plus ten Redshift, two Logs intake and four optional Logs delivery);
+positive source tables are not emission allowlists. Redshift snapshots/queue stocks and sparse
+fixed-second I/O latency, Logs uncompressed per-event intake and independent Lambda
+subscription-delivery period observations are explicit operator assumptions. Optional filters are declared under the owning group, with P21
+vendor dimensions and literal Lambda only; each of four required whole nonnegative values observes
+once per synthetic active minute (four value statistics=x, sample_count=1). Bytes are already
+compressed; no intake relationship, compression, retries/loss or function identity is inferred.
+Integer active-time progress is independent of intake, including zero-intake groups, with at most
+one observation per tick; positive master amplitude never scales authored values. The consumers
 preserve exact fractional carry, cap only new accrual at 60 seconds and use the real master-zero
 pause/silent-resume fence; no hidden inventory/rate defaults, captured numerical or native fidelity.
-No pipeline adapters, ESM/fair/info, user-query/NodeID/delivery/by-data-source/managed-storage
-expansions or native-runtime admission is implied. See
+No pipeline adapters, ESM/fair/info, user-query/NodeID/by-data-source/managed-storage,
+other delivery selectors/profiles or native-runtime admission is implied. SELECT is observed only
+as a literal in P13; its numerical population/timing/statistic semantics remain held. See
 [authoring and assumptions](docs/blueprints.md#captured-cloudwatch-consumers).
 
 ### 3.2 Incident model: definition vs activation

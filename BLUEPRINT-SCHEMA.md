@@ -822,7 +822,7 @@ Cloudflare zone + tunnel metrics (lablabs exporter shape)
 
 **Location:** `(config-gated by env/cloud/cluster/database declarations)`  ·  **group:** topology
 
-AWS/Logs log-group intake metrics (remote-write only)
+AWS/Logs intake and optional Lambda delivery observations (remote-write only)
 
 | key | type | optional | description |
 |---|---|---|---|
@@ -830,6 +830,14 @@ AWS/Logs log-group intake metrics (remote-write only)
 | `log_groups[].name` | string |  |  |
 | `log_groups[].events_per_second` | float | yes |  |
 | `log_groups[].uncompressed_bytes_per_event` | float | yes |  |
+| `log_groups[].subscription_filters[]` | object |  | SubscriptionFilters optionally declare independent Lambda delivery observations; omitted emits only legacy intake. At most 100 filters total across all groups. |
+| `log_groups[].subscription_filters[].name` | string |  | Name is required, unpadded and unique within the owning log group. |
+| `log_groups[].subscription_filters[].destination_type` | string |  | DestinationType must be exactly Lambda, the observed P21 selector literal. |
+| `log_groups[].subscription_filters[].period_observation` | object |  | PeriodObservation requires all four whole finite nonnegative values, including explicit zero. Per active minute four value stats=x, sample_count=1, never x. |
+| `log_groups[].subscription_filters[].period_observation.delivery_errors` | float | yes | DeliveryErrors counts errored log events, not terminal losses; maximum 60000001. |
+| `log_groups[].subscription_filters[].period_observation.delivery_throttling` | float | yes | DeliveryThrottling counts throttled log events, not API requests; maximum 60000001. |
+| `log_groups[].subscription_filters[].period_observation.forwarded_log_events` | float | yes | ForwardedLogEvents counts forwarded log events, not invocations; maximum 60000001. |
+| `log_groups[].subscription_filters[].period_observation.forwarded_bytes` | float | yes | ForwardedBytes is already-compressed bytes, not intake bytes; maximum 3932160065536. |
 
 ## cluster_autoscaler config
 

@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Package cloudwatchlogs emits only explicitly declared log-group intake metrics.
-// Source: signals/cw.md, AWS/Logs IncomingBytes (Bytes, uncompressed) and
-// IncomingLogEvents (AWS unit None, NOT Count), selected P36 dimension projection.
-// This is an operator-assumption per-event sampling model, not captured numerical
-// fidelity, a log-body renderer, subscription delivery or a native metrics producer.
+// Package cloudwatchlogs emits explicitly declared log-group intake and optional
+// independent Lambda subscription-delivery period observations.
+// Source: signals/cw.md [slug: cw-logs-emitted]. Intake selects P36; optional
+// delivery selects Lambda/P21 only. Bytes are uncompressed for intake and already
+// compressed for delivery; event units remain AWS None, NOT Count. Per-event intake
+// sampling and independent period observations are explicit operator assumptions,
+// not captured numerical fidelity, a delivery simulator or a native/log producer.
 package cloudwatchlogs
 
 import (
@@ -33,10 +35,39 @@ type LogGroup struct {
 	Name                      string   `yaml:"name"`
 	EventsPerSecond           *float64 `yaml:"events_per_second"`
 	UncompressedBytesPerEvent *float64 `yaml:"uncompressed_bytes_per_event"`
+	// SubscriptionFilters optionally declare independent Lambda delivery observations;
+	// omitted emits only legacy intake. At most 100 filters total across all groups.
+	SubscriptionFilters []SubscriptionFilter `yaml:"subscription_filters"`
+}
+
+// SubscriptionFilter owns a unique unpadded name within its log group. No target
+// resource, function identity, compression or intake relationship is inferred.
+type SubscriptionFilter struct {
+	// Name is required, unpadded and unique within the owning log group.
+	Name string `yaml:"name"`
+	// DestinationType must be exactly Lambda, the observed P21 selector literal.
+	DestinationType string `yaml:"destination_type"`
+	// PeriodObservation requires all four whole finite nonnegative values, including
+	// explicit zero. Per active minute four value stats=x, sample_count=1, never x.
+	PeriodObservation PeriodObservation `yaml:"period_observation"`
+}
+
+// PeriodObservation requires all four whole, finite, nonnegative values (including
+// explicit zero). Each active minute observes x once: sum/average/min/max=x and
+// sample_count=1. These engineering bounds are not AWS quotas or captured fidelity.
+type PeriodObservation struct {
+	// DeliveryErrors counts errored log events, not terminal losses; maximum 60000001.
+	DeliveryErrors *float64 `yaml:"delivery_errors"`
+	// DeliveryThrottling counts throttled log events, not API requests; maximum 60000001.
+	DeliveryThrottling *float64 `yaml:"delivery_throttling"`
+	// ForwardedLogEvents counts forwarded log events, not invocations; maximum 60000001.
+	ForwardedLogEvents *float64 `yaml:"forwarded_log_events"`
+	// ForwardedBytes is already-compressed bytes, not intake bytes; maximum 3932160065536.
+	ForwardedBytes *float64 `yaml:"forwarded_bytes"`
 }
 
 func Registration() core.ConstructReg {
-	return core.ConstructReg{Kind: "cloudwatch_logs", Doc: "AWS/Logs log-group intake metrics (remote-write only)", Scope: core.ScopeBlueprint, NewConfig: func() any { return &Config{} }, Build: Build}
+	return core.ConstructReg{Kind: "cloudwatch_logs", Doc: "AWS/Logs intake and optional Lambda delivery observations (remote-write only)", Scope: core.ScopeBlueprint, NewConfig: func() any { return &Config{} }, Build: Build}
 }
 
 // Engineering refusal bounds, NOT AWS quotas or recommended production volumes.
@@ -50,10 +81,16 @@ const (
 )
 
 type groupState struct {
+	labels  map[string]string
+	bytes   int64
+	rate    big.Rat
+	carry   big.Rat
+	filters []filterState
+}
+
+type filterState struct {
 	labels map[string]string
-	bytes  int64
-	rate   big.Rat
-	carry  big.Rat
+	values [4]float64
 }
 
 type Construct struct {
@@ -61,6 +98,8 @@ type Construct struct {
 	last    time.Time
 	started bool
 	paused  bool
+	// Integer active nanoseconds, always less than one minute between ticks.
+	deliveryProgress time.Duration
 }
 
 var _ core.Construct = (*Construct)(nil)
@@ -87,6 +126,15 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 	if uint64(len(cfg.LogGroups))*maxWindowEvents*maxBytes > maxExactInteger {
 		return nil, fmt.Errorf("cloudwatch_logs: aggregate observation product exceeds exact integer bound")
 	}
+	// Reuse the existing resource and exact-integer product safety bounds, not
+	// AWS subscription quotas. Bound the aggregate before allocating filter state.
+	totalFilters := 0
+	for _, g := range cfg.LogGroups {
+		if len(g.SubscriptionFilters) > maxGroups-totalFilters {
+			return nil, fmt.Errorf("cloudwatch_logs: at most 100 subscription_filters total")
+		}
+		totalFilters += len(g.SubscriptionFilters)
+	}
 	seen := make(map[string]bool, len(cfg.LogGroups))
 	out := &Construct{groups: make([]groupState, len(cfg.LogGroups))}
 	for i, g := range cfg.LogGroups {
@@ -108,6 +156,38 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 		owned.rate.SetFloat64(r)
 		owned.bytes = int64(b) // validated finite, whole and bounded above
 		owned.labels = map[string]string{"account_id": fx.Cloud.AccountID, "region": fx.Cloud.Region, "namespace": "AWS/Logs", "job": "cloud/aws/logs", "name": "global", "dimension_LogGroupName": g.Name}
+		filtersSeen := make(map[string]bool, len(g.SubscriptionFilters))
+		for _, f := range g.SubscriptionFilters {
+			if !identity(f.Name) || filtersSeen[f.Name] {
+				return nil, fmt.Errorf("cloudwatch_logs %q: unique unpadded filter name required: %q", g.Name, f.Name)
+			}
+			filtersSeen[f.Name] = true
+			if f.DestinationType != "Lambda" {
+				return nil, fmt.Errorf("cloudwatch_logs %q: destination_type must be Lambda", g.Name)
+			}
+			p := f.PeriodObservation
+			inputs := [4]*float64{p.DeliveryErrors, p.DeliveryThrottling, p.ForwardedLogEvents, p.ForwardedBytes}
+			fs := filterState{labels: map[string]string{}}
+			for j, v := range inputs {
+				if v == nil {
+					return nil, fmt.Errorf("cloudwatch_logs %q filter %q: all four period observations required", g.Name, f.Name)
+				}
+				limit := float64(maxWindowEvents)
+				if j == 3 {
+					limit *= maxBytes
+				}
+				if math.IsNaN(*v) || math.IsInf(*v, 0) || *v < 0 || *v > limit || math.Trunc(*v) != *v {
+					return nil, fmt.Errorf("cloudwatch_logs %q filter %q: period observations must be finite whole values in [0,%g]", g.Name, f.Name, limit)
+				}
+				fs.values[j] = *v
+			}
+			for k, v := range owned.labels {
+				fs.labels[k] = v
+			}
+			fs.labels["dimension_FilterName"] = f.Name
+			fs.labels["dimension_DestinationType"] = f.DestinationType
+			owned.filters = append(owned.filters, fs)
+		}
 	}
 	return out, nil
 }
@@ -150,10 +230,26 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	c.last = now
 	c.started = true
 	st := state.NewState() // never re-emit an earlier sparse window
+	// One authored period observation per active minute, independent of intake.
+	// elapsed caps only NEW progress; earned sub-minute nanoseconds survive gaps
+	// and pause. Consume the attempted period before calling the fallible writer.
+	c.deliveryProgress += elapsed
+	deliveryDue := c.deliveryProgress >= time.Minute
+	if deliveryDue {
+		c.deliveryProgress -= time.Minute
+	}
 	var seconds big.Rat
 	seconds.SetFrac64(int64(elapsed), int64(time.Second))
 	for i := range c.groups {
 		g := &c.groups[i]
+		if deliveryDue {
+			for _, f := range g.filters {
+				for j, base := range [...]string{"aws_logs_delivery_errors", "aws_logs_delivery_throttling", "aws_logs_forwarded_log_events", "aws_logs_forwarded_bytes"} {
+					x := f.values[j]
+					cw.EmitStats(st, base, f.labels, cw.StatSet{Sum: x, Average: x, Maximum: x, Minimum: x, SampleCount: 1})
+				}
+			}
+		}
 		// Exact rational arithmetic over the admitted binary float64 rate and integer
 		// nanoseconds avoids summation drift and any epsilon that invents events.
 		// Decimal rates represented just below their mathematical value may delay an

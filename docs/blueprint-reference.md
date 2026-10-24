@@ -101,7 +101,7 @@ list is in [BLUEPRINT-SCHEMA.md](https://github.com/rknightion/synthkit/blob/mai
 | `cloud.sqs` | object | no | Ordinary queue list; [captured config](#captured-cloudwatch-config), remote-write only. |
 | `cloud.dynamodb` | object | no | Provisioned table list and account quotas; [captured config](#captured-cloudwatch-config), remote-write only. |
 | `cloud.redshift` | object | no | Provisioned cluster snapshots, named queues and optional I/O latency; [captured config](#captured-cloudwatch-config), remote-write only. |
-| `cloud.cloudwatch_logs` | object | no | Independent log-group uncompressed intake; [captured config](#captured-cloudwatch-config), remote-write only. |
+| `cloud.cloudwatch_logs` | object | no | Log-group uncompressed intake and optional independent Lambda delivery observations; [captured config](#captured-cloudwatch-config), remote-write only. |
 
 ### Captured CloudWatch config
 
@@ -131,12 +131,14 @@ These engineering bounds are not AWS service quotas.
 | `read_io`, `write_io` | Finite `operations_per_second` (0..1e6, omitted=0); required finite `latency_seconds` ((0,3600]). Independent sparse completed-I/O assumptions, not throughput. |
 | `wlm_queues[]` | Unique unpadded `name` within cluster; required whole `waiting`, `running` (0..1e9). |
 | `cloud.cloudwatch_logs` | `log_groups` (1..100), no inferred inventory. |
-| `log_groups[]` | Unique unpadded `name`; required finite `events_per_second` (0..1e6, explicit zero valid); required finite whole `uncompressed_bytes_per_event` (1..65536). |
+| `log_groups[]` | Unique unpadded `name`; required finite `events_per_second` (0..1e6, explicit zero valid); required finite whole `uncompressed_bytes_per_event` (1..65536); optional `subscription_filters`. |
+| `subscription_filters[]` | At most 100 total across log groups; unique unpadded `name` within group; required `destination_type: Lambda`; required `period_observation`. No target identity or joins. |
+| `period_observation` | All four required, whole finite nonnegative: `delivery_errors`, `delivery_throttling`, `forwarded_log_events` (0..60000001), `forwarded_bytes` (0..3932160065536, already compressed). No defaults; explicit zero valid. One observation per active minute, four value stats=x, sample_count=1. |
 
 Unspecified traffic is zero only where the Config permits omission; required Redshift/Logs
 assumptions reject absence. No ESM/fair/info/native switches or cross-service joins exist in these
-configs. Logs delivery/selectors/by-data-source and Redshift user-query/NodeID/managed-storage
-expansions remain withheld. The [generated schema](https://github.com/rknightion/synthkit/blob/main/BLUEPRINT-SCHEMA.md)
+configs. Logs other delivery selectors/profiles and by-data-source, and Redshift
+user-query/NodeID/managed-storage expansions remain withheld. The [generated schema](https://github.com/rknightion/synthkit/blob/main/BLUEPRINT-SCHEMA.md)
 reflects the registered Config types; the loader and Build enforce semantic constraints.
 
 ### environments[].cluster

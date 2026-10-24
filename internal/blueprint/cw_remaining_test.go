@@ -455,8 +455,17 @@ func TestRemainingCWCanonicalNameProfiles(t *testing.T) {
 			}
 		}
 	}
-	if len(expected) != 60 {
-		t.Fatalf("canonical subset has %d names, want 60", len(expected))
+	// The canonical subset now includes the four optional delivery bases. The
+	// old fixture and its fixed numerical expectations above stay intake-only.
+	if len(expected) != 80 {
+		t.Fatalf("canonical subset has %d names, want 80", len(expected))
+	}
+	for name := range deliveryNames() {
+		if strings.HasPrefix(name, "aws_logs_") && !strings.HasPrefix(name, "aws_logs_incoming_") {
+			if expected[name] != "dimension_DestinationType,dimension_FilterName,dimension_LogGroupName" {
+				t.Fatalf("canonical delivery %s profile=%q", name, expected[name])
+			}
+		}
 	}
 	for key := range remainingExpected("remaining-selector") {
 		parts := strings.Split(key, "|")
