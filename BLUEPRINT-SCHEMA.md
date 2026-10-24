@@ -1003,12 +1003,16 @@ Explicit provisioned DynamoDB tables (remote-write only)
 | `tables[].operations[].write_units` | float |  |  |
 | `tables[].operations[].latency_ms` | float |  |  |
 | `tables[].operations[].returned_items` | float |  |  |
+| `tables[].operations[].load` | string |  | Load overrides the table's load for this operation: "constant" or "business" (see Table.Load). Omitted inherits the table. |
+| `tables[].operations[].latency_min_ms` | float |  | LatencyMinMS optionally declares the lower per-request latency bound around LatencyMS (the mean), as an explicit operator assumption. Declared together with LatencyMaxMS (both or neither), with LatencyMinMS <= LatencyMS <= LatencyMaxMS. Declared, the reported Minimum/Maximum differ from the Average (and the Average drifts slightly per window) instead of all three equalling LatencyMS. Omitted keeps constant latency. |
+| `tables[].operations[].latency_max_ms` | float |  | LatencyMaxMS is the upper per-request latency bound; see LatencyMinMS. |
 | `tables[].stream` | object | yes |  |
 | `tables[].stream.label` | string |  |  |
 | `tables[].stream.requests_per_second` | float |  |  |
 | `tables[].stream.records_per_request` | float |  |  |
 | `tables[].stream.bytes_per_record` | float |  |  |
 | `tables[].stream.latency_ms` | float |  |  |
+| `tables[].load` | string |  | Load selects how the table's operation rates (and GlobalTable replicated writes) follow time. Omitted or "constant" keeps the fixed operator rates. "business" treats each declared rate as the PEAK (plateau) rate and scales it by the blueprint business curve (never above 1, so the provisioned-capacity guard checked at Build still holds). An operation's own load overrides this. |
 
 ## ebs_csi config
 
@@ -1167,6 +1171,9 @@ FunctionName-only Lambda CloudWatch metrics (remote-write only)
 | `functions[].async_age_ms` | float |  |  |
 | `functions[].stream_batches_per_min` | float |  |  |
 | `functions[].iterator_age_ms` | float |  |  |
+| `functions[].load` | string |  | Load selects how the arrival rates follow time. Empty or "constant" keeps every rate fixed (the default). "business" scales invocations_per_min, async_received_per_min, stream_batches_per_min and throttles_per_min together by the blueprint's business curve (diurnal x weekly x master volume), so the disjoint populations stay coherent and error_fraction applies to the scaled executions. The configured rates are then the rate at a curve value of 1.0 (weekday business-hours plateau). Operator assumption, not an AWS behaviour. |
+| `functions[].duration_ms_min` | float |  | DurationMSMin is the lower bound of the per-execution duration distribution, in milliseconds. duration_ms stays the mean (Duration _sum and _average unchanged). Must be declared together with duration_ms_max (both zero means constant duration) and not exceed duration_ms. The observed Minimum moves from the mean toward this bound as executions per window increase and is limited so a sample set with the window's sum exists; one execution has no spread. A bound equal to duration_ms leaves no room for spread on either side. |
+| `functions[].duration_ms_max` | float |  | DurationMSMax is the upper bound of the per-execution duration distribution, in milliseconds, with the same rules as duration_ms_min. It must not be below duration_ms. |
 | `reserved_concurrency` | float |  | ReservedConcurrency is account capacity reserved/provisioned outside these unreserved functions. Must be an integer capacity count. Claimed concurrency = this allocation + modelled activity. |
 
 ## langsmith_eval config
@@ -1394,6 +1401,7 @@ AWS/SQS ordinary queue metrics (remote-write only)
 | `queues[].message_bytes` | float |  | MessageBytes is a fixed whole-byte payload, in the documented 1..1 MiB range: https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/quotas-messages.html |
 | `queues[].delay_seconds` | int |  |  |
 | `queues[].processing_seconds` | int |  |  |
+| `queues[].load` | string |  | Load selects how the queue's traffic follows the blueprint's business curve. Empty (the default) keeps arrivals_per_second and receives_per_second constant. "business" treats arrivals_per_second as the peak-plateau arrival rate and scales it each second by the shape engine's business factor (diurnal x weekly x volume). Consumers then take what is visible, one message per receive, but never faster than receives_per_second, which becomes the maximum consumer throughput: a backlog forms only while scaled arrivals exceed it and drains once they fall back. Receives follow arrivals, so idle consumers add no empty-receive polling. Without a shape engine the factor is 1. |
 | `queues[].enrichment` | object |  | Enrichment selects only the P2 key vocabulary. All values are declared; omitted keys stay absent. P1/P3 tag alternatives cannot be union-filled. |
 | `queues[].enrichment.asserts_env` | string |  |  |
 | `queues[].enrichment.asserts_site` | string |  |  |
