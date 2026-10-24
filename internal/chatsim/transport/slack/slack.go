@@ -91,8 +91,10 @@ func (t *Transport) emit(ctx context.Context, evs []engine.Event) {
 	out := t.out
 	t.mu.Unlock()
 	for _, ev := range evs {
-		if ev.TS != "" && t.seen.Seen(string(ev.Kind)+"|"+ev.ChannelID+"|"+ev.TS) {
-			continue // a backfilled message also delivered live, or vice versa
+		// A backfilled message may also arrive live. Edits share their message's ts, so only
+		// plain messages are deduplicated by ts; envelope redeliveries are caught by event_id.
+		if ev.Kind == engine.EvMessage && ev.TS != "" && t.seen.Seen(string(ev.Kind)+"|"+ev.ChannelID+"|"+ev.TS) {
+			continue
 		}
 		if out == nil {
 			continue

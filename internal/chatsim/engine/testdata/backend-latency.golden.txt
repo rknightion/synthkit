@@ -2,14 +2,14 @@
 +056.75s #ops      :art: Sam Ortiz: (early_grumble) Lee says a couple of users report that generating content feels slow
 +078.12s #ops      :large_blue_circle: Alex Moreno: (alert_lands) Alex reacts to the alert and asks Casey to acknowledge it in IRM and take a first look
 +087.22s #ops      :large_blue_circle: Alex Moreno: (acked) Alex thanks Casey and asks for a first read in a few minutes
-+091.15s #ops      :large_blue_circle: Alex Moreno: (get_owner) Alex says she is pinging Jordan, the backend owner
-+125.17s #incident * narrator: Jordan Pike was added to the channel by Alex
-+126.17s #incident :wrench: Jordan Pike: (owner_arrives) Jordan appears, says hi, and asks what has been seen so far
-+158.92s #incident :large_blue_circle: Alex Moreno: (incident_channel) Alex says the conversation moves to the new incident channel and restates what is known
-+206.69s #incident :wrench: Jordan Pike: heard you, Casey.
-+209.43s #incident :large_blue_circle: Alex Moreno: (check_in) Alex asks Casey and Jordan for a short status update
-+306.43s #incident :large_blue_circle: Alex Moreno: anything new on your side, Casey?
++093.94s #ops      :large_blue_circle: Alex Moreno: (get_owner) Alex says she is pinging Jordan, the backend owner
++145.75s #incident * narrator: Jordan Pike was added to the channel by Alex
++146.75s #incident :wrench: Jordan Pike: (owner_arrives) Jordan appears, says hi, and asks what has been seen so far
++147.75s #incident :large_blue_circle: Alex Moreno: (incident_channel) Alex says the conversation moves to the new incident channel and restates what is known
++207.13s #incident :wrench: Jordan Pike: heard you, Casey.
++229.15s #incident :large_blue_circle: Alex Moreno: (check_in) Alex asks Casey and Jordan for a short status update
++326.15s #incident :large_blue_circle: Alex Moreno: anything new on your side, Casey?
 +428.47s #incident :wrench: Jordan Pike: (wind_down) Latency recovers
 +436.92s #incident :large_blue_circle: Alex Moreno: (wind_down) Latency recovers
 +446.63s #incident :wrench: Jordan Pike: (wind_down) Latency recovers
--- end: scenario complete; joins [C0INCIDENT]; llm calls 14
+-- end: scenario complete; joins [C0INCIDENT]; llm calls 13

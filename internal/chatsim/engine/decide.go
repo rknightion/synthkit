@@ -122,6 +122,9 @@ func (m *Machine) DirectorDone(now time.Time, d Decision, err error) {
 	if err != nil {
 		m.log(now, "director_error", nil, "%v", err)
 		m.feedback, m.retried = nil, false
+		if m.hasOpenBeats() && !m.budgetSpent {
+			m.wakeAt(now.Add(DirectorRetryAfter), "retry after director error")
+		}
 		return
 	}
 	m.log(now, "director_result", d, "")
@@ -165,13 +168,6 @@ func (m *Machine) DirectorDone(now time.Time, d Decision, err error) {
 			addrAt = a
 			delete(m.addressed, v.line.Persona)
 		}
-		if v.line.Beat != "" {
-			b := m.beatByID[v.line.Beat]
-			b.turns++
-			if b.turns >= b.def.MaxTurns {
-				m.closeBeat(now, b, beatDone, "max_turns")
-			}
-		}
 		// Personas type in parallel: each line is due after its own read-and-type delay, kept
 		// in the director's order (at least a second apart), and after the same persona's
 		// previous line.
@@ -186,6 +182,15 @@ func (m *Machine) DirectorDone(now time.Time, d Decision, err error) {
 		}
 		at = due
 		m.enqueue(now, v.line.Persona, v.logical, v.line.Beat, v.line.Text, due, addrAt)
+		// Count the turn only once the line is queued, so closing the beat sees it pending and
+		// its then-actions wait for the line to post.
+		if v.line.Beat != "" {
+			b := m.beatByID[v.line.Beat]
+			b.turns++
+			if b.turns >= b.def.MaxTurns {
+				m.closeBeat(now, b, beatDone, "max_turns")
+			}
+		}
 	}
 	for _, id := range d.BeatsDone {
 		if b := m.beatByID[id]; b != nil && b.status == beatOpen {

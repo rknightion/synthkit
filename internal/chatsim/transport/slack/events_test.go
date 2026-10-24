@@ -3,6 +3,7 @@
 package slack
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -57,5 +58,18 @@ func TestLRU(t *testing.T) {
 	l.Seen("c") // evicts a
 	if l.Seen("a") {
 		t.Fatal("a should have been evicted")
+	}
+}
+
+// Every edit of one message shares its ts; only plain messages are deduplicated by ts, so an
+// acknowledge edit and a later resolve edit both reach the engine.
+func TestSuccessiveEditsAreNotDeduplicated(t *testing.T) {
+	ch := make(chan engine.Event, 4)
+	tr := &Transport{seen: newLRU(16), out: ch}
+	edit := engine.Event{Kind: engine.EvMessageChanged, ChannelID: "C1", From: engine.FromIRM, TS: "1.3"}
+	msg := engine.Event{Kind: engine.EvMessage, ChannelID: "C1", From: engine.FromIRM, TS: "1.4"}
+	tr.emit(context.Background(), []engine.Event{edit, edit, msg, msg})
+	if len(ch) != 3 {
+		t.Fatalf("forwarded %d events, want both edits and one copy of the message", len(ch))
 	}
 }

@@ -25,6 +25,8 @@ const (
 	LedgerWindow = 30
 	// AddressTTL is how long an addressed persona may still reply off-beat.
 	AddressTTL = 2 * time.Minute
+	// DirectorRetryAfter is the re-wake delay after a failed director call while beats are open.
+	DirectorRetryAfter = 5 * time.Second
 )
 
 // Effect is something the runner must do for the machine.

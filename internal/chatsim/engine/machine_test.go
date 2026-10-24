@@ -4,6 +4,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -134,8 +135,22 @@ func TestSummonNarratesAndQuietPeriodHolds(t *testing.T) {
 		Decision{Lines: []Line{line("alex", "get", "pinging jordan")}},
 		Decision{Lines: []Line{line("jordan", "arrive", "hey, what's up?")}},
 	)
+	var journal strings.Builder
+	m.j = NewJournal(&journal)
 	op := TimedEvent{At: 40 * time.Second, Event: Event{Kind: EvMessage, ChannelID: "C1", From: FromOperator, User: "U1", Text: "can we get jordan in?"}}
 	run(t, m, c, d, s, activate, op)
+	posted, summonedAfter := 0, -1
+	for _, l := range strings.Split(journal.String(), "\n") {
+		switch {
+		case strings.Contains(l, `"kind":"posted"`):
+			posted++
+		case strings.Contains(l, `"kind":"summon_scheduled"`) && summonedAfter < 0:
+			summonedAfter = posted
+		}
+	}
+	if summonedAfter < 2 {
+		t.Fatalf("summon scheduled after %d posts; it must wait for the get beat's line (the 2nd post)", summonedAfter)
+	}
 	var texts []string
 	for _, p := range s.posts {
 		texts = append(texts, p.Text)
@@ -146,6 +161,9 @@ func TestSummonNarratesAndQuietPeriodHolds(t *testing.T) {
 	}
 	if s.at[1] < 40*time.Second+6*time.Second {
 		t.Fatalf("unaddressed line posted inside the quiet period at %s", s.at[1])
+	}
+	if gap := s.at[2] - s.at[1]; gap < 5*time.Second {
+		t.Fatalf("jordan arrived %s after alex's pinging line; the summon timer must start when that line posts", gap)
 	}
 	if s.posts[2].Identity != nil || s.posts[3].Identity == nil || s.at[3]-s.at[2] < time.Second {
 		t.Fatalf("narrator must precede jordan by at least 1s in the app's own identity: %+v %v", s.posts, s.at)
@@ -217,5 +235,24 @@ func TestRateCapDefersAcrossMinute(t *testing.T) {
 	}
 	if !rewoke {
 		t.Fatalf("want a re-wake once the cap frees (after a minute), got %d turns", len(d.turns))
+	}
+}
+
+type failing struct{ calls int }
+
+func (f *failing) Decide(context.Context, Turn) (Decision, error) {
+	f.calls++
+	return Decision{}, errors.New("upstream timeout")
+}
+
+// A failed director call must not strand an open beat in a quiet room.
+func TestDirectorErrorRewakes(t *testing.T) {
+	m, c, _, s := setup(t)
+	f := &failing{}
+	if err := Simulate(context.Background(), m, c, []TimedEvent{activate}, f, s, 2*time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	if f.calls < 2 {
+		t.Fatalf("director called %d times; an error must schedule a re-wake while beats are open", f.calls)
 	}
 }
