@@ -1802,6 +1802,9 @@ The valid `mode:` values an incident or scenario effect may reference (union acr
 | `eval_quality_degraded` | axis: cloud |  | LangSmith eval quality regresses — faithfulness/completeness/relevance and retrieval scores drop while retry/fallback/HITL rates and error/pending run-outcomes climb |
 | `eval_quality_regression` | axis: workload |  | online-eval quality regresses on the targeted ai_agent fleet — agento11y_eval_scores_total{passed=false} rate rises |
 | `fallback_storm` | axis: service |  | elevated gateway fallback rate on the targeted service node |
+| `function_duration_storm` | axis: function |  | function duration rises up to 4x at full intensity, raising concurrency |
+| `function_error_spike` | axis: function |  | function executions fail: Errors over Invocations rises toward 1 (fraction of successful executions failing = intensity) |
+| `function_throttle_storm` | axis: function |  | function requests are throttled on top of admitted executions (extra Throttles = intensity x executions) |
 | `gateway_cloud_credential_expired` | axis: cluster |  | Cloud send attempts fail (generic authentication failure, no expiry-specific series) |
 | `gateway_config_reload_failure` | axis: cluster |  | Configured member remote configuration load fails |
 | `gateway_instance_loss` | axis: cluster |  | Configured member unavailable; live scrape members redistribute targets |
@@ -1858,6 +1861,8 @@ The valid `mode:` values an incident or scenario effect may reference (union acr
 | `pod_crashloop` | axis: cluster |  | pods crash-looping; intensity selects fraction of pods affected (low intensity ⇒ a few pods); restarts climb, phase Pending not Running |
 | `portkey_scrape_degraded` | axis: cloud |  | Portkey Analytics scrape degrades — API error_rate and 4xx/5xx share climb, latency rises, and the poller falls behind (poller errors + window lag grow) |
 | `provider_call_error` | axis: workload |  | elevated provider/LLM call-error rate on the targeted ai_agent fleet — call_error generations, ERROR spans, error_type/error_category on operation_duration |
+| `queue_consumer_stall` | axis: queue |  | the queue's consumers stop draining (rate x (1-intensity)): depth and spool usage grow until the spool quota discards |
+| `queue_publish_drop` | axis: queue |  | publishes into the queue stop (rate x (1-intensity)): spooled messages flatten and the backlog drains |
 | `replication_lag` | axis: database |  | replica falls behind primary |
 | `retry_storm` | axis: service |  | elevated gateway retry rate on the targeted service node |
 | `run_failure` | axis: pipeline_stage |  | runs completing the stage fail (fraction = intensity) and end with a FAILED outcome |
