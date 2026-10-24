@@ -102,6 +102,7 @@ list is in [BLUEPRINT-SCHEMA.md](https://github.com/rknightion/synthkit/blob/mai
 | `cloud.dynamodb` | object | no | Provisioned table list and account quotas; [captured config](#captured-cloudwatch-config), remote-write only. |
 | `cloud.redshift` | object | no | Provisioned cluster snapshots, named queues and optional I/O latency; [captured config](#captured-cloudwatch-config), remote-write only. |
 | `cloud.cloudwatch_logs` | object | no | Log-group uncompressed intake and optional independent Lambda delivery observations; [captured config](#captured-cloudwatch-config), remote-write only. |
+| `cloud.scheduler` | object | no | EventBridge Scheduler fixed-rate schedules with an opt-in target-error mode; [captured config](#captured-cloudwatch-config), remote-write only. |
 
 ### Captured CloudWatch config
 
@@ -134,6 +135,8 @@ These engineering bounds are not AWS service quotas.
 | `log_groups[]` | Unique unpadded `name`; required finite `events_per_second` (0..1e6, explicit zero valid); required finite whole `uncompressed_bytes_per_event` (1..65536); optional `subscription_filters`. |
 | `subscription_filters[]` | At most 100 total across log groups; unique unpadded `name` within group; required `destination_type: Lambda`; required `period_observation`. No target identity or joins. |
 | `period_observation` | All four required, whole finite nonnegative: `delivery_errors`, `delivery_throttling`, `forwarded_log_events` (0..60000001), `forwarded_bytes` (0..3932160065536, already compressed). No defaults; explicit zero valid. One observation per active minute, four value stats=x, sample_count=1. |
+| `cloud.scheduler` | `schedules` (1..1000), no inferred inventory. Same one-declaration-per-blueprint/account/region rule as the kinds above. |
+| `schedules[]` | `name` (1..64 letters/digits/`.`/`_`/`-`, unique within its group); optional `group` (same character rule, default `default`); required `rate` as `rate(<whole value> minute(s)\|hour(s)\|day(s))`, period at most 366 days, no `cron()`/`at()`; optional `target_error_fraction` (0..1, default 0) makes that fraction of runs target errors, each also counted as dropped (no retries modelled). A function-side failure belongs on the target's `cloud.lambda` entry instead. |
 
 Unspecified traffic is zero only where the Config permits omission; required Redshift/Logs
 assumptions reject absence. No ESM/fair/info/native switches or cross-service joins exist in these

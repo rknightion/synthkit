@@ -81,6 +81,7 @@ These constructs are **blueprint-scoped** (they carry the `blueprint` selector l
 | `dynamodb` | 15 provisioned table/account bases; optional `cloud.dynamodb.tables`. Remote-write only. | [cw](signal-areas.md) |
 | `redshift` | Ten provisioned-cluster/queue/latency bases; optional `cloud.redshift.clusters`. Remote-write only. | [cw](signal-areas.md) |
 | `cloudwatch_logs` | Two uncompressed intake bases and four optional independent Lambda delivery-observation bases; `cloud.cloudwatch_logs.log_groups`. Remote-write only. | [cw](signal-areas.md) |
+| `scheduler` | EventBridge Scheduler invocation attempts per schedule group and account for fixed-rate schedules, plus opt-in target error and dropped counts; `cloud.scheduler.schedules`. Remote-write only. | [cw](signal-areas.md) |
 
 The five captured-service consumers have conservative one-declaration-per-blueprint/account/
 region/kind admission. See [authoring and explicit model assumptions](blueprints.md#captured-cloudwatch-consumers)

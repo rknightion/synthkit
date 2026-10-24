@@ -146,6 +146,7 @@ type CloudDecl struct {
 	DynamoDB         yaml.Node `yaml:"dynamodb"`        // Provisioned CloudWatch table metrics (tables:); remote-write only; absent ⇒ not emitted
 	Redshift         yaml.Node `yaml:"redshift"`        // Provisioned cluster snapshots and sparse I/O (clusters:); remote-write only; absent ⇒ not emitted
 	CloudWatchLogs   yaml.Node `yaml:"cloudwatch_logs"` // Log-group intake metrics (log_groups:); remote-write only; absent ⇒ not emitted
+	Scheduler        yaml.Node `yaml:"scheduler"`       // EventBridge Scheduler fixed-rate schedules (schedules:); remote-write only; absent ⇒ not emitted
 	// Pipelines declares the env's batch data pipelines once (internal/pipelinerun). The resolver
 	// hands them to every consuming cloud-service construct (glue, mwaa) and adds each stage as a
 	// pipeline_stage failure target named <pipeline>.<stage>. Pipeline names must be unique across

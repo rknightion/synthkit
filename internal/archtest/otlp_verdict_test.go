@@ -26,7 +26,7 @@ import (
 // test.
 
 // otlpNativeAllowed is the OTEL-NATIVE list from signals/otlp-native-verdicts.md: kinds
-// that have (or, for the 18 "different namespace" CloudWatch/CSP kinds, may eventually
+// that have (or, for the 19 "different namespace" CloudWatch/CSP kinds, may eventually
 // get) a real OTel-native metric lane. Membership here does not by itself permit an
 // OTLP lane emitting the construct's EXISTING promrw family names — see that file's
 // "not permission to re-emit" note.
@@ -56,6 +56,7 @@ var otlpNativeAllowed = map[string]bool{
 	"dynamodb":        true,
 	"redshift":        true,
 	"cloudwatch_logs": true,
+	"scheduler":       true,
 	"csp_azure":       true,
 	"csp_gcp":         true,
 }
@@ -236,7 +237,7 @@ func TestOTLPVerdictCoverageIsComplete(t *testing.T) {
 	checkStale("otlpScrapeOnlyForbidden", otlpScrapeOnlyForbidden)
 	checkStale("otlpUnresolved", otlpUnresolved)
 
-	const wantTotal = 53
+	const wantTotal = 54
 	if got := len(allKinds); got != wantTotal {
 		t.Errorf("runner.Catalog() registers %d kinds, want %d (signals/otlp-native-verdicts.md "+
 			"includes the Datadog receiver, DCGM exporter, Solace exporter and captured CloudWatch consumer additions to the 45-package baseline — if the catalog has genuinely "+

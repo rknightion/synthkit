@@ -358,6 +358,68 @@ initially paused instances do not bootstrap on resume. Positive master values le
 pause/resume wholly between observations is unobservable. Writer failure consumes the attempted
 window with no replay. No durable checkpoint, native/backend or deployment acceptance is implied.
 
+### EventBridge Scheduler emitted subset [slug: cw-scheduler]
+
+The optional `cloud.scheduler` declaration builds a separate blueprint-scoped construct for
+fixed-rate EventBridge Scheduler schedules, under the same one-declaration-per-blueprint/account/
+region/kind, remote-write-only and `name=global` rules as the five consumers above. It is not one
+of their 51 bases.
+
+**Provenance.** Raw CloudWatch API capture (`list-metrics` plus `get-metric-data`, 60 s period, all
+five statistics) in a lab account, eu-west-1, 2026-10-24: one `rate(1 minute)` schedule in its own
+schedule group, retry policy of zero attempts, targeting a Lambda function with reserved
+concurrency 1 that was being throttled by a concurrent burst. Observed: `InvocationAttemptCount`
+only, as a dimensionless account series and per `ScheduleGroup` (the declared group and an
+unrelated `default` group). Each attempt is one observation of 1: one attempt per minute gave
+sum = average = minimum = maximum = sample_count = 1 per group; a minute with attempts in two
+groups gave the account series sum = sample_count = 2, average = minimum = maximum = 1, so the
+account series aggregates every group. Minutes without an attempt had no datapoint (a schedule
+group with attempts in two minutes listed two datapoints). The function's Lambda `Throttles`
+reached 149 per minute during the burst while no Scheduler error metric was listed: EventBridge
+Scheduler invokes a Lambda target asynchronously
+([Lambda with EventBridge Scheduler](https://docs.aws.amazon.com/lambda/latest/dg/with-eventbridge-scheduler.html)),
+so function-side throttles and errors stay on `AWS/Lambda`. The Prometheus base names follow
+`[slug: cw-naming]`; no remote-write capture of this namespace exists yet.
+
+`TargetErrorCount` and `InvocationDroppedCount` are **documented, not observed**
+([Scheduler CloudWatch metrics](https://docs.aws.amazon.com/scheduler/latest/UserGuide/monitoring-cloudwatch.html),
+retrieved 2026-10-24: unit Count, dimension `ScheduleGroup`, account metrics without it). They are
+emitted only under the opt-in `target_error_fraction`: a failed run is one attempt whose target
+API call errors, adding one `TargetErrorCount` and, because retries are not modelled (the captured
+zero-retry policy), one `InvocationDroppedCount`. Their one-observation-of-1 statistics mirror the
+observed attempt shape and are an assumption. A run that fails inside a Lambda function is a
+Lambda `Errors` observation, not a Scheduler error: declare it on that function's `cloud.lambda`
+entry (asynchronous receipt at the schedule's rate, plus `error_fraction`).
+
+Cadence: each schedule fires once per declared `rate(...)` period at a stable whole-minute offset
+derived from its group and name (a stand-in for its creation time), so one minute window holds at
+most one attempt per schedule at the 1-minute minimum rate. Cron and `at()` expressions are not
+modelled. Publication is sparse: a group or the account emits only in a window with an attempt,
+and error metrics only in a window with a failed run. Missed windows are not replayed; master
+volume zero pauses emission and the first resumed tick only re-establishes the window boundary.
+
+```yaml signals
+family: aws_scheduler
+scope: blueprint
+sink: promrw
+stats: [_sum, _average, _maximum, _minimum, _sample_count]
+labels: {account_id: <account>, region: <region>, namespace: AWS/Scheduler, job: cloud/aws/scheduler, name: global}
+dimension_profiles:
+  account: []
+  group: [dimension_ScheduleGroup]
+metrics:
+  - {root: invocation_attempt_count, type: gauge, unit: count, profiles: [account, group], v: ok}
+  - {root: target_error_count, type: gauge, unit: count, profiles: [account, group], note: documented-not-observed; opt-in}
+  - {root: invocation_dropped_count, type: gauge, unit: count, profiles: [account, group], note: documented-not-observed; opt-in}
+```
+
+Withheld (documented, not modelled): `TargetErrorThrottledCount` (whether it is a subset of
+`TargetErrorCount` is not documented), `InvocationThrottleCount` (Scheduler service-quota
+throttling), the dead-letter-queue metrics `InvocationsSentToDeadLetterCount`,
+`InvocationsFailedToBeSentToDeadLetterCount`, `InvocationsFailedToBeSentToDeadLetterCount_<error_code>`
+and `InvocationsSentToDeadLetterCount_Truncated_MessageSizeExceeded`, the usage metrics, and
+unsuffixed `aws_scheduler_info` (no admitted metadata projection).
+
 ## Retained positive CloudWatch observations — 2026-10-23 [slug: cw-captured]
 
 This identity-elided series-key catalogue freezes **141 observed bases, 56 exact label-key

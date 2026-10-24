@@ -47,6 +47,7 @@ import (
 	"github.com/rknightion/synthkit/internal/construct/qualificationpipeline"
 	"github.com/rknightion/synthkit/internal/construct/rds"
 	"github.com/rknightion/synthkit/internal/construct/redshift"
+	"github.com/rknightion/synthkit/internal/construct/scheduler"
 	"github.com/rknightion/synthkit/internal/construct/sm"
 	"github.com/rknightion/synthkit/internal/construct/snowflake"
 	"github.com/rknightion/synthkit/internal/construct/solace"
@@ -145,6 +146,7 @@ func Catalog() *core.Registry {
 	reg.RegisterConstruct(withMetricProducer(dynamodb.Registration(), producerUnlabelled))
 	reg.RegisterConstruct(withMetricProducer(redshift.Registration(), producerUnlabelled))
 	reg.RegisterConstruct(withMetricProducer(cloudwatchlogs.Registration(), producerUnlabelled))
+	reg.RegisterConstruct(withMetricProducer(scheduler.Registration(), producerUnlabelled))
 
 	// Cluster add-ons (blueprint addons: list).
 	reg.RegisterConstruct(withMetricProducer(lbc.Registration(), producerPromRW))

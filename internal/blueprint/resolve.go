@@ -53,6 +53,7 @@ const (
 	KindDynamoDB       = "dynamodb"
 	KindRedshift       = "redshift"
 	KindCloudWatchLogs = "cloudwatch_logs"
+	KindScheduler      = "scheduler"
 	// Fleet Management mirror: emitted from the cluster path when k8s_monitoring.fleet_management
 	// is true. Must equal the string the fleetmgmt construct registers as its Kind.
 	KindFleetManagement = "fleet_management"
@@ -68,7 +69,7 @@ func TopologyKinds() []string {
 		KindK8sCluster, KindEC2, KindCWInfra, KindRDS, KindElastiCache, KindHost,
 		KindDbo11yMySQL, KindDbo11yPostgres,
 		KindDocDB, KindNeptune, KindAOSS, KindMWAA, KindGlue,
-		KindBedrock, KindAgentCore, KindLambda, KindSQS, KindDynamoDB, KindRedshift, KindCloudWatchLogs,
+		KindBedrock, KindAgentCore, KindLambda, KindSQS, KindDynamoDB, KindRedshift, KindCloudWatchLogs, KindScheduler,
 		KindFleetManagement,
 		KindK8sProfiling,
 	}
@@ -804,6 +805,7 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 				{KindDynamoDB, &e.Cloud.DynamoDB},
 				{KindRedshift, &e.Cloud.Redshift},
 				{KindCloudWatchLogs, &e.Cloud.CloudWatchLogs},
+				{KindScheduler, &e.Cloud.Scheduler},
 			}
 			for _, cs := range cloudServices {
 				if cs.node.Kind == 0 {
@@ -1106,7 +1108,7 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 	cwDeclarations := map[cwDeclarationKey]string{}
 	for _, ci := range r.Constructs {
 		switch ci.Kind {
-		case KindLambda, KindSQS, KindDynamoDB, KindRedshift, KindCloudWatchLogs:
+		case KindLambda, KindSQS, KindDynamoDB, KindRedshift, KindCloudWatchLogs, KindScheduler:
 			if ci.Fixtures == nil || ci.Fixtures.Cloud == nil {
 				continue // Missing cloud remains the construct Build's normal refusal.
 			}
