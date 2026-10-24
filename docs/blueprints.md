@@ -42,28 +42,32 @@ Use `GET /control/blueprints/staged` to see staged custom/git blueprints and
 
 ## Captured CloudWatch consumers
 
-Optional environment blocks `cloud.lambda`, `cloud.sqs` and `cloud.dynamodb` each build an
+Optional environment blocks `cloud.lambda`, `cloud.sqs`, `cloud.dynamodb`, `cloud.redshift` and
+`cloud.cloudwatch_logs` each build an
 independent blueprint-scoped metrics construct. Omit the block to emit nothing for that kind.
 They are **remote-write only**: `cloudwatch_export: otlp` fails Build, without fallback or aliases.
 AWS does have a native Metric Streams form, but these consumers do not yet implement it. The
 [canonical emitted contract](https://github.com/rknightion/synthkit/blob/main/signals/cw.md#initial-captured-service-emitters-slug-cw-captured-emitted)
-lists the 35 admitted bases and exact alternative dimensions separately from positive source tables.
+lists the 47 admitted bases (35 original plus ten Redshift and two Logs intake) and exact alternative dimensions separately from positive source tables.
 ESM/fair-queue/info families remain withheld. There are no pipeline adapters, failure modes or
 cross-service request joins in this subset.
 
 Declare **at most one block per blueprint/account/region/kind**, putting all resources in its
-`functions`, `queues` or `tables` list. A second environment in the same account/region rejects
+`functions`, `queues`, `tables`, `clusters` or `log_groups` list. A second environment in the same account/region rejects
 even with different resources: account snapshots and resource identities must not be duplicated.
 Different kinds, account/regions and blueprint scopes remain distinct. The scoped writer alone
 adds `blueprint`; environment names do not distinguish these CloudWatch series.
 
-All inputs are synthetic operator assumptions, not captured numeric fidelity. Omitted numerical
-traffic inputs are zero, not hidden traffic defaults. Positive master volume keeps the configured
+All inputs are synthetic operator assumptions, not captured numeric fidelity. For the original
+Lambda/SQS/DynamoDB configs, omitted numerical traffic inputs are zero, not hidden traffic defaults.
+Redshift snapshot fields and Logs rate/size fields require explicit presence (zero/false is valid);
+Redshift read/write I/O blocks are optional and their omitted rate is zero. Positive master volume keeps the configured
 fixed rates; volume zero emits nothing, freezes active carry and advances the observation fence.
 The first observed positive tick after a pause is a silent boundary, not catch-up. First ordinary
 startup assumes one preceding minute; later observations use bounded elapsed windows, not replay.
 Sparse families need not appear in a single dump; never raise shipped rates to force them.
-Use the deliberate all-family test populations only in `e2e/fixtures/e2e-cw-consumers.yaml`.
+Use the deliberate all-family test populations only in `e2e/fixtures/e2e-cw-consumers.yaml` and
+`e2e/fixtures/e2e-cw-remaining.yaml`.
 
 ```yaml
 # Example cloud block: small application assumptions, not capture statistics or AWS defaults.
@@ -111,6 +115,34 @@ GetRecords polling; StreamLabel is absent from ordinary operations. Whole return
 bytes and fractional read units/rates are distinct. Capacity samples may exist at zero traffic;
 latency/returned observations are sparse. Floating-point floors may delay a decimal-boundary
 request; this is not measured throughput or a promise of numerical fidelity.
+
+Redshift `clusters[]` require explicit `name`, non-global `collector_name` and all six `snapshot`
+assumptions: `cpu_percent`, `database_connections`, `healthy`, `maintenance`, `disk_used_percent`,
+`total_tables`. Percentages are 0–100, not fractions; counts are whole. Stocks have sample_count=1.
+Optional `wlm_queues[]` require `name`, `waiting`, `running`; QueueName never leaks to cluster
+snapshots or latency. Optional independent `read_io`/`write_io` declare `operations_per_second`
+and required positive `latency_seconds`; N completed synthetic I/O observations produce sum=N×L,
+sample_count=N and average/min/max=L **seconds**, without unit scaling. No I/O observations means
+no latency family. No NodeID, QueryType/user-query, throughput, managed-storage exception, automatic
+cluster pause, pipeline or cross-service attribution is added.
+
+Logs `log_groups[]` require explicit unique `name`, `events_per_second` and whole
+`uncompressed_bytes_per_event`. Zero rate emits neither intake family. For N uploads of size B,
+event sum/count=N and average/min/max=1; byte sum=N×B, count=N and average/min/max=B.
+Source event unit is AWS **None**, not Count; bytes are uncompressed. LogGroupName is the only
+vendor dimension and `name=global` is the selected collector projection. No bodies, Loki output,
+compression ratio, DestinationType/delivery/filter, by-data-source, info or lifecycle joins follow.
+The selected Redshift P18/P14 and Logs P36 vendor-dimension projections omit captured enrichment;
+they are not complete collector envelopes or native evidence.
+
+These two consumers retain exact fractional carry over decoded binary-float rates and integer
+nanoseconds; decimal-intent boundaries may be delayed, never rounded up with an epsilon. Only
+new accrual is capped at 60 seconds; earned fractions survive jitter/gaps and observed pause.
+Repeated/backward timestamps emit nothing. An initially paused instance does not bootstrap on
+resume. Pause/resume entirely between observations is unobservable; writer failure consumes the
+attempted window with no replay, durable checkpoint or backend-readback guarantee. Supply stocks,
+rates, latency and event sizes from the estate being modelled, with a real-world basis beside
+any shipped values; the coverage fixture is not a production default.
 
 See [field reference](blueprint-reference.md#captured-cloudwatch-config) and the generated schema
 for the complete accepted keys and engineering bounds. Unknown fields reject, including withheld

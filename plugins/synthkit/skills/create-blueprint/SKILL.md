@@ -107,14 +107,21 @@ full pipeline/demo coverage or raise shipped rates to force a run; use a selecte
    Compare the dumped series inventory with the selected `signals/` contracts; do not make the
    catalogue match a new dump.
 
-For captured Lambda/SQS/DynamoDB CloudWatch output, follow
+For captured Lambda/SQS/DynamoDB/Redshift/Logs-intake CloudWatch output, follow
 [the public consumer guide](https://github.com/rknightion/synthkit/blob/main/docs/blueprints.md#captured-cloudwatch-consumers)
 and the explicit emitted sections in `signals/cw.md`, not the larger positive-source tables.
-Use optional `cloud.lambda.functions`, `cloud.sqs.queues` and `cloud.dynamodb.tables`; at most one
+Use optional `cloud.lambda.functions`, `cloud.sqs.queues`, `cloud.dynamodb.tables`,
+`cloud.redshift.clusters` and `cloud.cloudwatch_logs.log_groups`; at most one
 block per blueprint/account/region/kind, including across environments with disjoint resources.
 These consumers reject native OTLP export and have no pipeline adapters. Preserve explicit
 non-global SQS/DynamoDB collector names, exact alternative dimensions and once-only account
-snapshots. ESM/fair/info families remain withheld. Fixed rates/value assumptions need a real-world
+snapshots. Redshift additionally requires non-global collector names and all snapshot assumptions,
+including explicit zero/false. Optional read/write I/O uses seconds and independent completed-I/O
+rates; named queue stocks use the exact separate QueueName projection. Logs requires explicit
+rate and whole uncompressed bytes per event; its event unit remains AWS None, not Count.
+Follow the guide's required-presence/bounds and exact carry/pause/first-resume rules. No captured
+enrichment, NodeID/user-query/managed-storage exception, Logs delivery/selectors/by-data-source,
+compression, info, pipeline or lifecycle attribution is admitted. ESM/fair/info remain withheld. Fixed rates/value assumptions need a real-world
 basis beside them; do not copy deliberate all-family populations from `e2e/fixtures/` into a
 shipped blueprint. Ordinary sparse rates may not emit every family in one CLI tick.
 

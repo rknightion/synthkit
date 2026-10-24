@@ -565,6 +565,8 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `environments[].cloud.lambda` | raw yaml (see per-kind config sections) |  | FunctionName-only CloudWatch (functions:); remote-write only; absent ⇒ not emitted |
 | `environments[].cloud.sqs` | raw yaml (see per-kind config sections) |  | Ordinary CloudWatch queue metrics (queues:); remote-write only; absent ⇒ not emitted |
 | `environments[].cloud.dynamodb` | raw yaml (see per-kind config sections) |  | Provisioned CloudWatch table metrics (tables:); remote-write only; absent ⇒ not emitted |
+| `environments[].cloud.redshift` | raw yaml (see per-kind config sections) |  | Provisioned cluster snapshots and sparse I/O (clusters:); remote-write only; absent ⇒ not emitted |
+| `environments[].cloud.cloudwatch_logs` | raw yaml (see per-kind config sections) |  | Log-group intake metrics (log_groups:); remote-write only; absent ⇒ not emitted |
 | `environments[].cloud.pipelines[]` | object |  | Pipelines declares the env's batch data pipelines once (internal/pipelinerun). The resolver hands them to every consuming cloud-service construct (glue, mwaa) and adds each stage as a pipeline_stage failure target named <pipeline>.<stage>. Pipeline names must be unique across all blueprint environments. A glue stage needs a glue block; an orchestrating environment needs an mwaa block that lists it. |
 | `environments[].cloud.pipelines[].name` | string |  |  |
 | `environments[].cloud.pipelines[].environment` | string |  |  |
@@ -815,6 +817,19 @@ Cloudflare zone + tunnel metrics (lablabs exporter shape)
 | `colocations[]` | string |  |  |
 | `tunnels[]` | object |  |  |
 | `tunnels[].name` | string |  |  |
+
+## cloudwatch_logs config
+
+**Location:** `(config-gated by env/cloud/cluster/database declarations)`  ·  **group:** topology
+
+AWS/Logs log-group intake metrics (remote-write only)
+
+| key | type | optional | description |
+|---|---|---|---|
+| `log_groups[]` | object |  |  |
+| `log_groups[].name` | string |  |  |
+| `log_groups[].events_per_second` | float | yes |  |
+| `log_groups[].uncompressed_bytes_per_event` | float | yes |  |
 
 ## cluster_autoscaler config
 
@@ -1283,6 +1298,35 @@ GitLab CI qualification/validation pipeline — gitlab_ci_pipeline_* exporter fa
 aws_rds_* CloudWatch metrics for one database instance
 
 _(no configurable fields)_
+
+## redshift config
+
+**Location:** `(config-gated by env/cloud/cluster/database declarations)`  ·  **group:** topology
+
+Provisioned AWS/Redshift snapshots and sparse I/O latency (remote-write only)
+
+| key | type | optional | description |
+|---|---|---|---|
+| `clusters[]` | object |  |  |
+| `clusters[].name` | string |  |  |
+| `clusters[].collector_name` | string |  |  |
+| `clusters[].snapshot` | object | yes |  |
+| `clusters[].snapshot.cpu_percent` | float | yes |  |
+| `clusters[].snapshot.database_connections` | float | yes |  |
+| `clusters[].snapshot.healthy` | bool | yes |  |
+| `clusters[].snapshot.maintenance` | bool | yes |  |
+| `clusters[].snapshot.disk_used_percent` | float | yes |  |
+| `clusters[].snapshot.total_tables` | float | yes |  |
+| `clusters[].read_io` | object | yes |  |
+| `clusters[].read_io.operations_per_second` | float |  |  |
+| `clusters[].read_io.latency_seconds` | float | yes |  |
+| `clusters[].write_io` | object | yes |  |
+| `clusters[].write_io.operations_per_second` | float |  |  |
+| `clusters[].write_io.latency_seconds` | float | yes |  |
+| `clusters[].wlm_queues[]` | object |  |  |
+| `clusters[].wlm_queues[].name` | string |  |  |
+| `clusters[].wlm_queues[].waiting` | float | yes |  |
+| `clusters[].wlm_queues[].running` | float | yes |  |
 
 ## snowflake config
 

@@ -75,6 +75,8 @@ target only, must NOT gain an OTLP metrics lane · **UNRESOLVED** = evidence not
 | `lambda` | `construct/lambda` | OTEL-NATIVE source form; **consumer RW-only** | As `cw_infra`, AWS Metric Streams has a distinct native form. Initial FunctionName consumer rejects OTLP. Historical profile-only units and withheld ESM fields do not establish complete native admission; see `cw.md` emitted/source separation. | 2026-10-23 |
 | `sqs` | `construct/sqs` | OTEL-NATIVE source form; **consumer RW-only** | CloudWatch Metric Streams source form and documented units/dimensions do not install native export. Initial ordinary-queue consumer rejects OTLP; no aliases or fair/info projection. | 2026-10-23 |
 | `dynamodb` | `construct/dynamodb` | OTEL-NATIVE source form; **consumer RW-only** | CloudWatch Metric Streams source form and documented alternative dimensions/units do not install native export. Initial provisioned-table consumer rejects OTLP. | 2026-10-23 |
+| `redshift` | `construct/redshift` | OTEL-NATIVE source form; **consumer RW-only** | CloudWatch Metric Streams uses a distinct native namespace. Selected cluster/QueueName snapshots and I/O latency implement remote-write only; Build rejects OTLP. Source-positive alternatives and units install no aliases or native-runtime admission. | 2026-10-23 |
+| `cloudwatch_logs` | `construct/cloudwatchlogs` | OTEL-NATIVE source form; **consumer RW-only** | CloudWatch Metric Streams source form is distinct from the Prometheus form. The selected LogGroupName intake consumer rejects OTLP. None/Bytes source units and P36 evidence do not establish native envelopes or delivery admission. | 2026-10-23 |
 | `csp_azure` | `construct/cspazure` | OTEL-NATIVE (different namespace) | `azuremonitorreceiver/README.md` states that all scraped metric names are prefixed with exact string `azure_`; `documentation.md` lists resource attributes `azuremonitor.subscription`, `azuremonitor.subscription_id`, `azuremonitor.tenant_id`. The source-backed lane records 119 resource-family entries and 103 unique receiver names, with Azure metric-definition units and dimensions carried on the native points. Vendor docs via ctx7 `/open-telemetry/opentelemetry-collector-contrib`; full family contract is in `signals/cspazure.md [slug: cspazure-otlp-receiver]`. | 2026-09-06 |
 | `csp_gcp` | `construct/cspgcp` | OTEL-NATIVE (different namespace) | `googlecloudmonitoringreceiver` source at collector-contrib `v0.160.0`: the OTLP metric name is the Cloud Monitoring metric type verbatim (`compute.googleapis.com/instance/cpu/utilization`), unit and description pass through, datapoint attributes are the metric labels unprefixed, resource carries `gcp.resource_type` plus bare MonitoredResource/user/system labels, scope is empty; GAUGE→Gauge, CUMULATIVE→monotonic cumulative Sum, DELTA→delta non-monotonic Sum, DELTA DISTRIBUTION→delta explicit-bounds Histogram, other DISTRIBUTION kinds dropped. Distinct from the `stackdriver_*` scrape form. Full contract with `file:line` in `cantfind.md` SK-88 and `signals/cspgcp.md [slug: cspgcp-otlp-receiver]`. | 2026-09-06 |
 | `alloy_health` | `construct/alloyhealth` | SCRAPE-ONLY | `grafana/alloy` `reference/http/_index.md` + `collect/metamonitoring.md`: Alloy exposes its internal metrics **only** in Prometheus exposition format on `/metrics`; the documented meta-monitoring route is `prometheus.exporter.self` → `prometheus.scrape` → optionally `otelcol.receiver.prometheus` for OTLP conversion. The `otelcol_*` families are therefore Prometheus-named at the source. Vendor docs via ctx7 `/grafana/alloy`. | 2026-08-27 |
@@ -110,10 +112,10 @@ target only, must NOT gain an OTLP metrics lane · **UNRESOLVED** = evidence not
 
 | Verdict | Kinds |
 |---|---|
-| OTEL-NATIVE | 24 (16 have a different namespace: 14 CloudWatch kinds + `csp_azure` + `csp_gcp`; the three initial captured-service consumers remain RW-only) |
+| OTEL-NATIVE | 26 (18 have a different namespace: 16 CloudWatch kinds + `csp_azure` + `csp_gcp`; all five captured-service consumers remain RW-only) |
 | SCRAPE-ONLY — must NOT gain an OTLP metrics lane | 26 (including `k8s_profiling`, which has no metrics class at all) |
 | UNRESOLVED | 1 (`portkey_gateway`) |
-| **Total** | **51** |
+| **Total** | **53** |
 
 The original 2026-08-27 study found one built OTEL-NATIVE kind (`web_service`). That historical implementation count is not a current inventory; the receiver promotion adds one native kind to the verdict table.
 
@@ -134,8 +136,9 @@ catalogue is already known.
 3. **`host`.** Second substrate; `hostmetricsreceiver` `system.*` names are stable and documented.
 4. **`beyla_agent` and `envoy_gateway`.** Small, self-contained, each a single documented config
    switch in the real product.
-5. **CloudWatch native profiles.** The original study covered 11 kinds. The three later
-   captured-service consumers (`lambda`, `sqs`, `dynamodb`) remain remote-write only. A shared
+5. **CloudWatch native profiles.** The original study covered 11 kinds. The five later
+   captured-service consumers (`lambda`, `sqs`, `dynamodb`, `redshift`, `cloudwatch_logs`) remain
+   remote-write only. A shared
    source naming law (`amazonaws.com/{Namespace}/{MetricName}`) does not establish complete unit,
    resource/enrichment or runtime admission for every profile; native lanes are admitted separately.
 6. **`csp_azure` and `csp_gcp`.** Lowest priority. Both name shapes are now established (SK-88): an

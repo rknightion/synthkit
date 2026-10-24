@@ -5,7 +5,7 @@ description: Catalogue of every construct kind and workload that synthkit can mo
 
 # Constructs & Workloads
 
-synthkit's catalog is a collection of isolated construct and workload modules. As of v1.0.0 there are **42 construct kinds** and **2 workload kinds**. Each construct is a separate Go package under `internal/construct/<kind>/`; workloads live under `internal/workload/<kind>/`. Neither constructs nor workloads import each other or the blueprint package — isolation is enforced by `internal/archtest`.
+synthkit's catalog is a collection of isolated construct and workload modules. The current catalog has **50 construct kinds** and **3 workload kinds** (53 total). Each construct is a separate Go package under `internal/construct/<kind>/`; workloads live under `internal/workload/<kind>/`. Neither constructs nor workloads import each other or the blueprint package — isolation is enforced by `internal/archtest`.
 
 ## Construct granularity principle
 
@@ -79,11 +79,15 @@ These constructs are **blueprint-scoped** (they carry the `blueprint` selector l
 | `lambda` | 11 FunctionName/account bases; optional `cloud.lambda.functions`. Remote-write only. | [cw](signal-areas.md) |
 | `sqs` | Nine ordinary queue bases; optional `cloud.sqs.queues`. Remote-write only. | [cw](signal-areas.md) |
 | `dynamodb` | 15 provisioned table/account bases; optional `cloud.dynamodb.tables`. Remote-write only. | [cw](signal-areas.md) |
+| `redshift` | Ten provisioned-cluster/queue/latency bases; optional `cloud.redshift.clusters`. Remote-write only. | [cw](signal-areas.md) |
+| `cloudwatch_logs` | Two uncompressed log-group intake bases; optional `cloud.cloudwatch_logs.log_groups`. Remote-write only. | [cw](signal-areas.md) |
 
-The three captured-service consumers have conservative one-declaration-per-blueprint/account/
+The five captured-service consumers have conservative one-declaration-per-blueprint/account/
 region/kind admission. See [authoring and explicit model assumptions](blueprints.md#captured-cloudwatch-consumers)
 and the [canonical emitted subset](https://github.com/rknightion/synthkit/blob/main/signals/cw.md#initial-captured-service-emitters-slug-cw-captured-emitted).
-Four Lambda ESM, five SQS fair-queue and three metadata info families remain withheld.
+ESM/fair/info families remain withheld. Redshift user-query/NodeID/managed-storage expansions and
+Logs delivery/by-data-source profiles are also withheld; no selector, compression, pipeline or
+cross-service join is inferred from this intake/snapshot subset.
 
 #### Declared pipelines
 

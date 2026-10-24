@@ -11,6 +11,7 @@ import (
 	"github.com/rknightion/synthkit/internal/construct/beylaagent"
 	"github.com/rknightion/synthkit/internal/construct/certmanager"
 	"github.com/rknightion/synthkit/internal/construct/cloudflare"
+	"github.com/rknightion/synthkit/internal/construct/cloudwatchlogs"
 	"github.com/rknightion/synthkit/internal/construct/clusterautoscaler"
 	"github.com/rknightion/synthkit/internal/construct/coredns"
 	"github.com/rknightion/synthkit/internal/construct/cspazure"
@@ -45,6 +46,7 @@ import (
 	"github.com/rknightion/synthkit/internal/construct/portkeypoller"
 	"github.com/rknightion/synthkit/internal/construct/qualificationpipeline"
 	"github.com/rknightion/synthkit/internal/construct/rds"
+	"github.com/rknightion/synthkit/internal/construct/redshift"
 	"github.com/rknightion/synthkit/internal/construct/sm"
 	"github.com/rknightion/synthkit/internal/construct/snowflake"
 	"github.com/rknightion/synthkit/internal/construct/solace"
@@ -141,6 +143,8 @@ func Catalog() *core.Registry {
 	reg.RegisterConstruct(withMetricProducer(lambda.Registration(), producerUnlabelled))
 	reg.RegisterConstruct(withMetricProducer(sqs.Registration(), producerUnlabelled))
 	reg.RegisterConstruct(withMetricProducer(dynamodb.Registration(), producerUnlabelled))
+	reg.RegisterConstruct(withMetricProducer(redshift.Registration(), producerUnlabelled))
+	reg.RegisterConstruct(withMetricProducer(cloudwatchlogs.Registration(), producerUnlabelled))
 
 	// Cluster add-ons (blueprint addons: list).
 	reg.RegisterConstruct(withMetricProducer(lbc.Registration(), producerPromRW))

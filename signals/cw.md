@@ -78,12 +78,13 @@ stat suffix) with `scrape_job`; it does not add resource dimensions or `tag_VpcI
 
 ## Initial captured-service emitters [slug: cw-captured-emitted]
 
-The optional `cloud.lambda`, `cloud.sqs` and `cloud.dynamodb` declarations emit **only these
-35 bases (175 final statistic names)** over remote-write. They are separate blueprint-scoped
+The optional `cloud.lambda`, `cloud.sqs`, `cloud.dynamodb`, `cloud.redshift` and
+`cloud.cloudwatch_logs` declarations emit **only these 47 bases (235 final statistic names)**
+over remote-write (35 original bases plus ten Redshift and two Logs intake bases). They are separate blueprint-scoped
 constructs, not pipeline-stage adapters. Omission emits nothing for that kind. One declaration
 per blueprint/account/region/kind owns the entire resource list; duplicate declarations across
 environments reject even with disjoint resources. Different kinds and blueprints remain distinct.
-Build rejects `cloudwatch_export: otlp` for all three: this is an implementation boundary, not a
+Build rejects `cloudwatch_export: otlp` for all five: this is an implementation boundary, not a
 claim that AWS lacks native Metric Streams. No native aliases are installed by these consumers.
 The source tables below remain positive-only source evidence, **not emission allowlists**.
 
@@ -95,7 +96,7 @@ volume retains fixed configured rates (no new diurnal or positive scaling guaran
 and resume entirely between observations cannot be detected. Sample counts count observations,
 never duration/byte magnitudes. Missed intervals are not replayed.
 
-In these three blocks, `dimension_profiles` and each metric's `profiles` describe **exact
+In these five blocks, `dimension_profiles` and each metric's `profiles` describe **exact
 alternative vendor-dimension key sets**, not their union. The common labels are `account_id`,
 `region`, `namespace`, `job`, `name`, plus the writer-stamped `blueprint`. No caller metadata is
 guessed. The public fixture exercises all profiles without enrichment. SQS alone permits optional
@@ -226,8 +227,92 @@ metrics:
 
 Unsuffixed `aws_dynamodb_info` remains withheld; the observed metadata shape does not establish
 an explicit synthetic metadata projection. See [authoring](../docs/blueprints.md#captured-cloudwatch-consumers)
-for configuration and model limits. These blocks do not add Redshift/Logs consumers, Glue expansion,
-new source/unit evidence or native admission.
+for configuration and model limits. These blocks add no Glue expansion, new source/unit evidence
+or native admission.
+
+### Redshift emitted subset [slug: cw-redshift-emitted]
+
+Provisioned clusters require explicit ClusterIdentifier and unique non-global `collector_name`.
+The six snapshot fields are required, including zero/false: CPU and disk usage are percentages
+0–100 (not fractions); connections/tables and queue waiting/running are whole counts; healthy
+and maintenance project explicit boolean 0/1. Each stock observes once per active reporting
+window: sum/average/minimum/maximum equal the stock and sample_count is 1. Optional named WLM
+queues have ClusterIdentifier+QueueName; no queue dimension leaks into cluster/latency metrics.
+Optional independent read/write completed-I/O rates observe a fixed positive latency in **seconds**:
+N newly earned observations at L give sum=N×L, average/minimum/maximum=L, sample_count=N.
+N=0 omits that latency family. Neither queue stocks nor CPU infer arrivals or I/O throughput.
+
+The selected vendor-dimension projections are P18 (cluster) and P14 (named queue), independently
+confirmed by API forms and [AWS Redshift metrics](https://docs.aws.amazon.com/redshift/latest/mgmt/metrics-listing.html).
+These are not full captured collector envelopes: captured tags and `asserts_env` are omitted.
+No ARN syntax is inferred for collector names. Stock sampling and per-I/O observation counts are
+explicit synthetic assumptions, not AWS sample-count/publication or captured numerical fidelity.
+
+```yaml signals
+family: aws_redshift
+scope: blueprint
+sink: promrw
+stats: [_sum, _average, _maximum, _minimum, _sample_count]
+labels: {account_id: <account>, region: <region>, namespace: AWS/Redshift, job: cloud/aws/redshift, name: <declared-collector-name>}
+dimension_profiles:
+  cluster: [dimension_ClusterIdentifier]
+  queue: [dimension_ClusterIdentifier, dimension_QueueName]
+metrics:
+  - {root: cpuutilization, type: gauge, unit: percent, profiles: [cluster]}
+  - {root: database_connections, type: gauge, unit: count, profiles: [cluster]}
+  - {root: health_status, type: gauge, unit: count, profiles: [cluster]}
+  - {root: maintenance_mode, type: gauge, unit: count, profiles: [cluster]}
+  - {root: percentage_disk_space_used, type: gauge, unit: percent, profiles: [cluster]}
+  - {root: total_table_count, type: gauge, unit: count, profiles: [cluster]}
+  - {root: read_latency, type: gauge, unit: seconds, profiles: [cluster]}
+  - {root: write_latency, type: gauge, unit: seconds, profiles: [cluster]}
+  - {root: wlmqueue_length, type: gauge, unit: count, profiles: [queue]}
+  - {root: wlmrunning_queries, type: gauge, unit: count, profiles: [queue]}
+```
+
+Withheld: NodeID, service-class/wlmid/priority/stage alternatives, user-query families (no admitted
+QueryType vocabulary), managed-storage associations (no naming exception), info and all other
+unselected families. No automatic cluster pause, failure-mode, pipeline or cross-service adapter.
+
+### CloudWatch Logs intake emitted subset [slug: cw-logs-emitted]
+
+Each independently declared log group selects only LogGroupName, the P36 vendor-dimension
+projection with `name=global`; no captured enrichment is copied. Source names/units and the
+uncompressed-byte meaning are confirmed by [AWS Logs metrics](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch-Logs-Monitoring-CloudWatch-Metrics.html).
+For N newly earned upload events, event observations have sum=N, average/minimum/maximum=1,
+sample_count=N. Byte observations have sum=N×B, average/minimum/maximum=B, sample_count=N,
+where B is the explicit whole **uncompressed** bytes per event. N=0 omits both families. The
+AWS event unit is **None**, not Count; neither a unit label nor a scaling factor is introduced.
+These are operator-supplied per-event sampling assumptions, not captured numerical fidelity or
+AWS datapoint cadence. No log bodies or collector/Loki wire are rendered.
+
+```yaml signals
+family: aws_logs
+scope: blueprint
+sink: promrw
+stats: [_sum, _average, _maximum, _minimum, _sample_count]
+labels: {account_id: <account>, region: <region>, namespace: AWS/Logs, job: cloud/aws/logs, name: global}
+dimension_profiles:
+  log_group: [dimension_LogGroupName]
+metrics:
+  - {root: incoming_bytes, type: gauge, unit: bytes, profiles: [log_group]}
+  - {root: incoming_log_events, type: gauge, unit: none, profiles: [log_group]}
+```
+
+Delivery/forwarding/error/throttle families remain blocked on exact DestinationType literal
+admission and a separately bounded model. No FilterName, compression multiplier, by-data-source
+association, account aggregate, info, enrichment, pipeline or lifecycle attribution is added.
+
+For these two new consumers, resource lists and required numerical pointers have no defaults.
+The first ordinary active tick explicitly models a synthetic bootstrap minute, not prior measured
+activity. Later strictly increasing observations cap **new** accrual at 60 seconds; missed windows
+are not replayed and earned fractions survive gaps. Exact rational carry over the decoded binary
+float rate and integer nanoseconds avoids epsilon-created events; decimal-intent boundaries may
+still be delayed. Observed real master-zero pause emits nothing (including stocks), advances the
+boundary and accrues nothing. First positive observation after a pause is silent, retaining carry;
+initially paused instances do not bootstrap on resume. Positive master values leave rates fixed;
+pause/resume wholly between observations is unobservable. Writer failure consumes the attempted
+window with no replay. No durable checkpoint, native/backend or deployment acceptance is implied.
 
 ## Retained positive CloudWatch observations — 2026-10-23 [slug: cw-captured]
 

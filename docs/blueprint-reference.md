@@ -100,11 +100,13 @@ list is in [BLUEPRINT-SCHEMA.md](https://github.com/rknightion/synthkit/blob/mai
 | `cloud.lambda` | object | no | Function list and account concurrency; [captured config](#captured-cloudwatch-config), remote-write only. |
 | `cloud.sqs` | object | no | Ordinary queue list; [captured config](#captured-cloudwatch-config), remote-write only. |
 | `cloud.dynamodb` | object | no | Provisioned table list and account quotas; [captured config](#captured-cloudwatch-config), remote-write only. |
+| `cloud.redshift` | object | no | Provisioned cluster snapshots, named queues and optional I/O latency; [captured config](#captured-cloudwatch-config), remote-write only. |
+| `cloud.cloudwatch_logs` | object | no | Independent log-group uncompressed intake; [captured config](#captured-cloudwatch-config), remote-write only. |
 
 ### Captured CloudWatch config
 
-`cloud.lambda`, `cloud.sqs`, `cloud.dynamodb` are optional strict-decoded objects; absent means no
-instance. They require `cloudwatch_export: remote_write` (the default) and explicit cloud identity.
+`cloud.lambda`, `cloud.sqs`, `cloud.dynamodb`, `cloud.redshift` and `cloud.cloudwatch_logs` are
+optional strict-decoded objects; absent means no instance. They require `cloudwatch_export: remote_write` (the default) and explicit cloud identity.
 Only one declaration per blueprint/account/region/kind is admitted, even across environments with
 disjoint resources. See [authoring and value assumptions](blueprints.md#captured-cloudwatch-consumers)
 and the [canonical emitted subset](https://github.com/rknightion/synthkit/blob/main/signals/cw.md#initial-captured-service-emitters-slug-cw-captured-emitted).
@@ -123,9 +125,18 @@ These engineering bounds are not AWS service quotas.
 | `operations[]` | Unique `name` (GetItem, PutItem, Query, Scan, SELECT-only ExecuteStatement); `requests_per_second`, `read_units`, `write_units`, positive `latency_ms`, whole `returned_items`. Read operations require read units only; PutItem write units only; returned items only for selection operations. |
 | `replication` | GlobalTable-only required `writes_per_second`, positive `units_per_write`; GlobalTable cannot also declare customer write operations. Demand must fit provisioned capacity. |
 | `stream` | Nonblank `label`; `requests_per_second`, whole `records_per_request` (0..1000), whole `bytes_per_record`; positive `latency_ms`; response size at most 1 MiB. GetRecords operation is selected by this block, not authored. |
+| `cloud.redshift` | `clusters` (1..100), no inferred inventory. |
+| `clusters[]` (Redshift) | Unique unpadded `name` and unique non-global `collector_name`; required `snapshot`; optional `read_io`, `write_io`, `wlm_queues` (at most 100). |
+| `snapshot` | All fields required: finite `cpu_percent`, `disk_used_percent` (0..100); whole `database_connections`, `total_tables` (0..1e9); boolean `healthy`, `maintenance`. Explicit zero/false is valid. |
+| `read_io`, `write_io` | Finite `operations_per_second` (0..1e6, omitted=0); required finite `latency_seconds` ((0,3600]). Independent sparse completed-I/O assumptions, not throughput. |
+| `wlm_queues[]` | Unique unpadded `name` within cluster; required whole `waiting`, `running` (0..1e9). |
+| `cloud.cloudwatch_logs` | `log_groups` (1..100), no inferred inventory. |
+| `log_groups[]` | Unique unpadded `name`; required finite `events_per_second` (0..1e6, explicit zero valid); required finite whole `uncompressed_bytes_per_event` (1..65536). |
 
-Unspecified traffic is zero. No ESM/fair/info/native switches or cross-service joins exist in these
-configs. The [generated schema](https://github.com/rknightion/synthkit/blob/main/BLUEPRINT-SCHEMA.md)
+Unspecified traffic is zero only where the Config permits omission; required Redshift/Logs
+assumptions reject absence. No ESM/fair/info/native switches or cross-service joins exist in these
+configs. Logs delivery/selectors/by-data-source and Redshift user-query/NodeID/managed-storage
+expansions remain withheld. The [generated schema](https://github.com/rknightion/synthkit/blob/main/BLUEPRINT-SCHEMA.md)
 reflects the registered Config types; the loader and Build enforce semantic constraints.
 
 ### environments[].cluster

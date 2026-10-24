@@ -463,20 +463,26 @@ pipeline. "It all arrives via the CloudWatch metric stream" is a transport fact,
 
 ### Captured CloudWatch consumer admission
 
-`cloud.lambda`, `cloud.sqs` and `cloud.dynamodb` are optional strict-decoded topology configs
-resolved through the explicit registry into independent ScopeBlueprint constructs. Their resource
-identity lives in `functions`/`queues`/`tables`; cloud account/region come only from the resolved
+`cloud.lambda`, `cloud.sqs`, `cloud.dynamodb`, `cloud.redshift` and `cloud.cloudwatch_logs` are
+optional strict-decoded topology configs resolved through the explicit registry into independent
+ScopeBlueprint constructs. Their resource identity lives in
+`functions`/`queues`/`tables`/`clusters`/`log_groups`; cloud account/region come only from the resolved
 fixture. They implement only remote-write and fail Build on native OTLP export. AWS native source
 forms remain a separate contract, not aliases or permission to fall back.
 
-For these three kinds, admit at most one declaration per blueprint/account/region/kind, including
+For these five kinds, admit at most one declaration per blueprint/account/region/kind, including
 across environments with disjoint resources. One instance owns the full resource list and any
 once-only account snapshots, without inventing shared discovery types. Different kinds and
 blueprint scopes remain distinct. The scoped writer alone stamps blueprint after cloning.
 This conservative ceiling remains until broader pure identity claims are separately designed.
 The [canonical emitted subset](signals/cw.md#initial-captured-service-emitters-slug-cw-captured-emitted)
-is 35 stat bases; positive source tables are not emission allowlists. No pipeline adapters,
-ESM/fair/info families, numerical fidelity or native-runtime admission is implied. See
+is 47 stat bases (35 original plus ten Redshift and two Logs intake); positive source tables are
+not emission allowlists. Redshift snapshots/queue stocks and sparse fixed-second I/O latency,
+and Logs uncompressed per-event intake, are explicit operator assumptions. The new consumers
+preserve exact fractional carry, cap only new accrual at 60 seconds and use the real master-zero
+pause/silent-resume fence; no hidden inventory/rate defaults, captured numerical or native fidelity.
+No pipeline adapters, ESM/fair/info, user-query/NodeID/delivery/by-data-source/managed-storage
+expansions or native-runtime admission is implied. See
 [authoring and assumptions](docs/blueprints.md#captured-cloudwatch-consumers).
 
 ### 3.2 Incident model: definition vs activation

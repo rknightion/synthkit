@@ -135,15 +135,17 @@ type CloudDecl struct {
 	Region           string    `yaml:"region"`
 	VpcID            string    `yaml:"vpc_id"`
 	NATGateways      int       `yaml:"nat_gateways"`
-	CloudWatch       yaml.Node `yaml:"cloudwatch"` // cw_infra sub-family toggles (raw; decoded via registry)
-	AOSS             yaml.Node `yaml:"aoss"`       // OpenSearch Serverless config (collections:); absent ⇒ not emitted
-	MWAA             yaml.Node `yaml:"mwaa"`       // Managed Workflows for Apache Airflow (environments:); absent ⇒ not emitted
-	Glue             yaml.Node `yaml:"glue"`       // AWS Glue ETL (jobs:); absent ⇒ not emitted
-	Bedrock          yaml.Node `yaml:"bedrock"`    // AWS Bedrock CloudWatch (models:/sub_signals:); absent ⇒ not emitted
-	AgentCore        yaml.Node `yaml:"agentcore"`  // AWS Bedrock-AgentCore CloudWatch (agents:/sub_signals:); absent ⇒ not emitted
-	Lambda           yaml.Node `yaml:"lambda"`     // FunctionName-only CloudWatch (functions:); remote-write only; absent ⇒ not emitted
-	SQS              yaml.Node `yaml:"sqs"`        // Ordinary CloudWatch queue metrics (queues:); remote-write only; absent ⇒ not emitted
-	DynamoDB         yaml.Node `yaml:"dynamodb"`   // Provisioned CloudWatch table metrics (tables:); remote-write only; absent ⇒ not emitted
+	CloudWatch       yaml.Node `yaml:"cloudwatch"`      // cw_infra sub-family toggles (raw; decoded via registry)
+	AOSS             yaml.Node `yaml:"aoss"`            // OpenSearch Serverless config (collections:); absent ⇒ not emitted
+	MWAA             yaml.Node `yaml:"mwaa"`            // Managed Workflows for Apache Airflow (environments:); absent ⇒ not emitted
+	Glue             yaml.Node `yaml:"glue"`            // AWS Glue ETL (jobs:); absent ⇒ not emitted
+	Bedrock          yaml.Node `yaml:"bedrock"`         // AWS Bedrock CloudWatch (models:/sub_signals:); absent ⇒ not emitted
+	AgentCore        yaml.Node `yaml:"agentcore"`       // AWS Bedrock-AgentCore CloudWatch (agents:/sub_signals:); absent ⇒ not emitted
+	Lambda           yaml.Node `yaml:"lambda"`          // FunctionName-only CloudWatch (functions:); remote-write only; absent ⇒ not emitted
+	SQS              yaml.Node `yaml:"sqs"`             // Ordinary CloudWatch queue metrics (queues:); remote-write only; absent ⇒ not emitted
+	DynamoDB         yaml.Node `yaml:"dynamodb"`        // Provisioned CloudWatch table metrics (tables:); remote-write only; absent ⇒ not emitted
+	Redshift         yaml.Node `yaml:"redshift"`        // Provisioned cluster snapshots and sparse I/O (clusters:); remote-write only; absent ⇒ not emitted
+	CloudWatchLogs   yaml.Node `yaml:"cloudwatch_logs"` // Log-group intake metrics (log_groups:); remote-write only; absent ⇒ not emitted
 	// Pipelines declares the env's batch data pipelines once (internal/pipelinerun). The resolver
 	// hands them to every consuming cloud-service construct (glue, mwaa) and adds each stage as a
 	// pipeline_stage failure target named <pipeline>.<stage>. Pipeline names must be unique across
