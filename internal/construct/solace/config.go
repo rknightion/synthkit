@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/rknightion/synthkit/internal/failuremode"
 )
 
 // Config is the construct's YAML config struct: the declared brokers, their message VPNs and
@@ -336,4 +338,24 @@ func (c *Config) IdentityClaims() [][2]string {
 		claims = append(claims, [2]string{"solace broker", strconv.Quote(job) + " " + strconv.Quote(instance)})
 	}
 	return claims
+}
+
+// FailureTargets reports each distinct declared queue name as a queue-axis failure target, in
+// declaration order. Queue names are unique only within a VPN, so one target name addresses
+// every queue that carries it. Duck-typed by the blueprint resolver.
+func (c *Config) FailureTargets() []failuremode.Target {
+	var out []failuremode.Target
+	seen := map[string]bool{}
+	for _, b := range c.Brokers {
+		for _, v := range b.VPNs {
+			for _, q := range v.Queues {
+				if q.Name == "" || seen[q.Name] {
+					continue
+				}
+				seen[q.Name] = true
+				out = append(out, failuremode.Target{Name: q.Name, Axis: failuremode.AxisQueue})
+			}
+		}
+	}
+	return out
 }

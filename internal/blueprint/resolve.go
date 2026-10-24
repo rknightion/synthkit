@@ -1026,6 +1026,12 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 			r.Targets = append(r.Targets, Target{Name: target.Key, Axis: target.Axis})
 		}
 	}
+	declared, targetWarns, skippedTargets := declaredConstructTargets(r.Constructs, r.Targets)
+	r.Targets = append(r.Targets, declared...)
+	for _, w := range targetWarns {
+		log.Printf("WARN blueprint %q: %s", d.Name, w)
+		r.Warnings = append(r.Warnings, w)
+	}
 	axes, err := targetIndex(r.Targets)
 	if err != nil {
 		return nil, fmt.Errorf("blueprint %q: %w", d.Name, err)
@@ -1047,6 +1053,10 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 		for _, e := range sc.Effects {
 			if err := validateResolvedEffect(r, reg, e, axes, vocab, multi); err != nil {
 				return nil, fmt.Errorf("blueprint %q scenario %q: %w", d.Name, sc.Name, err)
+			}
+			if w, ok := wildcardSkipWarning(fmt.Sprintf("scenario %q effect %q", sc.Name, e.Mode), e.Target, skippedTargets); ok {
+				log.Printf("WARN blueprint %q: %s", d.Name, w)
+				r.Warnings = append(r.Warnings, w)
 			}
 		}
 		title := sc.Title
@@ -1083,6 +1093,10 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 		// single-mode incident: validate against the inventory + vocabulary, then compile.
 		if err := validateResolvedEffect(r, reg, EffectDecl{Mode: inc.Kind, Target: inc.Target, Intensity: inc.Intensity}, axes, vocab, multi); err != nil {
 			return nil, fmt.Errorf("blueprint %q incident %q: %w", d.Name, inc.Kind, err)
+		}
+		if w, ok := wildcardSkipWarning(fmt.Sprintf("incident %q", inc.Kind), inc.Target, skippedTargets); ok {
+			log.Printf("WARN blueprint %q: %s", d.Name, w)
+			r.Warnings = append(r.Warnings, w)
 		}
 		// An incident is either absolute/daily (At) or interval-recurring (Every) — never both.
 		// For the interval form, emit an "every<dur>" time token (validated as a Go duration here)

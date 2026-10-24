@@ -76,6 +76,68 @@ func buildTargets(d *Decl) []Target {
 	return out
 }
 
+// failureTargeter is implemented by a construct Config whose declaration owns failure targets
+// (Lambda functions, Solace queues). Duck-typed: the blueprint package imports no construct.
+type failureTargeter interface {
+	FailureTargets() []failuremode.Target
+}
+
+// declaredConstructTargets collects the failure targets owned by the built construct
+// declarations, in BoM order, once per (name, axis). A name the incident schedule grammar
+// cannot carry as a scope (it contains '@', '/', '#', whitespace, or ends in ":*") is not
+// addressable; naming it in an effect is the ordinary loud unknown-target error. A name already
+// addressable on another axis (existing, or an earlier declared target) is skipped with a
+// warning rather than failing a blueprint that loaded before these axes existed. Every skipped
+// name is warned and returned by axis, so an "<axis>:*" effect can say what it does not reach.
+func declaredConstructTargets(cs []ConstructInstance, existing []Target) ([]Target, []string, map[failuremode.Axis][]string) {
+	var out []Target
+	var warns []string
+	skipped := map[failuremode.Axis][]string{}
+	axisOf := map[string]failuremode.Axis{}
+	for _, t := range existing {
+		axisOf[t.Name] = t.Axis
+	}
+	for _, ci := range cs {
+		ft, ok := ci.Config.(failureTargeter)
+		if !ok {
+			continue
+		}
+		for _, x := range ft.FailureTargets() {
+			if !scopeSafe(x.Name) {
+				warns = append(warns, fmt.Sprintf("%s %q is not an incident target: the name contains '@', '/', '#' or whitespace, or ends in \":*\"", x.Axis, x.Name))
+				skipped[x.Axis] = append(skipped[x.Axis], x.Name)
+				continue
+			}
+			if axis, dup := axisOf[x.Name]; dup {
+				if axis != x.Axis {
+					warns = append(warns, fmt.Sprintf("%s %q is not an incident target: the name is already a %s target", x.Axis, x.Name, axis))
+					skipped[x.Axis] = append(skipped[x.Axis], x.Name)
+				}
+				continue
+			}
+			axisOf[x.Name] = x.Axis
+			out = append(out, Target{Name: x.Name, Axis: x.Axis})
+		}
+	}
+	return out, warns, skipped
+}
+
+// wildcardSkipWarning reports the declared names an "<axis>:*" target does not reach.
+func wildcardSkipWarning(where, target string, skipped map[failuremode.Axis][]string) (string, bool) {
+	if !strings.HasSuffix(target, ":*") {
+		return "", false
+	}
+	names := skipped[failuremode.Axis(strings.TrimSuffix(target, ":*"))]
+	if len(names) == 0 {
+		return "", false
+	}
+	return fmt.Sprintf("%s: %q does not reach the declared names that are not incident targets: %s", where, target, strings.Join(names, ", ")), true
+}
+
+func scopeSafe(name string) bool {
+	return name != "" && !strings.ContainsAny(name, "@/# \t\n\r") && !strings.HasSuffix(name, ":*")
+}
+
 // targetIndex maps target name → axis and rejects duplicate names across axes (ambiguous). A
 // repeated name on the SAME axis is idempotent (not a collision).
 func targetIndex(targets []Target) (map[string]failuremode.Axis, error) {
@@ -94,6 +156,7 @@ var knownAxes = map[failuremode.Axis]bool{
 	failuremode.AxisWorkload: true, failuremode.AxisCluster: true,
 	failuremode.AxisDatabase: true, failuremode.AxisCache: true, failuremode.AxisCloud: true,
 	failuremode.AxisService: true, failuremode.AxisNetwork: true, pipelinerun.AxisStage: true,
+	failuremode.AxisFunction: true, failuremode.AxisQueue: true,
 	fixture.AxisGPU: true, fixture.AxisGPUNode: true, fixture.AxisGPURack: true, fixture.AxisGPUTray: true,
 	fixture.AxisNVLinkDomain: true, fixture.AxisNVLinkPartition: true, fixture.AxisNVLinkSwitch: true, fixture.AxisNVLinkPort: true,
 	fixture.AxisGPUFabric: true, fixture.AxisGPUSwitch: true, fixture.AxisGPUPort: true, fixture.AxisGPUDevice: true,

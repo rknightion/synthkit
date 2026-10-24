@@ -15,6 +15,7 @@ import (
 
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/cw"
+	"github.com/rknightion/synthkit/internal/failuremode"
 	"github.com/rknightion/synthkit/internal/fixture"
 	"github.com/rknightion/synthkit/internal/state"
 )
@@ -87,6 +88,7 @@ type Function struct {
 type functionState struct {
 	cfg                                                        Function
 	synchronous, errors, throttles, received, dropped, records eventCarry
+	spikeErrors                                                eventCarry
 	synchronousPerMin                                          float64
 	durMin, durMax                                             float64
 	business                                                   bool
@@ -101,9 +103,64 @@ type construct struct {
 	paused          bool
 }
 
+// Failure modes on the function axis. Each is scoped to one declared function name; with no
+// incident active the output is unchanged. Magnitudes are operator assumptions, not AWS
+// behaviour curves.
+const (
+	// ModeErrorSpike fails intensity of the otherwise-successful executions (Errors over
+	// Invocations rises from error_fraction to 1 at full intensity).
+	ModeErrorSpike = "function_error_spike"
+	// ModeThrottleStorm rejects extra requests: demand above concurrency is throttled while
+	// admitted executions continue, adding intensity x executions to Throttles.
+	ModeThrottleStorm = "function_throttle_storm"
+	// ModeDurationStorm stretches every execution's duration up to 4x at full intensity, which
+	// also raises the modelled concurrency.
+	ModeDurationStorm = "function_duration_storm"
+)
+
+// durationStormMax is the duration multiplier at full intensity (the same up-to-4x scale the
+// workload latency_spike mode uses).
+const durationStormMax = 4.0
+
+// FailureModes is the function-axis vocabulary this construct implements.
+var FailureModes = []failuremode.Mode{
+	{Name: ModeErrorSpike, Axis: failuremode.AxisFunction, Help: "function executions fail: Errors over Invocations rises toward 1 (fraction of successful executions failing = intensity)"},
+	{Name: ModeThrottleStorm, Axis: failuremode.AxisFunction, Help: "function requests are throttled on top of admitted executions (extra Throttles = intensity x executions)"},
+	{Name: ModeDurationStorm, Axis: failuremode.AxisFunction, Help: "function duration rises up to 4x at full intensity, raising concurrency"},
+}
+
 // Registration is consumed by the composition root, never a global registry.
 func Registration() core.ConstructReg {
-	return core.ConstructReg{Kind: "lambda", Doc: "FunctionName-only Lambda CloudWatch metrics (remote-write only)", Scope: core.ScopeBlueprint, NewConfig: func() any { return &Config{} }, Build: Build}
+	return core.ConstructReg{Kind: "lambda", Doc: "FunctionName-only Lambda CloudWatch metrics (remote-write only)", Scope: core.ScopeBlueprint, NewConfig: func() any { return &Config{} }, Build: Build, FailureModes: FailureModes}
+}
+
+// FailureTargets reports each declared function name as a function-axis failure target. The
+// blueprint resolver duck-types it; this package does not import the blueprint package.
+func (c *Config) FailureTargets() []failuremode.Target {
+	out := make([]failuremode.Target, 0, len(c.Functions))
+	for _, f := range c.Functions {
+		out = append(out, failuremode.Target{Name: f.Name, Axis: failuremode.AxisFunction})
+	}
+	return out
+}
+
+// effects is one function's resolved incident state for a tick; the zero value is healthy.
+type effects struct {
+	errorFraction, extraThrottles, durationFactor float64
+	errorOn, throttleOn, durationOn               bool
+}
+
+func evalEffects(w *core.World, now time.Time, function string) effects {
+	var e effects
+	if w == nil || w.Shape == nil {
+		return e
+	}
+	e.errorOn, e.errorFraction = w.Shape.Eval(now, ModeErrorSpike, function)
+	e.throttleOn, e.extraThrottles = w.Shape.Eval(now, ModeThrottleStorm, function)
+	var inten float64
+	e.durationOn, inten = w.Shape.Eval(now, ModeDurationStorm, function)
+	e.durationFactor = 1 + (durationStormMax-1)*inten
+	return e
 }
 
 // Build validates the complete configuration, copying it to isolate live state.
@@ -229,8 +286,24 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		// Sum actual constituent counts, not an independent total-rate carry: even
 		// short sparse windows cannot observe ages without the same executions.
 		n := invokedAsync + records + take(&f.synchronous, f.synchronousPerMin*bf*seconds/60)
-		errors := take(&f.errors, n*cfg.ErrorFraction)
-		throttles := take(&f.throttles, cfg.ThrottlesPerMin*bf*seconds/60)
+		fx := evalEffects(w, now, cfg.Name)
+		// Declared failures keep their own carry; a spike fails intensity of the remaining
+		// successes from a separate carry, so the healthy draw is unchanged by an incident
+		// and Errors never exceeds the executions it is a subset of.
+		errors := takeAtMost(&f.errors, n*cfg.ErrorFraction, n)
+		if fx.errorOn {
+			successes := n - errors
+			errors += takeAtMost(&f.spikeErrors, successes*fx.errorFraction, successes)
+		}
+		throttleDemand := cfg.ThrottlesPerMin * bf * seconds / 60
+		if fx.throttleOn {
+			throttleDemand += n * fx.extraThrottles
+		}
+		throttles := take(&f.throttles, throttleDemand)
+		duration, durMin, durMax := cfg.DurationMS, f.durMin, f.durMax
+		if fx.durationOn {
+			duration, durMin, durMax = duration*fx.durationFactor, durMin*fx.durationFactor, durMax*fx.durationFactor
+		}
 		// Binary event populations consist of one observation of 1 per event. Failed
 		// executions alone contribute Errors; successful executions are not fake zeros.
 		if n > 0 {
@@ -240,11 +313,11 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 			// executions accumulate (a single execution has none) and are clamped so a
 			// sample set with this Sum, SampleCount, Minimum and Maximum exists. Without
 			// bounds all stats equal the constant duration.
-			lo, hi := durationExtremes(cfg.DurationMS, f.durMin, f.durMax, n)
-			cw.EmitStats(st, "aws_lambda_duration", labels, cw.StatSet{Sum: n * cfg.DurationMS, Average: cfg.DurationMS, Minimum: lo, Maximum: hi, SampleCount: n})
+			lo, hi := durationExtremes(duration, durMin, durMax, n)
+			cw.EmitStats(st, "aws_lambda_duration", labels, cw.StatSet{Sum: n * duration, Average: duration, Minimum: lo, Maximum: hi, SampleCount: n})
 			// Operator schedule: uniformly spaced executions, constant duration, all in the
 			// unreserved pool. This is a synthetic peak estimate, not an AWS transfer curve.
-			concurrent := math.Min(n, math.Ceil(n*cfg.DurationMS/(seconds*1000)))
+			concurrent := math.Min(n, math.Ceil(n*duration/(seconds*1000)))
 			active += concurrent
 			cw.EmitStats(st, "aws_lambda_concurrent_executions", labels, cw.StatSet{Sum: concurrent, Average: concurrent, Minimum: concurrent, Maximum: concurrent, SampleCount: 1})
 		}
@@ -338,6 +411,18 @@ func take(carry *eventCarry, amount float64) float64 {
 	carry.fraction = v - n
 	return n
 }
+
+// takeAtMost is take bounded by limit (a subset of an observed population). An excess whole
+// event is returned to the carry as retained fractional work, not discarded.
+func takeAtMost(carry *eventCarry, amount, limit float64) float64 {
+	n := take(carry, amount)
+	if n > limit {
+		carry.fraction += n - limit
+		n = limit
+	}
+	return n
+}
+
 func (c *construct) labels(function string) map[string]string {
 	labels := map[string]string{"account_id": c.account, "region": c.region, "namespace": "AWS/Lambda", "job": "cloud/aws/lambda", "name": "global"}
 	if function != "" {

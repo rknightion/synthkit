@@ -184,6 +184,15 @@ type brokerTotals struct {
 func (c *Construct) stepQueue(w *core.World, now time.Time, bf, secs float64, b *resolvedBroker, v *resolvedVPN, q *resolvedQueue) qres {
 	key := b.name + "|" + v.name + "|" + q.name
 	load := bf * seriesVar(w, now, "queue|"+key)
+	consumeRate := q.consumeRate
+	if w != nil && w.Shape != nil {
+		if on, inten := w.Shape.Eval(now, ModePublishDrop, q.name); on {
+			load *= 1 - inten
+		}
+		if on, inten := w.Shape.Eval(now, ModeConsumerStall, q.name); on {
+			consumeRate *= 1 - inten
+		}
+	}
 
 	// Integrate fractional arrivals before applying the quota. Only sub-message work
 	// carries forward: rejected whole messages are discarded, not retried next tick.
@@ -199,7 +208,7 @@ func (c *Construct) stepQueue(w *core.World, now time.Time, bf, secs float64, b 
 	// idle-time catch-up burst. Consumption is not business/volume shaped: existing
 	// backlog continues draining when publishers pause.
 	avail := q.depth + rx
-	consumeWork := q.consumeRemainder + q.consumeRate*secs
+	consumeWork := q.consumeRemainder + consumeRate*secs
 	capacity := math.Floor(consumeWork)
 	tx := math.Min(avail, capacity)
 	q.depth = avail - tx

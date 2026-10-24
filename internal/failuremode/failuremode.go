@@ -16,10 +16,20 @@ const (
 	AxisCluster  Axis = "cluster" // k8s pods + the EC2 nodes sharing the cluster identity
 	AxisDatabase Axis = "database"
 	AxisCache    Axis = "cache"
-	AxisCloud    Axis = "cloud"   // region/account-scoped CloudWatch infra families
-	AxisService  Axis = "service" // an individual service-graph NODE of an `app` workload (Spec 5)
-	AxisNetwork  Axis = "network" // network-topology-exporter instance (SNMP topology discovery)
+	AxisCloud    Axis = "cloud"    // region/account-scoped CloudWatch infra families
+	AxisService  Axis = "service"  // an individual service-graph NODE of an `app` workload (Spec 5)
+	AxisNetwork  Axis = "network"  // network-topology-exporter instance (SNMP topology discovery)
+	AxisFunction Axis = "function" // one declared serverless function (today: a cloud.lambda function name)
+	AxisQueue    Axis = "queue"    // one declared message queue (today: a Solace queue name)
 )
+
+// Target is one addressable failure target a construct declaration owns. A construct Config
+// reports its targets through a FailureTargets() []Target method (duck-typed by the blueprint
+// resolver), so the declaration stays the single source of the inventory.
+type Target struct {
+	Name string
+	Axis Axis
+}
 
 // Mode is one declared failure mode. Name is the human label used in scenarios, the control
 // plane, and the owning construct's shape.Eval(now, Name, scope) call. (Name, Axis) is the key:

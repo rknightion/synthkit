@@ -47,6 +47,10 @@ The `target` field on an effect resolves to a specific declared instance:
 | `network:*` | All network-topology instances |
 | `orders_daily.transform` | One declared pipeline stage, named `<pipeline>.<stage>` (see [pipeline_stage axis](#pipeline_stage-axis)) |
 | `pipeline_stage:*` | Every declared pipeline stage |
+| `orders-publisher` | One function declared under an environment's `cloud.lambda.functions` (see [function axis](#function-axis-lambda)) |
+| `function:*` | Every declared Lambda function |
+| `orders-out` | One queue declared under `integrations.solace` (see [queue axis](#queue-axis-solace)) |
+| `queue:*` | Every declared Solace queue |
 | omitted | Valid only for single-axis modes — the mode's axis is inferred and all instances of that axis are targeted |
 
 The resolver validates every effect target against the blueprint's actual instance inventory at load time. An unknown name or an axis mismatch is a loud load error.
@@ -190,6 +194,54 @@ Incidents are evaluated once per 60 s tick. A stall at the first stage makes eac
 wait; a stall at a later stage only builds a backlog once a run reaches it, so on an hourly or daily
 pipeline a short stall may never meet a run. MWAA run-outcome metrics (DAG run duration success and
 failure, task-instance failures) are not yet sourced, so a failed run is visible through Glue only.
+
+### function axis (Lambda)
+
+Every function declared under an environment's `cloud.lambda.functions` is a target named by
+its function name. One function name declared in several environments is one target: an effect
+naming it reaches that function in every environment. The modes change only the targeted
+function's `aws_lambda_*` CloudWatch
+statistics (`signals/cw.md`); account-region concurrency follows from the changed durations.
+Magnitudes are synthetic operator assumptions, not AWS behaviour curves.
+
+| Mode | Effect |
+|---|---|
+| `function_error_spike` | Executions fail: `intensity` is the fraction of otherwise-successful executions that fail, so `aws_lambda_errors` over `aws_lambda_invocations` rises from the declared `error_fraction` to 1 at full intensity. Errors never exceed invocations. |
+| `function_throttle_storm` | Demand above concurrency is throttled while admitted executions continue: `aws_lambda_throttles` gains `intensity` × executions per window. Invocations are unchanged. |
+| `function_duration_storm` | Every execution's duration (mean and declared bounds) is multiplied by up to 4× at full intensity, raising `aws_lambda_duration` and the modelled concurrency. |
+
+### queue axis (Solace)
+
+Every queue declared under `integrations.solace` is a target named by its queue name. Queue
+names are unique only within a VPN, so a name repeated in several VPNs or brokers addresses every
+queue carrying it. The queue's changes roll up into its VPN and broker totals.
+
+| Mode | Effect |
+|---|---|
+| `queue_publish_drop` | Publishes into the queue stop: the publish rate is scaled by 1 - `intensity`. `solace_queue_msg_spooled` and `solace_queue_byte_spooled` flatten, the backlog drains, and spool usage stops growing. |
+| `queue_consumer_stall` | The queue's consumers stop draining: the drain rate is scaled by 1 - `intensity`. `solace_queue_msg_total_deleted` flattens while `solace_queue_spool_usage_msgs` and spool bytes grow; once the queue's spool quota is full, arrivals are discarded into `solace_queue_msg_spool_usage_exceeded`. |
+
+There is no separate discard mode: the sourced discard counter records spool-full discards, which
+`queue_consumer_stall` reaches when the quota fills.
+
+A function or queue name must be usable as a schedule scope: a name containing `@`, `/`, `#` or
+whitespace is not addressable, and naming it is an unknown-target error. A function or queue whose
+name is already a target on another axis (for example an environment or service node) stays
+declared but is not added as a target. The loader logs a warning for every such name, and again
+for each `function:*` or `queue:*` effect, listing the declared names that wildcard does not reach. With no incident
+active on these axes the output is unchanged.
+
+One scenario can couple both with other axes, for example a publisher failing while its output
+queue receives nothing:
+
+```yaml
+scenarios:
+  - name: responses_unpublished
+    title: Responses decided but never published
+    effects:
+      - { mode: function_error_spike, target: orders-publisher, intensity: 1 }
+      - { mode: queue_publish_drop,   target: orders-out,       intensity: 1 }
+```
 
 ## Optional gateway pool failures
 
