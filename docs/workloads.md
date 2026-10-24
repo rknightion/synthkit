@@ -257,7 +257,7 @@ Each node can declare custom metrics, log streams, and extra span attributes via
 | `normal` | `normal: {mean: 50.0, stddev: 10.0}` | Gaussian draw (negative clamped to 0) |
 | `lognormal` | `lognormal: {median: 120, p95: 3600}` | Right-skewed positive draw with the given median and 95th percentile (see below) |
 | `bool` | `bool: {p_true: 0.1}` | Weighted boolean |
-| `shape` | `shape: {base: 100.0, mode: latency_storm}` | Legacy `base × load × incident multiplier`; optional metric-only `incident_value` selects an explicit endpoint instead (see below) |
+| `shape` | `shape: {base: 100.0, mode: latency_storm}` | Legacy `base × load × incident multiplier`; optional metric-only `incident_value` selects an explicit endpoint instead, and `incident_absolute` keeps that endpoint off the load curve (see below) |
 | `ref` | `ref: trace_id` | Pulls a correlation field by name |
 
 **Capability matrix** (enforced at load time):
@@ -292,6 +292,25 @@ scheduled scenario references. See the [incident presence contract](incidents.md
 Live zero intensity remains a no-op.
 Master volume 0 retains the same series but emits shape gauges as exactly 0, even during an
 incident; counters and histograms stop observing while paused as before.
+
+For a duration or latency, an outage should read the same level whatever the traffic: at night the
+business curve may be 0.1, so a 4,600 s incident value would otherwise read 460 s, and 64-138 s on a
+weekend night. Add `incident_absolute: true` (it requires `incident_value`) to take the load curve
+off the incident share:
+
+```yaml
+value:
+  shape: {base: 100, mode: latency_storm, incident_value: 4600, incident_absolute: true}
+```
+
+The value is then `(1 - intensity) × base × load + intensity × incident_value`. The calm baseline
+still follows `load`, the incident endpoint does not, so at intensity 1 the reading is exactly
+`incident_value` at any hour, and at fractional intensity the incident share is `intensity ×
+incident_value`. Master volume is part of `load`, so it no longer scales the incident share either;
+an explicit volume 0 still pauses the gauge at exactly 0, and so does a `shape_profile` that reaches an
+exact zero load (floor 0 or `weekend_factor: 0`): no activity, nothing to read. Omitted or `false` keeps the
+`load × (...)` formula above, byte for byte. Choose it for values that are absolute levels
+(durations, latencies, ages), not for rates or counts that genuinely track traffic.
 
 `incident_value` is admitted only for metric values, never labels, log fields or span attributes.
 It is stateless interpolation, not a queue growth/drain or recovery state machine: for a reversible

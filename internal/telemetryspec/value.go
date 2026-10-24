@@ -114,10 +114,18 @@ type BoolModel struct {
 // opts metric values into an explicit endpoint: interpolate Base→IncidentValue at the scoped
 // IncidentIntensity, then multiply by the unamplified load in ShapeVal. Mode is required for
 // that opt-in. This is an instantaneous reading, not a backlog accumulation/drain model.
+//
+// IncidentAbsolute (requires IncidentValue) moves the load scaling off the incident endpoint:
+// the value becomes (1-i) × Base × load + i × IncidentValue, so the baseline still follows the
+// load curve while the incident level is absolute and does not shrink at night, on a weekend or
+// under a reduced master volume (an authoritative zero load, ExactLoad with ShapeVal 0, still
+// reads 0). Meant for durations and latencies, where an outage reads the
+// same whatever the traffic. It changes nothing unless set.
 type ShapeModel struct {
-	Base          float64  `yaml:"base"`
-	Mode          string   `yaml:"mode"`
-	IncidentValue *float64 `yaml:"incident_value"` // metric-only endpoint at intensity 1, before load scaling
+	Base             float64  `yaml:"base"`
+	Mode             string   `yaml:"mode"`
+	IncidentValue    *float64 `yaml:"incident_value"`    // metric-only endpoint at intensity 1, before load scaling
+	IncidentAbsolute bool     `yaml:"incident_absolute"` // incident share of the value is not multiplied by load; needs incident_value
 }
 
 // EvalCtx carries the per-evaluation inputs: correlation refs + the shape reading + the
@@ -190,6 +198,12 @@ func (v ValueModel) Eval(ctx EvalCtx) (float64, string) {
 		if v.Shape.IncidentValue != nil {
 			// A convex sum avoids overflow from subtracting opposite finite endpoints.
 			i := ctx.IncidentIntensity
+			if v.Shape.IncidentAbsolute {
+				if ctx.ExactLoad && ctx.ShapeVal == 0 {
+					return 0, "" // an authoritative zero load is "no activity": nothing to read
+				}
+				return (1-i)*v.Shape.Base*mult + i*(*v.Shape.IncidentValue), ""
+			}
 			return ((1-i)*v.Shape.Base + i*(*v.Shape.IncidentValue)) * mult, ""
 		}
 		return v.Shape.Base * mult, ""
@@ -342,6 +356,9 @@ func (v ValueModel) Validate() error {
 			return fmt.Errorf("bool: p_true %v out of [0,1]", v.Bool.PTrue)
 		}
 	case KindShape:
+		if v.Shape.IncidentAbsolute && v.Shape.IncidentValue == nil {
+			return fmt.Errorf("shape: incident_absolute requires incident_value")
+		}
 		if v.Shape.IncidentValue != nil {
 			if strings.TrimSpace(v.Shape.Mode) == "" {
 				return fmt.Errorf("shape: incident_value requires a nonblank mode")

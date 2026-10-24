@@ -50,6 +50,8 @@ endpoint (12 here is a fixture illustration). The metric-only opt-in interpolate
 `incident_value` with scoped intensity, then scales by business load and master volume; it does
 not apply the legacy ×3 amplification. At unit load it returns to zero as soon as the matching
 incident ends; volume 0 pauses the shape gauge at zero. It models no backlog persistence or drain.
+For an outage level that must not shrink at night or at weekends (a duration such as a publish
+lag), add `incident_absolute: true`: the incident share then reads `incident_value` at any load.
 Both endpoints must be finite and `mode` nonblank; use an existing registered service failure mode
 and an exact service-node target to constrain scope. Do not add incident-dependent label values.
 Omit the option to preserve legacy multiplicative shape output. Follow the canonical workload
