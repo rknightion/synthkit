@@ -69,6 +69,35 @@ type Config struct {
 	// not affect the -dump inventory (I32). Values are blueprint-declared (customer model lists stay
 	// out of the catalog).
 	Models []ModelChoice `yaml:"models"`
+
+	// ShapeProfile optionally gives this workload its own daily load curve (timezone, business
+	// hours, weekend factor) instead of the blueprint's shared curve. It drives entry request
+	// volume and every shape-scaled metric of the workload. Omitted keeps the blueprint curve.
+	ShapeProfile *ShapeProfile `yaml:"shape_profile"`
+}
+
+// ShapeProfile is a per-workload diurnal load curve: a floor before ramp_up_start_hour, a smooth
+// ramp to the 1.0 plateau at plateau_start_hour, the plateau until plateau_end_hour, a smooth
+// ramp back to the floor at ramp_down_end_hour. Hours are local wall-clock hours in [0,24] and
+// must be non-decreasing in that order. Each omitted field keeps the blueprint curve's default
+// (floor 0.1, 6/10/16/20). The blueprint's master volume, pause and incidents still apply.
+type ShapeProfile struct {
+	// Timezone is the IANA zone the hours are read in. Empty uses the blueprint timezone (the
+	// first region's when the blueprint declares regions).
+	Timezone string `yaml:"timezone"`
+	// Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1.
+	Floor *float64 `yaml:"floor"`
+	// RampUpStartHour is the local hour the morning ramp starts. Default 6.
+	RampUpStartHour *float64 `yaml:"ramp_up_start_hour"`
+	// PlateauStartHour is the local hour full load is reached. Default 10.
+	PlateauStartHour *float64 `yaml:"plateau_start_hour"`
+	// PlateauEndHour is the local hour the evening ramp starts. Default 16.
+	PlateauEndHour *float64 `yaml:"plateau_end_hour"`
+	// RampDownEndHour is the local hour the floor is reached again. Default 20.
+	RampDownEndHour *float64 `yaml:"ramp_down_end_hour"`
+	// WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the blueprint
+	// defaults: 0.3 for metrics, 0.2 (production) or 0.02 (non-production) for request volume.
+	WeekendFactor *float64 `yaml:"weekend_factor"`
 }
 
 // OTelObs is the per-workload native-OTLP metrics switch. Metrics gates emission;
@@ -193,6 +222,15 @@ type ServiceNode struct {
 	Controller   string   `yaml:"controller"`    // ""(⇒deployment) | statefulset
 	HasHPA       bool     `yaml:"hpa"`           // opt-in kube_horizontalpodautoscaler_* (Deployment/StatefulSet)
 	VolumeClaims []string `yaml:"volume_claims"` // PVC template names → kube_persistentvolumeclaim_*/kubelet_volume_stats_*/pv cost
+	// ErrorRate is the entry service's baseline request error fraction in [0,1]: the share of
+	// requests with a non-success outcome (split 50% 5xx, 30% 4xx, 20% 429, as before). It
+	// replaces the default 0.01; error_spike still raises from it. Entry service only: the build
+	// rejects it on any other service.
+	ErrorRate *float64 `yaml:"error_rate"`
+	// ShapeProfile overrides the workload's shape_profile for this service's metrics (and, on
+	// the entry, the request volume). Each field it sets replaces the workload's; omitted fields
+	// keep the workload's, then the blueprint default. Omitted keeps the workload's profile.
+	ShapeProfile *ShapeProfile `yaml:"shape_profile"`
 }
 
 // NodeSignals selects telemetry emitted by this service. Omitted block or key means enabled.
@@ -280,6 +318,15 @@ type Workload struct {
 	otlpColdStart time.Time
 	// automationMetricThrough bounds ledger-derived observations to unobserved request windows.
 	automationMetricThrough time.Time
+
+	// load is the resolved shape_profile (nil: the blueprint Engine's own curve).
+	load *loadProfile
+	// lastMetricTick is the previous metric tick (zero before the first), for stock_of's dt.
+	lastMetricTick time.Time
+	// carry holds the fractional observation remainder per scaled-rate histogram series.
+	carry map[string]float64
+	// stock holds each stock_of gauge's current level per label combination.
+	stock map[string]float64
 }
 
 // build constructs a Workload: decode-time defaults, resolve + validate the graph, freeze identity.
@@ -305,6 +352,10 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 	if err := validateAutomation(cfg); err != nil {
 		return nil, err
 	}
+	load, err := resolveLoadProfile(cfg.ShapeProfile)
+	if err != nil {
+		return nil, err
+	}
 	g, err := buildGraph(cfg.Services)
 	if err != nil {
 		return nil, err
@@ -315,6 +366,7 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 		graph:      g,
 		st:         state.NewState(),
 		otlpStates: make(map[string]*state.State),
+		load:       load,
 	}
 	w.resolveIdentity()
 	if err := w.buildPipeline(); err != nil {
@@ -325,7 +377,14 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 	if err := g.resolveDBIdentities(w.env, b.Databases); err != nil {
 		return nil, err
 	}
+	if err := resolveNodeLoads(g, cfg.ShapeProfile, load); err != nil {
+		return nil, err
+	}
+	if err := validateErrorRates(cfg.Services); err != nil {
+		return nil, err
+	}
 	w.m = newMinter(w.b.Name, w.env, w.cluster, w.weight, w.nonProd, cfg.Traffic, cfg.Models, g)
+	w.m.load = g.entry.load
 	w.m.automation = cfg.Automation
 	w.m.agentPipeline = cfg.AgentPipeline
 	// Wire BrowserOrigin minting: the minter sets r.BrowserOrigin only when RUM is active

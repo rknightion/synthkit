@@ -361,7 +361,7 @@ func (w *Workload) spanMetricVolume(now time.Time, world *core.World) int {
 	if world.Shape.Paused() { // explicit volume 0: no calls, not the off_peak_rps floor
 		return 0
 	}
-	rps := w.cfg.Traffic.OffPeakRPS + (w.cfg.Traffic.PeakRPS-w.cfg.Traffic.OffPeakRPS)*clampF(world.Shape.BusinessFactor(now), 0, 1)
+	rps := w.cfg.Traffic.OffPeakRPS + (w.cfg.Traffic.PeakRPS-w.cfg.Traffic.OffPeakRPS)*clampF(w.graph.entry.load.business(now, world.Shape), 0, 1)
 	calls := int(rps * interval.Seconds())
 	if calls > 5000 {
 		calls = 5000 // bounded per-tick budget (cumulative state carries the rest)

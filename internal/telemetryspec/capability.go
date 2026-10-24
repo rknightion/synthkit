@@ -13,7 +13,8 @@ import (
 type position int
 
 const (
-	posLabel       position = iota // metric label / Loki stream label (a series/stream dimension)
+	posLabel       position = iota // Loki stream label (a stream dimension)
+	posMetricLabel                 // metric label (a series dimension; admits enum rate/value scales)
 	posMetricValue                 // a metric magnitude
 	posBody                        // a Loki log body field
 	posAttr                        // a span attribute
@@ -32,8 +33,18 @@ func checkValue(vm ValueModel, pos position, where string) error {
 	if vm.Shape != nil && vm.Shape.IncidentValue != nil && pos != posMetricValue {
 		return fmt.Errorf("%s: shape incident_value is metric value only", where)
 	}
+	// Per-value metric multipliers only mean something where an enum expands into metric series.
+	// MetricSpec.Validate checks them against the instrument; every other position rejects them
+	// rather than silently ignoring them.
+	if pos != posMetricLabel {
+		for _, e := range vm.Enum {
+			if e.Scaled() {
+				return fmt.Errorf("%s: enum rate_scale/value_scale is valid on metric labels only", where)
+			}
+		}
+	}
 	switch pos {
-	case posLabel:
+	case posLabel, posMetricLabel:
 		// The high-card ref footgun gets a precise message (highcard is the single source of truth).
 		if vm.Kind() == KindRef && highcard.Contains(vm.Ref) {
 			return fmt.Errorf("%s: high-card ref %q is forbidden as a label/stream-label "+
@@ -51,9 +62,9 @@ func checkValue(vm ValueModel, pos position, where string) error {
 		// A metric magnitude must be numeric-producing — string models (const_str/enum/ref) can't be
 		// a metric value.
 		switch vm.Kind() {
-		case KindConst, KindIntRange, KindFloatRange, KindNormal, KindBool, KindShape:
+		case KindConst, KindIntRange, KindFloatRange, KindNormal, KindLognormal, KindBool, KindShape:
 		default:
-			return fmt.Errorf("%s: metric value must be numeric (const|int_range|float_range|normal|bool|shape), got %q", where, vm.Kind())
+			return fmt.Errorf("%s: metric value must be numeric (const|int_range|float_range|normal|lognormal|bool|shape), got %q", where, vm.Kind())
 		}
 	case posBody, posAttr:
 		// Any validated model is allowed here — including a high-card ref (the correlation glue:

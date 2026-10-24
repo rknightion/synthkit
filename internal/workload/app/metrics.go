@@ -30,27 +30,61 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 	// load factor as full load.
 	paused := world.Shape.Paused()
 	pausedCtx := telemetryspec.EvalCtx{Rand: world.Shape.Float64, Norm: world.Shape.NormFloat64}
+	dt := interval.Seconds()
+	if !w.lastMetricTick.IsZero() && now.After(w.lastMetricTick) {
+		dt = now.Sub(w.lastMetricTick).Seconds()
+	}
+	w.lastMetricTick = now
 	for _, n := range w.graph.nodes {
 		id := w.identity(n)
+		var incs map[string]float64
+		derived := n.hasDerived()
+		if derived {
+			incs = make(map[string]float64)
+		}
 		if !n.decl.metricsEnabled() {
 			// Consume this node's value draws in declaration order so disabling one producer does
 			// not shift the generated samples of enabled services later in the same tick.
 			for _, spec := range n.metrics {
-				w.observeMetricStates(nil, nil, id, spec, w.metricCtx(now, world, id, spec))
+				w.observeMetricStates(nil, nil, id, spec, w.metricCtx(now, world, id, n, spec), incs)
+			}
+			if derived {
+				for _, spec := range n.metrics {
+					if isDerived(spec) {
+						w.observeDerived(nil, nil, id, n, spec, w.metricCtx(now, world, id, n, spec), incs, dt, paused)
+					}
+				}
 			}
 			continue
 		}
-		for i, spec := range n.metrics {
-			var native *state.State
+		nativeFor := func(i int) *state.State {
 			if w.cfg.otelMetricsEnabled() && world.OTLPMetrics != nil && i >= n.nativeMetricStart {
-				native = w.nativeState(n)
+				return w.nativeState(n)
 			}
+			return nil
+		}
+		for i, spec := range n.metrics {
+			native := nativeFor(i)
 			if paused {
 				w.observePausedMetricStates(w.st, native, id, spec, pausedCtx)
 				continue
 			}
-			metricCtx := w.metricCtx(now, world, id, spec)
-			w.observeMetricStates(w.st, native, id, spec, metricCtx)
+			metricCtx := w.metricCtx(now, world, id, n, spec)
+			w.observeMetricStates(w.st, native, id, spec, metricCtx, incs)
+		}
+		// Derived specs read this tick's counter increments, so they run after the node's
+		// ordinary specs; they consume draws only when declared (count_of observations).
+		if derived {
+			for i, spec := range n.metrics {
+				if !isDerived(spec) {
+					continue
+				}
+				ctx := pausedCtx
+				if !paused {
+					ctx = w.metricCtx(now, world, id, n, spec)
+				}
+				w.observeDerived(w.st, nativeFor(i), id, n, spec, ctx, incs, dt, paused)
+			}
 		}
 	}
 	if world.EmitSpanMetrics {
@@ -76,8 +110,8 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 // node (per-node incident responsiveness, §6.5). With incident_value, load and scoped intensity
 // stay separate: the DSL interpolates the declared endpoints instead of multiplying by FailFactor.
 // Non-shape values ignore these inputs.
-func (w *Workload) metricCtx(now time.Time, world *core.World, id nodeIdentity, spec telemetryspec.MetricSpec) telemetryspec.EvalCtx {
-	shapeVal := world.Shape.BusinessFactor(now)
+func (w *Workload) metricCtx(now time.Time, world *core.World, id nodeIdentity, n *node, spec telemetryspec.MetricSpec) telemetryspec.EvalCtx {
+	shapeVal := n.load.business(now, world.Shape)
 	var intensity float64
 	if spec.Value.Kind() == telemetryspec.KindShape && spec.Value.Shape != nil && spec.Value.Shape.Mode != "" {
 		if spec.Value.Shape.IncidentValue != nil {
@@ -87,7 +121,11 @@ func (w *Workload) metricCtx(now time.Time, world *core.World, id nodeIdentity, 
 		}
 	}
 	return telemetryspec.EvalCtx{
-		ShapeVal:          shapeVal,
+		ShapeVal: shapeVal,
+		// A shape_profile can reach an exact zero load (floor 0, weekend_factor 0); that must
+		// read 0, like a paused shape gauge. The blueprint curve never reaches 0 (its pause
+		// takes the paused path), so the legacy zero-means-1.0 fallback is kept without one.
+		ExactLoad:         n.load != nil,
 		IncidentIntensity: intensity,
 		Rand:              world.Shape.Float64,
 		Norm:              world.Shape.NormFloat64,

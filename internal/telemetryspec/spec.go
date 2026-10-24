@@ -5,6 +5,7 @@ package telemetryspec
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 
@@ -62,6 +63,50 @@ type MetricSpec struct {
 	Value      ValueModel            `yaml:"value"`
 	Buckets    []float64             `yaml:"buckets"`
 	LEStyle    string                `yaml:"le_style"`
+	// StockOf makes a gauge a derived stock (a level such as items in progress or a queue depth)
+	// of a counter on the same service node, instead of reading its own value model. Gauge only;
+	// value and labels must be omitted (the gauge inherits the counter's label combinations).
+	StockOf *StockOf `yaml:"stock_of"`
+	// CountOf makes a histogram observe, per label combination and tick, as many values as the
+	// named counter on the same service node incremented (fractions carry deterministically), so
+	// the histogram's _count tracks the counter. Histogram only; its label domains must equal the
+	// counter's, and its labels may not declare rate_scale (the counter owns the rate).
+	CountOf string `yaml:"count_of"`
+}
+
+// MaxObservationsPerTick bounds the histogram observations one series makes in one metric tick
+// through rate_scale or count_of. Validation rejects a declaration whose nominal per-tick count
+// exceeds it; the interpreter also clamps at it (excess observations are dropped, never carried)
+// for rates that only grow at runtime, such as a master volume above 1 or an unbounded model.
+const MaxObservationsPerTick = 10000
+
+// MaxRateScale returns the largest per-combination product of the labels' rate_scale values
+// (1 when none is declared).
+func MaxRateScale(labels map[string]ValueModel) float64 {
+	prod := 1.0
+	for _, k := range sortedKeys(labels) {
+		best := 0.0
+		for _, e := range labels[k].Enum {
+			r := 1.0
+			if e.RateScale != nil {
+				r = *e.RateScale
+			}
+			best = math.Max(best, r)
+		}
+		if len(labels[k].Enum) > 0 {
+			prod *= best
+		}
+	}
+	return prod
+}
+
+// StockOf derives a gauge as the stock of a counter: a first-order lag that settles at
+// counter rate × DwellSeconds (Little's law), per label combination. Each tick it moves toward
+// that target by 1 - exp(-tick/DwellSeconds); the first tick seeds the target directly, so a
+// restart shows no ramp. A paused workload adds no inflow and the stock drains.
+type StockOf struct {
+	Metric       string  `yaml:"metric"`        // counter name on the same service node
+	DwellSeconds float64 `yaml:"dwell_seconds"` // mean time an item stays in the stock (> 0)
 }
 
 // CustomMetrics is the sourced, blueprint-owned variant of inline metric declarations.
@@ -122,12 +167,39 @@ func (m MetricSpec) Validate() error {
 		if strings.TrimSpace(k) == "" {
 			return fmt.Errorf("metric %q: empty label key", m.Name)
 		}
-		if err := checkValue(m.Labels[k], posLabel, fmt.Sprintf("metric %q label %q", m.Name, k)); err != nil {
+		if err := checkValue(m.Labels[k], posMetricLabel, fmt.Sprintf("metric %q label %q", m.Name, k)); err != nil {
 			return err
 		}
+		for _, e := range m.Labels[k].Enum {
+			switch {
+			case e.RateScale != nil && m.Instrument == InstrumentGauge:
+				return fmt.Errorf("metric %q label %q value %q: rate_scale is not valid on a gauge (use value_scale)", m.Name, k, e.Value)
+			case e.RateScale != nil && m.CountOf != "":
+				return fmt.Errorf("metric %q label %q value %q: rate_scale is not valid with count_of (the counter owns the rate)", m.Name, k, e.Value)
+			case e.ValueScale != nil && m.Instrument == InstrumentCounter:
+				return fmt.Errorf("metric %q label %q value %q: value_scale is not valid on a counter (use rate_scale)", m.Name, k, e.Value)
+			}
+		}
 	}
-	if err := checkValue(m.Value, posMetricValue, fmt.Sprintf("metric %q value", m.Name)); err != nil {
+	if m.StockOf != nil {
+		if err := m.validateStock(); err != nil {
+			return err
+		}
+	} else if err := checkValue(m.Value, posMetricValue, fmt.Sprintf("metric %q value", m.Name)); err != nil {
 		return err
+	}
+	if m.Instrument == InstrumentHistogram {
+		if r := MaxRateScale(m.Labels); r > MaxObservationsPerTick {
+			return fmt.Errorf("metric %q: rate_scale product %v exceeds %d observations per series per tick", m.Name, r, MaxObservationsPerTick)
+		}
+	}
+	if m.CountOf != "" {
+		if m.Instrument != InstrumentHistogram {
+			return fmt.Errorf("metric %q: count_of is valid on a histogram only", m.Name)
+		}
+		if strings.TrimSpace(m.CountOf) == "" || m.CountOf == m.Name {
+			return fmt.Errorf("metric %q: count_of must name another counter", m.Name)
+		}
 	}
 	if m.Instrument == InstrumentHistogram {
 		if len(m.Buckets) == 0 {
@@ -145,6 +217,25 @@ func (m MetricSpec) Validate() error {
 		}
 	} else if len(m.Buckets) > 0 {
 		return fmt.Errorf("metric %q: buckets only valid for a histogram", m.Name)
+	}
+	return nil
+}
+
+func (m MetricSpec) validateStock() error {
+	if m.Instrument != InstrumentGauge {
+		return fmt.Errorf("metric %q: stock_of is valid on a gauge only", m.Name)
+	}
+	if m.Value.setCount() != 0 {
+		return fmt.Errorf("metric %q: stock_of replaces the value model; omit value", m.Name)
+	}
+	if len(m.Labels) != 0 {
+		return fmt.Errorf("metric %q: stock_of inherits the counter's labels; omit labels", m.Name)
+	}
+	if strings.TrimSpace(m.StockOf.Metric) == "" || m.StockOf.Metric == m.Name {
+		return fmt.Errorf("metric %q: stock_of.metric must name another counter", m.Name)
+	}
+	if d := m.StockOf.DwellSeconds; math.IsNaN(d) || math.IsInf(d, 0) || d <= 0 {
+		return fmt.Errorf("metric %q: stock_of.dwell_seconds must be finite and > 0", m.Name)
 	}
 	return nil
 }

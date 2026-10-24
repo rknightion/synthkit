@@ -26,6 +26,7 @@ type minter struct {
 	nonProd       bool
 	rumEnabled    bool // true when the entry node carries rum_faro + binding.RUM is set
 	traffic       Traffic
+	load          *loadProfile  // shape_profile; nil uses the Engine's curve
 	models        []ModelChoice // valid (model,provider) routings; one drawn per request → r.Model/r.Provider
 	routes        []string      // entry-node request routes; one drawn per request → r.Route
 	graph         *graph
@@ -128,7 +129,7 @@ func (m *minter) rpsAt(now time.Time, eng *shape.Engine) float64 {
 	if eng.Paused() { // explicit volume 0: no requests, not the off_peak_rps floor
 		return 0
 	}
-	f := eng.Factor(now, m.weight, m.nonProd)
+	f := m.load.factor(now, eng, m.weight, m.nonProd)
 	f = clampF(f, 0, 1)
 	return m.traffic.OffPeakRPS + (m.traffic.PeakRPS-m.traffic.OffPeakRPS)*f
 }
@@ -216,10 +217,15 @@ func (m *minter) mintRequest(now time.Time, eng *shape.Engine, tick uint64, requ
 	// duration scales with the worst latency_storm — so the targeted node's correlated SAMPLE
 	// (trace + logs), not just its aggregate metrics, responds, while requests not touching it
 	// are unaffected.
-	errRate := 0.01
+	base := m.baseErrorRate()
+	errRate := base
 	for _, n := range m.pathNodes {
 		if burst, inten := eng.Eval(now, "error_spike", n); burst {
-			errRate = maxF(errRate, 0.01+(1-0.01)*0.5*inten)
+			spike := 0.01 + (1-0.01)*0.5*inten // the legacy expression, kept verbatim for the default
+			if base != defaultErrorRate {
+				spike = base + (1-base)*0.5*inten
+			}
+			errRate = maxF(errRate, spike)
 		}
 	}
 	r.Outcome, r.StatusCode, r.ErrorKind = drawOutcome(errRate, eng)
@@ -242,6 +248,35 @@ func (m *minter) mintRequest(now time.Time, eng *shape.Engine, tick uint64, requ
 		r.Duration = cover
 	}
 	return r
+}
+
+// defaultErrorRate is the entry request error fraction when no service declares error_rate.
+const defaultErrorRate = 0.01
+
+// baseErrorRate is the request's baseline error fraction: the entry's error_rate, or 0.01.
+func (m *minter) baseErrorRate() float64 {
+	if r := m.graph.entry.decl.ErrorRate; r != nil {
+		return *r
+	}
+	return defaultErrorRate
+}
+
+// validateErrorRates rejects an error_rate outside [0,1] or on a non-entry service: a
+// downstream rate would raise request failures without marking that hop failed.
+func validateErrorRates(services []ServiceNode) error {
+	for _, s := range services {
+		r := s.ErrorRate
+		if r == nil {
+			continue
+		}
+		if !s.Entry {
+			return fmt.Errorf("app service %q: error_rate is valid on the entry service only", s.Name)
+		}
+		if math.IsNaN(*r) || *r < 0 || *r > 1 {
+			return fmt.Errorf("app service %q: error_rate %v out of [0,1]", s.Name, *r)
+		}
+	}
+	return nil
 }
 
 // drawGraphCalls walks the graph from the entry (spanning-tree DFS — each node visited at most

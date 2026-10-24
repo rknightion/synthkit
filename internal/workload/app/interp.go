@@ -177,7 +177,7 @@ func reqRefs(r *ledger.Request, call *ledger.Call) map[string]string {
 // combination every run — determinism §3.4), and dispatches by instrument (gauge=Set,
 // counter=Add-delta accumulates I3, histogram=Observe with the declared buckets + le-style).
 func (w *Workload) observeMetric(st *state.State, id nodeIdentity, spec telemetryspec.MetricSpec, ctx telemetryspec.EvalCtx) {
-	w.observeMetricStates(st, nil, id, spec, ctx)
+	w.observeMetricStates(st, nil, id, spec, ctx, nil)
 }
 
 // observeMetricStates evaluates a metric value once and writes it to the promrw state plus an
@@ -185,37 +185,60 @@ func (w *Workload) observeMetric(st *state.State, id nodeIdentity, spec telemetr
 // mirrors the same inline instrument observation without changing the value draw sequence used by
 // the established promrw lane. Native labels contain only the author-declared DSL dimensions;
 // node identity is represented by the OTLP resource attributes.
-func (w *Workload) observeMetricStates(st, native *state.State, id nodeIdentity, spec telemetryspec.MetricSpec, ctx telemetryspec.EvalCtx) {
+//
+// Enum rate_scale/value_scale multiply per label combination (default 1 keeps the legacy draw
+// sequence and output). A histogram with a scaled rate observes a carry-rounded number of values
+// per tick, each its own draw. incs, when non-nil, records each counter's per-combination
+// increment for the node's derived specs (stock_of/count_of), which this function skips.
+func (w *Workload) observeMetricStates(st, native *state.State, id nodeIdentity, spec telemetryspec.MetricSpec, ctx telemetryspec.EvalCtx, incs map[string]float64) {
+	if isDerived(spec) {
+		return
+	}
 	base := id.metricBaseLabels()
-	for _, combo := range labelCombos(spec.Labels) {
-		labels := make(map[string]string, len(base)+len(combo))
-		for k, v := range base {
-			labels[k] = v
-		}
-		for k, v := range combo {
-			labels[k] = v
+	for _, combo := range scaledLabelCombos(spec.Labels) {
+		labels := mergeLabels(base, combo.labels)
+		if spec.Instrument == telemetryspec.InstrumentHistogram {
+			n := 1
+			if combo.rate != 1 {
+				n = min(w.carryCount(spec.Name, labels, combo.rate), telemetryspec.MaxObservationsPerTick)
+			}
+			for range n {
+				val, _ := spec.Value.Eval(ctx)
+				w.observeHistogram(st, native, spec, labels, combo.labels, val*combo.value)
+			}
+			continue
 		}
 		val, _ := spec.Value.Eval(ctx)
-		if st != nil {
-			switch spec.Instrument {
-			case telemetryspec.InstrumentGauge:
+		switch spec.Instrument {
+		case telemetryspec.InstrumentGauge:
+			val *= combo.value
+			if st != nil {
 				st.Set(spec.Name, labels, val)
-			case telemetryspec.InstrumentCounter:
+			}
+			if native != nil {
+				native.Set(spec.Name, combo.labels, val)
+			}
+		case telemetryspec.InstrumentCounter:
+			val *= combo.rate
+			if st != nil {
 				st.Add(spec.Name, labels, val)
-			case telemetryspec.InstrumentHistogram:
-				st.Observe(spec.Name, labels, spec.Buckets, leStyle(spec.LEStyle), val)
+			}
+			if native != nil {
+				native.Add(spec.Name, combo.labels, val)
+			}
+			if incs != nil {
+				incs[incKey(spec.Name, combo.labels)] += val
 			}
 		}
-		if native != nil {
-			switch spec.Instrument {
-			case telemetryspec.InstrumentGauge:
-				native.Set(spec.Name, combo, val)
-			case telemetryspec.InstrumentCounter:
-				native.Add(spec.Name, combo, val)
-			case telemetryspec.InstrumentHistogram:
-				native.Observe(spec.Name, combo, spec.Buckets, leStyle(spec.LEStyle), val)
-			}
-		}
+	}
+}
+
+func (w *Workload) observeHistogram(st, native *state.State, spec telemetryspec.MetricSpec, labels, dsl map[string]string, val float64) {
+	if st != nil {
+		st.Observe(spec.Name, labels, spec.Buckets, leStyle(spec.LEStyle), val)
+	}
+	if native != nil {
+		native.Observe(spec.Name, dsl, spec.Buckets, leStyle(spec.LEStyle), val)
 	}
 }
 
@@ -223,31 +246,46 @@ func (w *Workload) observeMetricStates(st, native *state.State, id nodeIdentity,
 // 0). Counters and histograms are request-shaped event streams, so they observe nothing and stay
 // flat. A gauge whose value is shape-scaled reads 0 (Base x a load factor of 0) rather than the
 // evaluator's zero-means-1.0 fallback. Any other gauge describes the process itself (const,
-// normal, float or int range) and keeps its usual evaluation.
+// normal, float or int range) and keeps its usual evaluation. Derived stock gauges are stepped
+// by observeDerived with zero inflow.
 func (w *Workload) observePausedMetricStates(st, native *state.State, id nodeIdentity, spec telemetryspec.MetricSpec, ctx telemetryspec.EvalCtx) {
-	if spec.Instrument != telemetryspec.InstrumentGauge {
+	if spec.Instrument != telemetryspec.InstrumentGauge || isDerived(spec) {
 		return
 	}
 	base := id.metricBaseLabels()
-	for _, combo := range labelCombos(spec.Labels) {
-		labels := make(map[string]string, len(base)+len(combo))
-		for k, v := range base {
-			labels[k] = v
-		}
-		for k, v := range combo {
-			labels[k] = v
-		}
+	for _, combo := range scaledLabelCombos(spec.Labels) {
+		labels := mergeLabels(base, combo.labels)
 		var val float64
 		if spec.Value.Kind() != telemetryspec.KindShape {
 			val, _ = spec.Value.Eval(ctx)
+			val *= combo.value
 		}
 		if st != nil {
 			st.Set(spec.Name, labels, val)
 		}
 		if native != nil {
-			native.Set(spec.Name, combo, val)
+			native.Set(spec.Name, combo.labels, val)
 		}
 	}
+}
+
+func mergeLabels(base, combo map[string]string) map[string]string {
+	labels := make(map[string]string, len(base)+len(combo))
+	for k, v := range base {
+		labels[k] = v
+	}
+	for k, v := range combo {
+		labels[k] = v
+	}
+	return labels
+}
+
+// labelCombo is one label-value combination plus the product of its enum values' declared
+// rate_scale and value_scale (1 when none is declared).
+type labelCombo struct {
+	labels map[string]string
+	rate   float64
+	value  float64
 }
 
 // labelCombos returns every label-value-map combination for a metric's labels: const/const_str → a
@@ -255,32 +293,55 @@ func (w *Workload) observePausedMetricStates(st, native *state.State, id nodeIde
 // is run-stable (every series appears every tick). Capability matrix guarantees only
 // const/const_str/enum reach here.
 func labelCombos(labels map[string]telemetryspec.ValueModel) []map[string]string {
+	scaled := scaledLabelCombos(labels)
+	out := make([]map[string]string, len(scaled))
+	for i, c := range scaled {
+		out[i] = c.labels
+	}
+	return out
+}
+
+// scaledLabelCombos is labelCombos carrying each combination's per-value scale products.
+func scaledLabelCombos(labels map[string]telemetryspec.ValueModel) []labelCombo {
 	keys := sortedValueModelKeys(labels)
-	combos := []map[string]string{{}}
+	combos := []labelCombo{{labels: map[string]string{}, rate: 1, value: 1}}
 	for _, k := range keys {
 		vm := labels[k]
-		var vals []string
+		type choice struct {
+			val         string
+			rate, value float64
+		}
+		var vals []choice
 		switch vm.Kind() {
 		case telemetryspec.KindEnum:
-			vals = vm.EnumDomain()
+			for _, e := range vm.Enum {
+				c := choice{val: e.Value, rate: 1, value: 1}
+				if e.RateScale != nil {
+					c.rate = *e.RateScale
+				}
+				if e.ValueScale != nil {
+					c.value = *e.ValueScale
+				}
+				vals = append(vals, c)
+			}
 		case telemetryspec.KindConstStr:
 			_, s := vm.Eval(telemetryspec.EvalCtx{})
-			vals = []string{s}
+			vals = []choice{{val: s, rate: 1, value: 1}}
 		case telemetryspec.KindConst:
 			n, _ := vm.Eval(telemetryspec.EvalCtx{})
-			vals = []string{formatNum(n)}
+			vals = []choice{{val: formatNum(n), rate: 1, value: 1}}
 		default:
 			continue // unreachable: capability matrix rejects other kinds as labels
 		}
-		next := make([]map[string]string, 0, len(combos)*len(vals))
+		next := make([]labelCombo, 0, len(combos)*len(vals))
 		for _, c := range combos {
 			for _, v := range vals {
-				nc := make(map[string]string, len(c)+1)
-				for kk, vv := range c {
+				nc := make(map[string]string, len(c.labels)+1)
+				for kk, vv := range c.labels {
 					nc[kk] = vv
 				}
-				nc[k] = v
-				next = append(next, nc)
+				nc[k] = v.val
+				next = append(next, labelCombo{labels: nc, rate: c.rate * v.rate, value: c.value * v.value})
 			}
 		}
 		combos = next

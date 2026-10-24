@@ -74,8 +74,6 @@ func (w *Workload) tickProfiles(ctx context.Context, now time.Time, world *core.
 		}
 	}
 
-	factor := world.Shape.Factor(now, w.weight, w.nonProd)
-
 	var series []psink.Series
 
 	for _, n := range w.graph.nodes {
@@ -83,6 +81,7 @@ func (w *Workload) tickProfiles(ctx context.Context, now time.Time, world *core.
 		if cfg == nil || !cfg.Enabled {
 			continue
 		}
+		factor := n.load.factor(now, world.Shape, w.weight, w.nonProd)
 		if cfg.ModeOrDefault() == "scraped" {
 			continue
 		}

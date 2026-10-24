@@ -30,7 +30,11 @@ const (
 	KindBool       = "bool"
 	KindShape      = "shape"
 	KindRef        = "ref"
+	KindLognormal  = "lognormal"
 )
+
+// z95 is the standard-normal 0.95 quantile: a lognormal's p95 is median × exp(sigma × z95).
+const z95 = 1.6448536269514722
 
 // ValueModel is the one-of generic value generator: exactly one field is set (Validate
 // enforces), mirroring the IncidentDecl scenario-xor-single pattern in the blueprint loader.
@@ -46,12 +50,37 @@ type ValueModel struct {
 	Bool       *BoolModel  `yaml:"bool"`        // weighted boolean
 	Shape      *ShapeModel `yaml:"shape"`       // base × the shape/incident engine reading (incident-aware)
 	Ref        string      `yaml:"ref"`         // pulls a correlation field by name (the correlation glue)
+	Lognormal  *Lognormal  `yaml:"lognormal"`   // right-skewed positive draw (median, p95)
 }
 
-// EnumEntry is one weighted categorical value.
+// EnumEntry is one weighted categorical value. Weight only steers a per-request draw (a log body
+// field, span attribute or stream label); it never divides traffic among metric series, because a
+// metric label enum expands to every value every tick.
+//
+// RateScale and ValueScale are opt-in per-value multipliers for a METRIC label (rejected on log
+// and span positions). With several scaled labels on one metric the per-combination multiplier is
+// the product of the chosen values' scales. Omitted means 1 (byte-identical legacy output).
+//   - RateScale multiplies a counter's per-tick increment, or a histogram's observations per tick
+//     (fractional rates carry deterministically across ticks). Rejected on a gauge.
+//   - ValueScale multiplies each observed value of a histogram (so its mean and p95 move
+//     together) or a gauge reading. Rejected on a counter, whose increment is a rate.
 type EnumEntry struct {
-	Value  string  `yaml:"value"`
-	Weight float64 `yaml:"weight"`
+	Value      string   `yaml:"value"`
+	Weight     float64  `yaml:"weight"`
+	RateScale  *float64 `yaml:"rate_scale"`
+	ValueScale *float64 `yaml:"value_scale"`
+}
+
+// Scaled reports whether the entry declares either per-value metric multiplier.
+func (e EnumEntry) Scaled() bool { return e.RateScale != nil || e.ValueScale != nil }
+
+// Lognormal is a right-skewed positive draw parameterised by its median and 95th percentile:
+// value = Median × exp(sigma × z), sigma = ln(P95/Median)/1.6449, z standard-normal. The mean
+// exceeds the median and the tail is long, as real latency and dwell-time distributions are.
+// Median > 0 and P95 >= Median; P95 == Median degenerates to a constant Median.
+type Lognormal struct {
+	Median float64 `yaml:"median"`
+	P95    float64 `yaml:"p95"`
 }
 
 // IntRange is a bounded integer draw; PZero is the probability the draw is forced to 0 (e.g.
@@ -97,7 +126,8 @@ type ShapeModel struct {
 // must NEVER influence which label keys/values appear (the -dump inventory, design §3.4).
 type EvalCtx struct {
 	Ref               map[string]string // correlation fields (trace_id, route, model, status, env, ...)
-	ShapeVal          float64           // load (legacy: incident-amplified); 0 ⇒ treated as 1.0
+	ShapeVal          float64           // load (legacy: incident-amplified); 0 ⇒ treated as 1.0 unless ExactLoad
+	ExactLoad         bool              // ShapeVal is authoritative: an exact 0 is zero load, not the 1.0 fallback
 	IncidentIntensity float64           // scoped intensity in [0,1], only for shape.incident_value; zero when inactive
 	Rand              func() float64    // uniform [0,1) — the shape engine's Float64; nil ⇒ deterministic 0.5
 	Norm              func() float64    // standard-normal — the shape engine's NormFloat64; nil ⇒ deterministic 0
@@ -154,7 +184,7 @@ func (v ValueModel) Eval(ctx EvalCtx) (float64, string) {
 		return 0, "false"
 	case KindShape:
 		mult := ctx.ShapeVal
-		if mult == 0 {
+		if mult == 0 && !ctx.ExactLoad {
 			mult = 1.0
 		}
 		if v.Shape.IncidentValue != nil {
@@ -168,6 +198,9 @@ func (v ValueModel) Eval(ctx EvalCtx) (float64, string) {
 			return 0, ""
 		}
 		return 0, ctx.Ref[v.Ref]
+	case KindLognormal:
+		sigma := math.Log(v.Lognormal.P95/v.Lognormal.Median) / z95
+		return v.Lognormal.Median * math.Exp(sigma*ctx.norm()), ""
 	}
 	return 0, ""
 }
@@ -235,6 +268,8 @@ func (v ValueModel) Kind() string {
 		return KindShape
 	case v.Ref != "":
 		return KindRef
+	case v.Lognormal != nil:
+		return KindLognormal
 	}
 	return ""
 }
@@ -245,6 +280,7 @@ func (v ValueModel) setCount() int {
 	for _, set := range []bool{
 		v.Const != nil, v.ConstStr != nil, len(v.Enum) > 0, v.IntRange != nil,
 		v.FloatRange != nil, v.Normal != nil, v.Bool != nil, v.Shape != nil, v.Ref != "",
+		v.Lognormal != nil,
 	} {
 		if set {
 			n++
@@ -258,7 +294,7 @@ func (v ValueModel) setCount() int {
 func (v ValueModel) Validate() error {
 	switch n := v.setCount(); {
 	case n == 0:
-		return fmt.Errorf("value model: no model set (need exactly one of const|const_str|enum|int_range|float_range|normal|bool|shape|ref)")
+		return fmt.Errorf("value model: no model set (need exactly one of const|const_str|enum|int_range|float_range|normal|lognormal|bool|shape|ref)")
 	case n > 1:
 		return fmt.Errorf("value model: %d models set, need exactly one", n)
 	}
@@ -275,6 +311,11 @@ func (v ValueModel) Validate() error {
 			}
 			if e.Weight < 0 {
 				return fmt.Errorf("enum value %q: negative weight %v", e.Value, e.Weight)
+			}
+			for _, sc := range []*float64{e.RateScale, e.ValueScale} {
+				if sc != nil && (math.IsNaN(*sc) || math.IsInf(*sc, 0) || *sc < 0) {
+					return fmt.Errorf("enum value %q: rate_scale/value_scale must be finite and >= 0", e.Value)
+				}
 			}
 			if seen[e.Value] {
 				return fmt.Errorf("enum value %q: duplicate (would collapse to one series / double-count a counter)", e.Value)
@@ -313,6 +354,17 @@ func (v ValueModel) Validate() error {
 	case KindRef:
 		if strings.TrimSpace(v.Ref) == "" {
 			return fmt.Errorf("ref: empty correlation field name")
+		}
+	case KindLognormal:
+		m, p := v.Lognormal.Median, v.Lognormal.P95
+		if math.IsNaN(m) || math.IsInf(m, 0) || math.IsNaN(p) || math.IsInf(p, 0) {
+			return fmt.Errorf("lognormal: median and p95 must be finite")
+		}
+		if m <= 0 {
+			return fmt.Errorf("lognormal: median %v must be > 0", m)
+		}
+		if p < m {
+			return fmt.Errorf("lognormal: p95 %v must be >= median %v", p, m)
 		}
 	}
 	return nil

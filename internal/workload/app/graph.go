@@ -9,6 +9,7 @@ import (
 	"github.com/rknightion/synthkit/internal/fixture"
 	"github.com/rknightion/synthkit/internal/semconv"
 	"github.com/rknightion/synthkit/internal/sink/otlp"
+	"github.com/rknightion/synthkit/internal/state"
 	"github.com/rknightion/synthkit/internal/telemetryspec"
 	"github.com/rknightion/synthkit/internal/telemetryspec/profiles"
 )
@@ -113,6 +114,8 @@ type node struct {
 	// / server.address). nil ⇒ the leaf carries no DB identity. Resolved in build() from the binding
 	// (the resolver owns the per-env identity; the workload only reads it — no minting).
 	dbIdentity map[string]any
+	// load is the node's effective shape_profile (nil: the blueprint Engine curve).
+	load *loadProfile
 }
 
 // graph is the validated service graph: nodes in declaration order + a name index + the entry node.
@@ -174,6 +177,71 @@ func checkCustomMetricNames(existing []telemetryspec.MetricSpec, custom telemetr
 	return nil
 }
 
+// checkDerivedMetrics resolves each stock_of / count_of reference to a counter on the same node
+// and, for count_of, requires the histogram's label combinations to equal the counter's so every
+// histogram series has exactly one increment to follow.
+func checkDerivedMetrics(n *node) error {
+	for _, m := range n.metrics {
+		ref := m.CountOf
+		if m.StockOf != nil {
+			ref = m.StockOf.Metric
+		}
+		if ref == "" {
+			continue
+		}
+		src := n.counterSpec(ref)
+		if src == nil {
+			return fmt.Errorf("metric %q: %q is not a counter on this service", m.Name, ref)
+		}
+		if m.CountOf == "" {
+			continue
+		}
+		if max, ok := nominalMax(src.Value); ok {
+			if n := max * telemetryspec.MaxRateScale(src.Labels); n > telemetryspec.MaxObservationsPerTick {
+				return fmt.Errorf("metric %q: count_of counter %q can increment %v per tick, above %d observations per series per tick", m.Name, ref, n, telemetryspec.MaxObservationsPerTick)
+			}
+		}
+		want := map[string]bool{}
+		for _, c := range labelCombos(src.Labels) {
+			want[state.LabelSig(c)] = true
+		}
+		got := labelCombos(m.Labels)
+		if len(got) != len(want) {
+			return fmt.Errorf("metric %q: count_of labels must have the same combinations as counter %q", m.Name, ref)
+		}
+		for _, c := range got {
+			if !want[state.LabelSig(c)] {
+				return fmt.Errorf("metric %q: count_of labels must have the same combinations as counter %q", m.Name, ref)
+			}
+		}
+	}
+	return nil
+}
+
+// nominalMax is a counter value model's largest per-tick increment at master volume 1, or false
+// for an unbounded model (normal, lognormal), which only the interpreter's clamp bounds.
+func nominalMax(v telemetryspec.ValueModel) (float64, bool) {
+	switch v.Kind() {
+	case telemetryspec.KindConst:
+		return *v.Const, true
+	case telemetryspec.KindIntRange:
+		return float64(v.IntRange.Max), true
+	case telemetryspec.KindFloatRange:
+		return v.FloatRange.Max, true
+	case telemetryspec.KindBool:
+		return 1, true
+	case telemetryspec.KindShape:
+		if v.Shape.IncidentValue != nil {
+			return max(v.Shape.Base, *v.Shape.IncidentValue), true
+		}
+		if v.Shape.Mode != "" {
+			return v.Shape.Base * incidentAmplification, true
+		}
+		return v.Shape.Base, true
+	}
+	return 0, false
+}
+
 // buildGraph resolves + validates the declared services into a graph: unique names, one entry,
 // edges reference declared nodes, leaves make no calls, every effective spec passes the DSL
 // capability matrix. Loud load errors (like the rest of the loader).
@@ -226,6 +294,9 @@ func buildGraph(services []ServiceNode) (*graph, error) {
 			if err := m.Validate(); err != nil {
 				return nil, fmt.Errorf("app service %q: %w", s.Name, err)
 			}
+		}
+		if err := checkDerivedMetrics(n); err != nil {
+			return nil, fmt.Errorf("app service %q: %w", s.Name, err)
 		}
 		for _, l := range n.logs {
 			if err := l.Validate(); err != nil {

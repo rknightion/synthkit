@@ -255,6 +255,7 @@ Each node can declare custom metrics, log streams, and extra span attributes via
 | `int_range` | `int_range: {min: 0, max: 100, p_zero: 0.95}` | Bounded integer; `p_zero` forces 0 with given probability |
 | `float_range` | `float_range: {min: 0.001, max: 2.5}` | Bounded float |
 | `normal` | `normal: {mean: 50.0, stddev: 10.0}` | Gaussian draw (negative clamped to 0) |
+| `lognormal` | `lognormal: {median: 120, p95: 3600}` | Right-skewed positive draw with the given median and 95th percentile (see below) |
 | `bool` | `bool: {p_true: 0.1}` | Weighted boolean |
 | `shape` | `shape: {base: 100.0, mode: latency_storm}` | Legacy `base × load × incident multiplier`; optional metric-only `incident_value` selects an explicit endpoint instead (see below) |
 | `ref` | `ref: trace_id` | Pulls a correlation field by name |
@@ -262,7 +263,8 @@ Each node can declare custom metrics, log streams, and extra span attributes via
 **Capability matrix** (enforced at load time):
 
 - **Metric labels** and **Loki stream labels**: only `const` / `const_str` / `enum`. These must enumerate a stable, total domain on every run.
-- **Metric values**: only numeric models — `const`, `int_range`, `float_range`, `normal`, `bool`, `shape`.
+- **Metric values**: only numeric models — `const`, `int_range`, `float_range`, `normal`, `lognormal`, `bool`, `shape`.
+- Enum `rate_scale` / `value_scale` are admitted on **metric labels** only (see below); a log, stream-label or span enum carrying them is rejected.
 - **Log body fields** and **span attributes**: any model, including `ref`, except `shape.incident_value` (metric values only). High-cardinality correlation keys (`trace_id`, `portkey_trace_id`, `run_id`, etc.) ride here — never as labels or stream labels.
 
 For a metric that is genuinely zero normally but nonzero during an incident, opt into a finite,
@@ -346,7 +348,8 @@ services:
 A counter value is a **per-metric-tick increment**, accumulated across ticks. A histogram value is
 one observation per metric tick, accumulated into classic Prometheus `_bucket`, `_sum` and `_count`
 series; explicit strictly ascending `buckets` are required. Each label combination receives its own
-increment or observation: enum weights do not divide traffic among metric series. Values are not
+increment or observation: enum weights do not divide traffic among metric series (declare
+`rate_scale` / `value_scale` on the enum values for that, below). Values are not
 request-ledger-derived business outcomes; choose tick frequency and value models from the cited
 instrumentation and realistic workload volume, rather than treating these fixture values as
 production traffic defaults.
@@ -366,6 +369,110 @@ and its entire Prometheus family within the service node: a histogram also reser
 rejected even when labels are disjoint or units/bounds differ; declarations are never merged.
 Existing `metrics` declarations and catalog profiles retain their previous
 validation and emission behavior; `custom_metrics` is the additive, citation-required surface.
+
+### Per-value scales, derived metrics and workload load profiles
+
+These are opt-in. Omitting them leaves every series and value exactly as before.
+
+**Per-value scales.** A metric label enum value may declare `rate_scale` and `value_scale`
+(finite, `>= 0`, default 1). The label domain is unchanged; the scales only change what each
+combination observes. A histogram combination is absent until its first observation, so one with
+`rate_scale: 0` never appears and one below 0.5 first appears on a later tick. With several scaled labels the combination's multiplier is the product.
+
+| Instrument | `rate_scale` | `value_scale` |
+|---|---|---|
+| counter | multiplies the per-tick increment | rejected (an increment is a rate) |
+| histogram | observations per tick (each its own draw); fractions carry across ticks, rounding half up from the first tick | multiplies each observed value, so mean and p95 move together |
+| gauge | rejected | multiplies the reading |
+
+`weight` is unchanged: it still steers only per-request draws (log bodies, span attributes).
+They belong under `labels.<key>.enum[]`. The generated schema does not expand `labels` maps
+(it shows them as `map[string]ValueModel`) and so lists `rate_scale` / `value_scale` only under
+`value.enum[]`, where the loader rejects them, as it does in logs and spans.
+
+One series makes at most **10,000 histogram observations per tick** through `rate_scale` or
+`count_of`. A declaration whose nominal per-tick count exceeds that is rejected at load (the
+product of the largest `rate_scale` per label; for `count_of`, the counter's largest increment,
+with a legacy `shape` incident at ×3). Rates that only grow at runtime (a master volume above 1,
+an unbounded `normal` / `lognormal` counter) are clamped at the bound and the excess is dropped.
+
+**Skewed durations.** `lognormal: {median, p95}` draws `median × exp(sigma × z)` with
+`sigma = ln(p95 / median) / 1.6449` and `z` from the blueprint's seeded generator. `median > 0`
+and `p95 >= median`; equal values give a constant. Its mean sits above the median with a long
+tail, unlike the symmetric `normal`, so a histogram's p95 and a threshold SLI behave like real
+durations. Choose bucket bounds that span the tail (seconds to days are fine).
+
+**Stock gauges.** `stock_of: {metric, dwell_seconds}` makes a gauge the level of a counter on the
+same service node (for example items in progress), instead of reading a value model. Omit
+`value` and `labels`: the gauge inherits the counter's label combinations, including its
+`rate_scale`s. Each tick the level moves toward `counter rate × dwell_seconds` (Little's law)
+by `1 - exp(-tick / dwell_seconds)`; the first tick seeds the target, so a restart shows no ramp,
+and the first tick assumes the 60 s metric interval. While the workload is paused the inflow is
+zero and the level drains.
+
+**Histogram counts from a counter.** `count_of: <counter>` makes a histogram observe, per label
+combination and tick, as many values as the named same-node counter incremented (fractions
+carry, rounding half up), so `_count` equals the counter's total rounded to a whole count, within
+the per-tick bound above. Its label combinations must equal the counter's; its own
+enum values may declare `value_scale` but not `rate_scale`. A combination is absent until its
+counter first increments. Observation cost grows with the counter's increment, so keep it a
+plausible per-tick event count.
+
+```yaml
+custom_metrics:   # illustrative fixture values, not production defaults
+  - name: orders_total
+    source: <instrumentation contract>
+    instrument: counter
+    labels:
+      outcome: {enum: [{value: accepted, rate_scale: 4}, {value: rejected}]}
+    value: {const: 3}
+  - name: order_duration_seconds
+    source: <instrumentation contract>
+    instrument: histogram
+    count_of: orders_total
+    buckets: [60, 600, 3600, 86400]
+    labels:
+      outcome: {enum: [{value: accepted, value_scale: 3}, {value: rejected}]}
+    value: {lognormal: {median: 300, p95: 7200}}
+  - name: orders_in_progress
+    source: <instrumentation contract>
+    instrument: gauge
+    stock_of: {metric: orders_total, dwell_seconds: 1800}
+```
+
+**Request error rate.** The entry service may declare `error_rate` (0 to 1): the fraction of
+requests with a non-success outcome, split 50% 5xx, 30% 4xx and 20% 429 as before. It replaces
+the default 0.01, and an `error_spike` still raises the rate from it. It is entry-only: the build
+rejects `error_rate` on any other service, because a downstream rate would fail requests without
+attributing the failure to that hop. Base it on the modelled service's observed error ratio.
+
+**Workload load profile.** By default every workload follows the blueprint's one business-hours
+curve. An app may declare its own:
+
+```yaml
+workloads:
+  - type: app
+    name: mine-app
+    shape_profile:
+      timezone: America/New_York   # default: the blueprint timezone
+      floor: 0.05                  # default 0.1
+      ramp_up_start_hour: 7        # defaults 6 / 10 / 16 / 20
+      plateau_start_hour: 9
+      plateau_end_hour: 17
+      ramp_down_end_hour: 21
+      weekend_factor: 0.4          # default 0.3 for metrics, 0.2 / 0.02 for request volume
+```
+
+It drives the entry request volume (and so traces, logs and span metrics) and every `shape` value
+of the workload. A service may declare its own `shape_profile` with the same fields: each field it
+sets replaces the workload's, the rest are inherited from the workload's (then the defaults). It
+applies to that service's metrics and profiling, and, on the entry, to request volume and span
+metrics. This lets one workload model services in different timezones without adding a label. Hours must satisfy `0 <= ramp_up_start <= plateau_start <= plateau_end <=
+ramp_down_end <= 24`; an unknown timezone fails the build. `floor: 0` or `weekend_factor: 0` is
+a real zero load: `shape` values read exactly 0 then (as when paused), instead of the legacy
+evaluator's zero-means-full-load fallback, and request volume falls to `off_peak_rps`. The master volume, pause, environment
+weight and incidents still come from the blueprint. The curve is `shape.Curve`; the blueprint
+default equals `shape.DefaultCurve()` exactly.
 
 ### Catalog profiles
 
