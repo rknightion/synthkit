@@ -380,7 +380,7 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 	if err := resolveNodeLoads(g, cfg.ShapeProfile, load); err != nil {
 		return nil, err
 	}
-	if err := validateErrorRates(cfg.Services); err != nil {
+	if err := validateErrorRates(cfg.Services, g.entry.decl.Name); err != nil {
 		return nil, err
 	}
 	w.m = newMinter(w.b.Name, w.env, w.cluster, w.weight, w.nonProd, cfg.Traffic, cfg.Models, g)

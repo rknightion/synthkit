@@ -263,13 +263,13 @@ func (m *minter) baseErrorRate() float64 {
 
 // validateErrorRates rejects an error_rate outside [0,1] or on a non-entry service: a
 // downstream rate would raise request failures without marking that hop failed.
-func validateErrorRates(services []ServiceNode) error {
+func validateErrorRates(services []ServiceNode, entry string) error {
 	for _, s := range services {
 		r := s.ErrorRate
 		if r == nil {
 			continue
 		}
-		if !s.Entry {
+		if s.Name != entry {
 			return fmt.Errorf("app service %q: error_rate is valid on the entry service only", s.Name)
 		}
 		if math.IsNaN(*r) || *r < 0 || *r > 1 {

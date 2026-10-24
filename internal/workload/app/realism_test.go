@@ -526,3 +526,11 @@ func TestServiceShapeProfileOverride(t *testing.T) {
 func coretestBinding() core.Binding {
 	return core.Binding{Name: "demo", Env: coretest.Env(), Cluster: coretest.Cluster()}
 }
+
+func TestSoleServiceErrorRateNeedsNoEntryFlag(t *testing.T) {
+	doc := "traffic: {off_peak_rps: 100, peak_rps: 100}\nservices:\n  - name: api\n    type: web\n    error_rate: 0.2\n"
+	w := buildApp(t, decodeStrict(t, doc))
+	if got := w.m.baseErrorRate(); got != 0.2 {
+		t.Fatalf("sole service baseline = %v, want 0.2", got)
+	}
+}
