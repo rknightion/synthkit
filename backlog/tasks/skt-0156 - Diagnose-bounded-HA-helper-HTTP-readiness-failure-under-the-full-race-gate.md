@@ -4,7 +4,7 @@ title: Diagnose bounded HA helper HTTP readiness failure under the full race gat
 status: Parked
 assignee: []
 created_date: '2026-10-21T03:00:00Z'
-updated_date: '2026-10-23T19:52:00Z'
+updated_date: '2026-10-24T02:12:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -37,4 +37,6 @@ A documentation-only candidate failed TestHACoordinatorRenewalLossSuppressesClea
 loop52 BATCH2: landed e2cea58 (pushed 45ff131). Cause 1 (reserve-and-close port race) fixed in ha_loss_test.go; failures now report helper exit/output or a SIGQUIT dump. Cause 2 unfixed: under gate CPU starvation the helper misses its 100ms startup Lease lookup or the 300ms renew deadline (65/130 under 256-hog load on gate-1); removing it needs a bound or production change. Parked pending owner ruling Q05 (park / isolated race tier / bound change). Evidence: codex/loop52/lha/return.md (machine-local). Sibling port pattern: SKT-0161.
 
 Loop54 authorized bounded remote measurement at source8f5a75e (runtime source unchanged from a0554b6), run20261023T194726Z-synthkit-f2a5755f. One quiet-host race job ran HA then Fleet sequentially: 10 top-level HA iterations/40 scenario subtests and 10 Fleet iterations/20 restart-teardown subtests all passed, zero skipped. The same 40 HA cases cover helper readiness, not an extra independent sample. Bounds/source/assertions/isolation unchanged. No reproduction, repair, cleared full-gate failure, loaded A/B or measured isolation benefit established; retain Parked pending naturally failing same-context request/startup/scheduler evidence.
+
+Loop54 closeout: remains Parked after quiet-host measurements showed no attributable readiness defect or isolation benefit. Resume only on fresh reproducible evidence; no bound/helper policy weakened.
 <!-- SECTION:NOTES:END -->
