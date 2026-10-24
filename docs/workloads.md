@@ -461,9 +461,19 @@ custom_metrics:   # illustrative fixture values, not production defaults
 
 **Request error rate.** The entry service may declare `error_rate` (0 to 1): the fraction of
 requests with a non-success outcome, split 50% 5xx, 30% 4xx and 20% 429 as before. It replaces
-the default 0.01, and an `error_spike` still raises the rate from it. It is entry-only: the build
-rejects `error_rate` on any other service, because a downstream rate would fail requests without
-attributing the failure to that hop. Base it on the modelled service's observed error ratio.
+the default 0.01, and an `error_spike` still raises the rate from it. Base it on the modelled
+service's observed error ratio.
+
+A downstream service may declare `error_rate` too, as an opt-in. It is that service's own hop
+failure fraction: on that share of requests the hop to it fails, so its CLIENT and SERVER spans
+are errors and its span metrics and service-graph failed counter count them. Each declared
+downstream rate is drawn independently of the entry and of the others, so a request fails with
+`1-(1-entry)(1-a)(1-b)...`. A request that only a downstream error_rate failed is an upstream 5xx; a
+request the entry also failed keeps the entry's drawn outcome. An `error_spike` on the same
+service still fails its hop through the incident's own draw, on top of the declared rate. The
+build rejects a rate outside 0 to 1, one on a service the entry cannot reach, and one on an
+automation or `agent_pipeline` app, which mint no graph calls. With no downstream `error_rate`
+(or a zero one) the draws are exactly the entry-only draws.
 
 **Workload load profile.** By default every workload follows the blueprint's one business-hours
 curve. An app may declare its own:

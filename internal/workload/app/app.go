@@ -18,6 +18,7 @@
 package app
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/rknightion/synthkit/internal/core"
@@ -222,10 +223,13 @@ type ServiceNode struct {
 	Controller   string   `yaml:"controller"`    // ""(⇒deployment) | statefulset
 	HasHPA       bool     `yaml:"hpa"`           // opt-in kube_horizontalpodautoscaler_* (Deployment/StatefulSet)
 	VolumeClaims []string `yaml:"volume_claims"` // PVC template names → kube_persistentvolumeclaim_*/kubelet_volume_stats_*/pv cost
-	// ErrorRate is the entry service's baseline request error fraction in [0,1]: the share of
-	// requests with a non-success outcome (split 50% 5xx, 30% 4xx, 20% 429, as before). It
-	// replaces the default 0.01; error_spike still raises from it. Entry service only: the build
-	// rejects it on any other service.
+	// ErrorRate is the service's own failure fraction in [0,1]. On the entry it is the baseline
+	// share of requests with a non-success outcome (split 50% 5xx, 30% 4xx, 20% 429, as before),
+	// replacing the default 0.01; error_spike still raises from it. On a downstream service it is
+	// opt-in: that service's hop fails (server span and span metrics included) on this fraction of
+	// requests, independently of the entry, so a request fails with 1-(1-entry)(1-this) overall; a
+	// request only the hop failed is an upstream 5xx. The build rejects it on a service the entry
+	// cannot reach.
 	ErrorRate *float64 `yaml:"error_rate"`
 	// ShapeProfile overrides the workload's shape_profile for this service's metrics (and, on
 	// the entry, the request volume). Each field it sets replaces the workload's; omitted fields
@@ -380,8 +384,16 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 	if err := resolveNodeLoads(g, cfg.ShapeProfile, load); err != nil {
 		return nil, err
 	}
-	if err := validateErrorRates(cfg.Services, g.entry.decl.Name); err != nil {
+	if err := validateErrorRates(cfg.Services, g); err != nil {
 		return nil, err
+	}
+	if cfg.Automation != nil || cfg.AgentPipeline != nil {
+		// These flows mint no graph calls, so a downstream rate would never fire.
+		for _, s := range cfg.Services {
+			if s.ErrorRate != nil && s.Name != g.entry.decl.Name {
+				return nil, fmt.Errorf("app service %q: a downstream error_rate needs graph calls, which an automation or agent_pipeline workload does not mint", s.Name)
+			}
+		}
 	}
 	w.m = newMinter(w.b.Name, w.env, w.cluster, w.weight, w.nonProd, cfg.Traffic, cfg.Models, g)
 	w.m.load = g.entry.load

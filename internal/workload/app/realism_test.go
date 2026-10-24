@@ -442,7 +442,7 @@ services:
 `
 
 // TestServiceErrorRate: the entry's error_rate replaces the default 0.01 baseline and minted
-// outcomes follow it; a downstream service's error_rate is rejected at build.
+// outcomes follow it. A downstream rate is covered by downstream_error_rate_test.go.
 func TestServiceErrorRate(t *testing.T) {
 	w := buildApp(t, decodeStrict(t, errDoc))
 	if got := w.m.baseErrorRate(); got != 0.2 {
@@ -461,10 +461,6 @@ func TestServiceErrorRate(t *testing.T) {
 	}
 	if frac := float64(failed) / float64(total); frac < 0.18 || frac > 0.22 {
 		t.Fatalf("non-success fraction %v over %d requests, want about 0.2", frac, total)
-	}
-	down := decodeStrict(t, strings.Replace(errDoc, "    type: db\n", "    type: db\n    error_rate: 0.5\n", 1))
-	if _, err := build(down, coretestBinding()); err == nil || !strings.Contains(err.Error(), `service "store": error_rate is valid on the entry service only`) {
-		t.Fatalf("downstream error_rate: err %v, want entry-only rejection naming the service", err)
 	}
 	w = buildApp(t, decodeStrict(t, strings.Replace(errDoc, "    error_rate: 0.2\n", "", 1)))
 	if got := w.m.baseErrorRate(); got != 0.01 {

@@ -17,9 +17,10 @@ import (
 // narrative sample at the ENTRY node and walks the declared graph to build ONE request's hop tree
 // (one trace across all reachable nodes). Volume + cadence-invariance mirror web_service's minter.
 type minter struct {
-	workloadName  string   // the app INSTANCE name — the ledger dispatch key (byWorkload)
-	entry         string   // entry-node name
-	pathNodes     []string // every node reachable from the entry (incl entry) — the per-request incident scopes
+	workloadName  string           // the app INSTANCE name — the ledger dispatch key (byWorkload)
+	entry         string           // entry-node name
+	pathNodes     []string         // every node reachable from the entry (incl entry) — the per-request incident scopes
+	downstream    []downstreamRate // reachable non-entry services declaring a positive error_rate (opt-in; nil by default)
 	env           string
 	cluster       string
 	weight        float64
@@ -36,10 +37,12 @@ type minter struct {
 }
 
 func newMinter(name, env, cluster string, weight float64, nonProd bool, traffic Traffic, models []ModelChoice, g *graph) *minter {
+	pathNodes := reachableNodes(g)
 	return &minter{
 		workloadName: name,
 		entry:        g.entry.decl.Name,
-		pathNodes:    reachableNodes(g),
+		pathNodes:    pathNodes,
+		downstream:   downstreamRates(g, pathNodes),
 		env:          env,
 		cluster:      cluster,
 		weight:       weight,
@@ -229,6 +232,21 @@ func (m *minter) mintRequest(now time.Time, eng *shape.Engine, tick uint64, requ
 		}
 	}
 	r.Outcome, r.StatusCode, r.ErrorKind = drawOutcome(errRate, eng)
+	// Opt-in downstream attribution: each reachable service declaring error_rate fails its own hop
+	// independently, so a hop's failure share is exactly its declared rate and the request fails
+	// with 1-(1-entry)(1-a)(1-b)... overall. The entry draw above is the same one the default path
+	// makes; the extra draws (one per declared downstream service) exist only when a downstream
+	// error_rate does. A request the entry did not fail itself, but a downstream hop did, surfaces
+	// as an upstream 5xx; an entry-failed request keeps its drawn outcome.
+	var failHops []string
+	for _, d := range m.downstream {
+		if eng.Float64() < d.rate {
+			failHops = append(failHops, d.name)
+		}
+	}
+	if len(failHops) > 0 && r.Outcome == ledger.OutcomeSuccess {
+		r.Outcome, r.StatusCode, r.ErrorKind = ledger.OutcomeServerError, 500, "upstream_5xx"
+	}
 
 	// Base request duration = the entry's own processing (scaled only by the ENTRY's latency_storm).
 	// p95 is blueprint-configurable (Traffic.RequestLatencyP95Ms; default 200ms HTTP-fast) — LLM/agentic
@@ -239,7 +257,7 @@ func (m *minter) mintRequest(now time.Time, eng *shape.Engine, tick uint64, requ
 	// Per-hop durations apply each hop's OWN node latency factor (only the targeted node's hop is
 	// slow — siblings unaffected). A slow downstream hop then SLOWS THE WHOLE REQUEST (it waits on
 	// the hop), so grow r.Duration to cover the hop sum + overhead.
-	r.Calls = m.drawGraphCalls(now, r.Duration, r.Outcome, eng)
+	r.Calls = m.drawGraphCalls(now, r.Duration, r.Outcome, failHops, eng)
 	var hopSum time.Duration
 	for i := range r.Calls {
 		hopSum += r.Calls[i].Duration
@@ -261,19 +279,44 @@ func (m *minter) baseErrorRate() float64 {
 	return defaultErrorRate
 }
 
-// validateErrorRates rejects an error_rate outside [0,1] or on a non-entry service: a
-// downstream rate would raise request failures without marking that hop failed.
-func validateErrorRates(services []ServiceNode, entry string) error {
+// downstreamRate is one reachable non-entry service's declared error_rate.
+type downstreamRate struct {
+	name string
+	rate float64
+}
+
+// downstreamRates lists the reachable non-entry services with a positive error_rate, in graph
+// order. A zero rate contributes nothing, so it is left out and keeps the default path.
+func downstreamRates(g *graph, pathNodes []string) []downstreamRate {
+	var out []downstreamRate
+	for _, name := range pathNodes {
+		if name == g.entry.decl.Name {
+			continue
+		}
+		if r := g.byName[name].decl.ErrorRate; r != nil && *r > 0 {
+			out = append(out, downstreamRate{name: name, rate: *r})
+		}
+	}
+	return out
+}
+
+// validateErrorRates rejects an error_rate outside [0,1], or on a service the entry cannot reach
+// (it would never fire). A downstream rate is attributed to that service's own hop at mint time.
+func validateErrorRates(services []ServiceNode, g *graph) error {
+	reach := map[string]bool{}
+	for _, n := range reachableNodes(g) {
+		reach[n] = true
+	}
 	for _, s := range services {
 		r := s.ErrorRate
 		if r == nil {
 			continue
 		}
-		if s.Name != entry {
-			return fmt.Errorf("app service %q: error_rate is valid on the entry service only", s.Name)
-		}
 		if math.IsNaN(*r) || *r < 0 || *r > 1 {
 			return fmt.Errorf("app service %q: error_rate %v out of [0,1]", s.Name, *r)
+		}
+		if !reach[s.Name] {
+			return fmt.Errorf("app service %q: error_rate needs a service the entry can reach", s.Name)
 		}
 	}
 	return nil
@@ -284,7 +327,7 @@ func validateErrorRates(services []ServiceNode, entry string) error {
 // CLIENT span (call.SpanID) plus, when the callee is an instrumented service, its SERVER span
 // (call.PeerSpanID). ParentHopIndex links each edge to the edge that reached its caller (-1 = the
 // entry's own SERVER/root span).
-func (m *minter) drawGraphCalls(now time.Time, reqDur time.Duration, outcome ledger.Outcome, eng *shape.Engine) []ledger.Call {
+func (m *minter) drawGraphCalls(now time.Time, reqDur time.Duration, outcome ledger.Outcome, failHops []string, eng *shape.Engine) []ledger.Call {
 	var calls []ledger.Call
 	visited := map[string]bool{m.entry: true}
 
@@ -318,6 +361,8 @@ func (m *minter) drawGraphCalls(now time.Time, reqDur time.Duration, outcome led
 	// "last hop blew up" (web_service's heuristic, which would mis-attribute under per-node
 	// targeting). Sibling hops are unaffected. The request OUTCOME still reflects the raised error
 	// rate (the entry span carries the error status); _outcome is accepted for that linkage.
+	// failHops names the downstream services whose own error_rate failed this request; their hops
+	// (and so their server spans and span metrics) fail without an extra draw.
 	_ = outcome
 	if reqDur > 0 && len(calls) > 0 {
 		budget := time.Duration(float64(reqDur) * 0.7)
@@ -331,6 +376,13 @@ func (m *minter) drawGraphCalls(now time.Time, reqDur time.Duration, outcome led
 			}
 			calls[i].Duration = d
 			if active, inten := eng.Eval(now, "error_spike", calls[i].Target); active && eng.Float64() < 0.6*inten {
+				calls[i].Failed = true
+			}
+		}
+	}
+	for _, name := range failHops {
+		for i := range calls {
+			if calls[i].Target == name {
 				calls[i].Failed = true
 			}
 		}
