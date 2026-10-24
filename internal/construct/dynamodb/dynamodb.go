@@ -9,6 +9,7 @@ package dynamodb
 import (
 	"context"
 	"fmt"
+	"hash/fnv"
 	"math"
 	"strings"
 	"time"
@@ -52,6 +53,12 @@ type Table struct {
 	ConditionalFailuresPerSecond float64      `yaml:"conditional_failures_per_second"`
 	Operations                   []Operation  `yaml:"operations"`
 	Stream                       *Stream      `yaml:"stream"`
+	// Load selects how the table's operation rates (and GlobalTable replicated
+	// writes) follow time. Omitted or "constant" keeps the fixed operator rates.
+	// "business" treats each declared rate as the PEAK (plateau) rate and scales it
+	// by the blueprint business curve (never above 1, so the provisioned-capacity
+	// guard checked at Build still holds). An operation's own load overrides this.
+	Load string `yaml:"load"`
 }
 
 // Operation models successful service-side requests only (not network/client
@@ -66,6 +73,18 @@ type Operation struct {
 	WriteUnits        float64 `yaml:"write_units"`
 	LatencyMS         float64 `yaml:"latency_ms"`
 	ReturnedItems     float64 `yaml:"returned_items"`
+	// Load overrides the table's load for this operation: "constant" or "business"
+	// (see Table.Load). Omitted inherits the table.
+	Load string `yaml:"load"`
+	// LatencyMinMS optionally declares the lower per-request latency bound around
+	// LatencyMS (the mean), as an explicit operator assumption. Declared together with
+	// LatencyMaxMS (both or neither), with LatencyMinMS <= LatencyMS <= LatencyMaxMS.
+	// Declared, the reported Minimum/Maximum differ from the Average (and the Average
+	// drifts slightly per window) instead of all three equalling LatencyMS. Omitted
+	// keeps constant latency.
+	LatencyMinMS float64 `yaml:"latency_min_ms"`
+	// LatencyMaxMS is the upper per-request latency bound; see LatencyMinMS.
+	LatencyMaxMS float64 `yaml:"latency_max_ms"`
 }
 
 // Stream explicitly declares the Streams identity and successful GetRecords
@@ -87,8 +106,23 @@ type Replication struct {
 type tableState struct {
 	table                     Table
 	carry                     []float64
+	business                  []bool
+	replBusiness              bool
 	failures, polls, replicas float64
 }
+
+const (
+	loadConstant = "constant"
+	loadBusiness = "business"
+	// ampLoad bounds the deterministic per-series reduction below the declared peak,
+	// so peer operations sharing the curve do not move rigidly in parallel.
+	ampLoad = 0.075
+	// ampLatency bounds the per-window drift of mean latency when bounds are declared.
+	ampLatency = 0.05
+)
+
+func validLoad(v string) bool { return v == "" || v == loadConstant || v == loadBusiness }
+
 type construct struct {
 	account Account
 	cloud   fixture.Cloud
@@ -134,6 +168,9 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 		if !number(t.ProvisionedReads) || !number(t.ProvisionedWrites) || t.ProvisionedReads == 0 || t.ProvisionedWrites == 0 || t.ProvisionedReads > cfg.Account.MaxTableReads || t.ProvisionedWrites > cfg.Account.MaxTableWrites {
 			return nil, fmt.Errorf("dynamodb: table %q provisioned capacity invalid or above quota", t.Name)
 		}
+		if !validLoad(t.Load) {
+			return nil, fmt.Errorf("dynamodb: load must be omitted, constant or business")
+		}
 		if t.WriteSource != "" && t.WriteSource != "Customer" && t.WriteSource != "GlobalTable" {
 			return nil, fmt.Errorf("dynamodb: write_source must be omitted, Customer or GlobalTable")
 		}
@@ -147,7 +184,7 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 				return nil, fmt.Errorf("dynamodb: duplicate operation %q", o.Name)
 			}
 			seen[o.Name] = true
-			for _, v := range []float64{o.RequestsPerSecond, o.ReadUnits, o.WriteUnits, o.LatencyMS, o.ReturnedItems} {
+			for _, v := range []float64{o.RequestsPerSecond, o.ReadUnits, o.WriteUnits, o.LatencyMS, o.ReturnedItems, o.LatencyMinMS, o.LatencyMaxMS} {
 				if !number(v) {
 					return nil, fmt.Errorf("dynamodb: invalid finite nonnegative operation assumption")
 				}
@@ -173,6 +210,12 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 			}
 			if o.LatencyMS == 0 {
 				return nil, fmt.Errorf("dynamodb: positive service latency required")
+			}
+			if !validLoad(o.Load) {
+				return nil, fmt.Errorf("dynamodb: load must be omitted, constant or business")
+			}
+			if (o.LatencyMinMS == 0) != (o.LatencyMaxMS == 0) || (o.LatencyMinMS != 0 && (o.LatencyMinMS > o.LatencyMS || o.LatencyMS > o.LatencyMaxMS)) {
+				return nil, fmt.Errorf("dynamodb: latency_min_ms and latency_max_ms must be declared together with latency_min_ms <= latency_ms <= latency_max_ms")
 			}
 			demandR += o.RequestsPerSecond * o.ReadUnits
 			demandW += o.RequestsPerSecond * o.WriteUnits
@@ -213,7 +256,11 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 			t.Stream = &s
 		}
 		t.Operations = append([]Operation(nil), t.Operations...)
-		c.tables = append(c.tables, tableState{table: t, carry: make([]float64, len(t.Operations))})
+		ts := tableState{table: t, carry: make([]float64, len(t.Operations)), business: make([]bool, len(t.Operations)), replBusiness: t.Load == loadBusiness}
+		for j, o := range t.Operations {
+			ts.business[j] = o.Load == loadBusiness || (o.Load == "" && t.Load == loadBusiness)
+		}
+		c.tables = append(c.tables, ts)
 		totalR += t.ProvisionedReads
 		totalW += t.ProvisionedWrites
 	}
@@ -240,6 +287,47 @@ func take(rate, seconds float64, carry *float64) float64 {
 	return n
 }
 
+// loadFactor is the opt-in business-curve multiplier in [0,1]. The declared rate is
+// the peak, so the product of the clamped curve and two per-series reductions (a
+// stable Spread baseline and a slow Wander drift, both only ever below 1) never
+// exceeds it and the Build-time provisioned-capacity guard keeps holding. It is 1
+// when no shape engine is wired. Deterministic in (key, now): no RNG draws.
+func loadFactor(w *core.World, now time.Time, key string) float64 {
+	if w == nil || w.Shape == nil {
+		return 1
+	}
+	bf := math.Min(1, math.Max(0, w.Shape.BusinessFactor(now)))
+	return bf * (w.Shape.Spread(key, ampLoad) - ampLoad) * (w.Shape.Wander(key, now, ampLoad*0.4) - ampLoad*0.4)
+}
+
+// latencyStats returns the CloudWatch statistics for n successful requests. Without
+// declared bounds latency is constant (Average=Minimum=Maximum=LatencyMS). With
+// bounds the window mean drifts deterministically within +/-ampLatency of LatencyMS
+// (kept inside the bounds) and the extremes approach the declared bounds as the
+// sample count grows: one request has Min=Max=Average. Sum is always n*Average, and
+// the extremes stay realizable for that sum.
+func latencyStats(o Operation, n float64, now time.Time, key string) cw.StatSet {
+	if o.LatencyMaxMS == 0 {
+		return cw.StatSet{Sum: n * o.LatencyMS, Average: o.LatencyMS, Maximum: o.LatencyMS, Minimum: o.LatencyMS, SampleCount: n}
+	}
+	h := fnv.New64a()
+	_, _ = fmt.Fprintf(h, "%s|%d", key, now.Truncate(time.Minute).Unix())
+	u := float64(h.Sum64()%20_001)/10_000.0 - 1.0
+	avg := math.Min(o.LatencyMaxMS, math.Max(o.LatencyMinMS, o.LatencyMS*(1+ampLatency*u)))
+	if n < 2 {
+		return cw.StatSet{Sum: n * avg, Average: avg, Maximum: avg, Minimum: avg, SampleCount: n}
+	}
+	q := 1 - 1/n
+	hi := avg + (o.LatencyMaxMS-avg)*q
+	lo := avg - (avg-o.LatencyMinMS)*q
+	hi = math.Min(hi, n*avg-(n-1)*lo)
+	lo = math.Max(lo, n*avg-(n-1)*hi)
+	// Floating-point rounding can cross the extremes by a few ulps when the mean sits
+	// on a bound; the mean always lies between them.
+	lo, hi = math.Min(lo, avg), math.Max(hi, avg)
+	return cw.StatSet{Sum: n * avg, Average: avg, Maximum: hi, Minimum: lo, SampleCount: n}
+}
+
 func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) error {
 	if !c.last.IsZero() && !now.After(c.last) {
 		return nil
@@ -260,8 +348,9 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		c.last, c.paused = now, false
 		return nil
 	}
-	// Nonzero master volume deliberately retains the fixed operator rate model;
-	// scaling/diurnal/overload semantics are not admitted by this consumer.
+	// Nonzero master volume retains the fixed operator rate model unless a table or
+	// operation opts in with load: business, which scales the declared (peak) rate
+	// by the blueprint business curve. Overload semantics are not admitted.
 	seconds := 60.0
 	if !c.last.IsZero() {
 		seconds = now.Sub(c.last).Seconds()
@@ -283,7 +372,11 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		l["dimension_TableName"] = t.Name
 		var readSum, writeSum, readPeak, writePeak, readMin, writeMin float64
 		for j, o := range t.Operations {
-			n := take(o.RequestsPerSecond, seconds, &ts.carry[j])
+			rate := o.RequestsPerSecond
+			if ts.business[j] {
+				rate *= loadFactor(w, now, "dynamodb|"+t.Name+"|"+o.Name)
+			}
+			n := take(rate, seconds, &ts.carry[j])
 			readSum += n * o.ReadUnits
 			writeSum += n * o.WriteUnits
 			// Evenly scheduled requests across second-sized capacity observations.
@@ -298,7 +391,7 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 			op["dimension_TableName"] = t.Name
 			op["dimension_Operation"] = o.Name
 			// Milliseconds: one observation per successful service request.
-			cw.EmitStats(st, "aws_dynamodb_successful_request_latency", op, cw.StatSet{Sum: n * o.LatencyMS, Average: o.LatencyMS, Maximum: o.LatencyMS, Minimum: o.LatencyMS, SampleCount: n})
+			cw.EmitStats(st, "aws_dynamodb_successful_request_latency", op, latencyStats(o, n, now, "dynamodb|"+t.Name+"|"+o.Name))
 			if o.Name == "Query" || o.Name == "Scan" || o.Name == "ExecuteStatement" {
 				// Count: fixed returned-item count per select request, including empty responses.
 				cw.EmitStats(st, "aws_dynamodb_returned_item_count", op, cw.StatSet{Sum: n * o.ReturnedItems, Average: o.ReturnedItems, Maximum: o.ReturnedItems, Minimum: o.ReturnedItems, SampleCount: n})
@@ -310,7 +403,11 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		// All operation schedules align their extra observations to leading slots;
 		// the extrema are therefore realizable, not arbitrary multipliers.
 		if r := t.Replication; r != nil {
-			n := take(r.WritesPerSecond, seconds, &ts.replicas)
+			rate := r.WritesPerSecond
+			if ts.replBusiness {
+				rate *= loadFactor(w, now, "dynamodb|"+t.Name+"|replication")
+			}
+			n := take(rate, seconds, &ts.replicas)
 			writeSum = n * r.UnitsPerWrite
 			writePeak = math.Ceil(n/samples) * r.UnitsPerWrite
 			writeMin = math.Floor(n/samples) * r.UnitsPerWrite
