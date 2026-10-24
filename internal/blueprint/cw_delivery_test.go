@@ -18,6 +18,7 @@ import (
 	"github.com/rknightion/synthkit/internal/inventory"
 	"github.com/rknightion/synthkit/internal/runner"
 	"github.com/rknightion/synthkit/internal/sink/promrw"
+	"gopkg.in/yaml.v3"
 )
 
 func deliveryFixture(t *testing.T) string {
@@ -197,7 +198,6 @@ func TestLogsDeliveryCLI(t *testing.T) {
 		{"forwarded_log_events: 7", "forwarded_log_events: -1", "finite whole"},
 		{"name: fixture-forward", "name: ' padded '", "unique unpadded filter name"},
 		{"forwarded_bytes: 11", "forwarded_bytes: 11, compression_ratio: 0.5", "field compression_ratio"},
-		{"cloudwatch_logs:", "cloudwatch_export: otlp\n      cloudwatch_logs:", "remote_write"},
 	} {
 		text := strings.Replace(fixture, tc.old, tc.new, 1)
 		if text == fixture {
@@ -212,4 +212,23 @@ func TestLogsDeliveryCLI(t *testing.T) {
 			t.Fatalf("expected %q, got %v\n%s", tc.want, e, b)
 		}
 	}
+	t.Run("native OTLP refusal", func(t *testing.T) {
+		var doc map[string]any
+		if e := yaml.Unmarshal([]byte(fixture), &doc); e != nil {
+			t.Fatal(e)
+		}
+		cloud := doc["environments"].([]any)[0].(map[string]any)["cloud"].(map[string]any)
+		// Keep the delivery-enabled Logs declaration, but remove Redshift so
+		// its earlier Build refusal cannot mask a missing Logs native guard.
+		delete(cloud, "redshift")
+		cloud["cloudwatch_export"] = "otlp"
+		text, e := yaml.Marshal(doc)
+		if e != nil {
+			t.Fatal(e)
+		}
+		b, e := run(string(text), "-once")
+		if e == nil || !strings.Contains(string(b), "cloudwatch_logs:") || !strings.Contains(string(b), "remote_write") {
+			t.Fatalf("expected cloudwatch_logs-specific remote_write refusal, got %v\n%s", e, b)
+		}
+	})
 }
