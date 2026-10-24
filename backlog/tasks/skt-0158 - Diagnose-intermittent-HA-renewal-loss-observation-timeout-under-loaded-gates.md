@@ -4,7 +4,7 @@ title: Diagnose intermittent HA renewal-loss observation timeout under loaded ga
 status: Parked
 assignee: []
 created_date: '2026-10-21T15:25:00Z'
-updated_date: '2026-10-24T05:10:00Z'
+updated_date: '2026-10-24T06:10:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -43,4 +43,6 @@ Loop54 authorized bounded remote measurement at source8f5a75e (runtime source un
 Loop54 closeout: remains Parked. Read-only quiet-host HA measurements passed40HA/20Fleet scenarios without reproducing the failure or proving isolation benefit. Resume on fresh attributable reproduction; caller deadlines, test bounds and isolation unchanged.
 
 This loop performed only route discovery for the permitted quiet-host measurement. The installed runner has slot admission but no documented idle-only or preemptible measurement path guaranteeing required gates are not blocked. No remote job or test started; this is an unavailable measurement, not a green result or proof the host is busy. Retain the park until a compliant route or attributable reproduction is available.
+
+Closeout defect park retained: no documented idle/preemptible nonblocking measurement route was available, so no new measurement ran. Resume on a compliant route or attributable failing reproduction; a free slot is not idle admission and full-gate success does not close the timing defect.
 <!-- SECTION:NOTES:END -->
