@@ -41,9 +41,18 @@ type SendPost struct{ Post Post }
 // JoinChannel asks the runner to join (and backfill) a newly bound channel.
 type JoinChannel struct{ ChannelID string }
 
+// Notify asks the runner to tell the operator something privately (the control DM).
+type Notify struct{ Text string }
+
+// SetScenario asks the runner to switch the SynthKit scenario on or off. The runner reports
+// back through ScenarioDone.
+type SetScenario struct{ Active bool }
+
 func (CallDirector) isEffect() {}
 func (SendPost) isEffect()     {}
 func (JoinChannel) isEffect()  {}
+func (Notify) isEffect()       {}
+func (SetScenario) isEffect()  {}
 
 // Options wires a machine to one workspace.
 type Options struct {
@@ -79,6 +88,7 @@ type beatState struct {
 	byDeact    bool
 	thenFired  bool
 	evLogical  string // channel of the triggering event, the default for a channel-less beat
+	adhoc      bool   // made at run time; its notice comes from whoever made it
 }
 
 type personaState struct {
@@ -146,6 +156,7 @@ type Machine struct {
 	wake        wakeState
 	inflight    bool
 	callIdle    bool
+	callFloor   string
 	calls       int
 	budgetSpent bool
 	retried     bool
@@ -154,6 +165,12 @@ type Machine struct {
 
 	addressed      map[string]time.Time
 	addressedIn    string
+	floorIn        string
+	floorAt        time.Time
+	adhoc          int
+	startRe        *regexp.Regexp
+	fireRe         *regexp.Regexp
+	fired          bool
 	lastOperatorAt time.Time
 	lastActivity   time.Time
 	nudged         bool
@@ -191,6 +208,12 @@ func NewMachine(sc *script.Scenario, opt Options) (*Machine, error) {
 		m.personas[p.ID] = ps
 		m.order = append(m.order, p.ID)
 	}
+	if p := sc.Trigger.StartPhrase; p != "" {
+		m.startRe = regexp.MustCompile(p)
+	}
+	if p := sc.Trigger.FirePhrase; p != "" {
+		m.fireRe = regexp.MustCompile(p)
+	}
 	for i := range sc.Beats {
 		b := &sc.Beats[i]
 		bs := &beatState{def: b}
@@ -223,6 +246,13 @@ func (m *Machine) EndReason() string { return m.endReason }
 
 func (m *Machine) log(now time.Time, kind string, detail any, format string, a ...any) {
 	m.j.Write(Entry{At: now, RunID: m.runID, Kind: kind, Detail: detail, Message: fmt.Sprintf(format, a...)})
+}
+
+// notify tells the operator privately and journals it.
+func (m *Machine) notify(now time.Time, format string, a ...any) {
+	msg := fmt.Sprintf(format, a...)
+	m.log(now, "notify", nil, "%s", msg)
+	m.effects = append(m.effects, Notify{Text: msg})
 }
 
 func (m *Machine) elapsed(now time.Time) time.Duration {

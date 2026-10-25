@@ -135,6 +135,14 @@ func (sc *Scenario) Validate() error {
 	if t := sc.Trigger.SynthkitScenario; t != "" && strings.Count(t, "/") != 1 {
 		add("trigger.synthkit_scenario %q must be \"<blueprint>/<name>\"", t)
 	}
+	for _, p := range [][2]string{{"trigger.start_phrase", sc.Trigger.StartPhrase}, {"trigger.fire_phrase", sc.Trigger.FirePhrase}} {
+		if _, err := regexp.Compile(p[1]); p[1] != "" && err != nil {
+			add("%s: %v", p[0], err)
+		}
+	}
+	if sc.Trigger.FirePhrase != "" && sc.Trigger.SynthkitScenario == "" {
+		add("trigger.fire_phrase needs trigger.synthkit_scenario")
+	}
 	if e := sc.LLM.ReasoningEffort; e != "none" && e != "low" && e != "medium" && e != "high" && e != "omit" {
 		add("llm.reasoning_effort %q must be none|low|medium|high|omit", e)
 	}

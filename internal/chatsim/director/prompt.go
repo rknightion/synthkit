@@ -21,8 +21,11 @@ when nobody would naturally speak.
 
 Rules, all mandatory:
 1. Only write lines that serve an open beat (set "beat" to its id and use only its listed speakers),
-   or reply to a persona the operator just addressed ("addressed"; set "beat" to ""), or, only when
-   "idle" is true, at most one short in-character nudge (beat "").
+   or reply to a persona the operator just addressed ("addressed"; set "beat" to ""), or, when
+   "floor" is set, have exactly one persona from "floor" answer the operator's last message in
+   "floor_in" (beat ""; pick whoever would naturally know or care), or, only when "idle" is true,
+   at most one short in-character nudge (beat ""). When the operator asks something nobody has
+   checked, the persona says so or offers to look; never leave the operator unanswered.
 2. A persona speaks only in a channel listed in its "present_in". Use the beat's channel when it has one.
 3. The operator alone acts in Grafana IRM: acknowledging, resolving, escalating, silencing, paging or
    declaring. Personas ask him to do these things. They never claim to have done one, never say they
@@ -68,6 +71,8 @@ type userState struct {
 	Recent      []recentLine        `json:"recent"`
 	Addressed   []string            `json:"addressed"`
 	AddressedIn string              `json:"addressed_in,omitempty"`
+	Floor       []string            `json:"floor,omitempty"`
+	FloorIn     string              `json:"floor_in,omitempty"`
 	Idle        bool                `json:"idle"`
 	MaxLines    int                 `json:"max_lines"`
 	Feedback    []string            `json:"previous_attempt_rejected,omitempty"`
@@ -99,7 +104,7 @@ func at(d time.Duration) string { return "+" + d.Round(time.Second).String() }
 func UserPrompt(t engine.Turn) (string, error) {
 	u := userState{
 		Elapsed: at(t.Elapsed), Reasons: t.Reasons, OpenBeats: t.OpenBeats, Addressed: t.Addressed,
-		AddressedIn: t.AddressedIn, Idle: t.Idle, MaxLines: t.MaxLines, Feedback: t.Feedback, Operator: t.Operator,
+		AddressedIn: t.AddressedIn, Floor: t.Floor, FloorIn: t.FloorIn, Idle: t.Idle, MaxLines: t.MaxLines, Feedback: t.Feedback, Operator: t.Operator,
 	}
 	for _, p := range t.Personas {
 		u.Personas = append(u.Personas, presence{ID: p.ID, PresentIn: p.PresentIn})

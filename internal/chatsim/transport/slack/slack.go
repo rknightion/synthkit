@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -40,6 +41,10 @@ type Config struct {
 	Logf       func(format string, a ...any)
 	// Tap, when set, receives every raw envelope payload as one JSON line.
 	Tap io.Writer
+	// ControlName and ControlEmoji, when set, are the identity the control DM speaks in
+	// (chat:write.customize); otherwise it speaks as the app.
+	ControlName  string
+	ControlEmoji string
 }
 
 // Transport implements engine.Transport over Slack.
@@ -51,6 +56,8 @@ type Transport struct {
 	out  chan<- engine.Event
 	seen *lru
 	tapM sync.Mutex
+	dmMu sync.Mutex
+	dm   string // the operator's DM channel with the app, opened on first use
 }
 
 // New authenticates (auth.test) to learn our own bot id.
@@ -156,7 +163,20 @@ func (t *Transport) handle(ctx context.Context, sm *socketmode.Client, evt socke
 		if json.Unmarshal(evt.Request.Payload, &env) != nil || (env.EventID != "" && t.seen.Seen("evt|"+env.EventID)) {
 			return nil
 		}
-		t.emit(ctx, t.ids.Translate(env.Event))
+		evs := t.ids.Translate(env.Event)
+		for i := range evs {
+			if evs[i].Kind == engine.EvControl {
+				t.rememberDM(evs[i].ChannelID)
+				evs[i].Reply = func(text string) {
+					go func() {
+						if err := t.Notify(ctx, text); err != nil {
+							t.cfg.Logf("slack: control DM reply: %v", err)
+						}
+					}()
+				}
+			}
+		}
+		t.emit(ctx, evs)
 	case socketmode.EventTypeSlashCommand:
 		if evt.Request == nil {
 			return nil
@@ -195,10 +215,63 @@ func (t *Transport) slash(ctx context.Context, cmd slack.SlashCommand) {
 	}
 	verb, args, ok := engine.ParseControl(cmd.Text)
 	if !ok || verb == "help" {
-		reply("chatsim: /chatsim start | pause | resume | stop | status | skip <beat> | say <persona> <text>")
+		reply("chatsim: /chatsim " + engine.ControlHelp)
 		return
 	}
 	t.emit(ctx, []engine.Event{{Kind: engine.EvControl, Command: verb, Args: args, ChannelID: cmd.ChannelID, User: cmd.UserID, Reply: reply}})
+}
+
+func (t *Transport) rememberDM(id string) {
+	t.dmMu.Lock()
+	defer t.dmMu.Unlock()
+	if t.dm == "" && strings.HasPrefix(id, "D") {
+		t.dm = id
+	}
+}
+
+func (t *Transport) dmChannel(ctx context.Context) (string, error) {
+	t.dmMu.Lock()
+	defer t.dmMu.Unlock()
+	if t.dm != "" {
+		return t.dm, nil
+	}
+	if t.ids.OperatorID == "" {
+		return "", errors.New("no operator user id bound")
+	}
+	ch, _, _, err := t.api.OpenConversationContext(ctx, &slack.OpenConversationParameters{Users: []string{t.ids.OperatorID}})
+	if err != nil {
+		return "", fmt.Errorf("conversations.open (needs im:write): %w", err)
+	}
+	t.dm = ch.ID
+	return t.dm, nil
+}
+
+// Notify implements engine.Notifier: a private line to the operator in the app's DM.
+func (t *Transport) Notify(ctx context.Context, text string) error {
+	dm, err := t.dmChannel(ctx)
+	if err != nil {
+		return err
+	}
+	opts := []slack.MsgOption{slack.MsgOptionText(text, false)}
+	if t.cfg.ControlName != "" {
+		opts = append(opts, slack.MsgOptionUsername(t.cfg.ControlName))
+	}
+	if t.cfg.ControlEmoji != "" {
+		opts = append(opts, slack.MsgOptionIconEmoji(t.cfg.ControlEmoji))
+	}
+	_, _, err = t.api.PostMessageContext(ctx, dm, opts...)
+	if err != nil {
+		return fmt.Errorf("slack chat.postMessage to the control DM: %w", err)
+	}
+	return nil
+}
+
+// Hello posts a startup line to the control DM, logging (not failing) when the DM is not
+// set up yet.
+func (t *Transport) Hello(ctx context.Context, text string) {
+	if err := t.Notify(ctx, text); err != nil {
+		t.cfg.Logf("slack: control DM unavailable (%v); /chatsim and stdin still work", err)
+	}
 }
 
 // Post implements engine.Transport. A 429 is retried once after Retry-After.

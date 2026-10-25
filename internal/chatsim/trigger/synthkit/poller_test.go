@@ -4,8 +4,10 @@ package synthkit
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -65,5 +67,34 @@ func TestAlreadyActiveAtBaselineDoesNotFire(t *testing.T) {
 	_ = p.Run(ctx, out)
 	if len(out) != 0 {
 		t.Fatalf("an already-active scenario fired %d events", len(out))
+	}
+}
+
+func TestSetActivePostsTheScenarioMutation(t *testing.T) {
+	var got []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, pass, _ := r.BasicAuth()
+		body, _ := io.ReadAll(r.Body)
+		got = append(got, r.Method+" "+r.URL.Path+" "+user+":"+pass+" "+string(body))
+		if strings.HasSuffix(r.URL.Path, "/deactivate") {
+			http.Error(w, "unknown scenario", http.StatusBadRequest)
+			return
+		}
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+	p := &Poller{BaseURL: srv.URL + "/", Token: "tok", Scenario: "bp/storm"}
+	if err := p.SetActive(context.Background(), true); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.SetActive(context.Background(), false); err == nil || !strings.Contains(err.Error(), "HTTP 400: unknown scenario") {
+		t.Fatalf("want the 400 body in the error, got %v", err)
+	}
+	want := []string{
+		`POST /control/scenarios/activate control:tok {"scenario":"bp/storm"}`,
+		`POST /control/scenarios/deactivate control:tok {"scenario":"bp/storm"}`,
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("requests:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 }

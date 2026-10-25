@@ -83,7 +83,7 @@ func line(p, beat, text string, cites ...string) Line {
 
 func run(t *testing.T, m *Machine, c *FakeClock, d Director, s *sink, evs ...TimedEvent) {
 	t.Helper()
-	if err := Simulate(context.Background(), m, c, evs, d, s, 10*time.Minute); err != nil {
+	if err := Simulate(context.Background(), m, c, evs, d, s, nil, 10*time.Minute); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -249,7 +249,7 @@ func (f *failing) Decide(context.Context, Turn) (Decision, error) {
 func TestDirectorErrorRewakes(t *testing.T) {
 	m, c, _, s := setup(t)
 	f := &failing{}
-	if err := Simulate(context.Background(), m, c, []TimedEvent{activate}, f, s, 2*time.Minute); err != nil {
+	if err := Simulate(context.Background(), m, c, []TimedEvent{activate}, f, s, nil, 2*time.Minute); err != nil {
 		t.Fatal(err)
 	}
 	if f.calls < 2 {

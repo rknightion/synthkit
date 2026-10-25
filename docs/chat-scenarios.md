@@ -39,9 +39,13 @@ which honours `trigger.delay`), then inject what the platform would do:
 | `:in incident-42` | speak in another channel |
 | `:synthkit off` | the SynthKit scenario is deactivated (the wind-down beat runs) |
 | `status`, `pause`, `resume`, `stop`, `skip <beat>`, `say <persona> <text>` | the kill switch |
+| `fire`, `heal`, `summon <persona> [channel]`, `direct <text>` | control commands (below) |
+| `:dm <text>` | a message to the control DM: a command, or else a stage direction |
 
 Add `-llm openrouter` (with `OPENROUTER_API_KEY` set) to rehearse against the real model, and
 `-trigger manual` to start at once. Every run writes a JSONL journal under `chatsim-runs/`.
+Without a control URL, `fire` and `heal` inject the SynthKit edge locally, and control-DM notices
+print with a `[dm]` tag.
 
 ## Run it live
 
@@ -61,9 +65,42 @@ Add `-llm openrouter` (with `OPENROUTER_API_KEY` set) to rehearse against the re
    (HTTP Basic `control:<token>`); a scenario that is already active at launch never fires.
    `-trigger manual` starts immediately instead.
 
-The kill switch is `/chatsim start | pause | resume | stop | status | skip <beat> | say <persona> <text>`,
-accepted only from `operator_user_id` and answered privately. The same commands work on the
-terminal's stdin.
+The kill switch is `/chatsim <command>`, accepted only from `operator_user_id` and answered
+privately. The same commands work on the terminal's stdin and in the control DM.
+
+## The control DM
+
+A direct message to the app is the operator's private control channel. Open it in a window the
+audience cannot see. The app answers there, and posts a notice when the chat starts, the SynthKit
+scenario is fired or confirmed, a beat opens, someone joins a channel, a line is dropped by lint,
+a director call fails, the LLM budget runs out, and the run ends. Set `control_dm.name` and
+`control_dm.emoji` in the bindings to give the DM its own voice.
+
+| Message | Effect |
+|---|---|
+| `start` | start the chat now, without firing the failure |
+| `fire` | activate `trigger.synthkit_scenario` (`POST /control/scenarios/activate`), starting the chat if needed; once per run |
+| `heal` | deactivate it; the wind-down beat runs when the poller sees the edge |
+| `summon <persona> [channel]` | the persona joins at once (default: the bound incident channel) |
+| `status`, `pause`, `resume`, `stop`, `skip <beat>`, `say <persona> <text>` | as on the kill switch |
+| anything else | a stage direction: a one-off beat for the personas it names (or anyone present), optionally pinned with `#channel` or `in <channel>`, and linted like any other line |
+
+`trigger.start_phrase` and `trigger.fire_phrase` (regexps) do the same from the room: the
+operator's first message matching `start_phrase` in a static channel starts the chat, and the first
+matching `fire_phrase` after that fires the scenario. Each is optional.
+
+## Freestyle
+
+The operator does not have to follow the beats:
+
+- A message that names nobody present and opens no beat opens the floor: exactly one persona in
+  that channel answers it.
+- Naming a persona who is not in the channel together with a request word (get, ping, add, invite,
+  need, where, and similar) brings them in: someone present says they are fetching them, the
+  narrator line follows, and the persona's `when: { summoned: ... }` beat runs. A beat that already
+  summons that persona for the same message takes precedence.
+- A line rejected for an unknown number or an uncited completed action is retried once with a hint
+  to rephrase; a line still rejected is dropped and reported in the control DM.
 
 ## Writing a scenario
 

@@ -95,7 +95,7 @@ func TestGoldenBackendLatency(t *testing.T) {
 	rec := &recorder{clock: clock, base: base}
 	llm := &director.FakeLLM{}
 	events := loadEvents(t, filepath.Join("testdata", "backend-latency.events.jsonl"))
-	if err := engine.Simulate(context.Background(), m, clock, events, director.New(sc, llm), rec, time.Hour); err != nil {
+	if err := engine.Simulate(context.Background(), m, clock, events, director.New(sc, llm), rec, nil, time.Hour); err != nil {
 		t.Fatal(err)
 	}
 	got := strings.Join(rec.lines, "\n") + "\n"

@@ -15,7 +15,8 @@ import (
 // turn (never the prompt text) and answers in the real response schema, so the director's
 // parse and validation path runs exactly as it does against a model: for each open beat, the
 // next speaker in rotation says the first clause of the beat's goal; an addressed persona
-// acknowledges the operator; an idle turn gets one nudge. Speakers rotate with the beat's turns.
+// acknowledges the operator; the first free floor persona answers an unaddressed operator message;
+// an idle turn gets one nudge. Speakers rotate with the beat's turns.
 type FakeLLM struct {
 	// Calls counts Complete calls.
 	Calls int
@@ -65,6 +66,15 @@ func (f *FakeLLM) Complete(_ context.Context, p Prompt) (Completion, error) {
 		}
 		spoken[a] = true
 		out.Lines = append(out.Lines, engine.Line{Persona: a, Channel: t.AddressedIn, Text: "heard you, " + op + ".", Cites: []string{}})
+	}
+	if t.FloorIn != "" && len(out.Lines) < t.MaxLines {
+		for _, f := range t.Floor {
+			if !spoken[f] {
+				spoken[f] = true
+				out.Lines = append(out.Lines, engine.Line{Persona: f, Channel: t.FloorIn, Text: "not sure yet, " + op + ", I'll take a look.", Cites: []string{}})
+				break
+			}
+		}
 	}
 	if t.Idle && len(out.Lines) == 0 {
 		for _, pv := range t.Personas {

@@ -12,10 +12,14 @@ features:
   bot_user:
     display_name: Incident Sim
     always_online: true
+  app_home:
+    home_tab_enabled: false
+    messages_tab_enabled: true              # the operator's control DM
+    messages_tab_read_only_enabled: false
   slash_commands:
     - command: /chatsim
       description: Control the running chat scenario (only the bound operator)
-      usage_hint: "start | pause | resume | stop | status | skip <beat> | say <persona> <text>"
+      usage_hint: "start | fire | heal | pause | resume | stop | status | skip <beat> | say <persona> <text> | summon <persona> [channel] | direct <text>"
       should_escape: false
 oauth_config:
   scopes:
@@ -27,6 +31,8 @@ oauth_config:
       - channels:join          # auto-join new public incident channels
       - groups:history         # private channels the app was invited to
       - commands               # /chatsim
+      - im:history             # message.im: the operator's control DM
+      - im:write               # open the control DM for notices
       - users:read
 settings:
   event_subscriptions:
@@ -35,6 +41,7 @@ settings:
       - message.groups
       - channel_created
       - member_joined_channel
+      - message.im
   interactivity:
     is_enabled: false
   socket_mode_enabled: true

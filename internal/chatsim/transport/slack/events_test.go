@@ -5,6 +5,7 @@ package slack
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -71,5 +72,23 @@ func TestSuccessiveEditsAreNotDeduplicated(t *testing.T) {
 	tr.emit(context.Background(), []engine.Event{edit, edit, msg, msg})
 	if len(ch) != 3 {
 		t.Fatalf("forwarded %d events, want both edits and one copy of the message", len(ch))
+	}
+}
+
+func TestControlDM(t *testing.T) {
+	dm := func(user, text, subtype string) []engine.Event {
+		raw := fmt.Sprintf(`{"type":"message","channel":"D0DM","channel_type":"im","user":%q,"text":%q,"subtype":%q,"ts":"1.2"}`, user, text, subtype)
+		return ids.Translate(json.RawMessage(raw))
+	}
+	if evs := dm("U0OP", "fire", ""); len(evs) != 1 || evs[0].Kind != engine.EvControl || evs[0].Command != "fire" || evs[0].ChannelID != "D0DM" {
+		t.Fatalf("operator fire: %+v", evs)
+	}
+	if evs := dm("U0OP", "have Tom chase his ticket", ""); len(evs) != 1 || evs[0].Command != "direct" || evs[0].Args != "have Tom chase his ticket" {
+		t.Fatalf("operator stage direction: %+v", evs)
+	}
+	for _, c := range [][3]string{{"U0OTHER", "fire", ""}, {"U0OP", "fire", "message_changed"}, {"U0OP", "  ", ""}} {
+		if evs := dm(c[0], c[1], c[2]); len(evs) != 0 {
+			t.Errorf("%v must not become a command: %+v", c, evs)
+		}
 	}
 }

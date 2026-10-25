@@ -39,6 +39,12 @@ type Bindings struct {
 		ProviderOrder []string `yaml:"provider_order"`
 		ZDR           bool     `yaml:"zdr"`
 	} `yaml:"openrouter"`
+	// ControlDM is how the app speaks in the operator's control DM (needs
+	// chat:write.customize); empty means the app's own name and icon.
+	ControlDM struct {
+		Name  string `yaml:"name"`
+		Emoji string `yaml:"emoji"`
+	} `yaml:"control_dm"`
 	JournalDir string `yaml:"journal_dir"`
 }
 

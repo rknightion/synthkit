@@ -18,4 +18,7 @@ openrouter:
   api_key_env: OPENROUTER_API_KEY
   provider_order: []          # optional: fastest measured endpoints first
   zdr: false                  # true restricts to zero-data-retention endpoints
+control_dm:                   # optional: the voice of the operator's control DM
+  name: Stage Manager
+  emoji: ":clapper:"
 journal_dir: chatsim-runs     # one JSONL journal per run

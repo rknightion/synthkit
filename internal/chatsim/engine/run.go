@@ -13,14 +13,61 @@ type dirResult struct {
 	err error
 }
 
+type scenResult struct {
+	active bool
+	err    error
+}
+
+func setActive(ctx context.Context, act Activator, active bool) error {
+	if act == nil {
+		return errors.New("no SynthKit control plane configured")
+	}
+	return act.SetActive(ctx, active)
+}
+
 // Run drives a machine in real time until the run ends or ctx is cancelled. Inbound events
 // arrive on in; the director is consulted on its own goroutine (one call in flight) so event
 // intake and the kill switch never wait on the model. Posts are sent from the loop goroutine.
-func Run(ctx context.Context, m *Machine, clock Clock, in <-chan Event, dir Director, tr Transport) error {
+//
+// act, which may be nil, switches the SynthKit scenario for fire and heal. A transport that
+// implements Notifier receives the operator's private notices.
+func Run(ctx context.Context, m *Machine, clock Clock, in <-chan Event, dir Director, tr Transport, act Activator) error {
 	results := make(chan dirResult, 1)
+	scen := make(chan scenResult, 4)
+	nt, _ := tr.(Notifier)
+	send := func(ctx context.Context, text string) {
+		if err := nt.Notify(ctx, text); err != nil {
+			m.j.Write(Entry{At: clock.Now(), Kind: "notify_error", Message: err.Error()})
+		}
+	}
+	// flush sends the last notices synchronously: the process exits once Run returns.
+	flush := func() {
+		if nt == nil {
+			return
+		}
+		fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+		defer cancel()
+		for _, eff := range m.Poll(clock.Now()) {
+			if n, ok := eff.(Notify); ok {
+				send(fctx, n.Text)
+			}
+		}
+	}
 	for {
 		for _, eff := range m.Poll(clock.Now()) {
 			switch e := eff.(type) {
+			case Notify:
+				if nt != nil && m.Ended() {
+					fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+					send(fctx, e.Text)
+					cancel()
+				} else if nt != nil {
+					text := e.Text
+					go send(ctx, text)
+				}
+			case SetScenario:
+				active := e.Active
+				go func() { scen <- scenResult{active, setActive(ctx, act, active)} }()
 			case CallDirector:
 				go func(t Turn) {
 					d, err := dir.Decide(ctx, t)
@@ -39,6 +86,7 @@ func Run(ctx context.Context, m *Machine, clock Clock, in <-chan Event, dir Dire
 			}
 		}
 		if m.Ended() {
+			flush()
 			return m.j.Err()
 		}
 		var timer Timer
@@ -53,6 +101,7 @@ func Run(ctx context.Context, m *Machine, clock Clock, in <-chan Event, dir Dire
 				timer.Stop()
 			}
 			m.finish(clock.Now(), "context cancelled")
+			flush()
 			return ctx.Err()
 		case ev, ok := <-in:
 			if !ok {
@@ -62,6 +111,8 @@ func Run(ctx context.Context, m *Machine, clock Clock, in <-chan Event, dir Dire
 			}
 		case r := <-results:
 			m.DirectorDone(clock.Now(), r.d, r.err)
+		case r := <-scen:
+			m.ScenarioDone(clock.Now(), r.active, r.err)
 		case <-timerC:
 		}
 		if timer != nil {
@@ -80,7 +131,8 @@ type TimedEvent struct {
 // director and the transport synchronously. It is fully deterministic for a deterministic
 // director, and never sleeps. It stops when the run ends, when nothing is left to do, or at
 // horizon after the clock's start.
-func Simulate(ctx context.Context, m *Machine, clock *FakeClock, events []TimedEvent, dir Director, tr Transport, horizon time.Duration) error {
+func Simulate(ctx context.Context, m *Machine, clock *FakeClock, events []TimedEvent, dir Director, tr Transport, act Activator, horizon time.Duration) error {
+	nt, _ := tr.(Notifier)
 	base := clock.Now()
 	i := 0
 	for step := 0; step < 1_000_000; step++ {
@@ -102,6 +154,12 @@ func Simulate(ctx context.Context, m *Machine, clock *FakeClock, events []TimedE
 				case SendPost:
 					ts, err := tr.Post(ctx, e.Post)
 					m.PostDone(now, e.Post, ts, err)
+				case Notify:
+					if nt != nil {
+						_ = nt.Notify(ctx, e.Text)
+					}
+				case SetScenario:
+					m.ScenarioDone(now, e.Active, setActive(ctx, act, e.Active))
 				case JoinChannel:
 					if err := tr.Join(ctx, e.ChannelID); err != nil {
 						return err

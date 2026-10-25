@@ -30,6 +30,7 @@ func (m *Machine) finish(now time.Time, reason string) {
 	}
 	m.ended, m.endReason = true, reason
 	m.log(now, "end", map[string]any{"dropped_lines": len(m.queue), "llm_calls": m.calls}, "%s", reason)
+	m.notify(now, "Run ended: %s (%d LLM calls).", reason, m.calls)
 	m.queue = nil
 }
 
@@ -39,6 +40,9 @@ func (m *Machine) openBeat(now time.Time, b *beatState, ev *Event) {
 		b.evLogical = m.byID[ev.ChannelID]
 	}
 	m.log(now, "beat", map[string]string{"beat": b.def.ID, "state": "open"}, "")
+	if !b.adhoc {
+		m.notify(now, "Beat %s open.", b.def.ID)
+	}
 	if r := b.def.Record; r != nil && ev != nil {
 		m.addLedger(now, r.Fact, "fact", ev.Text)
 	}
@@ -102,6 +106,7 @@ func (m *Machine) arrive(now time.Time, s pendingSummon) {
 	ps.narrate[s.channel] = s.by
 	m.addLedger(now, "summon_"+s.persona, "summon", fmt.Sprintf("%s joined the %s channel (pulled in by %s)", ps.def.Name, s.channel, s.by))
 	m.log(now, "summoned", map[string]string{"persona": s.persona, "channel": s.channel}, "")
+	m.notify(now, "%s joined %s.", ps.def.FirstName(), s.channel)
 	for _, b := range m.beats {
 		if w := b.def.When; b.status == beatPending && w != nil && w.Summoned == s.persona {
 			m.openBeat(now, b, nil)
@@ -139,8 +144,16 @@ func (m *Machine) effectiveDue(now time.Time, q *queued) time.Time {
 	return d
 }
 
-// Poll advances the machine to now and returns the effects the runner must perform.
+// Poll advances the machine to now and returns the effects the runner must perform. Effects
+// queued as the run ends (the closing notice) are still returned.
 func (m *Machine) Poll(now time.Time) []Effect {
+	out := m.poll(now)
+	out = append(out, m.effects...)
+	m.effects = nil
+	return out
+}
+
+func (m *Machine) poll(now time.Time) []Effect {
 	if m.ended {
 		return nil
 	}

@@ -259,11 +259,15 @@ func consoleMode(ctx context.Context, f *flags, stdin io.Reader, stdout io.Write
 		case <-ctx.Done():
 		}
 	}()
-	if err := startTrigger(ctx, f, sc, b, events, tr.Say); err != nil {
+	act, err := startTrigger(ctx, f, sc, b, events, tr.Say)
+	if err != nil {
 		return err
 	}
+	if act == nil {
+		act = console.Loopback{Events: events, Scenario: sc.Trigger.SynthkitScenario}
+	}
 	tr.Say(fmt.Sprintf("console: %s, you are %s in #%s; journal %s. Type :help.", sc.Name, sc.Operator.Name, reader.Channel, jpath))
-	err = engine.Run(ctx, m, clock, events, dir, tr)
+	err = engine.Run(ctx, m, clock, events, dir, tr, act)
 	tr.Say(fmt.Sprintf("console: run ended (%s); %s", m.EndReason(), usageFn()))
 	if errors.Is(err, context.Canceled) {
 		return nil
@@ -271,20 +275,10 @@ func consoleMode(ctx context.Context, f *flags, stdin io.Reader, stdout io.Write
 	return err
 }
 
-func startTrigger(ctx context.Context, f *flags, sc *script.Scenario, b *Bindings, events chan<- engine.Event, logf func(string)) error {
-	switch f.trigger {
-	case "wait":
-		return nil
-	case "manual":
-		events <- engine.Event{Kind: engine.EvControl, Command: "start", Reply: logf}
-		return nil
-	case "synthkit":
-	default:
-		return fmt.Errorf("-trigger %q: want synthkit, manual or wait", f.trigger)
-	}
-	if sc.Trigger.SynthkitScenario == "" {
-		return errors.New("-trigger synthkit needs trigger.synthkit_scenario in the scenario")
-	}
+// startTrigger starts the run per -trigger and returns the activator for fire and heal (nil
+// when no SynthKit control plane is configured). The synthkit trigger polls; the activator
+// needs only the control URL, so manual and wait runs can still fire.
+func startTrigger(ctx context.Context, f *flags, sc *script.Scenario, b *Bindings, events chan<- engine.Event, logf func(string)) (engine.Activator, error) {
 	url, tokenEnv, iv := f.controlURL, defaultControlEnv, time.Second
 	if b != nil {
 		if url == "" {
@@ -292,14 +286,33 @@ func startTrigger(ctx context.Context, f *flags, sc *script.Scenario, b *Binding
 		}
 		tokenEnv, iv = b.Control.TokenEnv, b.Control.PollInterval.Duration
 	}
-	if url == "" {
-		return errors.New("-trigger synthkit needs control.url in bindings or -control-url")
+	var p *synthkit.Poller
+	if url != "" && sc.Trigger.SynthkitScenario != "" {
+		token := os.Getenv(tokenEnv) // an unauthenticated lab control plane is allowed
+		p = &synthkit.Poller{BaseURL: url, Token: token, Scenario: sc.Trigger.SynthkitScenario, Interval: iv,
+			Logf: func(format string, a ...any) { logf(fmt.Sprintf(format, a...)) }}
 	}
-	token := os.Getenv(tokenEnv) // an unauthenticated lab control plane is allowed
-	p := &synthkit.Poller{BaseURL: url, Token: token, Scenario: sc.Trigger.SynthkitScenario, Interval: iv,
-		Logf: func(format string, a ...any) { logf(fmt.Sprintf(format, a...)) }}
+	switch f.trigger {
+	case "wait", "manual":
+	case "synthkit":
+		if sc.Trigger.SynthkitScenario == "" {
+			return nil, errors.New("-trigger synthkit needs trigger.synthkit_scenario in the scenario")
+		}
+		if p == nil {
+			return nil, errors.New("-trigger synthkit needs control.url in bindings or -control-url")
+		}
+	default:
+		return nil, fmt.Errorf("-trigger %q: want synthkit, manual or wait", f.trigger)
+	}
+	if f.trigger == "manual" {
+		events <- engine.Event{Kind: engine.EvControl, Command: "start", Reply: logf}
+	}
+	if p == nil {
+		return nil, nil
+	}
+	// Poll in every mode with a control plane, so heal's falling edge winds the chat down.
 	go func() { _ = p.Run(ctx, events) }()
-	return nil
+	return p, nil
 }
 
 func liveMode(ctx context.Context, f *flags, stdin io.Reader, stdout, stderr io.Writer) error {
@@ -337,7 +350,8 @@ func liveMode(ctx context.Context, f *flags, stdin io.Reader, stdout, stderr io.
 	logTo := &console.Transport{Out: stdout, Clock: engine.RealClock{}}
 	logf := func(format string, a ...any) { logTo.Say(fmt.Sprintf(format, a...)) }
 	tr, err := slackt.New(ctx, slackt.Config{BotToken: bot, AppToken: app, OperatorID: b.OperatorUserID,
-		IRMBotIDs: b.IRM.BotIDs, IRMAppIDs: b.IRM.AppIDs, Logf: logf})
+		IRMBotIDs: b.IRM.BotIDs, IRMAppIDs: b.IRM.AppIDs, Logf: logf,
+		ControlName: b.ControlDM.Name, ControlEmoji: b.ControlDM.Emoji})
 	if err != nil {
 		return err
 	}
@@ -351,12 +365,14 @@ func liveMode(ctx context.Context, f *flags, stdin io.Reader, stdout, stderr io.
 	go func() { cancel(tr.Run(ctx, events)) }()
 	reader := &console.Reader{In: stdin, Out: logTo, ControlOnly: true}
 	go func() { _ = reader.Run(ctx, events) }()
-	if err := startTrigger(ctx, f, sc, b, events, logTo.Say); err != nil {
+	act, err := startTrigger(ctx, f, sc, b, events, logTo.Say)
+	if err != nil {
 		return err
 	}
-	logf("run: %s armed on %q (+%s); journal %s; /chatsim or stdin: pause | resume | stop | status | skip <beat> | say <persona> <text>",
-		sc.Name, sc.Trigger.SynthkitScenario, sc.Trigger.Delay.Duration, jpath)
-	err = engine.Run(ctx, m, engine.RealClock{}, events, dir, tr)
+	logf("run: %s armed on %q (+%s); journal %s; control DM, /chatsim or stdin: %s",
+		sc.Name, sc.Trigger.SynthkitScenario, sc.Trigger.Delay.Duration, jpath, engine.ControlHelp)
+	tr.Hello(ctx, fmt.Sprintf("Ready: %s. DM me start, fire, heal, status, or a stage direction. help lists everything.", sc.Name))
+	err = engine.Run(ctx, m, engine.RealClock{}, events, dir, tr, act)
 	logf("run: ended (%s); %s", m.EndReason(), usageFn())
 	if cause := context.Cause(ctx); cause != nil && !errors.Is(cause, context.Canceled) {
 		return cause

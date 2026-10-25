@@ -44,6 +44,12 @@ type Trigger struct {
 	SynthkitScenario string   `yaml:"synthkit_scenario"`
 	Delay            Duration `yaml:"delay"`
 	OnDeactivate     string   `yaml:"on_deactivate"`
+	// StartPhrase, a regexp, starts the chat when the operator posts a match in a static
+	// channel before the run has started; the message is then handled as the run's first event.
+	StartPhrase string `yaml:"start_phrase"`
+	// FirePhrase, a regexp, activates the SynthKit scenario once when the operator posts a
+	// match in any of the run's channels after the chat has started.
+	FirePhrase string `yaml:"fire_phrase"`
 }
 
 // LLM selects the director model and its budgets.

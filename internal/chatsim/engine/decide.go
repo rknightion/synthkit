@@ -45,6 +45,19 @@ func (m *Machine) buildCall(now time.Time) (Effect, bool) {
 			t.AddressedIn = m.addressedIn
 		}
 	}
+	if m.floorIn != "" && now.Sub(m.floorAt) > AddressTTL {
+		m.floorIn = ""
+	}
+	if m.floorIn != "" {
+		for _, pid := range m.order {
+			if m.personas[pid].present[m.floorIn] {
+				t.Floor = append(t.Floor, pid)
+			}
+		}
+		if len(t.Floor) > 0 {
+			t.FloorIn = m.floorIn
+		}
+	}
 	for _, b := range m.beats {
 		if b.status != beatOpen || b.turns >= b.def.MaxTurns {
 			continue
@@ -64,7 +77,7 @@ func (m *Machine) buildCall(now time.Time) (Effect, bool) {
 		}
 		t.OpenBeats = append(t.OpenBeats, bv)
 	}
-	if len(t.OpenBeats) == 0 && len(t.Addressed) == 0 && !t.Idle {
+	if len(t.OpenBeats) == 0 && len(t.Addressed) == 0 && len(t.Floor) == 0 && !t.Idle {
 		m.feedback, m.retried = nil, false
 		return nil, false
 	}
@@ -83,8 +96,8 @@ func (m *Machine) buildCall(now time.Time) (Effect, bool) {
 		events = events[len(events)-LedgerWindow:]
 	}
 	t.Ledger = append(t.Ledger, events...)
-	m.inflight, m.callIdle = true, t.Idle
-	m.log(now, "director_call", map[string]any{"seq": t.Seq, "reasons": t.Reasons, "open_beats": len(t.OpenBeats), "addressed": t.Addressed, "idle": t.Idle, "retry": len(t.Feedback) > 0}, "")
+	m.inflight, m.callIdle, m.callFloor = true, t.Idle, t.FloorIn
+	m.log(now, "director_call", map[string]any{"seq": t.Seq, "reasons": t.Reasons, "open_beats": len(t.OpenBeats), "addressed": t.Addressed, "floor": t.Floor, "idle": t.Idle, "retry": len(t.Feedback) > 0}, "")
 	return CallDirector{Turn: t}, true
 }
 
@@ -104,6 +117,7 @@ type tentative struct {
 	turns     map[string]int
 	addressed map[string]bool
 	idleUsed  bool
+	floorUsed bool
 	persona   map[string]int
 	total     int
 }
@@ -115,12 +129,14 @@ func (m *Machine) DirectorDone(now time.Time, d Decision, err error) {
 	if m.calls >= m.sc.LLM.MaxLLMCalls && !m.budgetSpent {
 		m.budgetSpent = true
 		m.log(now, "budget", nil, "max_llm_calls %d reached; the director is no longer consulted", m.sc.LLM.MaxLLMCalls)
+		m.notify(now, "LLM budget spent (%d calls): the cast is silent now. Use say <persona> <text> to post lines by hand.", m.sc.LLM.MaxLLMCalls)
 	}
 	if m.ended {
 		return
 	}
 	if err != nil {
 		m.log(now, "director_error", nil, "%v", err)
+		m.notify(now, "Director call failed (%v); retrying.", err)
 		m.feedback, m.retried = nil, false
 		if m.hasOpenBeats() && !m.budgetSpent {
 			m.wakeAt(now.Add(DirectorRetryAfter), "retry after director error")
@@ -161,7 +177,16 @@ func (m *Machine) DirectorDone(now time.Time, d Decision, err error) {
 	for _, v := range verdicts {
 		if v.err != nil {
 			m.log(now, "line_rejected", v.line, "%v", v.err)
+			var be *budgetError
+			if !errors.As(v.err, &be) {
+				m.notify(now, "Dropped a line by %s: %v", v.line.Persona, v.err)
+			}
 			continue
+		}
+		if m.callFloor != "" && v.line.Beat == "" && v.logical == m.callFloor {
+			if _, addressed := m.addressed[v.line.Persona]; !addressed {
+				m.floorIn = ""
+			}
 		}
 		addrAt := time.Time{}
 		if a, ok := m.addressed[v.line.Persona]; ok {
@@ -231,9 +256,11 @@ func (m *Machine) checkLine(now time.Time, l *Line, tent *tentative) (string, er
 			if logical == "" {
 				logical = m.addressedIn
 			}
+		case m.floorOpen(l.Persona) && !tent.floorUsed:
+			logical = m.callFloor
 		case m.callIdle && !tent.idleUsed:
 		default:
-			return "", fmt.Errorf("off-beat line: speak only for an open beat, when addressed, or as the single idle nudge")
+			return "", fmt.Errorf("off-beat line: speak only for an open beat, when addressed, as the single floor reply, or as the single idle nudge")
 		}
 	}
 	if logical == "" {
@@ -270,12 +297,19 @@ func (m *Machine) checkLine(now time.Time, l *Line, tent *tentative) (string, er
 		tent.turns[l.Beat]++
 	} else if _, ok := m.addressed[l.Persona]; ok && !tent.addressed[l.Persona] {
 		tent.addressed[l.Persona] = true
+	} else if m.floorOpen(l.Persona) && !tent.floorUsed {
+		tent.floorUsed = true
 	} else {
 		tent.idleUsed = true
 	}
 	tent.persona[l.Persona]++
 	tent.total++
 	return logical, nil
+}
+
+// floorOpen reports whether pid may take the open floor of the current director call.
+func (m *Machine) floorOpen(pid string) bool {
+	return m.callFloor != "" && m.floorIn == m.callFloor && m.personas[pid].present[m.callFloor]
 }
 
 func (m *Machine) citable(id, beat string) bool {

@@ -78,6 +78,17 @@ type Transport interface {
 	Join(ctx context.Context, channelID string) error
 }
 
+// Notifier is implemented by a transport that can reach the operator privately (the control
+// DM). Transports without one drop notices; the journal still records them.
+type Notifier interface {
+	Notify(ctx context.Context, text string) error
+}
+
+// Activator switches the SynthKit failure scenario on or off.
+type Activator interface {
+	SetActive(ctx context.Context, active bool) error
+}
+
 // Director decides who speaks and what they say for one wake-up.
 type Director interface {
 	Decide(ctx context.Context, t Turn) (Decision, error)
@@ -85,20 +96,24 @@ type Director interface {
 
 // Turn is everything the director may see for one wake-up.
 type Turn struct {
-	Seq          int           `json:"seq"`
-	Elapsed      time.Duration `json:"elapsed"`
-	Reasons      []string      `json:"reasons"`
-	Operator     OperatorView  `json:"operator"`
-	Personas     []PersonaView `json:"personas"`
-	Channels     []string      `json:"channels"`
-	OpenBeats    []BeatView    `json:"open_beats"`
-	Ledger       []LedgerEntry `json:"ledger"`
-	Recent       []Message     `json:"recent"`
-	Addressed    []string      `json:"addressed"`
-	AddressedIn  string        `json:"addressed_in,omitempty"`
-	Idle         bool          `json:"idle"`
-	MaxLines     int           `json:"max_lines"`
-	MaxLineChars int           `json:"max_line_chars"`
+	Seq         int           `json:"seq"`
+	Elapsed     time.Duration `json:"elapsed"`
+	Reasons     []string      `json:"reasons"`
+	Operator    OperatorView  `json:"operator"`
+	Personas    []PersonaView `json:"personas"`
+	Channels    []string      `json:"channels"`
+	OpenBeats   []BeatView    `json:"open_beats"`
+	Ledger      []LedgerEntry `json:"ledger"`
+	Recent      []Message     `json:"recent"`
+	Addressed   []string      `json:"addressed"`
+	AddressedIn string        `json:"addressed_in,omitempty"`
+	// Floor lists the personas who may answer an operator message that named nobody, in
+	// FloorIn; at most one of them replies.
+	Floor        []string `json:"floor,omitempty"`
+	FloorIn      string   `json:"floor_in,omitempty"`
+	Idle         bool     `json:"idle"`
+	MaxLines     int      `json:"max_lines"`
+	MaxLineChars int      `json:"max_line_chars"`
 	// Feedback lists why lines of the previous attempt were rejected (retry only).
 	Feedback []string `json:"feedback,omitempty"`
 }

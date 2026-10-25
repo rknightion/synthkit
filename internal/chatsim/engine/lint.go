@@ -98,13 +98,13 @@ func LintLine(text string, lc LintContext) error {
 		return lintErr("irm_claim", "%q: only the operator acts in IRM; ask him instead", strings.TrimSpace(m))
 	}
 	if m := opsClaimRe.FindString(t); m != "" && !lc.Cited {
-		return lintErr("claim", "%q claims a completed action without citing the ledger", strings.TrimSpace(m))
+		return lintErr("claim", "%q claims a completed action without citing the ledger; say what you are checking instead", strings.TrimSpace(m))
 	}
 	if len(metricRe.FindAllStringSubmatch(t, -1)) > 0 {
 		have := metricSet(lc.Evidence)
 		for _, m := range metricRe.FindAllStringSubmatch(t, -1) {
 			if k := metricKey(m[1], m[2]); !have[k] {
-				return lintErr("number", "metric %s%s is not in the ledger", m[1], m[2])
+				return lintErr("number", "metric %s%s is not in the ledger; say it without the number", m[1], m[2])
 			}
 		}
 	}

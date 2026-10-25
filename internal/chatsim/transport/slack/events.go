@@ -35,16 +35,17 @@ func (id Identities) source(user, botID, appID string) (engine.Source, bool) {
 }
 
 type rawMessage struct {
-	Type     string          `json:"type"`
-	Subtype  string          `json:"subtype"`
-	Channel  json.RawMessage `json:"channel"`
-	User     string          `json:"user"`
-	BotID    string          `json:"bot_id"`
-	AppID    string          `json:"app_id"`
-	TS       string          `json:"ts"`
-	Message  json.RawMessage `json:"message"`
-	Hidden   bool            `json:"hidden"`
-	ThreadTS string          `json:"thread_ts"`
+	Type        string          `json:"type"`
+	Subtype     string          `json:"subtype"`
+	Channel     json.RawMessage `json:"channel"`
+	User        string          `json:"user"`
+	BotID       string          `json:"bot_id"`
+	AppID       string          `json:"app_id"`
+	TS          string          `json:"ts"`
+	Message     json.RawMessage `json:"message"`
+	Hidden      bool            `json:"hidden"`
+	ChannelType string          `json:"channel_type"`
+	ThreadTS    string          `json:"thread_ts"`
 }
 
 type rawChannel struct {
@@ -77,6 +78,18 @@ func (id Identities) Translate(raw json.RawMessage) []engine.Event {
 		return nil
 	}
 	ch := channelString(m.Channel)
+	if m.ChannelType == "im" {
+		// The control DM: only the operator's own new messages count, and each is a command
+		// or a stage direction, never story chat.
+		if m.Subtype != "" || id.OperatorID == "" || m.User != id.OperatorID || m.BotID != "" {
+			return nil
+		}
+		verb, args := engine.ParseDM(Flatten(raw))
+		if args == "" && verb == "direct" {
+			return nil
+		}
+		return []engine.Event{{Kind: engine.EvControl, ChannelID: ch, From: engine.FromOperator, User: m.User, Command: verb, Args: args, TS: m.TS}}
+	}
 	switch m.Subtype {
 	case "", "bot_message", "thread_broadcast", "me_message", "file_share":
 		src, ok := id.source(m.User, m.BotID, m.AppID)

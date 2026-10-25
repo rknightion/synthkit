@@ -42,6 +42,12 @@ func (t *Transport) stamp() string {
 }
 
 // Post implements engine.Transport.
+// Notify implements engine.Notifier: control-DM notices print with a [dm] tag.
+func (t *Transport) Notify(_ context.Context, text string) error {
+	t.Say("[dm] " + text)
+	return nil
+}
+
 func (t *Transport) Post(_ context.Context, p engine.Post) (string, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -93,7 +99,9 @@ const help = `console: type to speak as the operator in the current channel.
   :edit <text>         inject an IRM message edit
   :channel <name>      inject channel_created (an incident channel)
   :synthkit on|off     inject the SynthKit scenario edge
-  start | pause | resume | stop | status | skip <beat> | say <persona> <text>
+  :dm <text>           message the control DM (a command or a stage direction)
+  start | fire | heal | pause | resume | stop | status | skip <beat> | say <persona> <text>
+  summon <persona> [channel] | direct <stage direction>
   :quit`
 
 // Run reads until EOF or ctx ends.
@@ -117,8 +125,15 @@ func (r *Reader) Run(ctx context.Context, out chan<- engine.Event) error {
 			}
 			ev = &engine.Event{Kind: engine.EvControl, Command: verb, Args: args, ChannelID: r.Channel, Reply: reply}
 		} else if r.ControlOnly {
-			reply("chatsim: run mode accepts start | pause | resume | stop | status | skip <beat> | say <persona> <text>")
+			reply("chatsim: run mode accepts " + engine.ControlHelp)
 			continue
+		} else if text, ok := strings.CutPrefix(line, ":dm "); ok {
+			verb, args := engine.ParseDM(text)
+			if verb == "help" {
+				reply(help)
+				continue
+			}
+			ev = &engine.Event{Kind: engine.EvControl, Command: verb, Args: args, Reply: reply}
 		} else {
 			ev = r.parse(line, &alert)
 		}
@@ -175,4 +190,26 @@ func (r *Reader) parse(line string, alert *int) *engine.Event {
 		return nil
 	}
 	return &engine.Event{Kind: engine.EvMessage, ChannelID: r.Channel, From: engine.FromOperator, User: "console-operator", Text: line}
+}
+
+// Loopback is an engine.Activator for rehearsal without a control plane: fire and heal inject
+// the SynthKit edge the poller would have seen.
+type Loopback struct {
+	Events   chan<- engine.Event
+	Scenario string
+}
+
+// SetActive implements engine.Activator.
+func (l Loopback) SetActive(ctx context.Context, active bool) error {
+	kind := engine.EvSynthkitDeactivated
+	if active {
+		kind = engine.EvSynthkitActivated
+	}
+	go func() {
+		select {
+		case l.Events <- engine.Event{Kind: kind, Text: l.Scenario}:
+		case <-ctx.Done():
+		}
+	}()
+	return nil
 }
