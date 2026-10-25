@@ -569,15 +569,15 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `environments[].cloud.cloudwatch_logs` | raw yaml (see per-kind config sections) |  | Log-group intake metrics (log_groups:); remote-write only; absent ⇒ not emitted |
 | `environments[].cloud.scheduler` | raw yaml (see per-kind config sections) |  | EventBridge Scheduler fixed-rate schedules (schedules:); remote-write only; absent ⇒ not emitted |
 | `environments[].cloud.pipelines[]` | object |  | Pipelines declares the env's batch data pipelines once (internal/pipelinerun). The resolver hands them to every consuming cloud-service construct (glue, mwaa) and adds each stage as a pipeline_stage failure target named <pipeline>.<stage>. Pipeline names must be unique across all blueprint environments. A glue stage needs a glue block; an orchestrating environment needs an mwaa block that lists it. |
-| `environments[].cloud.pipelines[].name` | string |  |  |
-| `environments[].cloud.pipelines[].environment` | string |  |  |
-| `environments[].cloud.pipelines[].every` | string |  |  |
-| `environments[].cloud.pipelines[].offset` | string |  |  |
-| `environments[].cloud.pipelines[].stages[]` | object |  |  |
-| `environments[].cloud.pipelines[].stages[].name` | string |  |  |
-| `environments[].cloud.pipelines[].stages[].service` | string |  |  |
-| `environments[].cloud.pipelines[].stages[].resource` | string |  |  |
-| `environments[].cloud.pipelines[].stages[].duration` | string |  |  |
+| `environments[].cloud.pipelines[].name` | string |  | Name is the pipeline identity (the Airflow DAG id when MWAA orchestrates it). It must be unique across all blueprint environments, not only this consumer's pipeline list. |
+| `environments[].cloud.pipelines[].environment` | string |  | Environment is the MWAA environment orchestrating the pipeline; "" when none does. |
+| `environments[].cloud.pipelines[].every` | string |  | Every is the run cadence as a Go duration, 1m to 168h. Real batch pipelines run hourly or daily; sub-hour cadences belong in e2e fixtures. |
+| `environments[].cloud.pipelines[].offset` | string |  | Offset is the trigger phase inside Every; "" derives a minute-aligned phase from the seed. |
+| `environments[].cloud.pipelines[].stages[]` | object |  | Stages run in order; each run passes through every stage unless one fails. |
+| `environments[].cloud.pipelines[].stages[].name` | string |  | Name is the stage (Airflow task) id. |
+| `environments[].cloud.pipelines[].stages[].service` | string |  | Service is glue, airflow, lambda, sqs or redshift. |
+| `environments[].cloud.pipelines[].stages[].resource` | string |  | Resource is the executing resource: Glue job name, function, queue or cluster. Required except for airflow stages (which run on the orchestrating environment's workers). |
+| `environments[].cloud.pipelines[].stages[].duration` | string |  | Duration is the nominal run time of the stage, a Go duration of at least 1s. |
 | `environments[].cluster` | object | yes |  |
 | `environments[].cluster.emit` | bool | yes | Emit gates all cluster-derived constructs (Kubernetes, EC2, profiling, addons and Fleet Management), not the declaration or workload bindings. Omitted defaults to true. False retains topology without collecting it. |
 | `environments[].cluster.nodes[]` | object |  |  |
@@ -647,6 +647,31 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `environments[].caches[].instance_class` | string |  | e.g. "cache.r6g.large"; empty → resolver default |
 | `environments[].caches[].observability` | object | yes |  |
 | `environments[].caches[].observability.cloudwatch` | bool | yes | emit the CloudWatch lane (default true) |
+| `environments[].resources[]` | object |  | Resources opts the environment into the causal request model (internal/causal): the pools, concurrency limits, queues, quotas, dependencies, credentials and rules requests meet. Names are unique across the blueprint and are incident targets on the `resource` axis; a name `<base>-<lower(env)>` is also reached by the base name in every environment. The resolver hands the blueprint's whole set to every consuming construct and workload. Omitted = no causal model and unchanged output. |
+| `environments[].resources[].name` | string |  | Name is the resource identity and its incident target on axis `resource`. Unique across the whole blueprint. A name of the form `<base>-<lower(env)>` is also reachable through the base name, which then targets that resource in every environment. |
+| `environments[].resources[].kind` | string |  | Kind is pool, concurrency, queue, quota, dependency, credential or rule. |
+| `environments[].resources[].demand` | object | yes | Demand is the offered load in requests (or messages) per second, or the upstream resource it comes from. Required for pool, concurrency, queue and quota. It must cover every request that passes through the resource; callers' retries add to it. |
+| `environments[].resources[].demand.off_peak_rps` | float |  | OffPeakRPS is the rate at the bottom of the business curve. |
+| `environments[].resources[].demand.peak_rps` | float |  | PeakRPS is the rate at the top of the business curve. |
+| `environments[].resources[].demand.load` | string |  | Load is business (default: the environment's diurnal and weekly curve, as the app workload's traffic) or constant (peak_rps scaled by the volume multiplier). |
+| `environments[].resources[].demand.from` | string |  | From names an upstream capacity resource (pool, concurrency, queue or quota) whose served rate is this resource's demand (a queue's processed rate, the others' admitted rate). With from, off_peak_rps, peak_rps and load are omitted. |
+| `environments[].resources[].size` | int |  | Size is the connection count (pool), concurrency limit (concurrency) or consumer count (queue). Integer >= 1. |
+| `environments[].resources[].hold_ms` | float |  | HoldMS is the mean hold, execution or processing time per request at baseline, in ms, including the held-across dependency's baseline latency. Required for pool, concurrency and queue. |
+| `environments[].resources[].held_across` | string |  | HeldAcross names a dependency resource (pool, concurrency, queue; optional). The effective hold is hold_ms + latency_ms(dependency) x (latency factor - 1), and the dependency's unavailability and its credentials' failures fail admitted work. |
+| `environments[].resources[].acquire_timeout_ms` | float |  | AcquireTimeoutMS bounds how long a request waits for a pool connection before the acquisition fails. Required for pool. |
+| `environments[].resources[].limit_rps` | float |  | LimitRPS is the admitted rate of a quota. Required for quota. |
+| `environments[].resources[].max_depth` | float |  | MaxDepth bounds a queue's backlog in messages; arrivals beyond it are rejected. Omitted means unbounded. |
+| `environments[].resources[].latency_ms` | float |  | LatencyMS is a dependency's baseline latency in ms (informational). |
+| `environments[].resources[].slow_factor` | float |  | SlowFactor is a dependency's latency multiplier under dependency_slow at intensity 1. Default 4, at least 1. |
+| `environments[].resources[].of` | string |  | Of names the dependency a credential authenticates. Required for credential. |
+| `environments[].resources[].credential_type` | string |  | CredentialType is server_certificate, client_certificate or token. Required for credential. |
+| `environments[].resources[].reject_share` | float |  | RejectShare is the share of arrivals a fully regressed rule rejects, in (0,1]. Required for rule. |
+| `environments[].resources[].knee` | float |  | Knee is the utilization where waiting begins (pool, queue). Default 0.8, in (0,1). |
+| `environments[].resources[].error` | object | yes | Error optionally overrides the default failure status, error type, exception type and message. Values only, never names. |
+| `environments[].resources[].error.status` | int |  | Status is the HTTP status of the failure, 400 to 599. Not allowed on a dependency or a certificate credential (their failures have no HTTP status). |
+| `environments[].resources[].error.type` | string |  | Type is the error.type value. |
+| `environments[].resources[].error.exception` | string |  | Exception is the exception.type value; empty means none unless Type is class-like. |
+| `environments[].resources[].error.message` | string |  | Message is the human message naming the cause. |
 | `workloads[]` | object |  |  |
 | `workloads[].type` | string |  | workload kind — the registry key (e.g. web_service) |
 | `workloads[].name` | string |  | unique workload instance name |
@@ -1176,7 +1201,8 @@ FunctionName-only Lambda CloudWatch metrics (remote-write only)
 | `functions[].load` | string |  | Load selects how the arrival rates follow time. Empty or "constant" keeps every rate fixed (the default). "business" scales invocations_per_min, async_received_per_min, stream_batches_per_min and throttles_per_min together by the blueprint's business curve (diurnal x weekly x master volume), so the disjoint populations stay coherent and error_fraction applies to the scaled executions. The configured rates are then the rate at a curve value of 1.0 (weekday business-hours plateau). Operator assumption, not an AWS behaviour. |
 | `functions[].duration_ms_min` | float |  | DurationMSMin is the lower bound of the per-execution duration distribution, in milliseconds. duration_ms stays the mean (Duration _sum and _average unchanged). Must be declared together with duration_ms_max (both zero means constant duration) and not exceed duration_ms. The observed Minimum moves from the mean toward this bound as executions per window increase and is limited so a sample set with the window's sum exists; one execution has no spread. A bound equal to duration_ms leaves no room for spread on either side. |
 | `functions[].duration_ms_max` | float |  | DurationMSMax is the upper bound of the per-execution duration distribution, in milliseconds, with the same rules as duration_ms_min. It must not be below duration_ms. |
-| `functions[].duration_ms_idle` | float |  | DurationMSIdle opts the function into load-following batch duration: with `load: business`, the mean per-execution duration moves with the business curve from this idle (curve value 0) duration up to duration_ms (curve value 1.0, the weekday business-hours plateau), so a scheduled batch does less work per run overnight and on weekends. The curve factor is capped at 1, so duration_ms stays the ceiling. duration_ms_min/duration_ms_max, when declared, scale with the mean so they keep bracketing it. Positive and not above duration_ms, and only valid with `load: business`. Zero (omitted) keeps the constant duration, so default output is unchanged. Operator assumption, not an AWS behaviour. |
+| `functions[].duration_ms_idle` | float |  | DurationMSIdle opts the function into load-following batch duration: with `load: business`, the mean per-execution duration moves with the business curve from this idle (curve value 0) duration up to duration_ms (curve value 1.0, the weekday business-hours plateau), so a scheduled batch does less work per run overnight and on weekends. The curve factor is capped at 1, so duration_ms stays the ceiling. duration_ms_min/duration_ms_max, when declared, scale with the mean so they keep bracketing it. Positive and not above duration_ms, and only valid with `load: business` or `duration_load: business`. Zero (omitted) keeps the constant duration, so default output is unchanged. Operator assumption, not an AWS behaviour. |
+| `functions[].duration_load` | string |  | DurationLoad selects whether duration_ms_idle follows the business curve without the arrival rates doing so. Empty or "constant" leaves the duration switch to `load: business`. "business" makes the mean duration follow the curve (as duration_ms_idle describes) while the four arrival rates stay at their configured constants, which models a scheduled function that fires at a fixed cadence but does less work per run off-peak. It requires duration_ms_idle and is valid with any `load`; with `load: business` it changes nothing. Operator assumption, not an AWS behaviour. |
 | `functions[].zero_valued_samples` | bool |  | ZeroValuedSamples makes Throttles and Errors observe every request (execution attempts plus throttled requests) with 1 for the event and 0 otherwise, as a lab capture of this service reported, instead of only the events. Throttles then has Sum = throttles and SampleCount = requests; Errors has Sum = errors and the same SampleCount, throttled requests contributing 0. A window with no request still emits neither. Omitted keeps the event-only observations, so default output is unchanged. |
 | `reserved_concurrency` | float |  | ReservedConcurrency is account capacity reserved/provisioned outside these unreserved functions. Must be an integer capacity count. Claimed concurrency = this allocation + modelled activity. |
 
@@ -1402,6 +1428,15 @@ Solace event-broker telemetry (solace_prometheus_exporter v1.21.0: per-queue and
 | `brokers[].vpns[].queues[].consumers` | int | yes | Consumers is the number of bound consumer flows (solace_queue_binds). Default 1. A queue with 0 consumers drains nothing unless ConsumeMsgsPerSec is declared. |
 | `brokers[].vpns[].queues[].subscriptions` | int | yes | Subscriptions is the queue's topic subscription count (solace_queue_subscriptions). Default 1. |
 | `brokers[].vpns[].queues[].spool_quota_mb` | float |  | SpoolQuotaMB is the queue's maximum spool usage in MB. Default 5000, the Solace default for a queue's max spool usage. Messages arriving once it is full are discarded and counted in solace_queue_msg_spool_usage_exceeded. |
+| `brokers[].vpns[].queues[].rate_scale` | float | yes | RateScale multiplies this queue's publish rate, and the default drain rate derived from it (3x the publish rate); a declared consume_msgs_per_sec is not scaled. Default 1 (omitted leaves the queue exactly as before). It lets peer queues carry different volumes without restating each rate; 0 declares an idle queue. |
+| `brokers[].vpns[].queues[].shape_profile` | object | yes | ShapeProfile gives this queue its own business-hours load curve in place of the blueprint's (a queue fed by an overnight batch peaks when the rest of the estate is idle). Omitted keeps the blueprint curve. Same keys and defaults as the application workload's shape_profile. |
+| `brokers[].vpns[].queues[].shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty uses the blueprint timezone. |
+| `brokers[].vpns[].queues[].shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `brokers[].vpns[].queues[].shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `brokers[].vpns[].queues[].shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `brokers[].vpns[].queues[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `brokers[].vpns[].queues[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `brokers[].vpns[].queues[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Default 0.3. |
 
 ## sqs config
 
@@ -1644,6 +1679,7 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].custom_metrics[].value.lognormal.median` | float |  |  |
 | `services[].custom_metrics[].value.lognormal.p95` | float |  |  |
 | `services[].custom_metrics[].value.now` | object | yes |  |
+| `services[].custom_metrics[].value.now.stall_mode` | string |  |  |
 | `services[].custom_metrics[].buckets[]` | float |  |  |
 | `services[].custom_metrics[].le_style` | string |  |  |
 | `services[].custom_metrics[].stock_of` | object | yes |  |
@@ -1703,6 +1739,7 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].metrics[].value.lognormal.median` | float |  |  |
 | `services[].metrics[].value.lognormal.p95` | float |  |  |
 | `services[].metrics[].value.now` | object | yes |  |
+| `services[].metrics[].value.now.stall_mode` | string |  |  |
 | `services[].metrics[].buckets[]` | float |  |  |
 | `services[].metrics[].le_style` | string |  |  |
 | `services[].metrics[].stock_of` | object | yes |  |
