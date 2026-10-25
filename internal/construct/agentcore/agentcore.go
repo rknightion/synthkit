@@ -65,7 +65,9 @@ type Config struct {
 	// series, named by the runtime ARN, read from the shared causal model's window: throttles
 	// are the rejected requests, invocations the admitted ones, system_errors the admitted
 	// requests that failed (held-across dependency unavailability and credential failures),
-	// total_errors their sum and latency the effective hold. Nothing is re-simulated. The other
+	// total_errors their sum and latency the invocations' elapsed time: the effective hold for
+	// those that complete and, for those the model fails, the time until their failed call.
+	// Nothing is re-simulated. The other
 	// invocation-class families have no modelled source and are omitted for a bound runtime.
 	// The deployment-wide series (name `.../runtime/global`) and every other family are
 	// unchanged, and keep responding to the region-scoped agentcore_throttle mode, which a

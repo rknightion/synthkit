@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/rknightion/synthkit/internal/causal"
+	"github.com/rknightion/synthkit/internal/cw"
 	"github.com/rknightion/synthkit/internal/fixture"
 	"github.com/rknightion/synthkit/internal/shape"
 )
@@ -112,7 +113,9 @@ func (c *Construct) advance(now time.Time, eng *shape.Engine) {
 // emitBound emits one bound runtime's invocation-class families for the window (from, to]:
 // invocations are the admitted requests, throttles the rejected ones, system_errors the admitted
 // requests that failed, total_errors their sum (the model has no client-error source) and latency
-// the effective hold. A window with no admitted request has no latency observation.
+// the invocations' elapsed time: the effective hold for those that complete and the time until the
+// failed call for those the model fails (boundLatency). A window with no admitted request has no
+// latency observation.
 func (c *Construct) emitBound(b *boundRuntime, from, to time.Time) {
 	win, ok := c.model.Window(b.resource, from, to)
 	if !ok {
@@ -128,7 +131,7 @@ func (c *Construct) emitBound(b *boundRuntime, from, to time.Time) {
 	emitGauge(c.st, "aws_bedrock_agentcore_system_errors", lbls, systemErrors)
 	emitGauge(c.st, "aws_bedrock_agentcore_total_errors", lbls, systemErrors+throttles)
 	if invocations > 0 {
-		emitGauge(c.st, "aws_bedrock_agentcore_latency", lbls, c.meanHold(b.resource, from, to))
+		cw.EmitStats(c.st, "aws_bedrock_agentcore_latency", lbls, c.boundLatency(b.resource, from, to, invocations, systemErrors))
 		return
 	}
 	// The state store keeps a gauge until it is deleted: drop the last window's latency so an
@@ -138,23 +141,47 @@ func (c *Construct) emitBound(b *boundRuntime, from, to time.Time) {
 	}
 }
 
-// meanHold is the effective hold of the window's grid steps, weighted by each step's served
-// rate: the mean per-request latency. A window with no served work reads the newest state.
-func (c *Construct) meanHold(resource string, from, to time.Time) float64 {
-	var weighted, weight float64
+// boundLatency is the latency statistics of a bound runtime's n invocations in (from, to], failed
+// of which are system errors. The model splits each grid step's work into invocations that
+// complete, held for the effective hold, and invocations that fail at the held-across dependency
+// and end at the failed hold (causal.Occupancy), so latency agrees with the concurrency the model
+// holds (Little's law). Each population's latency is its steps' hold weighted by that step's rate;
+// a population with no rate in the window reads the newest step's completing hold. Average is the
+// invocation-weighted mean, Minimum and Maximum the shorter and longer population present. The
+// family keeps the construct's per-period gauge convention (emitGauge): Sum equals the value and
+// SampleCount is 60. With no failures every stat is the completing hold alone, so a healthy
+// window is unchanged.
+func (c *Construct) boundLatency(resource string, from, to time.Time, n, failed float64) cw.StatSet {
+	var holdW, holdN, failW, failN float64
 	for k := floorGrid(from) + 1; k <= floorGrid(to); k++ {
-		st, ok := c.model.State(resource, time.Unix(0, k*int64(causal.Step)).UTC())
-		if !ok || st.At.UnixNano() != k*int64(causal.Step) {
+		o, ok := c.model.Occupancy(resource, time.Unix(0, k*int64(causal.Step)).UTC())
+		if !ok || o.At.UnixNano() != k*int64(causal.Step) {
 			continue
 		}
-		weighted += st.HoldMS * st.ServedRPS
-		weight += st.ServedRPS
+		holdW += o.HoldMS * o.CompletedRPS
+		holdN += o.CompletedRPS
+		failW += o.FailedHoldMS * o.FailedRPS
+		failN += o.FailedRPS
 	}
-	if weight > 0 {
-		return weighted / weight
+	newest, _ := c.model.Occupancy(resource, to)
+	completing, failing := newest.HoldMS, newest.HoldMS
+	if holdN > 0 {
+		completing = holdW / holdN
 	}
-	st, _ := c.model.State(resource, to)
-	return st.HoldMS
+	if failN > 0 {
+		failing = failW / failN
+	}
+	stats := func(mean, lo, hi float64) cw.StatSet {
+		return cw.StatSet{Sum: mean, Average: mean, Minimum: lo, Maximum: hi, SampleCount: 60}
+	}
+	switch succeeded := n - failed; {
+	case failed <= 0:
+		return stats(completing, completing, completing)
+	case succeeded <= 0:
+		return stats(failing, failing, failing)
+	default:
+		return stats((succeeded*completing+failed*failing)/n, math.Min(completing, failing), math.Max(completing, failing))
+	}
 }
 
 func floorGrid(t time.Time) int64 {

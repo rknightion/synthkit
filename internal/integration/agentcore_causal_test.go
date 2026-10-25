@@ -141,8 +141,9 @@ func tickAgentcore(t *testing.T, c core.Construct, eng *shape.Engine) map[int]*c
 
 // A runtime bound to a concurrency resource, loaded from blueprint YAML through the real loader
 // and catalog, follows the resource model's window: concurrency_reduced throttles, a held-across
-// dependency_unavailable fails requests (system and total errors), dependency_slow stretches
-// latency, and every family drains to the healthy baseline after each incident.
+// dependency_unavailable fails requests (system and total errors) that end early, so latency
+// mixes them with the completed ones, dependency_slow stretches latency, and every family
+// drains to the healthy baseline after each incident.
 func TestBoundAgentCoreRuntimeFollowsResourceWindow(t *testing.T) {
 	c, res := buildAgentcore(t, agentcoreCausalYAML)
 	eng := shape.New("UTC", res.Incidents)
@@ -171,7 +172,9 @@ func TestBoundAgentCoreRuntimeFollowsResourceWindow(t *testing.T) {
 				t.Fatalf("minute %d under concurrency_reduced: %+v", i, g)
 			}
 		case i >= 26 && i <= 29: // half the calls to the held-across dependency fail
-			if !near(g.invocations, 600) || !near(g.systemErrors, 300) || g.throttles != 0 || !near(g.latency, 900) {
+			// Latency mixes the 300 completed invocations (900 ms) with the 300 that end at their
+			// failed call (102 ms): 501 ms, so in-use 5.01 agrees with 10 rps (SKT-0207).
+			if !near(g.invocations, 600) || !near(g.systemErrors, 300) || g.throttles != 0 || !near(g.latency, 501) {
 				t.Fatalf("minute %d under dependency_unavailable: %+v", i, g)
 			}
 		case i >= 36 && i <= 39: // h = 900 + 120 x (4 - 1) = 1260 ms; 12.6 offered of 20, no throttling

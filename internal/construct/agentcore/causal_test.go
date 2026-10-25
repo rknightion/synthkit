@@ -130,3 +130,104 @@ func TestUnboundHoldsNoModel(t *testing.T) {
 		t.Fatal("unbound construct compiled a model")
 	}
 }
+
+// unavailableClock makes the dependency's calls fail to connect with the given share between from
+// and to.
+type unavailableClock struct {
+	from, to time.Time
+	share    float64
+}
+
+func (u unavailableClock) Eval(now time.Time, mode, _ string) (bool, float64) {
+	if mode == causal.ModeDependencyUnavailable && now.After(u.from) && !now.After(u.to) {
+		return true, u.share
+	}
+	return false, 0
+}
+func (unavailableClock) Factor(time.Time, float64, bool) float64 { return 1 }
+func (unavailableClock) VolumeMultiplier() float64               { return 1 }
+
+func heldSet() causal.Set {
+	return causal.Set{Envs: []causal.Declaration{{Env: "prod", Weight: 1, Resources: []causal.Resource{
+		{Name: "partner-api", Kind: causal.KindDependency, LatencyMS: 120, SlowFactor: 4},
+		{Name: "planner-conc", Kind: causal.KindConcurrency, Size: 20, HoldMS: 900, HeldAcross: "partner-api",
+			Demand: &causal.Demand{OffPeakRPS: 10, PeakRPS: 10, Load: causal.LoadConstant}},
+	}}}}
+}
+
+func latencyStats(mc *coretest.MetricCapture) (sum, avg, lo, hi, count float64, seen bool) {
+	for _, s := range mc.All() {
+		if !strings.HasSuffix(s.Labels["name"], "runtime/planner") {
+			continue
+		}
+		switch s.Name {
+		case "aws_bedrock_agentcore_latency_sum":
+			sum, seen = s.Value, true
+		case "aws_bedrock_agentcore_latency_average":
+			avg = s.Value
+		case "aws_bedrock_agentcore_latency_minimum":
+			lo = s.Value
+		case "aws_bedrock_agentcore_latency_maximum":
+			hi = s.Value
+		case "aws_bedrock_agentcore_latency_sample_count":
+			count = s.Value
+		}
+	}
+	return
+}
+
+// A bound runtime's latency is the mix of the invocations the model completes and those it fails
+// (SKT-0207): an invocation that fails at the held-across dependency ends at its failed call, not
+// at the completing hold, so the mean agrees with the concurrency the model holds (Little's law:
+// in-use = served rate x mean latency). Minimum and Maximum are the two populations. Healthy
+// windows keep the completing hold on every stat.
+func TestBoundRuntimeLatencyMixesFailedInvocations(t *testing.T) {
+	cfg := &Config{Runtimes: []Runtime{{Agent: "planner", Resource: "planner-conc"}}}
+	cfg.UseResources(heldSet())
+	start := time.Date(2026, 10, 24, 9, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name  string
+		share float64
+	}{{"half of the calls fail", 0.5}, {"every call fails", 1}} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, err := Build(cfg, boundFixture())
+			if err != nil {
+				t.Fatal(err)
+			}
+			clk := unavailableClock{from: start.Add(2 * time.Minute), to: start.Add(6 * time.Minute), share: tc.share}
+			for i := 1; i <= 8; i++ {
+				now := start.Add(time.Duration(i) * time.Minute)
+				c.(causal.Advancer).AdvanceCausal(now, clk)
+				mc := &coretest.MetricCapture{}
+				if err := c.Tick(context.Background(), now, coretest.World(mc, nil, nil)); err != nil {
+					t.Fatal(err)
+				}
+				sum, avg, lo, hi, count, seen := latencyStats(mc)
+				if !seen || count != 60 || sum != avg {
+					t.Fatalf("minute %d: latency %v %v %v %v %v seen=%v", i, sum, avg, lo, hi, count, seen)
+				}
+				switch {
+				case i <= 2 || i >= 8: // healthy: the completing hold on every stat
+					if avg != 900 || lo != 900 || hi != 900 {
+						t.Fatalf("minute %d healthy: latency avg %v min %v max %v, want 900", i, avg, lo, hi)
+					}
+				case i >= 4 && i <= 6: // wholly inside the incident
+					st, _ := c.(*Construct).model.State("planner-conc", now)
+					// Little's law on the model's own in-use: served rate x mean latency.
+					if want := st.InUse / st.ServedRPS * 1000; math.Abs(avg-want) > 1e-6*want {
+						t.Fatalf("minute %d: mean latency %v, but in-use %v at %v rps implies %v", i, avg, st.InUse, st.ServedRPS, want)
+					}
+					if lo >= 900 || hi > 900 || avg >= 900 || lo > avg || avg > hi {
+						t.Fatalf("minute %d: latency avg %v min %v max %v, want failed invocations shorter than the 900 ms hold", i, avg, lo, hi)
+					}
+					if tc.share == 1 && !(lo == avg && hi == avg) {
+						t.Fatalf("minute %d: every invocation fails, so every stat is one value: %v %v %v", i, avg, lo, hi)
+					}
+					if tc.share < 1 && !(hi == 900 && lo < avg) {
+						t.Fatalf("minute %d: a mix has the completing hold as its maximum: %v %v %v", i, avg, lo, hi)
+					}
+				}
+			}
+		})
+	}
+}
