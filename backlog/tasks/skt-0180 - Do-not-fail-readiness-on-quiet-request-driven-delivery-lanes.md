@@ -1,9 +1,10 @@
 ---
 id: SKT-0180
 title: Do not fail readiness on quiet request-driven delivery lanes
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-24T18:18:00Z'
+updated_date: '2026-10-25T00:26:00Z'
 labels: []
 dependencies: []
 priority: high
@@ -22,3 +23,9 @@ Readiness requires every expected delivery lane to have a fresh success, includi
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop57: landed on main (see codex/loop57/BATCH*.md).
+<!-- SECTION:NOTES:END -->
