@@ -89,6 +89,10 @@ type causalNode struct {
 	policies  map[string]causal.CallPolicy
 }
 
+// maxPolicyMS bounds a call policy's timeout_ms and backoff_ms (ten minutes), so the durations
+// derived from them (backoff x 2^k, summed over attempts) stay far inside time.Duration.
+const maxPolicyMS = 600000
+
 // buildCausalPlan validates the causal fields against the injected resources and compiles the
 // model. A config naming no causal field gets nil: every request stays legacy.
 func buildCausalPlan(cfg *Config, g *graph, env string) (*causalPlan, error) {
@@ -188,6 +192,13 @@ func bindCausal(cfg *Config, g *graph, env string, s causal.Set) (*causalPlan, e
 			}
 			if err := sn.CallPolicies[callee].Validate(); err != nil {
 				return nil, fmt.Errorf("app service %q: call_policies %q: %w", sn.Name, callee, err)
+			}
+			pol := sn.CallPolicies[callee]
+			if pol.TimeoutMS > maxPolicyMS {
+				return nil, fmt.Errorf("app service %q: call_policies %q: timeout_ms %s must be at most %d (ten minutes)", sn.Name, callee, strconv.FormatFloat(pol.TimeoutMS, 'g', -1, 64), maxPolicyMS)
+			}
+			if pol.BackoffMS > maxPolicyMS {
+				return nil, fmt.Errorf("app service %q: call_policies %q: backoff_ms %s must be at most %d (ten minutes)", sn.Name, callee, strconv.FormatFloat(pol.BackoffMS, 'g', -1, 64), maxPolicyMS)
 			}
 		}
 		if len(sn.Uses) > 0 && !reach[sn.Name] {

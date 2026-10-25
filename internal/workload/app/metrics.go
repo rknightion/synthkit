@@ -35,6 +35,8 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 		dt = now.Sub(w.lastMetricTick).Seconds()
 	}
 	w.lastMetricTick = now
+	// from opens this tick's metric window (from, now] for resource counters and outcomes.
+	from := now.Add(-time.Duration(dt * float64(time.Second)))
 	for _, n := range w.graph.nodes {
 		id := w.identity(n)
 		var incs map[string]float64
@@ -46,12 +48,12 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 			// Consume this node's value draws in declaration order so disabling one producer does
 			// not shift the generated samples of enabled services later in the same tick.
 			for _, spec := range n.metrics {
-				w.observeMetricStates(nil, nil, id, spec, w.metricCtx(now, world, id, n, spec), incs, nil)
+				w.observeMetricStates(nil, nil, id, spec, w.metricCtx(now, from, world, id, n, spec), incs, nil)
 			}
 			if derived {
 				for _, spec := range n.metrics {
 					if isDerived(spec) {
-						w.observeDerived(nil, nil, id, n, spec, w.metricCtx(now, world, id, n, spec), incs, dt, paused)
+						w.observeDerived(nil, nil, id, n, spec, w.metricCtx(now, from, world, id, n, spec), incs, dt, paused)
 					}
 				}
 			}
@@ -71,7 +73,7 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 				w.observePausedMetricStates(w.st, native, id, spec, ctx)
 				continue
 			}
-			metricCtx := w.metricCtx(now, world, id, n, spec)
+			metricCtx := w.metricCtx(now, from, world, id, n, spec)
 			w.observeMetricStates(w.st, native, id, spec, metricCtx, incs, w.seriesShape(now, world, id, n, i, spec))
 		}
 		// Derived specs read this tick's counter increments, so they run after the node's
@@ -83,7 +85,7 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 				}
 				ctx := pausedCtx
 				if !paused {
-					ctx = w.metricCtx(now, world, id, n, spec)
+					ctx = w.metricCtx(now, from, world, id, n, spec)
 				}
 				w.observeDerived(w.st, nativeFor(i), id, n, spec, ctx, incs, dt, paused)
 			}
@@ -112,7 +114,7 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 // node (per-node incident responsiveness, §6.5). With incident_value, load and scoped intensity
 // stay separate: the DSL interpolates the declared endpoints instead of multiplying by FailFactor.
 // Non-shape values ignore these inputs.
-func (w *Workload) metricCtx(now time.Time, world *core.World, id nodeIdentity, n *node, spec telemetryspec.MetricSpec) telemetryspec.EvalCtx {
+func (w *Workload) metricCtx(now, from time.Time, world *core.World, id nodeIdentity, n *node, spec telemetryspec.MetricSpec) telemetryspec.EvalCtx {
 	shapeVal := n.load.business(now, world.Shape)
 	var intensity float64
 	if spec.Value.Kind() == telemetryspec.KindShape && spec.Value.Shape != nil && spec.Value.Shape.Mode != "" {
@@ -122,7 +124,7 @@ func (w *Workload) metricCtx(now time.Time, world *core.World, id nodeIdentity, 
 			shapeVal *= world.Shape.FailFactor(now, spec.Value.Shape.Mode, id.service, incidentAmplification)
 		}
 	}
-	return telemetryspec.EvalCtx{
+	ctx := telemetryspec.EvalCtx{
 		ShapeVal: shapeVal,
 		// A shape_profile can reach an exact zero load (floor 0, weekend_factor 0); that must
 		// read 0, like a paused shape gauge. The blueprint curve never reaches 0 (its pause
@@ -133,6 +135,8 @@ func (w *Workload) metricCtx(now time.Time, world *core.World, id nodeIdentity, 
 		Norm:              world.Shape.NormFloat64,
 		Now:               w.heartbeatNow(now, world, id, spec), // the tick time (or its stalled hold), never the wall clock
 	}
+	w.causalProviders(&ctx, spec, n, from, now, world)
+	return ctx
 }
 
 // incidentAmplification is the magnitude a shape-driven value reaches at full incident intensity

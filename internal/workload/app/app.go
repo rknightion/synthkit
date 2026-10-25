@@ -253,7 +253,11 @@ type ServiceNode struct {
 	// CallPolicies is this service's per-callee client policy, keyed by names in calls:
 	// timeout_ms (0 = none), retries (0..3), backoff_ms (doubled per resend), retry_on (5xx,
 	// throttle, timeout, connect) and propagate_throttle (pass a callee 429 on as 429, not 503).
-	// Rule and credential failures are never resent. Requires resources.
+	// timeout_ms and backoff_ms are at most 600000. The service that calls the target never
+	// resends a rule rejection or a credential failure. A rule rejection slower than timeout_ms
+	// reaches the caller as a timeout (the client cannot know the cause), which retry_on timeout
+	// resends. An upstream caller sees only the mapped status of an unabsorbed credential
+	// failure (a 502) and resends it under retry_on 5xx. Requires resources.
 	CallPolicies map[string]causal.CallPolicy `yaml:"call_policies"`
 	// Worker marks the entry as a message consumer of traffic.from_resource: its root span is a
 	// CONSUMER span and each request records the queue's backlog wait. Entry only.

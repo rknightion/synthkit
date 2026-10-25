@@ -159,6 +159,9 @@ func reqRefs(r *ledger.Request, call *ledger.Call) map[string]string {
 		"cluster":            r.Cluster,
 		"status":             strconv.Itoa(r.StatusCode),
 		"outcome":            r.Outcome.String(),
+		// error_code is the failed request's declared error code (traffic.error_mix code, or the
+		// default kind such as upstream_5xx); "" on success.
+		"error_code": r.ErrorKind,
 		// request-level gen_ai choice (the app minter draws one model/provider per request) — so a
 		// node's gateway export log (reqRefs(r,nil)) and gen_ai span both carry the real model/provider.
 		"model":    r.Model,
@@ -201,7 +204,15 @@ func (w *Workload) observeMetricStates(st, native *state.State, id nodeIdentity,
 	for ci, combo := range scaledLabelCombos(spec.Labels) {
 		labels := mergeLabels(base, combo.labels)
 		ctx := sh.ctx(ctx, ci)
+		ctx.Labels = combo.labels
 		if spec.Instrument == telemetryspec.InstrumentHistogram {
+			if spec.Value.Kind() == telemetryspec.KindOutcomes {
+				// An outcomes latency histogram observes each matching hop duration in the window.
+				for _, val := range spec.Value.Observations(ctx) {
+					w.observeHistogram(st, native, spec, labels, combo.labels, val*combo.value)
+				}
+				continue
+			}
 			n := 1
 			if combo.rate != 1 {
 				n = min(w.carryCount(spec.Name, labels, combo.rate), telemetryspec.MaxObservationsPerTick)
