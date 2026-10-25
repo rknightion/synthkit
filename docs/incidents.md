@@ -292,7 +292,9 @@ Its `aws_lambda_*` families follow the shared resource model instead, so the res
 it: `concurrency_reduced` on the resource (throttles, fewer invocations, concurrency capped at the
 reduced limit), `dependency_slow` on its held-across dependency (longer `aws_lambda_duration`, more
 concurrency, throttles once the limit is reached) and `dependency_unavailable` or `credential_expired`
-(`aws_lambda_errors` over `aws_lambda_invocations`). A bound function omits every arrival-rate and
+(`aws_lambda_errors` over `aws_lambda_invocations`; a failed execution ends at its failed call, so
+`aws_lambda_duration` mixes the completing and failed executions and stays consistent with
+`aws_lambda_concurrent_executions`). A bound function omits every arrival-rate and
 duration field; `reserved_concurrency` and `zero_valued_samples` still apply. It may declare
 `error_fraction` (0..1), a background share of its admitted invocations that fail whatever the model
 says: `aws_lambda_errors` is that share at baseline and the model's failures are added to it during an

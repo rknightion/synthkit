@@ -118,7 +118,9 @@ type Function struct {
 	// ones, Errors the admitted executions that failed (held-across dependency
 	// unavailability and credential failures, plus the optional error_fraction background
 	// share below), ConcurrentExecutions the in-use concurrency
-	// and Duration the effective hold. They are read from the shared model, never
+	// and Duration the executions' elapsed time: the effective hold for those that complete
+	// and, for those the model fails, the time until their failed call, so Duration agrees
+	// with ConcurrentExecutions. They are read from the shared model, never
 	// re-simulated. A bound function omits every arrival-rate and duration field
 	// (invocations_per_min, async_received_per_min, async_dropped_fraction, async_age_ms,
 	// stream_batches_per_min, iterator_age_ms, throttles_per_min, duration_ms,
@@ -421,12 +423,12 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		var (
 			received, dropped, invokedAsync, records, n, errors, throttles float64
 			duration, durMin, durMax, concurrent                           float64
+			boundDuration                                                  cw.StatSet
 		)
 		if f.resource != "" {
 			// Bound: the shared model's window supplies every quantity; nothing is simulated here.
 			bw := c.boundWindow(f, from, now)
-			n, errors, throttles, duration, concurrent = bw.invocations, bw.errors, bw.throttles, bw.durationMS, bw.concurrent
-			durMin, durMax = duration, duration
+			n, errors, throttles, boundDuration, concurrent = bw.invocations, bw.errors, bw.throttles, bw.duration, bw.concurrent
 		} else {
 			// Constant load multiplies by exactly 1: default output is unchanged.
 			bf := 1.0
@@ -480,9 +482,14 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 			// declared duration; extremes move from the mean toward the declared bounds as
 			// executions accumulate (a single execution has none) and are clamped so a
 			// sample set with this Sum, SampleCount, Minimum and Maximum exists. Without
-			// bounds all stats equal the constant duration.
-			lo, hi := durationExtremes(duration, durMin, durMax, n)
-			cw.EmitStats(st, "aws_lambda_duration", labels, cw.StatSet{Sum: n * duration, Average: duration, Minimum: lo, Maximum: hi, SampleCount: n})
+			// bounds all stats equal the constant duration. A bound function's statistics come
+			// from the model's completed and failed executions (boundDurationStats).
+			ds := boundDuration
+			if f.resource == "" {
+				lo, hi := durationExtremes(duration, durMin, durMax, n)
+				ds = cw.StatSet{Sum: n * duration, Average: duration, Minimum: lo, Maximum: hi, SampleCount: n}
+			}
+			cw.EmitStats(st, "aws_lambda_duration", labels, ds)
 			// Operator schedule: uniformly spaced executions, constant duration, all in the
 			// unreserved pool. This is a synthetic peak estimate, not an AWS transfer curve.
 			if f.resource == "" {
@@ -633,7 +640,8 @@ func (c *construct) advance(now time.Time, eng *shape.Engine) {
 
 // boundCounts is one bound function's quantities for a window.
 type boundCounts struct {
-	invocations, errors, throttles, durationMS, concurrent float64
+	invocations, errors, throttles, concurrent float64
+	duration                                   cw.StatSet
 }
 
 // boundWindow reads the bound function's resource over (from, to]. Whole-event counts come from
@@ -647,6 +655,7 @@ func (c *construct) boundWindow(f *functionState, from, to time.Time) boundCount
 	}
 	out.invocations = take(&f.synchronous, win.Admitted)
 	out.errors = takeAtMost(&f.errors, win.Failed, out.invocations)
+	failed := out.errors // the model's failures; background errors run to completion
 	if share := f.cfg.ErrorFraction; share > 0 {
 		// Background errors: error_fraction of the admitted executions, on top of the model's own
 		// failures and from a separate carry so the model's draw is unchanged. They are capped at
@@ -658,7 +667,7 @@ func (c *construct) boundWindow(f *functionState, from, to time.Time) boundCount
 	}
 	out.throttles = take(&f.throttles, win.Rejected)
 	if out.invocations > 0 {
-		out.durationMS = c.meanHold(f.resource, from, to)
+		out.duration = c.boundDurationStats(f.resource, from, to, out.invocations, failed)
 		// ConcurrentExecutions is the peak in-use concurrency of the window, never more than
 		// the executions it counts.
 		out.concurrent = math.Min(out.invocations, math.Ceil(win.MaxInUse-1e-9))
@@ -666,23 +675,44 @@ func (c *construct) boundWindow(f *functionState, from, to time.Time) boundCount
 	return out
 }
 
-// meanHold is the effective hold of the window's grid steps, weighted by each step's admitted
-// rate: the mean per-execution duration. A window with no admitted work reads the newest state.
-func (c *construct) meanHold(resource string, from, to time.Time) float64 {
-	var weighted, weight float64
+// boundDurationStats is the Duration of a bound function's n executions in (from, to], failed of
+// which are the model's failures. The model splits each grid step's executions into those that
+// complete, held for the effective hold, and those that fail at the held-across dependency and
+// end at the failed hold (causal.Occupancy), so Duration agrees with the ConcurrentExecutions the
+// model reports (Little's law). Each population's duration is its steps' hold weighted by that
+// step's rate; a population with no rate in the window reads the newest step's completing hold.
+// Sum is the total of the two populations, Average the mean, Minimum and Maximum the shorter and
+// longer population present, and SampleCount the invocations. With no failures it is the
+// completing hold alone, so a healthy window is unchanged.
+func (c *construct) boundDurationStats(resource string, from, to time.Time, n, failed float64) cw.StatSet {
+	var holdW, holdN, failW, failN float64
 	for k := floorGrid(from) + 1; k <= floorGrid(to); k++ {
-		st, ok := c.model.State(resource, time.Unix(0, k*int64(causal.Step)).UTC())
-		if !ok || st.At.UnixNano() != k*int64(causal.Step) {
+		o, ok := c.model.Occupancy(resource, time.Unix(0, k*int64(causal.Step)).UTC())
+		if !ok || o.At.UnixNano() != k*int64(causal.Step) {
 			continue
 		}
-		weighted += st.HoldMS * st.ServedRPS
-		weight += st.ServedRPS
+		holdW += o.HoldMS * o.CompletedRPS
+		holdN += o.CompletedRPS
+		failW += o.FailedHoldMS * o.FailedRPS
+		failN += o.FailedRPS
 	}
-	if weight > 0 {
-		return weighted / weight
+	newest, _ := c.model.Occupancy(resource, to)
+	completing, failing := newest.HoldMS, newest.HoldMS
+	if holdN > 0 {
+		completing = holdW / holdN
 	}
-	st, _ := c.model.State(resource, to)
-	return st.HoldMS
+	if failN > 0 {
+		failing = failW / failN
+	}
+	switch succeeded := n - failed; {
+	case failed == 0:
+		return cw.StatSet{Sum: n * completing, Average: completing, Minimum: completing, Maximum: completing, SampleCount: n}
+	case succeeded == 0:
+		return cw.StatSet{Sum: n * failing, Average: failing, Minimum: failing, Maximum: failing, SampleCount: n}
+	default:
+		sum := succeeded*completing + failed*failing
+		return cw.StatSet{Sum: sum, Average: sum / n, Minimum: math.Min(completing, failing), Maximum: math.Max(completing, failing), SampleCount: n}
+	}
 }
 
 func floorGrid(t time.Time) int64 {

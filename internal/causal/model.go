@@ -64,6 +64,9 @@ type rec struct {
 	st    State
 	// per-step volumes (counts over the step)
 	arrivals, admitted, rejected, served, failed float64
+	// failedHold is the mean elapsed time of the step's failed work (pool, concurrency, queue;
+	// see Occupancy).
+	failedHold float64
 }
 
 type point struct {
@@ -452,7 +455,24 @@ func (c *compiled) occupancy(h, lf, failed float64) float64 {
 	if failed <= 0 || c.ref == nil {
 		return h
 	}
-	rest, sum, w := 1.0, 0.0, 0.0
+	sum, w := c.failedHoldSum(lf, failed)
+	return (1-failed)*h + failed*sum/w
+}
+
+// failedHoldMean is the mean elapsed time of a failed unit of work, the failed term of
+// occupancy: h when nothing fails or nothing is held across.
+func (c *compiled) failedHoldMean(h, lf, failed float64) float64 {
+	if failed <= 0 || c.ref == nil {
+		return h
+	}
+	sum, w := c.failedHoldSum(lf, failed)
+	return sum / w
+}
+
+// failedHoldSum is the load-share-weighted sum of failedHold over the loads (and the undeclared
+// rest), with its total weight.
+func (c *compiled) failedHoldSum(lf, failed float64) (sum, w float64) {
+	rest := 1.0
 	for i, l := range c.loads {
 		rest -= l.Share
 		sum += l.Share * c.failedHold(c.held[i], lf, failed)
@@ -462,7 +482,7 @@ func (c *compiled) occupancy(h, lf, failed float64) float64 {
 		sum += rest * c.failedHold(nil, lf, failed)
 		w += rest
 	}
-	return (1-failed)*h + failed*sum/w
+	return sum, w
 }
 
 // failedHold is the elapsed time of a unit of work that fails at its held-across dependency, as
@@ -603,6 +623,9 @@ func (m *Model) step(k int64, clk Clock) {
 			r.admitted = r.arrivals - r.rejected
 			r.served = r.admitted
 			r.failed = r.served * st.FailedShare
+			if c.r.Kind != KindQuota {
+				r.failedHold = c.failedHoldMean(h, lf, failed)
+			}
 			st.ServedRPS = r.served / stepSec
 		case KindQueue:
 			a, i := c.fault(clk, t, ModeConsumerSlowdown)
@@ -614,6 +637,7 @@ func (m *Model) step(k int64, clk Clock) {
 			c.queueStep(&r, k, base, mu)
 			st.LatencyFactor, st.HoldMS, st.FailedShare = lf, h, failed
 			r.failed = r.served * failed
+			r.failedHold = h // failed work keeps the full hold (see occupancy)
 		}
 		c.ring[mod(k, ringSteps)] = r
 		c.last = r
