@@ -1,9 +1,11 @@
 ---
 id: SKT-0185
 title: Bind DynamoDB tables to causal quota resources per operation and capacity unit
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@loop58-root'
 created_date: '2026-10-25T02:57:00Z'
+updated_date: '2026-10-25T13:22:00Z'
 labels: []
 dependencies:
   - SKT-0168.09.15

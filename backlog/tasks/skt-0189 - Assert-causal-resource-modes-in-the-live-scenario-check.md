@@ -1,11 +1,11 @@
 ---
 id: SKT-0189
 title: Assert causal resource modes in the live scenario check
-status: In Progress
+status: Done
 assignee:
   - '@loop58-root'
 created_date: '2026-10-25T08:00:00Z'
-updated_date: '2026-10-25T08:57:00Z'
+updated_date: '2026-10-25T15:16:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -20,7 +20,7 @@ The live scenario check has no assertion for dependency_slow or rule_regression,
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Each resource-axis mode used by a shipped scenario has a live-check assertion
+- [x] #1 Each resource-axis mode used by a shipped scenario has a live-check assertion
 <!-- AC:END -->
 
 ## Definition of Done

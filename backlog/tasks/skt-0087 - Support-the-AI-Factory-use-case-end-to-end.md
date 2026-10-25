@@ -1,11 +1,11 @@
 ---
 id: SKT-0087
 title: Support the AI Factory use case end to end
-status: In Progress
+status: To Do
 assignee:
   - '@loop48-root'
-created_date: '2026-10-02 14:15'
-updated_date: '2026-10-14 20:11'
+created_date: 2026-10-02 14:15
+updated_date: '2026-10-25T15:16:00Z'
 labels:
   - ai-factory
 dependencies: []
@@ -44,4 +44,6 @@ loop47 ending at exhausted source/acceptance envelope: shared fixture and CPU au
 loop48 R0: admitted narrowed AI Factory research/design under Rob 2026-10-03 decisions; implementation dependency-gated; prior commission1 retained for syslog/DCGM.
 
 2026-10-14: reviewed newly available design alongside controlling corrections. It clarifies intended collection architecture but does not establish missing exporter field catalogues, device point maps or deployed-version support. Keep parked vendor consumers evidence-gated. The dependency-ready next step is the additive shared GPU clock/constraint model, followed by the already narrowed H100 HGX DCGM profile. Preserve PCI domains for future driver-log correlation; do not assume tray DCGM covers rack NVSwitch ASICs or infer a scheduler GPU UUID allocation join from an API lacking that field.
+
+loop58 closeout: not worked in loop58.
 <!-- SECTION:NOTES:END -->

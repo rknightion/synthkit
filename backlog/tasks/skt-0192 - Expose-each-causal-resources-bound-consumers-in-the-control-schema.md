@@ -1,9 +1,11 @@
 ---
 id: SKT-0192
 title: Expose each causal resource's bound consumers in the control schema
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@loop58-root'
 created_date: '2026-10-25T09:54:00Z'
+updated_date: '2026-10-25T12:00:00Z'
 labels: []
 dependencies:
   - SKT-0189

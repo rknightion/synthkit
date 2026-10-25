@@ -1,11 +1,11 @@
 ---
 id: SKT-0102
 title: Checkpoint cumulative state and backfill gaps across restarts
-status: In Progress
+status: To Do
 assignee:
   - '@codex'
-created_date: '2026-10-07 20:31'
-updated_date: '2026-10-15 15:10'
+created_date: 2026-10-07 20:31
+updated_date: '2026-10-25T15:16:00Z'
 labels:
   - feature
   - ha
@@ -61,4 +61,6 @@ Public tracker wording redacts the deployment identifier; the exact owner-select
 Foundation increment implements bounded OTLP/RW2 acceptance classification, sanitized status counts, queue background-failure reporting and an optional binding-aware filesystem store with checksummed atomic manifests, immutable payloads, exclusive locks and epoch/revision CAS. Actual HTTP and cross-process filesystem tests include fail-first and negative proofs; affected race packages pass. CodeRabbit completed all 20 files with one minor suggestion to delete cancelled temporary writes, deliberately retained under the evidence-preserving fail-closed contract and documented recovery limits. Root found and corrected malformed OTLP diagnostic JSON acceptance; delta review and composed final gate pending. No runtime snapshots, durable outbox, takeover, backfill or live deployment claimed; acceptance criteria 2 and 3 remain open.
 
 Foundation increment published as 86634ea40952074beedeb4751609f63b5b9cf8ac. Full composed just check passed, affected race/HTTP/subprocess/mutation proofs passed, initial CodeRabbit reviewed all 20 files with the documented minor cancellation-retention choice, and the three-file parser/documentation delta review completed with zero findings. Exact CI 38753576146 attempt 2 passed all required jobs, including real e2e; the sole first-attempt chart failure was a dependency proxy download error, and unchanged-SHA retry passed. Evidence: /Users/rob/repos/synthkit/codex/backlog-pickup-20261015/checkpoint-composed-check.log and /Users/rob/repos/synthkit/codex/backlog-pickup-20261015/foundation-ci-final.json; detailed protocol/filesystem evidence retained under /Users/rob/.local/share/synthkit-worktrees/interactive-checkpoint-20261015/codex/. Parent remains In Progress: per-emitter and auxiliary-state restore, durable exact-byte outbox/fragment receipts, real lease integration, enrollment/lost-volume distinction, shared-provider validation, bounded backfill and live out-of-order readback are not implemented or proven. No deployment or runtime checkpoint enablement.
+
+loop58 closeout: not worked in loop58.
 <!-- SECTION:NOTES:END -->

@@ -1,11 +1,11 @@
 ---
 id: SKT-0191
 title: Apply the resource-kind check to live control-plane incidents
-status: In Progress
+status: Done
 assignee:
   - '@loop58-root'
 created_date: '2026-10-25T09:10:00Z'
-updated_date: '2026-10-25T09:25:00Z'
+updated_date: '2026-10-25T11:37:00Z'
 labels: []
 dependencies:
   - SKT-0188
