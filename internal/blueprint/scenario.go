@@ -175,6 +175,22 @@ func expandEffectScopes(mode, target string, targets []Target, refs map[string][
 	return out
 }
 
+// ValidateResourceKind applies the loader's resource-kind rule to one mode and target of this
+// resolved blueprint and returns the loader's error. The live control plane calls it so a runtime
+// incident is held to the rule a declared one is.
+// It reads the resource references Resolve recorded from resourceTargets (empty when the
+// blueprint declares no causal resource).
+func (r *Resolved) ValidateResourceKind(mode, target string) error {
+	return validateResourceKind(EffectDecl{Mode: mode, Target: target}, targetAxes(r.Targets), r.resRefs)
+}
+
+// ExpandEffectScopes expands a mode's target against this resolved blueprint as the loader does
+// for a scheduled effect: "resource:*" of a resource-axis mode becomes the declared resources of
+// the mode's kind, and any other target expands as an ordinary name or "<axis>:*".
+func (r *Resolved) ExpandEffectScopes(mode, target string) []string {
+	return expandEffectScopes(mode, target, r.Targets, r.resRefs)
+}
+
 // failureTargeter is implemented by a construct Config whose declaration owns failure targets
 // (Lambda functions, Solace queues). Duck-typed: the blueprint package imports no construct.
 type failureTargeter interface {

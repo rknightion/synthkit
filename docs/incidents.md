@@ -374,8 +374,9 @@ Targets:
 - A resource named `<base>-<lower(env)>` is also reached by `<base>`, so one effect can hit that
   resource in every environment that declares one. A base name equal to a declared resource name is a
   load error.
-- A scheduled `resource:*` expands to the declared resource names only. A live `resource:*` also
-  reaches the base aliases, which is idempotent.
+- `resource:*` expands to the declared resources of the mode's kind only, whether scheduled, set
+  live or created as a runtime incident. A runtime incident on any `<axis>:*` target reaches the
+  same targets a scheduled one does, and deleting it clears every expanded scope.
 - A resource may share its name with a service node, a Lambda function or a queue. The effect then
   resolves on the axis that declares its mode, as for `function_error_spike` above.
 

@@ -204,6 +204,7 @@ type Resolved struct {
 	Incidents          []string // shape-engine schedule entries: kind@at/for[#intensity][@target]
 	Targets            []Target
 	Scenarios          []ResolvedScenario
+	resRefs            map[string][]resourceRef
 	// Warnings are non-fatal resolve-time notes (e.g. a database/cache declaration that produced
 	// zero emitting constructs) surfaced to operators via the control-plane diagnostics panel.
 	Warnings []string
@@ -1139,6 +1140,7 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 	// declared targets: a resource may share a name with a service node or another axis.
 	resTargets, resAliases, resRefs := resourceTargets(d)
 	r.Targets = append(r.Targets, resTargets...)
+	r.resRefs = resRefs
 	declared, targetWarns, skippedTargets := declaredConstructTargets(r.Constructs, r.Targets)
 	r.Targets = append(r.Targets, declared...)
 	// Scheduled "<axis>:*" expansion skips alias-only resource names: the declared resources

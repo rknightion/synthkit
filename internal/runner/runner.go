@@ -1511,6 +1511,13 @@ func (r *Runner) ValidateRuntimeIncident(ri control.RuntimeIncident) error {
 			return fmt.Errorf("mode %q not declared on any of target %q's axes %s", ri.Mode, ri.Target, strings.Join(named, ", "))
 		}
 	}
+	// A resource-axis mode must act on the kind of every resource its target reaches, with the
+	// loader's error text (a resource:* target must select at least one resource of that kind).
+	if bp.res != nil {
+		if err := bp.res.ValidateResourceKind(ri.Mode, ri.Target); err != nil {
+			return err
+		}
+	}
 	// at/for required, then delegate grammar validation to shape: build a throwaway engine from the
 	// formatted spec and reject if shape emitted any skip-warning (shape stays the sole grammar authority).
 	if strings.TrimSpace(ri.At) == "" || strings.TrimSpace(ri.For) == "" {
