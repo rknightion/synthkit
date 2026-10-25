@@ -1614,6 +1614,14 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].custom_metrics[].value.enum[].weight` | float |  |  |
 | `services[].custom_metrics[].value.enum[].rate_scale` | float | yes |  |
 | `services[].custom_metrics[].value.enum[].value_scale` | float | yes |  |
+| `services[].custom_metrics[].value.enum[].shape_profile` | object | yes |  |
+| `services[].custom_metrics[].value.enum[].shape_profile.timezone` | string |  |  |
+| `services[].custom_metrics[].value.enum[].shape_profile.floor` | float | yes |  |
+| `services[].custom_metrics[].value.enum[].shape_profile.ramp_up_start_hour` | float | yes |  |
+| `services[].custom_metrics[].value.enum[].shape_profile.plateau_start_hour` | float | yes |  |
+| `services[].custom_metrics[].value.enum[].shape_profile.plateau_end_hour` | float | yes |  |
+| `services[].custom_metrics[].value.enum[].shape_profile.ramp_down_end_hour` | float | yes |  |
+| `services[].custom_metrics[].value.enum[].shape_profile.weekend_factor` | float | yes |  |
 | `services[].custom_metrics[].value.int_range` | object | yes |  |
 | `services[].custom_metrics[].value.int_range.min` | int |  |  |
 | `services[].custom_metrics[].value.int_range.max` | int |  |  |
@@ -1642,6 +1650,14 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].custom_metrics[].stock_of.metric` | string |  |  |
 | `services[].custom_metrics[].stock_of.dwell_seconds` | float |  |  |
 | `services[].custom_metrics[].count_of` | string |  |  |
+| `services[].custom_metrics[].shape_profile` | object | yes |  |
+| `services[].custom_metrics[].shape_profile.timezone` | string |  |  |
+| `services[].custom_metrics[].shape_profile.floor` | float | yes |  |
+| `services[].custom_metrics[].shape_profile.ramp_up_start_hour` | float | yes |  |
+| `services[].custom_metrics[].shape_profile.plateau_start_hour` | float | yes |  |
+| `services[].custom_metrics[].shape_profile.plateau_end_hour` | float | yes |  |
+| `services[].custom_metrics[].shape_profile.ramp_down_end_hour` | float | yes |  |
+| `services[].custom_metrics[].shape_profile.weekend_factor` | float | yes |  |
 | `services[].metrics[]` | object |  | legacy inline metrics (the DSL escape hatch) |
 | `services[].metrics[].name` | string |  |  |
 | `services[].metrics[].source` | string |  |  |
@@ -1657,6 +1673,14 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].metrics[].value.enum[].weight` | float |  |  |
 | `services[].metrics[].value.enum[].rate_scale` | float | yes |  |
 | `services[].metrics[].value.enum[].value_scale` | float | yes |  |
+| `services[].metrics[].value.enum[].shape_profile` | object | yes |  |
+| `services[].metrics[].value.enum[].shape_profile.timezone` | string |  |  |
+| `services[].metrics[].value.enum[].shape_profile.floor` | float | yes |  |
+| `services[].metrics[].value.enum[].shape_profile.ramp_up_start_hour` | float | yes |  |
+| `services[].metrics[].value.enum[].shape_profile.plateau_start_hour` | float | yes |  |
+| `services[].metrics[].value.enum[].shape_profile.plateau_end_hour` | float | yes |  |
+| `services[].metrics[].value.enum[].shape_profile.ramp_down_end_hour` | float | yes |  |
+| `services[].metrics[].value.enum[].shape_profile.weekend_factor` | float | yes |  |
 | `services[].metrics[].value.int_range` | object | yes |  |
 | `services[].metrics[].value.int_range.min` | int |  |  |
 | `services[].metrics[].value.int_range.max` | int |  |  |
@@ -1685,6 +1709,14 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].metrics[].stock_of.metric` | string |  |  |
 | `services[].metrics[].stock_of.dwell_seconds` | float |  |  |
 | `services[].metrics[].count_of` | string |  |  |
+| `services[].metrics[].shape_profile` | object | yes |  |
+| `services[].metrics[].shape_profile.timezone` | string |  |  |
+| `services[].metrics[].shape_profile.floor` | float | yes |  |
+| `services[].metrics[].shape_profile.ramp_up_start_hour` | float | yes |  |
+| `services[].metrics[].shape_profile.plateau_start_hour` | float | yes |  |
+| `services[].metrics[].shape_profile.plateau_end_hour` | float | yes |  |
+| `services[].metrics[].shape_profile.ramp_down_end_hour` | float | yes |  |
+| `services[].metrics[].shape_profile.weekend_factor` | float | yes |  |
 | `services[].logs[]` | object |  | inline custom log streams |
 | `services[].logs[].source` | string |  |  |
 | `services[].logs[].stream_labels` | map[string]ValueModel |  |  |
@@ -1873,6 +1905,7 @@ The valid `mode:` values an incident or scenario effect may reference (union acr
 | `run_failure` | axis: pipeline_stage |  | runs completing the stage fail (fraction = intensity) and end with a FAILED outcome |
 | `slow_query_storm` | axis: database |  | query latency right-tail spikes |
 | `stage_stall` | axis: pipeline_stage |  | stage starts nothing: arriving runs wait and age, later stages complete nothing until cleared |
+| `table_throttle_storm` | axis: table |  | table GetItem and PutItem requests are throttled on top of admitted requests (extra ThrottledRequests, ReadThrottleEvents and WriteThrottleEvents = intensity x requests) |
 | `throughput_drop` | axis: service |  | reduced throughput on the targeted service node |
 | `web_vitals_degraded` | axis: service |  | browser web-vitals degrade on the targeted frontend node — LCP/INP/TTFB/FCP and CLS spike |
 
