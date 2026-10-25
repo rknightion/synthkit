@@ -10,6 +10,7 @@ package blueprint
 import (
 	"fmt"
 
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/fixture"
 	"github.com/rknightion/synthkit/internal/pipelinerun"
 	"gopkg.in/yaml.v3"
@@ -115,6 +116,13 @@ type EnvDecl struct {
 	Cluster    *ClusterDecl   `yaml:"cluster"`
 	Databases  []DatabaseDecl `yaml:"databases"`
 	Caches     []CacheDecl    `yaml:"caches"`
+	// Resources opts the environment into the causal request model (internal/causal): the
+	// pools, concurrency limits, queues, quotas, dependencies, credentials and rules requests
+	// meet. Names are unique across the blueprint and are incident targets on the `resource`
+	// axis; a name `<base>-<lower(env)>` is also reached by the base name in every environment.
+	// The resolver hands the blueprint's whole set to every consuming construct and workload.
+	// Omitted = no causal model and unchanged output.
+	Resources []causal.Resource `yaml:"resources"`
 }
 
 // CloudDecl declares the env's cloud-account identity.

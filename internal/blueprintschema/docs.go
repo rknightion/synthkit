@@ -50,7 +50,8 @@ func FindModuleRoot(start string) (string, error) {
 // feed the schema: the blueprint surface + every construct/workload Config.
 func schemaSourceDirs(moduleRoot string) ([]string, error) {
 	var dirs []string
-	dirs = append(dirs, filepath.Join(moduleRoot, "internal", "blueprint"), filepath.Join(moduleRoot, "internal", "agento11yprovision"))
+	dirs = append(dirs, filepath.Join(moduleRoot, "internal", "blueprint"), filepath.Join(moduleRoot, "internal", "agento11yprovision"),
+		filepath.Join(moduleRoot, "internal", "causal"), filepath.Join(moduleRoot, "internal", "pipelinerun"))
 	for _, glob := range []string{
 		filepath.Join(moduleRoot, "internal", "construct", "*"),
 		filepath.Join(moduleRoot, "internal", "workload", "*"),

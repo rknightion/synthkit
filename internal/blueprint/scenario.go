@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/failuremode"
 	"github.com/rknightion/synthkit/internal/fixture"
 	"github.com/rknightion/synthkit/internal/pipelinerun"
@@ -75,6 +76,35 @@ func buildTargets(d *Decl) []Target {
 		}
 	}
 	return out
+}
+
+// resourceTargets enumerates the declared causal resources as `resource`-axis targets: every
+// resource name, then each environment base alias (a resource named `<base>-<lower(env)>` is
+// also reached by `<base>`, in every environment that declares one; see causal.EnvAlias). The
+// aliases set marks the alias-only names so an "resource:*" schedule expands to the declared
+// resources alone (an alias would only repeat them). Resource targets may share a name with a
+// target on another axis: an effect naming it resolves on the axis that declares its mode, as
+// construct-declared function and queue targets do.
+func resourceTargets(d *Decl) (targets []Target, aliases map[string]bool) {
+	aliases = map[string]bool{}
+	declared := map[string]bool{}
+	for _, e := range d.Environments {
+		for _, r := range e.Resources {
+			declared[r.Name] = true
+			targets = append(targets, Target{Name: r.Name, Axis: causal.AxisResource})
+		}
+	}
+	for _, e := range d.Environments {
+		for _, r := range e.Resources {
+			base := causal.EnvAlias(r.Name, e.Name)
+			if base == "" || declared[base] || aliases[base] {
+				continue
+			}
+			aliases[base] = true
+			targets = append(targets, Target{Name: base, Axis: causal.AxisResource})
+		}
+	}
+	return targets, aliases
 }
 
 // failureTargeter is implemented by a construct Config whose declaration owns failure targets
@@ -164,7 +194,7 @@ var knownAxes = map[failuremode.Axis]bool{
 	failuremode.AxisWorkload: true, failuremode.AxisCluster: true,
 	failuremode.AxisDatabase: true, failuremode.AxisCache: true, failuremode.AxisCloud: true,
 	failuremode.AxisService: true, failuremode.AxisNetwork: true, pipelinerun.AxisStage: true,
-	failuremode.AxisFunction: true, failuremode.AxisQueue: true, failuremode.AxisTable: true,
+	failuremode.AxisFunction: true, failuremode.AxisQueue: true, failuremode.AxisTable: true, causal.AxisResource: true,
 	fixture.AxisGPU: true, fixture.AxisGPUNode: true, fixture.AxisGPURack: true, fixture.AxisGPUTray: true,
 	fixture.AxisNVLinkDomain: true, fixture.AxisNVLinkPartition: true, fixture.AxisNVLinkSwitch: true, fixture.AxisNVLinkPort: true,
 	fixture.AxisGPUFabric: true, fixture.AxisGPUSwitch: true, fixture.AxisGPUPort: true, fixture.AxisGPUDevice: true,

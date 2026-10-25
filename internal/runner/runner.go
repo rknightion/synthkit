@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/rknightion/synthkit/internal/blueprint"
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/construct/fleetmgmt"
 	"github.com/rknightion/synthkit/internal/control"
 	"github.com/rknightion/synthkit/internal/core"
@@ -973,6 +974,26 @@ func (r *Runner) MasterTick(ctx context.Context, now time.Time) error {
 	return errors.Join(errs...)
 }
 
+// advanceCausal advances every causal consumer of one blueprint (internal/causal) to this master
+// tick, before mint, whatever each consumer's own cadence: every consumer then samples live
+// faults at the same instants, so their independently compiled models agree at every grid point
+// (ARCHITECTURE I42). Consumers also advance idempotently in their own Tick.
+func (r *Runner) advanceCausal(bp *bpRuntime, now time.Time) {
+	for _, bc := range bp.constructs {
+		if a, ok := bc.construct.(causal.Advancer); ok {
+			a.AdvanceCausal(now, bp.eng)
+		}
+	}
+	for _, bw := range bp.workloads {
+		if a, ok := bw.workload.(causal.Advancer); ok {
+			a.AdvanceCausal(now, bp.eng)
+		}
+	}
+}
+
+// The blueprint shape engine is the causal model's clock.
+var _ causal.Clock = (*shape.Engine)(nil)
+
 // masterTickOne mints ONE blueprint's batch and hands each of its workloads EXACTLY its own requests
 // (exactly-once trace/log projection — I10). It is the single-blueprint slice of MasterTick: called
 // serially by MasterTick (RunOnce) and concurrently — one goroutine per blueprint — by Run. The
@@ -988,6 +1009,7 @@ func (r *Runner) masterTickOne(ctx context.Context, bp *bpRuntime, now time.Time
 			preparer.PreparePodLifecycle(now)
 		}
 	}
+	r.advanceCausal(bp, now)
 	batch := bp.ledger.Mint(now)
 	if len(batch) == 0 {
 		return nil

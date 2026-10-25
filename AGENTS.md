@@ -11,7 +11,7 @@ Three tiers, mandatory:
 
 - **Constructs** (`internal/construct/<kind>/`) and **workloads** (`internal/workload/<kind>/`) are
   isolated. They may import core/fixture/shape/state/ledger/sink-types and the shared mechanic
-  libraries (`internal/cw`, `internal/genai`, `internal/syslog`, `internal/pipelinerun`) only: never each other, the blueprint package, or a
+  libraries (`internal/cw`, `internal/genai`, `internal/syslog`, `internal/pipelinerun`, `internal/causal`) only: never each other, the blueprint package, or a
   blueprint name. `internal/archtest.TestCatalogImportIsolation` enforces this.
 - **Blueprints** (`blueprints/*.yaml`) own blueprint-specific configuration and explicit wiring,
   including workload-to-cluster binding and shared identity. One declaration may fan into several

@@ -12,6 +12,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/failuremode"
 	"github.com/rknightion/synthkit/internal/fixture"
@@ -253,6 +254,57 @@ func validatePipelines(d *Decl) error {
 	return nil
 }
 
+// validateResources checks the causal resource declarations across the entire blueprint:
+// causal.Validate (kinds, fields, references, blueprint-wide unique names), the incident-scope
+// grammar, and that no environment base alias is itself a declared resource name (a target
+// naming it would otherwise reach both).
+func validateResources(d *Decl) error {
+	var s causal.Set
+	for _, e := range d.Environments {
+		if len(e.Resources) > 0 {
+			s.Envs = append(s.Envs, causal.Declaration{Env: e.Name, Resources: e.Resources})
+		}
+	}
+	if s.Empty() {
+		return nil
+	}
+	if err := causal.Validate(s); err != nil {
+		return fmt.Errorf("blueprint %q: resources: %w", d.Name, err)
+	}
+	declared := map[string]bool{}
+	for _, decl := range s.Envs {
+		for _, r := range decl.Resources {
+			if !scopeSafe(r.Name) {
+				return fmt.Errorf("blueprint %q: env %q: resource %q is not an incident scope", d.Name, decl.Env, r.Name)
+			}
+			declared[r.Name] = true
+		}
+	}
+	for _, decl := range s.Envs {
+		for _, r := range decl.Resources {
+			if base := causal.EnvAlias(r.Name, decl.Env); base != "" && declared[base] {
+				return fmt.Errorf("blueprint %q: env %q: resource %q is reached by the base name %q, which is also a declared resource; rename one", d.Name, decl.Env, r.Name, base)
+			}
+		}
+	}
+	return nil
+}
+
+// causalSet is the blueprint's declared resources with each environment's resolved demand facts
+// (the same weight and non-production flag its workloads use).
+func causalSet(envs []envCtx) causal.Set {
+	var s causal.Set
+	for _, ec := range envs {
+		if len(ec.decl.Resources) == 0 {
+			continue
+		}
+		s.Envs = append(s.Envs, causal.Declaration{
+			Env: ec.env.Name, Weight: ec.env.Weight, NonProd: ec.env.NonProd, Resources: ec.decl.Resources,
+		})
+	}
+	return s
+}
+
 // envCtx pairs an environment's resolved fixtures (env identity + cloud) with its raw decl.
 // It is carried through the resolver passes and into per-env integration/workload fan-out.
 type envCtx struct {
@@ -308,6 +360,9 @@ func expandWorkloads(d *Decl, clusterByEnv map[string]string, allEnvNames []stri
 // and validates kinds.
 func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 	if err := validatePipelines(d); err != nil {
+		return nil, err
+	}
+	if err := validateResources(d); err != nil {
 		return nil, err
 	}
 	if d.Timezone != "" && len(d.Regions) > 0 {
@@ -1017,6 +1072,42 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 		})
 	}
 
+	// One resources declaration fans into every consuming construct and workload, after strict
+	// decode and before Build (as pipelines do through pipelinerun.Consumer). Workloads whose call
+	// graphs send traffic through resources first declare their retrying edges and traffic
+	// shares (causal.LoadDeclarer), so every consumer compiles the same closed-loop demand and
+	// the summed traffic through a resource is checked against its declared demand. No
+	// resources: no declarer or consumer is called.
+	if declared := causalSet(envs); !declared.Empty() {
+		set := declared
+		for _, wi := range r.Workloads {
+			if ld, ok := wi.Config.(causal.LoadDeclarer); ok {
+				env := ""
+				if wi.Env != nil {
+					env = wi.Env.Name
+				}
+				loads, err := ld.CausalLoads(declared, env)
+				if err != nil {
+					return nil, fmt.Errorf("blueprint %q: workload %q: resources: %w", d.Name, wi.Name, err)
+				}
+				set.Loads = append(set.Loads, loads...)
+			}
+		}
+		if err := causal.Validate(set); err != nil {
+			return nil, fmt.Errorf("blueprint %q: resources: %w", d.Name, err)
+		}
+		for _, ci := range r.Constructs {
+			if c, ok := ci.Config.(causal.Consumer); ok {
+				c.UseResources(set)
+			}
+		}
+		for _, wi := range r.Workloads {
+			if c, ok := wi.Config.(causal.Consumer); ok {
+				c.UseResources(set)
+			}
+		}
+	}
+
 	// Pass 6 — addressable-target inventory, scenario resolution, then incident compilation.
 	//
 	// Target inventory + ambiguity check (a name reused across two structural axes is rejected;
@@ -1032,8 +1123,24 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 	if _, err := targetIndex(r.Targets); err != nil {
 		return nil, fmt.Errorf("blueprint %q: %w", d.Name, err)
 	}
+	// Causal resources (and their environment base aliases) are mode-resolved like construct-
+	// declared targets: a resource may share a name with a service node or another axis.
+	resTargets, resAliases := resourceTargets(d)
+	r.Targets = append(r.Targets, resTargets...)
 	declared, targetWarns, skippedTargets := declaredConstructTargets(r.Constructs, r.Targets)
 	r.Targets = append(r.Targets, declared...)
+	// Scheduled "<axis>:*" expansion skips alias-only resource names: the declared resources
+	// they alias are already in the expansion.
+	scheduleTargets := r.Targets
+	if len(resAliases) > 0 {
+		scheduleTargets = nil
+		for _, t := range r.Targets {
+			if t.Axis == causal.AxisResource && resAliases[t.Name] {
+				continue
+			}
+			scheduleTargets = append(scheduleTargets, t)
+		}
+	}
 	for _, w := range targetWarns {
 		log.Printf("WARN blueprint %q: %s", d.Name, w)
 		r.Warnings = append(r.Warnings, w)
@@ -1087,7 +1194,7 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 			}
 			for _, e := range sc.Effects {
 				inten := scheduledIntensity(e.Intensity, e.intensitySet)
-				for _, scope := range expandScopes(e.Target, r.Targets) {
+				for _, scope := range expandScopes(e.Target, scheduleTargets) {
 					r.Incidents = append(r.Incidents, scheduleEntry(e.Mode, inc.At, inc.For, inten, scope, true))
 				}
 			}
@@ -1114,7 +1221,7 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 			}
 			timeTok = "every" + inc.Every
 		}
-		for _, scope := range expandScopes(inc.Target, r.Targets) {
+		for _, scope := range expandScopes(inc.Target, scheduleTargets) {
 			r.Incidents = append(r.Incidents, scheduleEntry(inc.Kind, timeTok, inc.For, inc.Intensity, scope, inc.intensitySet))
 		}
 	}

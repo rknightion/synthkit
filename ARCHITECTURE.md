@@ -242,6 +242,31 @@ transfer curves. Consumer profile admission, NVSwitch exposition, runtime tick
 capture and log/KSM/network adapters retain separate ownership and acceptance.
 See [GPU fixture](docs/ai-factory/fixture.md) for joins and remaining barriers.
 
+### Causal resource model (`internal/causal`)
+
+```go
+type Set struct{ Envs []Declaration; Loads []Load }         // one blueprint's resources + retrying edges
+type Consumer interface{ UseResources(Set) }                // Config: resolver injects the Set
+type LoadDeclarer interface{ CausalLoads(s Set, env string) ([]Load, error) } // workload Config, per instance env
+type Advancer interface{ AdvanceCausal(now time.Time, c Clock) } // built instance: runner, every master tick
+func Compile(s Set) (*Model, error)
+func (m *Model) Advance(now time.Time, c Clock)             // 5 s epoch grid; warm start from floor(now) - 24 h
+func (m *Model) State(name string, at time.Time) (State, bool)
+func (m *Model) Window(name string, from, to time.Time) (Window, bool)
+func (m *Model) Apply(name string, at time.Time, d Draw) Effect      // one arrival (producer side)
+func (m *Model) ApplyConsumer(name string, at time.Time) Effect      // one message taken from a queue
+```
+
+A blueprint opts in with `environments[].resources`. The resolver validates the declarations,
+collects every `LoadDeclarer`'s retrying edges into the `Set`, checks summed traffic shares, and
+injects the same `Set` into every construct and workload Config implementing `Consumer`. Each
+consumer compiles its own `Model`; the runner advances every built `Advancer` on each master tick
+before mint, so all consumers sample live faults at the same instants. The package owns no
+metric, label, log or span name, never reads the wall clock and never draws from the shape
+engine's RNG; per-arrival draws hash the minter's seed unit (`UnitDraw`). No `resources:` means no
+model, no injection and unchanged output. The request facts it produces live in the additive
+`ledger.Request.Causal/Fault` and `ledger.Call` causal fields, all zero on the legacy path.
+
 ### Registry
 
 Explicit instance built in the composition root's catalog wiring file (single owner). **No global
@@ -501,7 +526,7 @@ responds to — a `[]failuremode.Mode{Name, Axis, Help}` list (e.g. k8s_cluster 
 `pod_crashloop`, `node_not_ready` on `AxisCluster`; dbo11y_postgres declares `connection_saturation`,
 `replication_lag`, `lock_contention`, `slow_query_storm` on `AxisDatabase`). The construct itself
 owns the physics: on each tick it calls `shape.Eval(mode, ownIdentity)` for the modes it implements.
-Axes include `workload | cluster | database | cache | cloud | service | pipeline_stage`.
+Axes include `workload | cluster | database | cache | cloud | service | pipeline_stage | resource`.
 The shared `internal/pipelinerun` mechanic owns deterministic run-window facts, not signal names;
 Glue and MWAA consume the same environment-scoped seed and declaration without importing each
 other. Terminal windows expose matching outcome counts, duration sums and extrema; count establishes
@@ -511,6 +536,17 @@ sparse export semantics for both transports. Pipeline names are blueprint-wide u
 `pipeline_stage:*` covers every environment's stages. See [declared pipelines](docs/constructs.md#declared-pipelines)
 and the [canonical stage incident contract](docs/incidents.md#pipeline_stage-axis) for grammar,
 activation and the limited emitting-adapter scope. This seam adds no log contract.
+
+The shared `internal/causal` mechanic owns the **`resource` axis**: declared request resources
+(pool, concurrency, queue, quota, dependency, credential, rule) and eight modes on them
+(`pool_exhausted`, `concurrency_reduced`, `quota_reduced`, `consumer_slowdown`, `dependency_slow`,
+`dependency_unavailable`, `credential_expired`, `rule_regression`). Resource names are
+blueprint-wide unique targets, registered with the construct-declared targets, so a name shared
+with a service node or database resolves by mode; a name `<base>-<lower(env)>` is also reached by
+the target `<base>` in every environment (the model reads both scopes). `resource:*` schedules
+cover the declared names, not the base aliases. Activation is unchanged: scheduled, scenario and
+live faults all arrive through `shape.Engine.Eval`. Consumers map model state onto their own
+sourced names; the mechanic adds no telemetry or log contract.
 
 The **`service` axis** (`AxisService`) targets an individual NODE of an `app` service graph.
 The `app` workload declares its modes (`error_spike`/`latency_storm`/`throughput_drop`/`fallback_storm`/
@@ -974,6 +1010,13 @@ Custom-telemetry DSL (`app` workload — §2)
   `-once -dump` inventory is recorded pre-queue and is unaffected. The queue is stdlib-only and never
   links the OTel SDK (preserving the §6 ban); self-obs reads it via the stdlib `queue.Observer` seam
   and the runner's `QueueDepths()` provider (`synthkit.queue.depth`).
+- **I42** Causal request state agrees across consumers by shared determinism, not shared state:
+  every consumer compiles its own `causal.Model` from the one resolver-injected `Set` and the
+  runner advances every `causal.Advancer` on each master tick, so states are equal at every 5 s
+  grid point (exact for scheduled faults; live faults sampled per master tick). `internal/causal`
+  imports only the standard library and `internal/failuremode`, never reads the wall clock or the
+  shape engine's RNG, and is in the archtest construct/workload import allowlist. A blueprint
+  without `resources:` builds no model and its output is unchanged.
 
 ## 8. Module layout
 
@@ -993,6 +1036,7 @@ synthkit/
     ├── state/               sink-correctness layer (cumulative counters, histogram expansion, le styles)
     ├── cw/                  shared CloudWatch stat-expansion mechanic (StatSet/EmitStats; peer of state)
     ├── pipelinerun/         shared deterministic declared-pipeline timeline; no telemetry names
+    ├── causal/              shared deterministic request-resource model (resource axis, per-arrival effects); no telemetry names
     ├── failuremode/         failure-mode vocabulary types (Mode/Axis/MultiAxis); leaf — no synthkit-tier imports
     ├── scale/               live scaling overrides (atomic snapshot; lock-free tick hot path); leaf
     ├── sink/{promrw,otlp,loki,faro}   each carries an optional pushhook.Observe field (self-obs seam; nil = unchanged)
