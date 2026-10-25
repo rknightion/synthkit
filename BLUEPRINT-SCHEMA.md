@@ -724,6 +724,9 @@ aws_bedrock_agentcore_* CloudWatch metrics for Bedrock AgentCore (invocation-cla
 |---|---|---|---|
 | `agents[]` | string |  | Agents is the list of agent logical names rendered for resource-usage dims. Default: ["planner","retriever"] — generic, no customer/blueprint strings. |
 | `sub_signals[]` | string |  | SubSignals selects which families to emit. Valid: runtime, resource_usage, usage_logs, gateway (deferred Spec 3). Empty ⇒ runtime + resource_usage + app_logs (always) emit; usage_logs is opt-in. |
+| `runtimes[]` | object |  | Runtimes binds declared agents' runtimes to causal `concurrency` resources of the blueprint (environments[].resources). A bound runtime emits its own invocation-class series, named by the runtime ARN, read from the shared causal model's window: throttles are the rejected requests, invocations the admitted ones, system_errors the admitted requests that failed (held-across dependency unavailability and credential failures), total_errors their sum and latency the effective hold. Nothing is re-simulated. The other invocation-class families have no modelled source and are omitted for a bound runtime. The deployment-wide series (name `.../runtime/global`) and every other family are unchanged, and keep responding to the region-scoped agentcore_throttle mode, which a bound runtime ignores: its capacity constraint is concurrency_reduced on its resource, and a held-across dependency's faults reach it through the resource. Omitted keeps today's output byte for byte. |
+| `runtimes[].agent` | string |  | Agent names an entry of Config.Agents (including the default list when agents is empty). One runtime appears at most once. |
+| `runtimes[].resource` | string |  | Resource names a `concurrency` resource of environments[].resources; one resource binds at most one runtime. The runtime's request, throttle and error families are its window. |
 
 ## alloy_health config
 
@@ -1283,7 +1286,7 @@ fake network-topology-exporter (SNMP topology discovery: devices/edges + discove
 | `devices[].model` | string |  | Model is accepted for back-compat parsing of existing blueprints but NOT emitted — the real exporter has no model source (no ENTITY-MIB walk). Setting this field has no effect on emitted metrics or labels. |
 | `devices[].os_version` | string |  |  |
 | `devices[].site` | string |  |  |
-| `devices[].uptime` | int |  |  |
+| `devices[].uptime` | duration |  |  |
 | `links[]` | object |  | Links are explicit link declarations that augment/override generated links. |
 | `links[].src_device` | string |  |  |
 | `links[].src_port` | string |  |  |
@@ -1441,9 +1444,9 @@ Solace event-broker telemetry (solace_prometheus_exporter v1.21.0: per-queue and
 | `brokers[].vpns[].queues[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
 | `brokers[].vpns[].queues[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Default 0.3. |
 | `brokers[].vpns[].queues[].drain_schedule` | object | yes | DrainSchedule makes the queue's consumers drain on a schedule instead of continuously (opt-in): a batch consumer that wakes at fixed times. Omitted leaves the queue exactly as before. Rejected on a queue bound to a causal resource, whose drain belongs to the model. |
-| `brokers[].vpns[].queues[].drain_schedule.period` | int |  | Period is the interval between window openings (> 0), for example 1h. |
-| `brokers[].vpns[].queues[].drain_schedule.window` | int |  | Window is how long each drain window stays open (> 0 and <= period). |
-| `brokers[].vpns[].queues[].drain_schedule.phase` | int |  | Phase offsets the window opening from the epoch-aligned period boundary, in [0, period). Default 0. |
+| `brokers[].vpns[].queues[].drain_schedule.period` | duration |  | Period is the interval between window openings (> 0), for example 1h. |
+| `brokers[].vpns[].queues[].drain_schedule.window` | duration |  | Window is how long each drain window stays open (> 0 and <= period). |
+| `brokers[].vpns[].queues[].drain_schedule.phase` | duration |  | Phase offsets the window opening from the epoch-aligned period boundary, in [0, period). Default 0. |
 
 ## sqs config
 
@@ -1826,7 +1829,7 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
 | `services[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the blueprint defaults: 0.3 for metrics, 0.2 (production) or 0.02 (non-production) for request volume. |
 | `services[].uses[]` | string |  | Uses names the declared environments[].resources a request meets on arrival at this service, in order (resolved as "<name>-<lower(env)>" first, then the exact name). A capacity resource (pool, concurrency, quota) or a rule applies at this service; a dependency (and every credential of it, applied after it) applies to the call into this service, so the entry may not use one. A service bound to a pool or concurrency resource takes its duration from the resource's effective hold, one bound to a dependency from its latency; a queue here is the producer side (an enqueue that fails only when the queue is full). Requires resources. |
-| `services[].call_policies` | map[string]CallPolicy |  | CallPolicies is this service's per-callee client policy, keyed by names in calls: timeout_ms (0 = none), retries (0..3), backoff_ms (doubled per resend), retry_on (5xx, throttle, timeout, connect) and propagate_throttle (pass a callee 429 on as 429, not 503). Rule and credential failures are never resent. Requires resources. |
+| `services[].call_policies` | map[string]CallPolicy |  | CallPolicies is this service's per-callee client policy, keyed by names in calls: timeout_ms (0 = none), retries (0..3), backoff_ms (doubled per resend), retry_on (5xx, throttle, timeout, connect) and propagate_throttle (pass a callee 429 on as 429, not 503). timeout_ms and backoff_ms are at most 600000. The service that calls the target never resends a rule rejection or a credential failure. A rule rejection slower than timeout_ms reaches the caller as a timeout (the client cannot know the cause), which retry_on timeout resends. An upstream caller sees only the mapped status of an unabsorbed credential failure (a 502) and resends it under retry_on 5xx. Requires resources. |
 | `services[].worker` | bool |  | Worker marks the entry as a message consumer of traffic.from_resource: its root span is a CONSUMER span and each request records the queue's backlog wait. Entry only. |
 | `traffic` | object |  | Traffic shapes the entry node's invocation volume (the correlated narrative sample). |
 | `traffic.shape` | string |  | shape profile name (informational) |
