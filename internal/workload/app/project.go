@@ -397,7 +397,7 @@ func (w *Workload) projectLogs(ctx context.Context, world *core.World, batch []*
 			if !n.decl.tracesEnabled() {
 				delete(refs, "span_id")
 			}
-			ctxEval := telemetryspec.EvalCtx{Ref: refs, Rand: world.Shape.Float64, Norm: world.Shape.NormFloat64}
+			ctxEval := telemetryspec.EvalCtx{Ref: refs, Rand: world.Shape.Float64, Norm: world.Shape.NormFloat64, Draw: requestDraw(r)}
 			for _, spec := range n.logs {
 				emit(n, spec, level, completedAt, ctxEval)
 			}

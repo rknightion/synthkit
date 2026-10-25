@@ -37,6 +37,10 @@ func checkValue(vm ValueModel, pos position, where string) error {
 	if vm.Now != nil && pos != posMetricValue {
 		return fmt.Errorf("%s: now is metric value only", where)
 	}
+	// A request draw reads the log projection's per-request seed; no other evaluator supplies one.
+	if vm.RequestDraw != nil && pos != posBody {
+		return fmt.Errorf("%s: request_draw is log body only", where)
+	}
 	// The causal models read model state or window outcomes, which only the metric lane supplies.
 	if (vm.Resource != nil || vm.Outcomes != nil) && pos != posMetricValue {
 		return fmt.Errorf("%s: %s is metric value only", where, vm.Kind())

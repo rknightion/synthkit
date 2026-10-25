@@ -438,7 +438,7 @@ func (w *Workload) projectCausalLogs(r *ledger.Request, world *core.World, line 
 			if !v.end.IsZero() && v.end.Before(completedAt) {
 				t = v.end
 			}
-			line(n, logLevel(outcomeOf(v.status)), t, telemetryspec.EvalCtx{Ref: refs, Rand: world.Shape.Float64, Norm: world.Shape.NormFloat64})
+			line(n, logLevel(outcomeOf(v.status)), t, telemetryspec.EvalCtx{Ref: refs, Rand: world.Shape.Float64, Norm: world.Shape.NormFloat64, Draw: requestDraw(r)})
 		}
 	}
 }

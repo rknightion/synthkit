@@ -16,6 +16,7 @@ package telemetryspec
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,6 +38,8 @@ const (
 	KindNow        = "now"
 	KindResource   = "resource"
 	KindOutcomes   = "outcomes"
+
+	KindRequestDraw = "request_draw"
 )
 
 // Outcome measures (OutcomeValue.Measure). An omitted measure is MeasureCount.
@@ -107,6 +110,153 @@ type ValueModel struct {
 	Resource *ResourceValue `yaml:"resource"`
 	// Outcomes reads the service node's hop outcomes in the metric window (metric value only).
 	Outcomes *OutcomeValue `yaml:"outcomes"`
+	// RequestDraw draws a formatted ID or an enum value once per request and repeats it on every
+	// log line of that request that names the same key (log body field only).
+	RequestDraw *RequestDraw `yaml:"request_draw"`
+}
+
+// RequestDraw is a value drawn once per request and shared by every log line of that request
+// that declares the same Key, so a multi-line log bundle repeats one fresh ID and one path
+// instead of a fixed specimen. Set exactly one of Format and Enum.
+//
+// The draw hashes the request's seed unit (the workload supplies it as EvalCtx.Draw), never the
+// shape engine, so it is deterministic for a given seed and clock and consumes no engine
+// randomness: declaring one never shifts a neighbouring field's values. A line that declares the
+// same key on a different format or enum would draw a different value; lines of one bundle
+// should repeat the same declaration.
+//
+// Format is literal text with generated runs written {digits:N}, {hex:N} (lower case) or
+// {upper:N} (upper case letters and digits), N from 1 to 32 and at most 64 generated characters in
+// all, for example "ORD-{digits:10}" or "{hex:8}-{hex:4}". Literal braces are not supported.
+// Enum is a weighted categorical draw with the same entries as an `enum` value model (weights
+// select the share of requests; rate_scale, value_scale and shape_profile do not apply).
+type RequestDraw struct {
+	Key    string      `yaml:"key"`
+	Format string      `yaml:"format"`
+	Enum   []EnumEntry `yaml:"enum"`
+}
+
+// drawRun is one parsed piece of a Format: literal text, or n generated characters drawn from
+// alphabet.
+type drawRun struct {
+	literal  string
+	alphabet string
+	n        int
+}
+
+const (
+	maxDrawRun   = 32
+	maxDrawChars = 64
+)
+
+var drawAlphabets = map[string]string{
+	"digits": "0123456789",
+	"hex":    "0123456789abcdef",
+	"upper":  "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+}
+
+// parseDrawFormat splits a Format into literal and generated runs. A format with no generated
+// run is rejected (it would be a constant: use const_str).
+func parseDrawFormat(format string) ([]drawRun, error) {
+	var runs []drawRun
+	var lit strings.Builder
+	generated := 0
+	for i := 0; i < len(format); {
+		switch format[i] {
+		case '}':
+			return nil, fmt.Errorf("format %q: unmatched } (literal braces are not supported)", format)
+		case '{':
+			end := strings.IndexByte(format[i:], '}')
+			if end < 0 {
+				return nil, fmt.Errorf("format %q: unclosed { (write {digits:N}, {hex:N} or {upper:N})", format)
+			}
+			name, count, ok := strings.Cut(format[i+1:i+end], ":")
+			alphabet, known := drawAlphabets[name]
+			n, err := strconv.Atoi(count)
+			if !ok || !known || err != nil || n < 1 || n > maxDrawRun {
+				return nil, fmt.Errorf("format %q: bad run {%s} (want {digits:N}, {hex:N} or {upper:N} with N from 1 to %d)", format, format[i+1:i+end], maxDrawRun)
+			}
+			if lit.Len() > 0 {
+				runs = append(runs, drawRun{literal: lit.String()})
+				lit.Reset()
+			}
+			runs = append(runs, drawRun{alphabet: alphabet, n: n})
+			generated += n
+			i += end + 1
+		default:
+			lit.WriteByte(format[i])
+			i++
+		}
+	}
+	if lit.Len() > 0 {
+		runs = append(runs, drawRun{literal: lit.String()})
+	}
+	switch {
+	case generated == 0:
+		return nil, fmt.Errorf("format %q: no generated run (use const_str for a fixed value)", format)
+	case generated > maxDrawChars:
+		return nil, fmt.Errorf("format %q: %d generated characters exceeds %d", format, generated, maxDrawChars)
+	}
+	return runs, nil
+}
+
+func (d RequestDraw) validate() error {
+	if strings.TrimSpace(d.Key) == "" {
+		return fmt.Errorf("request_draw: key must be non-blank")
+	}
+	switch {
+	case d.Format != "" && len(d.Enum) > 0:
+		return fmt.Errorf("request_draw %q: set either format or enum, not both", d.Key)
+	case d.Format == "" && len(d.Enum) == 0:
+		return fmt.Errorf("request_draw %q: need a format or an enum", d.Key)
+	}
+	if d.Format != "" {
+		if _, err := parseDrawFormat(d.Format); err != nil {
+			return fmt.Errorf("request_draw %q: %w", d.Key, err)
+		}
+		return nil
+	}
+	for _, e := range d.Enum {
+		if e.Scaled() || e.ShapeProfile != nil {
+			return fmt.Errorf("request_draw %q value %q: rate_scale, value_scale and shape_profile are valid on metric labels only", d.Key, e.Value)
+		}
+	}
+	if err := validateEnumEntries(d.Enum); err != nil {
+		return fmt.Errorf("request_draw %q: %w", d.Key, err)
+	}
+	return nil
+}
+
+// eval renders the request's value for this declaration from the per-request draw u, a function of
+// a purpose string to [0,1). A nil u reads the midpoint of every draw, so a context without a
+// request still renders a stable value.
+func (d RequestDraw) eval(u func(string) float64) string {
+	draw := func(purpose string) float64 {
+		if u == nil {
+			return 0.5
+		}
+		return u(purpose)
+	}
+	if d.Format == "" {
+		return weightedPick(d.Enum, draw(d.Key+"#enum"))
+	}
+	runs, err := parseDrawFormat(d.Format)
+	if err != nil {
+		return "" // unreachable after Validate
+	}
+	var b strings.Builder
+	idx := 0
+	for _, run := range runs {
+		if run.literal != "" {
+			b.WriteString(run.literal)
+			continue
+		}
+		for range run.n {
+			b.WriteByte(run.alphabet[min(int(draw(d.Key+"#"+strconv.Itoa(idx))*float64(len(run.alphabet))), len(run.alphabet)-1)])
+			idx++
+		}
+	}
+	return b.String()
 }
 
 // ResourceValue reads one field of the named resource's state. Gauge fields (demand_rps,
@@ -250,6 +400,11 @@ type EvalCtx struct {
 
 	// Resource reads a resource field (name, field); ok=false or a nil func ⇒ the model reads 0.
 	Resource func(name, field string) (float64, bool)
+
+	// Draw is the request's seeded draw: a deterministic function of a purpose string to [0,1)
+	// that hashes the request's seed unit, read by request_draw. It is independent of Rand, so
+	// it consumes no engine randomness; nil reads the midpoint of every draw.
+	Draw func(purpose string) float64
 	// Outcomes reads an outcome count or share for the series; a nil func ⇒ the model reads 0.
 	Outcomes func(v OutcomeValue, labels map[string]string) float64
 	// OutcomeLatencies returns the window's matching hop durations in seconds (measure latency);
@@ -328,6 +483,8 @@ func (v ValueModel) Eval(ctx EvalCtx) (float64, string) {
 			return 0, ""
 		}
 		return 0, ctx.Ref[v.Ref]
+	case KindRequestDraw:
+		return 0, v.RequestDraw.eval(ctx.Draw)
 	case KindNow:
 		if ctx.Now.IsZero() {
 			return 0, ""
@@ -435,6 +592,8 @@ func (v ValueModel) Kind() string {
 		return KindResource
 	case v.Outcomes != nil:
 		return KindOutcomes
+	case v.RequestDraw != nil:
+		return KindRequestDraw
 	}
 	return ""
 }
@@ -445,7 +604,7 @@ func (v ValueModel) setCount() int {
 	for _, set := range []bool{
 		v.Const != nil, v.ConstStr != nil, len(v.Enum) > 0, v.IntRange != nil,
 		v.FloatRange != nil, v.Normal != nil, v.Bool != nil, v.Shape != nil, v.Ref != "",
-		v.Lognormal != nil, v.Now != nil, v.Resource != nil, v.Outcomes != nil,
+		v.Lognormal != nil, v.Now != nil, v.Resource != nil, v.Outcomes != nil, v.RequestDraw != nil,
 	} {
 		if set {
 			n++
@@ -459,7 +618,7 @@ func (v ValueModel) setCount() int {
 func (v ValueModel) Validate() error {
 	switch n := v.setCount(); {
 	case n == 0:
-		return fmt.Errorf("value model: no model set (need exactly one of const|const_str|enum|int_range|float_range|normal|lognormal|bool|shape|now|resource|outcomes|ref)")
+		return fmt.Errorf("value model: no model set (need exactly one of const|const_str|enum|int_range|float_range|normal|lognormal|bool|shape|now|resource|outcomes|request_draw|ref)")
 	case n > 1:
 		return fmt.Errorf("value model: %d models set, need exactly one", n)
 	}
@@ -469,23 +628,8 @@ func (v ValueModel) Validate() error {
 			return fmt.Errorf("const_str: empty string not allowed")
 		}
 	case KindEnum:
-		seen := make(map[string]bool, len(v.Enum))
-		for i, e := range v.Enum {
-			if strings.TrimSpace(e.Value) == "" {
-				return fmt.Errorf("enum[%d]: empty value not allowed", i)
-			}
-			if e.Weight < 0 {
-				return fmt.Errorf("enum value %q: negative weight %v", e.Value, e.Weight)
-			}
-			for _, sc := range []*float64{e.RateScale, e.ValueScale} {
-				if sc != nil && (math.IsNaN(*sc) || math.IsInf(*sc, 0) || *sc < 0) {
-					return fmt.Errorf("enum value %q: rate_scale/value_scale must be finite and >= 0", e.Value)
-				}
-			}
-			if seen[e.Value] {
-				return fmt.Errorf("enum value %q: duplicate (would collapse to one series / double-count a counter)", e.Value)
-			}
-			seen[e.Value] = true
+		if err := validateEnumEntries(v.Enum); err != nil {
+			return err
 		}
 	case KindIntRange:
 		if v.IntRange.Min > v.IntRange.Max {
@@ -532,6 +676,8 @@ func (v ValueModel) Validate() error {
 		}
 	case KindOutcomes:
 		return v.Outcomes.validate()
+	case KindRequestDraw:
+		return v.RequestDraw.validate()
 	case KindRef:
 		if strings.TrimSpace(v.Ref) == "" {
 			return fmt.Errorf("ref: empty correlation field name")
@@ -547,6 +693,30 @@ func (v ValueModel) Validate() error {
 		if p < m {
 			return fmt.Errorf("lognormal: p95 %v must be >= median %v", p, m)
 		}
+	}
+	return nil
+}
+
+// validateEnumEntries enforces the entries of an enum value model or request draw: non-empty
+// unique values, non-negative weights and finite non-negative scales.
+func validateEnumEntries(entries []EnumEntry) error {
+	seen := make(map[string]bool, len(entries))
+	for i, e := range entries {
+		if strings.TrimSpace(e.Value) == "" {
+			return fmt.Errorf("enum[%d]: empty value not allowed", i)
+		}
+		if e.Weight < 0 {
+			return fmt.Errorf("enum value %q: negative weight %v", e.Value, e.Weight)
+		}
+		for _, sc := range []*float64{e.RateScale, e.ValueScale} {
+			if sc != nil && (math.IsNaN(*sc) || math.IsInf(*sc, 0) || *sc < 0) {
+				return fmt.Errorf("enum value %q: rate_scale/value_scale must be finite and >= 0", e.Value)
+			}
+		}
+		if seen[e.Value] {
+			return fmt.Errorf("enum value %q: duplicate (would collapse to one series / double-count a counter)", e.Value)
+		}
+		seen[e.Value] = true
 	}
 	return nil
 }
