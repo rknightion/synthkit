@@ -7,7 +7,7 @@
 // Scope:    ScopeSubstrate  (no blueprint label — vendor-app conformance)
 // Signals:  [Metrics, Logs]
 // Interval: 60s
-// Config:   empty struct (all identity comes from fixture.DB)
+// Config:   private optional causal binding (all identity comes from fixture.DB)
 //
 // Build requires fx.DB with Engine=="postgres"; returns an error for other engines.
 //
@@ -36,6 +36,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/fixture"
 	"github.com/rknightion/synthkit/internal/sink/loki"
@@ -44,10 +45,15 @@ import (
 
 const kind = "dbo11y_postgres"
 
-// Config is the per-instance configuration struct. All identity derives from fixture.DB;
-// this struct carries no fields in v1 (the database declaration in the blueprint YAML
-// provides engine/version/name/observability mode).
-type Config struct{}
+// Config carries resolver-injected binding only; identity derives from fixture.DB.
+// No fields are decoded from YAML.
+type Config struct {
+	resource string
+	set      causal.Set
+}
+
+func (c *Config) BindResource(name string)  { c.resource = name }
+func (c *Config) UseResources(s causal.Set) { c.set = s }
 
 // Reg is the ConstructReg entry for dbo11y_postgres.
 var Reg = core.ConstructReg{
@@ -66,13 +72,28 @@ func build(cfg any, fx *fixture.Set) (core.Construct, error) {
 	if db.Engine != "postgres" {
 		return nil, fmt.Errorf("%s: requires engine=postgres, got %q", kind, db.Engine)
 	}
-	return &construct{db: db, st: state.NewState()}, nil
+	c := &construct{db: db, st: state.NewState()}
+	if cfg, ok := cfg.(*Config); ok && cfg != nil && cfg.resource != "" {
+		r, err := resolveBinding(cfg, fx)
+		if err != nil {
+			return nil, err
+		}
+		m, err := causal.Compile(cfg.set)
+		if err != nil {
+			return nil, fmt.Errorf("%s: causal model: %w", kind, err)
+		}
+		c.model, c.resource, c.pool = m, r.Name, r.Kind == causal.KindPool
+	}
+	return c, nil
 }
 
 // construct is the per-instance renderer.
 type construct struct {
-	db *fixture.DB
-	st *state.State
+	db       *fixture.DB
+	st       *state.State
+	model    *causal.Model
+	resource string
+	pool     bool
 }
 
 func (c *construct) Kind() string                { return kind }
@@ -80,12 +101,14 @@ func (c *construct) Signals() []core.SignalClass { return []core.SignalClass{cor
 func (c *construct) Interval() time.Duration     { return 60 * time.Second }
 
 func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) error {
-	c.buildMetrics(now, w)
+	// One immutable reading drives both sinks for this trailing minute.
+	bound := c.boundWindow(now, w.Shape)
+	c.buildMetrics(now, w, bound)
 	batch := c.st.Collect(now)
 	if err := w.Metrics.Write(ctx, batch); err != nil {
 		return err
 	}
-	streams := c.buildStreams(now)
+	streams := c.buildStreams(now, bound)
 	if len(streams) == 0 {
 		return nil
 	}
@@ -94,7 +117,7 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 
 // ── metric groups ─────────────────────────────────────────────────────────────
 
-func (c *construct) buildMetrics(now time.Time, w *core.World) {
+func (c *construct) buildMetrics(now time.Time, w *core.World, bound boundReading) {
 	db := c.db
 	bf := w.Shape.BusinessFactor(now) * w.Shape.Noise(0.1)
 	tgt := targetLabels(db)
@@ -114,22 +137,26 @@ func (c *construct) buildMetrics(now time.Time, w *core.World) {
 		c.st.Set("pg_up", tgt, 1)
 
 		// pg_stat_database_numbackends.
-		connFactor := w.Shape.FailFactor(now, "connection_saturation", db.Name, 5)
+		connFactor := c.legacyFactor(now, w, "connection_saturation", 5)
+		connections := math.Round(15 * bf * connFactor)
+		if bound.pool {
+			connections = bound.inUse
+		}
 		c.st.Set("pg_stat_database_numbackends",
 			mergeMaps(tgt, map[string]string{"datname": db.Databases[0]}),
-			math.Round(15*bf*connFactor))
+			connections)
 
 		// pg_replication_* gauges.
-		lagFactor := w.Shape.FailFactor(now, "replication_lag", db.Name, 120)
+		lagFactor := c.legacyFactor(now, w, "replication_lag", 120)
 		lagBytes := 0.0
-		if w.Shape.Active(now, "replication_lag", db.Name) {
+		if c.model == nil && w.Shape.Active(now, "replication_lag", db.Name) {
 			lagBytes = 1_000_000 * lagFactor
 		}
 		c.st.Set("pg_replication_is_replica", tgt, 0)
 		c.st.Set("pg_replication_lag", tgt, lagBytes)
 
 		// pg_locks_count.
-		lockFactor := w.Shape.FailFactor(now, "lock_contention", db.Name, 5)
+		lockFactor := c.legacyFactor(now, w, "lock_contention", 5)
 		c.st.Set("pg_locks_count",
 			mergeMaps(tgt, map[string]string{"mode": "ExclusiveLock", "datname": db.Databases[0]}),
 			math.Round(2*bf*lockFactor))
@@ -164,7 +191,7 @@ func (c *construct) buildMetrics(now time.Time, w *core.World) {
 			// <1 for all classes), reintroducing the lockstep this variation removes. Counters are
 			// float64, so fractional per-tick increments are fine and keep peer classes distinct.
 			var delta float64
-			if er.severity == "FATAL" && w.Shape.Active(now, "connection_saturation", db.Name) {
+			if c.model == nil && er.severity == "FATAL" && w.Shape.Active(now, "connection_saturation", db.Name) {
 				delta = 5 * bf * errV
 			} else {
 				delta = 0.5 * bf * errV
@@ -177,7 +204,7 @@ func (c *construct) buildMetrics(now time.Time, w *core.World) {
 	// pg_stat_statements: three counter families per query.
 	// NOTE: do NOT emit database_observability_wait_event_seconds_total (MySQL-only §4.1.10 / T3).
 	{
-		slowFactor := w.Shape.FailFactor(now, "slow_query_storm", db.Name, 8)
+		slowFactor := c.legacyFactor(now, w, "slow_query_storm", 8)
 		for _, q := range db.Queries {
 			// Labels: {tgt…, datname, queryid="<decimal string>"} — NO digest_text (§4.1.10).
 			ql := mergeMaps(tgt, map[string]string{
@@ -198,7 +225,7 @@ func (c *construct) buildMetrics(now time.Time, w *core.World) {
 			} else {
 				secDelta = 0.01 * bf * c.seriesVar(w, now, "sec_fast|"+q.ID, 0.30)
 			}
-			c.st.Add("pg_stat_statements_seconds_total", ql, secDelta)
+			c.st.Add("pg_stat_statements_seconds_total", ql, secDelta*bound.latency)
 			rowsDelta := math.Max(1, 100*bf*rowsV)
 			c.st.Add("pg_stat_statements_rows_total", ql, rowsDelta)
 		}
@@ -207,13 +234,13 @@ func (c *construct) buildMetrics(now time.Time, w *core.World) {
 
 // ── log groups ────────────────────────────────────────────────────────────────
 
-func (c *construct) buildStreams(now time.Time) []loki.Stream {
+func (c *construct) buildStreams(now time.Time, bound boundReading) []loki.Stream {
 	var out []loki.Stream
 	db := c.db
 	datname := db.Databases[0]
 
-	out = append(out, c.sampleStreams(now, datname)...)
-	out = append(out, c.waitStreams(now, datname)...)
+	out = append(out, c.sampleStreams(now, datname, bound)...)
+	out = append(out, c.waitStreams(now, datname, bound)...)
 	out = append(out, c.queryDetailStreams(now, datname)...)
 	out = append(out, c.schemaStreams(now, datname)...)
 	out = append(out, c.explainStreams(now, datname)...)
@@ -225,7 +252,7 @@ func (c *construct) buildStreams(now time.Time) []loki.Stream {
 // Timestamp rule (M8 / T7): lineTime = now − query_time.
 // Duration fields use Go time.Duration.String() format (T8).
 // leader_pid="" is emitted as empty string, NOT omitted (§B.5).
-func (c *construct) sampleStreams(now time.Time, datname string) []loki.Stream {
+func (c *construct) sampleStreams(now time.Time, datname string, bound boundReading) []loki.Stream {
 	db := c.db
 	labels := streamLabels(db, "query_sample")
 	var lines []loki.Line
@@ -238,6 +265,7 @@ func (c *construct) sampleStreams(now time.Time, datname string) []loki.Stream {
 		} else {
 			queryDur = time.Duration(5+qi) * 10 * time.Millisecond
 		}
+		queryDur = time.Duration(float64(queryDur) * bound.latency)
 		xactDur := queryDur + 50*time.Millisecond
 		queryTimeStr := queryDur.String()
 		xactTimeStr := xactDur.String()
@@ -283,7 +311,7 @@ func (c *construct) sampleStreams(now time.Time, datname string) []loki.Stream {
 // Only slow queries generate wait events.
 // wait_event_name = "<type>:<event>" (T9 colon-joined format).
 // wait_event_v2 carries pre-classified wait_event_type buckets (T17).
-func (c *construct) waitStreams(now time.Time, datname string) []loki.Stream {
+func (c *construct) waitStreams(now time.Time, datname string, bound boundReading) []loki.Stream {
 	db := c.db
 	wev1Labels := streamLabels(db, "wait_event")
 	wev2Labels := streamLabels(db, "wait_event_v2")
@@ -296,7 +324,9 @@ func (c *construct) waitStreams(now time.Time, datname string) []loki.Stream {
 			continue
 		}
 		baseMs := float64(30_000 + qi*5_000)
-		queryDur := time.Duration(baseMs) * time.Millisecond
+		queryDur := time.Duration(float64(time.Duration(baseMs)*time.Millisecond) * bound.latency)
+		// Generic duration response only: pool acquisition wait is NOT server Lock/IO
+		// attribution. Categories and blocked identities remain baseline synthetic exemplars.
 		waitDur := queryDur * 4 / 5
 		waitDurStr := waitDur.String()
 
