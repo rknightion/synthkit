@@ -556,34 +556,76 @@ func (p *causalPlan) overlay(m *minter, r *ledger.Request, now time.Time, eng *s
 	}
 }
 
+// holdCovered reports whether a call from the legacy hop li runs a service whose duration is
+// the dependency dep's latency. A pool, concurrency limit or queue held across dep keeps its
+// slot while that call runs, so the call is where the hold's stretch by dep's extra latency is
+// spent.
+func (ev *evaluator) holdCovered(li int, dep string) bool {
+	for _, ci := range ev.children[li] {
+		if ev.p.nodes[ev.legacy[ci].Target].durRes == dep {
+			return true
+		}
+	}
+	return false
+}
+
+// baseDur is a service's base duration on a path. d is the duration. A service whose hold spans
+// a call to the held dependency (covered, see holdCovered) also has the part of the duration
+// that is its own: pre is the unstretched hold the work before its first call is a share of, and
+// own the time outside the dependency's baseline latency, so the call supplies the rest. dep is
+// the held dependency.
+type baseDur struct {
+	d, pre, own float64
+	covered     bool
+	dep         string
+}
+
 // baseMS is a service's base duration on a path: drawn around its bound resource's hold or
 // latency (with the node's latency_storm factor) or the legacy duration (jittered on a resend
 // path), plus the extra latency of slowed dependencies it uses beyond its duration source.
-func (ev *evaluator) baseMS(name, path string, legacyMS float64, fresh bool) float64 {
+//
+// A hold held across a dependency that the service also calls is not stretched twice: the
+// connection is held while the query runs, so a slower query is the stretch of the hold. The
+// stretch is left to the call (the hold is the sum of the service's own time and the call), and
+// the service keeps only the rest of its hold, with the same draw spread.
+func (ev *evaluator) baseMS(name, path string, legacyMS float64, fresh bool, li int) baseDur {
 	cn := ev.p.nodes[name]
-	var d float64
+	var bd baseDur
 	if cn.durRes == "" {
-		d = legacyMS
+		bd.d = legacyMS
 		if fresh {
-			d *= 0.8 + 0.4*ev.draw(path+"/jitter")
+			bd.d *= 0.8 + 0.4*ev.draw(path+"/jitter")
 		}
 	} else {
 		st, _ := ev.p.model.State(cn.durRes, ev.now)
+		r := ev.p.res[cn.durRes]
 		mean := st.HoldMS
-		if ev.p.res[cn.durRes].Kind == causal.KindDependency {
-			mean = ev.p.res[cn.durRes].LatencyMS * math.Max(1, st.LatencyFactor)
+		if r.Kind == causal.KindDependency {
+			mean = r.LatencyMS * math.Max(1, st.LatencyFactor)
 		}
 		u := math.Min(math.Max(ev.draw(path+"/"+cn.durRes+"/duration"), 1e-12), 1-1e-12)
 		z := math.Sqrt2 * math.Erfinv(2*u-1)
 		median := mean / math.Exp(causalDurationSigma*causalDurationSigma/2)
-		d = median * math.Exp(causalDurationSigma*z) * ev.eng.FailFactor(ev.now, "latency_storm", name, 4.0)
+		spread := math.Exp(causalDurationSigma*z) * ev.eng.FailFactor(ev.now, "latency_storm", name, 4.0)
+		bd.d = median * spread
+		if r.Kind != causal.KindDependency && r.HeldAcross != "" && ev.holdCovered(li, r.HeldAcross) {
+			// hold_ms includes the dependency's baseline latency (resource validation), so the
+			// service's own time is the rest, at least the work before its first call.
+			f := spread / math.Exp(causalDurationSigma*causalDurationSigma/2)
+			bd.covered, bd.dep = true, r.HeldAcross
+			bd.pre = r.HoldMS * f
+			bd.own = math.Max(r.HoldMS-ev.p.res[r.HeldAcross].LatencyMS, preWorkFraction*r.HoldMS) * f
+		}
 	}
 	for _, dep := range cn.extraDeps {
 		if st, ok := ev.p.model.State(dep, ev.now); ok && st.LatencyFactor > 1 {
-			d += ev.p.res[dep].LatencyMS * (st.LatencyFactor - 1)
+			x := ev.p.res[dep].LatencyMS * (st.LatencyFactor - 1)
+			bd.d += x
+			bd.own += x
 		}
 	}
-	return math.Max(d, 0)
+	bd.d = math.Max(bd.d, 0)
+	return bd
 }
 
 // serve evaluates one service on a path from its server start: its resources in order, its
@@ -591,7 +633,11 @@ func (ev *evaluator) baseMS(name, path string, legacyMS float64, fresh bool) flo
 // index of the call into it (-1 for the entry), li the matching legacy hop.
 func (ev *evaluator) serve(name, path string, hop, li int, start, legacyMS float64, fresh bool) result {
 	cn := ev.p.nodes[name]
-	d0 := ev.baseMS(name, path, legacyMS, fresh)
+	bd := ev.baseMS(name, path, legacyMS, fresh, li)
+	d0, pre0 := bd.d, bd.d
+	if bd.covered {
+		pre0 = bd.pre
+	}
 	if li < 0 {
 		ev.entryBase = d0
 	}
@@ -623,12 +669,16 @@ func (ev *evaluator) serve(name, path string, hop, li int, start, legacyMS float
 		}
 		wait += msOf(e.Wait)
 	}
-	cursor := start + wait + preWorkFraction*d0
+	cursor := start + wait + preWorkFraction*pre0
 	childStart := cursor
+	heldSpan := 0.0 // elapsed time of the calls that run the held dependency
 	for _, ci := range ev.children[li] {
 		target := ev.legacy[ci].Target
 		er := ev.edge(hop, ci, path, cursor, fresh, cn.policies[target])
 		cursor += er.durMS
+		if bd.covered && ev.p.nodes[target].durRes == bd.dep {
+			heldSpan += er.durMS
+		}
 		res.noteSlow(er.slow, er.slowBy)
 		if !er.ok {
 			status, class := causal.CallerStatus(cn.policies[target], er.class, er.status, li < 0)
@@ -638,7 +688,13 @@ func (ev *evaluator) serve(name, path string, hop, li int, start, legacyMS float
 		}
 	}
 	res.ok = true
-	res.durMS = wait + math.Max(d0, preWorkFraction*d0+(cursor-childStart))
+	if bd.covered {
+		// The hold is the service's own time plus the held call, so the slowed dependency counts
+		// once, inside that call; the hold still spans every other call.
+		res.durMS = wait + math.Max(bd.own+heldSpan, preWorkFraction*pre0+(cursor-childStart))
+	} else {
+		res.durMS = wait + math.Max(d0, preWorkFraction*pre0+(cursor-childStart))
+	}
 	if li >= 0 {
 		if cause := ev.hopCause(li, path, name, fresh); cause != "" {
 			ev.touched = true

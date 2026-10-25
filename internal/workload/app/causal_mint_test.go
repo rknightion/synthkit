@@ -4,6 +4,7 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"math"
 	"strconv"
 	"strings"
@@ -600,5 +601,130 @@ services:
 	_, err = tryCausalApps(t, causalResources, diamond)
 	if err == nil || !strings.Contains(err.Error(), "to 340 calls") {
 		t.Fatalf("diamond expansion: %v", err)
+	}
+}
+
+// A pool held across a dependency that the node also calls spends the hold's stretch inside that
+// call, so the node slows by the dependency's factor and not by more (SKT-0168.09.36). Real
+// connection pools behave this way: the connection is held while the query runs, so a slower
+// query is the stretch of the hold, not a second delay beside it.
+const heldCallResources = `
+- {name: store-pool, kind: pool, size: 400, hold_ms: 400, held_across: store-db, acquire_timeout_ms: 3000,
+   demand: {off_peak_rps: 5, peak_rps: 60}}
+- {name: store-db, kind: dependency, latency_ms: 400, slow_factor: 4}
+`
+
+// heldCallApp is the layout: svc holds store-pool (across store-db) and calls store, which uses
+// store-db.
+const heldCallApp = `
+traffic: {off_peak_rps: 5, peak_rps: 60}
+services:
+  - name: gateway
+    entry: true
+    calls: [svc]
+  - {name: svc, uses: [store-pool], calls: [store]}
+  - {name: store, type: db, uses: [store-db]}
+`
+
+func TestCausalHeldDependencyCountedOnce(t *testing.T) {
+	mean := func(eng *shape.Engine, target string) float64 {
+		w := causalApps(t, heldCallResources, heldCallApp)[0]
+		var all []*ledger.Request
+		for i := range 10 {
+			all = append(all, mintAt(w, eng, causalNow.Add(time.Duration(i)*time.Minute))...)
+		}
+		return meanHop(all, target)
+	}
+	healthy := shape.New("UTC", nil)
+	slow := incident(causal.ModeDependencySlow, "store-db", 1) // lf = 4
+	depFactor := mean(slow, "store") / mean(healthy, "store")
+	svcFactor := mean(slow, "svc") / mean(healthy, "svc")
+	t.Logf("store hop x%.3f, svc hop x%.3f", depFactor, svcFactor)
+	if math.Abs(depFactor-4) > 0.25 {
+		t.Fatalf("store-db slowed the store hop x%.2f, want about x4", depFactor)
+	}
+	// The node keeps its pre-call work (10%% of the unstretched hold), about 2.5%% over the factor.
+	if math.Abs(svcFactor-depFactor) > 0.06*depFactor {
+		t.Errorf("svc held store-pool across store-db and called it: slowed x%.2f for a x%.2f dependency, want within 6%%", svcFactor, depFactor)
+	}
+}
+
+// With a hold much longer than the held dependency's baseline latency, and a second call inside
+// the hold, the node follows the hold rule h = hold_ms + latency_ms x (lf - 1): the other call
+// is part of the hold and adds nothing, and only the held call carries the stretch.
+func TestCausalHeldDependencyBesideAnotherCall(t *testing.T) {
+	const resources = `
+- {name: batch-pool, kind: pool, size: 400, hold_ms: 900, held_across: batch-db, acquire_timeout_ms: 3000,
+   demand: {off_peak_rps: 5, peak_rps: 60}}
+- {name: batch-db, kind: dependency, latency_ms: 100, slow_factor: 4}
+`
+	const app = `
+traffic: {off_peak_rps: 5, peak_rps: 60}
+services:
+  - {name: gateway, entry: true, calls: [svc]}
+  - {name: svc, uses: [batch-pool], calls: [store, audit]}
+  - {name: store, type: db, uses: [batch-db]}
+  - {name: audit}
+`
+	mean := func(eng *shape.Engine) float64 {
+		w := causalApps(t, resources, app)[0]
+		var all []*ledger.Request
+		for i := range 10 {
+			all = append(all, mintAt(w, eng, causalNow.Add(time.Duration(i)*time.Minute))...)
+		}
+		return meanHop(all, "svc")
+	}
+	healthy := mean(shape.New("UTC", nil))
+	slow := mean(incident(causal.ModeDependencySlow, "batch-db", 1)) // lf = 4: h = 900 + 100 x 3
+	t.Logf("healthy svc %.1f ms, slowed svc %.1f ms", healthy, slow)
+	if healthy < 850 || healthy > 950 {
+		t.Fatalf("healthy svc hop mean %.1f ms, want about the 900 ms hold", healthy)
+	}
+	if slow < 1140 || slow > 1260 {
+		t.Errorf("slowed svc hop mean %.1f ms, want about the 1200 ms hold (900 + 100 x 3)", slow)
+	}
+}
+
+// heldCallRun mints and ticks one healthy warm-up window and then the window under test for the
+// held-call layout, the way faultRowsRun does for its own layout.
+func heldCallRun(t *testing.T, eng *shape.Engine) faultRun {
+	t.Helper()
+	w := causalApps(t, heldCallResources, heldCallApp)[0]
+	led := ledger.New(eng, 0, 0)
+	led.AddMinter(w.Minter())
+	run := faultRun{warm: &coretest.MetricCapture{}}
+	before := causalNow.Add(-90 * time.Minute) // the incident starts at 12:00
+	led.Mint(before)
+	world := coretest.World(run.warm, nil, nil)
+	world.Shape, world.Ledger = eng, led
+	if err := w.Tick(context.Background(), before, world); err != nil {
+		t.Fatalf("warm-up Tick: %v", err)
+	}
+	run.reqs = led.Mint(causalNow)
+	run.mc = &coretest.MetricCapture{}
+	world = coretest.World(run.mc, nil, nil)
+	world.Shape, world.Ledger = eng, led
+	if err := w.Tick(context.Background(), causalNow, world); err != nil {
+		t.Fatalf("Tick: %v", err)
+	}
+	return run
+}
+
+// The span-metric rows of the held-call layout follow the same factors as the request facts: the
+// held dependency's slowdown is counted once on the service's SERVER row too.
+func TestCausalHeldDependencySpanMetricRows(t *testing.T) {
+	healthy := heldCallRun(t, shape.New("UTC", nil))
+	slow := heldCallRun(t, incident(causal.ModeDependencySlow, "store-db", 1)) // lf = 4
+	store := rowMeanLatency(slow, "svc", spanKindClient, "call store") / rowMeanLatency(healthy, "svc", spanKindClient, "call store")
+	svc := rowMeanLatency(slow, "svc", spanKindServer, "") / rowMeanLatency(healthy, "svc", spanKindServer, "")
+	t.Logf("span-metric rows: svc CLIENT call store x%.3f, svc SERVER x%.3f", store, svc)
+	if math.IsNaN(store) || math.IsNaN(svc) {
+		t.Fatalf("no rows: store %v svc %v", store, svc)
+	}
+	if math.Abs(store-4) > 0.4 {
+		t.Fatalf("store row slowed x%.2f, want about x4", store)
+	}
+	if math.Abs(svc-store) > 0.1*store {
+		t.Errorf("svc row slowed x%.2f for a x%.2f dependency, want within 10%%", svc, store)
 	}
 }

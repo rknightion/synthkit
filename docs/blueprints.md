@@ -398,7 +398,7 @@ output is exactly what it was.
 
 Resource names are unique across the blueprint. A pool, concurrency limit or queue can be
 `held_across` a dependency: its effective hold is `hold_ms + latency_ms x (latency factor - 1)`, so a
-slow dependency stretches every unit of work held across it. `demand` is the load the resource
+slow dependency stretches every unit of work held across it. When the service that holds the resource also calls a service bound to that dependency, the slowed call is the stretch and is counted once in the holder's duration. `demand` is the load the resource
 sees; it must cover every request that passes through it, and the loader rejects an app whose traffic exceeds
 the demand declared for a resource it uses. An app's share of that demand follows the requests that
 actually reach the resource: a request rejected earlier on its path (by a quota, a pool, a rule, or a
