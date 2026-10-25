@@ -82,9 +82,18 @@ type Function struct {
 	// overnight and on weekends. The curve factor is capped at 1, so duration_ms stays
 	// the ceiling. duration_ms_min/duration_ms_max, when declared, scale with the mean
 	// so they keep bracketing it. Positive and not above duration_ms, and only valid
-	// with `load: business`. Zero (omitted) keeps the constant duration, so default
-	// output is unchanged. Operator assumption, not an AWS behaviour.
+	// with `load: business` or `duration_load: business`. Zero (omitted) keeps the
+	// constant duration, so default output is unchanged. Operator assumption, not an AWS behaviour.
 	DurationMSIdle float64 `yaml:"duration_ms_idle"`
+	// DurationLoad selects whether duration_ms_idle follows the business curve without
+	// the arrival rates doing so. Empty or "constant" leaves the duration switch to
+	// `load: business`. "business" makes the mean duration follow the curve (as
+	// duration_ms_idle describes) while the four arrival rates stay at their configured
+	// constants, which models a scheduled function that fires at a fixed cadence but
+	// does less work per run off-peak. It requires duration_ms_idle and is valid with
+	// any `load`; with `load: business` it changes nothing. Operator assumption, not an
+	// AWS behaviour.
+	DurationLoad string `yaml:"duration_load"`
 	// ZeroValuedSamples makes Throttles and Errors observe every request (execution
 	// attempts plus throttled requests) with 1 for the event and 0 otherwise, as a lab
 	// capture of this service reported, instead of only the events. Throttles then has
@@ -101,7 +110,7 @@ type functionState struct {
 	spikeErrors                                                eventCarry
 	synchronousPerMin                                          float64
 	durMin, durMax                                             float64
-	business                                                   bool
+	business, durationBusiness                                 bool
 }
 
 type construct struct {
@@ -225,8 +234,14 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 		if (f.DurationMSMin > 0 && f.DurationMSMin > f.DurationMS) || (f.DurationMSMax > 0 && f.DurationMSMax < f.DurationMS) {
 			return nil, fmt.Errorf("lambda: function %q duration_ms_min <= duration_ms <= duration_ms_max is required when a bound is set", f.Name)
 		}
-		if f.DurationMSIdle > 0 && (f.Load != "business" || f.DurationMSIdle > f.DurationMS) {
-			return nil, fmt.Errorf("lambda: function %q duration_ms_idle requires load: business and must not exceed duration_ms", f.Name)
+		if f.DurationLoad != "" && f.DurationLoad != "constant" && f.DurationLoad != "business" {
+			return nil, fmt.Errorf("lambda: function %q duration_load must be \"constant\" or \"business\", got %q", f.Name, f.DurationLoad)
+		}
+		if f.DurationLoad == "business" && f.DurationMSIdle <= 0 {
+			return nil, fmt.Errorf("lambda: function %q duration_load: business requires a positive duration_ms_idle", f.Name)
+		}
+		if f.DurationMSIdle > 0 && ((f.Load != "business" && f.DurationLoad != "business") || f.DurationMSIdle > f.DurationMS) {
+			return nil, fmt.Errorf("lambda: function %q duration_ms_idle requires load: business or duration_load: business and must not exceed duration_ms", f.Name)
 		}
 		// Resolved duration bounds; both equal duration_ms when no spread is declared.
 		durMin, durMax := f.DurationMS, f.DurationMS
@@ -240,7 +255,7 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 		if synchronous < 0 {
 			return nil, fmt.Errorf("lambda: function %q invocations_per_min must cover disjoint admitted async and stream batch rates", f.Name)
 		}
-		c.functions = append(c.functions, functionState{cfg: f, synchronousPerMin: synchronous, durMin: durMin, durMax: durMax, business: f.Load == "business"})
+		c.functions = append(c.functions, functionState{cfg: f, synchronousPerMin: synchronous, durMin: durMin, durMax: durMax, business: f.Load == "business", durationBusiness: f.Load == "business" || f.DurationLoad == "business"})
 	}
 	return c, nil
 }
@@ -315,6 +330,12 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		throttles := take(&f.throttles, throttleDemand)
 		duration, durMin, durMax := cfg.DurationMS, f.durMin, f.durMax
 		if cfg.DurationMSIdle > 0 && duration > 0 {
+			// The duration curve factor is independent of the arrival one: a scheduled
+			// function (duration_load: business, load constant) keeps its invocations.
+			bf := 1.0
+			if f.durationBusiness && w.Shape != nil {
+				bf = w.Shape.BusinessFactor(now)
+			}
 			// Mean duration follows the curve between idle and duration_ms; the spread
 			// bounds keep their ratio to the mean so they still bracket it.
 			scaled := duration - (duration-cfg.DurationMSIdle)*(1-math.Min(bf, 1))
