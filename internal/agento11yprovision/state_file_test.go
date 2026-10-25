@@ -1577,6 +1577,112 @@ func TestFoundationPoisonCannotJoinGrant(t *testing.T) {
 const proofStateV2Revision = "agento11yprovision-state-3264k-v2"
 const proofStateV2Bytes = 3342336
 
+// proofStateOperationError runs only after failure: successful forecast rows
+// retain their original I/O and scheduling. The bounded, read-only probe reports
+// what is observable AFTER the error, not the original failing load branch.
+// Never dump authored bodies, approval IDs, destination identity or state bytes.
+func proofStateOperationError(s *LockedState, base Base, operation string, mode Mode, step uint32, err error) error {
+	generation := uint64(0)
+	if base.Head != nil {
+		generation = base.Head.Generation
+	}
+	probe := "busy"
+	if s.mu.TryLock() {
+		defer s.mu.Unlock()
+		probe = func() string {
+			if s.closed {
+				return "closed"
+			}
+			raw, e := s.read("state.json", custodyStateLimit(s.binding))
+			if e != nil {
+				var st unix.Stat_t
+				statErr := unix.Fstatat(int(s.dir.Fd()), "state.json", &st, unix.AT_SYMLINK_NOFOLLOW)
+				return fmt.Sprintf("state-read error=%v stat-error=%v mode=%#o links=%d", e, statErr, st.Mode&07777, st.Nlink)
+			}
+			var w documentWire
+			if e = custodyDecode(raw, &w, custodyStateV2Bytes); e != nil {
+				return fmt.Sprintf("state-wire bytes=%d error=%v", len(raw), e)
+			}
+			d, e := custodyDocumentDecode(raw)
+			if e != nil {
+				return fmt.Sprintf("state-validation bytes=%d error=%v", len(raw), e)
+			}
+			// A valid state does not establish valid enrollment or directory
+			// inventory, nor disprove a transient original failure.
+			if _, e = s.load(); e != nil {
+				return fmt.Sprintf("load bytes=%d persisted-generation=%d error=%v", len(raw), d.Generation, e)
+			}
+			return fmt.Sprintf("load-ok bytes=%d persisted-generation=%d", len(raw), d.Generation)
+		}()
+	}
+	return fmt.Errorf("operation=%s mode=%s generation=%d step=%d post-failure-probe=%s: %w", operation, mode, generation, step, probe, err)
+}
+
+func TestFoundationOperationFailureDiagnostics(t *testing.T) {
+	for _, tc := range []struct {
+		name, operation, probe string
+	}{
+		{"private-file", "Authorize", "state-read"},
+		{"unknown-field", "ClaimDispatch", "state-wire"},
+		{"invalid-ledger", "ClaimDispatch", "state-validation"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := proofStore(t, proofDirectory(t), false)
+			snap, a, _, _ := proofBootstrap(t, s)
+			snap = proofIntent(t, s, snap, a, 1, proofDigest('1'))
+			path := filepath.Join(s.location.Directory, "state.json")
+			original, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			injected := original
+			switch tc.name {
+			case "private-file":
+				if err = os.Chmod(path, 0644); err != nil {
+					t.Fatal(err)
+				}
+			case "unknown-field":
+				injected = append([]byte(`{"unexpected":0,`), original[1:]...)
+			case "invalid-ledger":
+				// Recompute a valid checksum over an invalid ledger. This must
+				// fail semantic validation rather than wire decoding.
+				d := *snap.Document
+				d.Generation = 0
+				injected, err = custodyDocumentBytes(d)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err = os.WriteFile(path, injected, 0600); err != nil {
+				t.Fatal(err)
+			}
+			var failure error
+			if tc.operation == "Authorize" {
+				_, failure = s.Authorize(context.Background(), a.approval, a.preview, proofDigest('1'))
+			} else {
+				_, failure = s.ClaimDispatch(context.Background(), *snap.Base.Head, a, snap.Document.Pending.AttemptID)
+			}
+			if !errors.Is(failure, ErrCorrupt) {
+				t.Fatalf("injected corruption did not fail closed: %v", failure)
+			}
+			diagnostic := proofStateOperationError(s, snap.Base, tc.operation, ModeApply, 1, failure)
+			if !errors.Is(diagnostic, ErrCorrupt) {
+				t.Fatalf("diagnostic lost original sentinel: %v", diagnostic)
+			}
+			for _, want := range []string{"operation=" + tc.operation, "mode=apply", fmt.Sprintf("generation=%d", snap.Base.Head.Generation), "step=1", "post-failure-probe=" + tc.probe} {
+				if !strings.Contains(diagnostic.Error(), want) {
+					t.Errorf("missing failure context %q: %v", want, diagnostic)
+				}
+			}
+			after, err := os.ReadFile(path)
+			if err != nil || !bytes.Equal(after, injected) || s.grant != nil {
+				t.Fatal("refusal or diagnostic changed state or granted dispatch", err)
+			}
+			t.Log(diagnostic)
+		})
+	}
+}
+
 func proofStateStore(t *testing.T, dir string, binding Binding) *LockedState {
 	t.Helper()
 	s, e := AcquireState(context.Background(), Location{Directory: dir}, binding)
@@ -1612,7 +1718,7 @@ func proofStateAuthorize(t *testing.T, s *LockedState, p Plan, mode Mode, base B
 	}
 	a, e := s.Authorize(context.Background(), approval, pv, proofDigest('1'))
 	if e != nil {
-		t.Fatal(e)
+		t.Fatal(proofStateOperationError(s, base, "proofStateAuthorize/Authorize", mode, 0, e))
 	}
 	return a, pv
 }
@@ -1697,7 +1803,7 @@ func proofStateStep(t *testing.T, s *LockedState, snap Snapshot, a *Authorizatio
 	}
 	g, e := s.ClaimDispatch(ctx, *snap.Base.Head, a, attempt)
 	if e != nil {
-		t.Fatal(e)
+		t.Fatal(proofStateOperationError(s, snap.Base, "proofStateStep/ClaimDispatch", a.preview.mode, step, e))
 	}
 	if _, e = s.ClaimDispatch(ctx, *snap.Base.Head, a, attempt); e == nil {
 		t.Fatal("grant reused")

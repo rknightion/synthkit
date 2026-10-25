@@ -99,7 +99,7 @@ func forecastAuthorize(t *testing.T, s *LockedState, p Plan, mode Mode, base Bas
 	}
 	a, e := s.Authorize(context.Background(), approval, pv, proofDigest('1'))
 	if e != nil {
-		t.Fatal(e)
+		t.Fatal(proofStateOperationError(s, base, "forecastAuthorize/Authorize", mode, 0, e))
 	}
 	return a, pv
 }
@@ -122,7 +122,7 @@ func forecastLose(t *testing.T, s *LockedState, snap Snapshot, a *Authorization,
 	snap = proofCommit(t, s, snap, a, Change{Kind: ChangeIntent, ExpectedInventory: proofDigest('1'), ConstructionID: c.ID, AttemptID: attempt, Step: step, Intent: &IntentEvidence{desired, proofDigest('2'), deps}})
 	g, e := s.ClaimDispatch(context.Background(), *snap.Base.Head, a, attempt)
 	if e != nil {
-		t.Fatal(e)
+		t.Fatal(proofStateOperationError(s, snap.Base, "forecastLose/ClaimDispatch", a.preview.mode, step, e))
 	}
 	joined := make(chan struct{})
 	go func() { defer close(joined); _ = g.Context().Err() }()
