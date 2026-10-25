@@ -459,6 +459,10 @@ type Schema struct {
 	Scenarios        []ScenarioInfo      `json:"scenarios"`
 	Constructs       []ConstructInfo     `json:"constructs"`
 	Kinds            []string            `json:"kinds"`
+	// Resources lists every declared causal resource with the consumers the blueprint binds to
+	// it. Omitted when no loaded blueprint declares one, so the schema of a blueprint without
+	// resources is byte-for-byte what it was.
+	Resources []ResourceInfo `json:"resources,omitempty"`
 }
 
 // MetaFields is the descriptive annotation payload shared by blueprint- and environment-level
@@ -505,6 +509,47 @@ type ConstructInfo struct {
 	Kind      string `json:"kind"`
 	Name      string `json:"name"`
 	Enabled   bool   `json:"enabled"`
+}
+
+// ResourceInfo is one declared causal resource (environments[].resources) with the consumers the
+// blueprint binds to it. No emitted series carries a resource name, so a scenario whose effect
+// targets a resource is observed through its consumers' own identity: this list is how a client
+// (the live scenario check) narrows a query to the series the resource can move.
+type ResourceInfo struct {
+	Blueprint string `json:"blueprint"`
+	Name      string `json:"name"`
+	Kind      string `json:"kind"`
+	// Env is the environment that declares the resource.
+	Env string `json:"env"`
+	// Alias is the base name that also targets this resource when its name is
+	// `<base>-<lower(env)>` (a base-name target reaches it in every environment). Empty otherwise.
+	Alias string `json:"alias,omitempty"`
+	// HeldAcross is the dependency this pool, concurrency or queue resource holds its work
+	// across: a slowed dependency stretches the resource's consumers too.
+	HeldAcross string `json:"held_across,omitempty"`
+	// Consumers is never null: a resource nothing binds lists an empty array.
+	Consumers []ResourceConsumer `json:"consumers"`
+}
+
+// ResourceConsumer is one declared consumer of a causal resource: an `app` workload service node
+// whose `uses` names it, or a construct bound to it (lambda function, sqs queue, solace queue,
+// rds or docdb instance, agentcore runtime).
+type ResourceConsumer struct {
+	// Kind is the workload or construct kind (app, lambda, sqs, solace, rds, docdb, agentcore).
+	Kind string `json:"kind"`
+	// Name is the workload or construct instance name.
+	Name string `json:"name"`
+	// Service is the app service node that uses the resource; empty for a construct.
+	Service string `json:"service,omitempty"`
+	// Callers are the app services that call Service directly or transitively. Their server-span
+	// latency includes the consumer's, so a fault that stretches the consumer stretches them.
+	Callers []string `json:"callers,omitempty"`
+	// Identity is the consumer's emitted identity as label name to value, exactly as the series
+	// carry it (a lambda's dimension_FunctionName, an sqs queue's dimension_QueueName and name, a
+	// solace queue's instance, vpn_name and queue_name, an rds instance's
+	// dimension_DBInstanceIdentifier, a docdb cluster's dimension_DBClusterIdentifier, an
+	// agentcore runtime's name (its ARN), an app node's service and deployment_environment_name).
+	Identity map[string]string `json:"identity,omitempty"`
 }
 
 // ConstructKey is the single key formatter for a construct instance: "blueprint/kind:name".

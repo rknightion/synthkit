@@ -188,7 +188,7 @@ when the target node has no matching emitted metric or log family.
 | `GET /control/ui/` | Embedded operator UI (SPA). Redirect from `/control/ui`. |
 | `GET /control/startup` | Public boot-completion probe with only `started`; HTTP 200 when boot is complete, otherwise 503. No delivery or admission claim. See [Startup versus delivery readiness](#startup-versus-delivery-readiness). |
 | `GET /control/readiness` | Public sanitized readiness probe: process, HTTP, blueprint counts, and state-writable boolean only. With `READINESS_BLUEPRINT_FLAGS=true` it also carries `blueprint_emitting`, one boolean per loaded blueprint name; see [Per-blueprint flags on the public probe](#per-blueprint-flags-on-the-public-probe). |
-| `GET /control/schema` | Blueprint-derived schema: all modes, addressable targets, scenarios, scalable workloads, construct instances, and startup cost projections for explicit high-DPM blueprints. Add `?audience=customer` for a reduced view without operator-internal fields. |
+| `GET /control/schema` | Blueprint-derived schema: all modes, addressable targets, scenarios, scalable workloads, construct instances, declared causal resources with their bound consumers (`resources`, omitted when no blueprint declares one), and startup cost projections for explicit high-DPM blueprints. Add `?audience=customer` for a reduced view without operator-internal fields. |
 | `GET /control/state` | Current control snapshot (volume multiplier, active scenarios, failures, scaling, disabled blueprints/constructs/kinds). |
 | `GET /control/status` | Sink readiness strip: `last_success_ms`, failure counts, dry-run flag, per-blueprint emission, Fleet Management health, persist health. |
 | `GET /control/health` | Per-construct tick health and process metrics. |

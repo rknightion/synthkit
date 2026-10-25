@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -318,5 +320,252 @@ func TestFloorKeepsTheProportionalRuleForNonZeroBaselines(t *testing.T) {
 	plain := failuremode.Assertion{Direction: failuremode.DirectionIncrease}
 	if !movedFor(plain, 0, 0.001, 0.2) || !clearedFor(plain, 10, 11, 0.2) {
 		t.Fatal("an assertion without a floor changed behaviour")
+	}
+}
+
+// scopeSeries is one series of the stand-in query API: its labels, and the value it reads while the
+// scenario is inactive and active.
+type scopeSeries struct {
+	labels         map[string]string
+	base, whenLive float64
+}
+
+var selectorRE = regexp.MustCompile(`\{([^{}]*)\}`)
+
+var matcherRE = regexp.MustCompile(`(\w+)=~"((?:[^"\\]|\\.)*)"`)
+
+// scopeFixture serves a schema (scenarios and resources) and a query API that honours the =~
+// matchers of the query it is sent, as Prometheus does (anchored; an absent label is empty). A
+// query starting with sum( answers one aggregate over the matched series, 0 when none match.
+type scopeFixture struct {
+	t       *testing.T
+	schema  control.Schema
+	series  []scopeSeries
+	active  bool
+	queries []string
+}
+
+func (f *scopeFixture) run() report {
+	f.t.Helper()
+	controlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/control/schema":
+			_ = json.NewEncoder(w).Encode(f.schema)
+			return
+		case "/control/scenarios/activate":
+			f.active = true
+		case "/control/scenarios/deactivate":
+			f.active = false
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{})
+	}))
+	defer controlServer.Close()
+	promServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query().Get("query")
+		f.queries = append(f.queries, q)
+		// A series matches when every =~ matcher of at least one selector block matches it;
+		// a query with no =~ matcher selects every series.
+		var groups [][][]string
+		for _, block := range selectorRE.FindAllStringSubmatch(q, -1) {
+			if ms := matcherRE.FindAllStringSubmatch(block[1], -1); len(ms) > 0 {
+				groups = append(groups, ms)
+			}
+		}
+		var matched []scopeSeries
+		for _, s := range f.series {
+			ok := len(groups) == 0
+			for _, ms := range groups {
+				all := true
+				for _, m := range ms {
+					pattern := strings.NewReplacer(`\\`, `\`, `\"`, `"`).Replace(m[2])
+					if !regexp.MustCompile("^(?:" + pattern + ")$").MatchString(s.labels[m[1]]) {
+						all = false
+					}
+				}
+				ok = ok || all
+			}
+			if ok {
+				matched = append(matched, s)
+			}
+		}
+		value := func(s scopeSeries) string {
+			v := s.base
+			if f.active {
+				v = s.whenLive
+			}
+			return strconv.FormatFloat(v, 'f', -1, 64)
+		}
+		var result []any
+		if strings.HasPrefix(q, "sum(") || strings.HasPrefix(q, "(sum(") {
+			var sum float64
+			for _, s := range matched {
+				v, _ := strconv.ParseFloat(value(s), 64)
+				sum += v
+			}
+			result = []any{map[string]any{"metric": map[string]string{}, "value": []any{0, strconv.FormatFloat(sum, 'f', -1, 64)}}}
+		}
+		if result == nil {
+			for _, s := range matched {
+				result = append(result, map[string]any{"metric": s.labels, "value": []any{0, value(s)}})
+			}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": map[string]any{"result": result}})
+	}))
+	defer promServer.Close()
+	r, err := run(context.Background(), config{controlURL: controlServer.URL, promURL: promServer.URL, minChange: 0.2})
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	return r
+}
+
+func appResource(name, kind, heldAcross string, services ...string) control.ResourceInfo {
+	ri := control.ResourceInfo{Blueprint: "bp", Name: name, Kind: kind, Env: "prod", HeldAcross: heldAcross, Consumers: []control.ResourceConsumer{}}
+	for _, svc := range services {
+		ri.Consumers = append(ri.Consumers, control.ResourceConsumer{Kind: "app", Name: "intake", Service: svc,
+			Identity: map[string]string{"service": svc, "deployment_environment_name": "prod"}})
+	}
+	return ri
+}
+
+func latencySeries(service string, base, live float64) scopeSeries {
+	return scopeSeries{labels: map[string]string{"service": service, "deployment_environment_name": "prod"}, base: base, whenLive: live}
+}
+
+func scenarioFor(mode, target string) control.Schema {
+	return control.Schema{Scenarios: []control.ScenarioInfo{{Blueprint: "bp", Name: "s", Effects: []control.EffectInfo{{Mode: mode, Target: target, Intensity: 1}}}}}
+}
+
+// The confound the schema's consumer list closes: an unrelated busy series moves while the series
+// the resource can move does not. Blueprint-wide the assertion passes on the unrelated series;
+// scoped to the bound consumers it fails.
+func TestResourceModeIgnoresAnUnrelatedSeriesOnceConsumersAreListed(t *testing.T) {
+	schema := scenarioFor("dependency_slow", "partner-api")
+	schema.Resources = []control.ResourceInfo{appResource("partner-api", "dependency", "", "partner-gateway")}
+	schema.Resources[0].Consumers[0].Callers = []string{"api"}
+	data := []scopeSeries{latencySeries("api", 2, 2), latencySeries("partner-gateway", 2, 2), latencySeries("unrelated-busy", 2, 100)}
+
+	scoped := &scopeFixture{t: t, schema: schema, series: data}
+	d := scoped.run().Dispositions[0]
+	if d.Verdict != "fail" || !strings.Contains(d.Detail, "no series increase") {
+		t.Fatalf("scoped disposition = %+v, want a failure: only an unrelated series moved", d)
+	}
+	if d.Scope == "" || !strings.Contains(d.Scope, "partner-api") {
+		t.Fatalf("scope = %q, want it to name the resource", d.Scope)
+	}
+	if len(scoped.queries) == 0 || !strings.Contains(scoped.queries[0], `service=~"api",deployment_environment_name=~"prod"`) || !strings.Contains(scoped.queries[0], `service=~"partner-gateway",deployment_environment_name=~"prod"`) {
+		t.Fatalf("queries = %q, want service narrowed to the consumer and its caller", scoped.queries)
+	}
+
+	bare := &scopeFixture{t: t, schema: scenarioFor("dependency_slow", "partner-api"), series: data}
+	if d := bare.run().Dispositions[0]; d.Verdict != "pass" || !strings.Contains(d.Scope, "blueprint-wide") {
+		t.Fatalf("blueprint-wide disposition = %+v, want the pre-existing pass on the unrelated series, labelled blueprint-wide", d)
+	}
+}
+
+func TestResourceModePassesWhenABoundConsumerMoves(t *testing.T) {
+	schema := scenarioFor("dependency_slow", "partner-api")
+	schema.Resources = []control.ResourceInfo{appResource("partner-api", "dependency", "", "partner-gateway")}
+	schema.Resources[0].Consumers[0].Callers = []string{"api"}
+	f := &scopeFixture{t: t, schema: schema, series: []scopeSeries{latencySeries("api", 2, 100), latencySeries("partner-gateway", 2, 2), latencySeries("unrelated-busy", 2, 2)}}
+	if d := f.run().Dispositions[0]; d.Verdict != "pass" || d.Active == nil || *d.Active != 100 {
+		t.Fatalf("disposition = %+v, want a pass on the caller's series", d)
+	}
+}
+
+// A dependency's consumers include the services of every pool, concurrency or queue resource that
+// holds its work across it: the slowed dependency stretches their hold.
+func TestDependencySlowIncludesResourcesHeldAcrossIt(t *testing.T) {
+	resources := []control.ResourceInfo{
+		appResource("partner-api", "dependency", "", "partner-gateway"),
+		appResource("db-pool", "pool", "partner-api", "worker"),
+		appResource("other-pool", "pool", "another-dependency", "elsewhere"),
+	}
+	got, ok := scopeConsumers(resources, "bp", "dependency_slow", "partner-api")
+	if !ok {
+		t.Fatal("no consumers resolved")
+	}
+	var services []string
+	for _, c := range got {
+		services = append(services, c.Identity["service"])
+	}
+	slices.Sort(services)
+	if !slices.Equal(services, []string{"partner-gateway", "worker"}) {
+		t.Fatalf("services = %v, want the dependency's own and the held-across pool's", services)
+	}
+	// pool_exhausted reaches the pool's consumers only, not the dependency's.
+	got, _ = scopeConsumers(resources, "bp", "pool_exhausted", "db-pool")
+	if len(got) != 1 || got[0].Identity["service"] != "worker" {
+		t.Fatalf("pool_exhausted consumers = %+v", got)
+	}
+}
+
+func TestScopeConsumersResolvesAliasWildcardAndKind(t *testing.T) {
+	pool := appResource("api-pool-prod", "pool", "", "api")
+	pool.Alias = "api-pool"
+	dev := appResource("api-pool-dev", "pool", "", "api-dev")
+	dev.Env, dev.Alias = "dev", "api-pool"
+	quota := appResource("intake-quota", "quota", "", "intake-api")
+	resources := []control.ResourceInfo{pool, dev, quota}
+	for _, tc := range []struct {
+		target string
+		want   []string
+	}{
+		{"api-pool-prod", []string{"api"}},
+		{"api-pool", []string{"api", "api-dev"}}, // the base name reaches every environment
+		{"resource:*", []string{"api", "api-dev"}},
+		{"", []string{"api", "api-dev"}},
+		{"intake-quota", nil}, // a quota is not a pool: the mode acts on pools only
+		{"missing", nil},
+	} {
+		got, _ := scopeConsumers(resources, "bp", "pool_exhausted", tc.target)
+		var services []string
+		for _, c := range got {
+			services = append(services, c.Identity["service"])
+		}
+		slices.Sort(services)
+		if !slices.Equal(services, tc.want) {
+			t.Errorf("target %q services = %v, want %v", tc.target, services, tc.want)
+		}
+	}
+	if got, ok := scopeConsumers(resources, "other-bp", "pool_exhausted", "api-pool"); ok || len(got) != 0 {
+		t.Errorf("another blueprint's resources were used: %+v", got)
+	}
+	if _, ok := scopeConsumers(resources, "bp", "latency_storm", "api"); ok {
+		t.Error("a non-resource mode resolved consumers")
+	}
+}
+
+// A function-bound concurrency resource is observed through that function's throttles alone: a busy
+// unrelated function does not satisfy the assertion.
+func TestConcurrencyReducedIsScopedToTheBoundFunction(t *testing.T) {
+	schema := scenarioFor("concurrency_reduced", "enrich-fn-concurrency")
+	schema.Resources = []control.ResourceInfo{{Blueprint: "bp", Name: "enrich-fn-concurrency", Kind: "concurrency", Env: "prod", Consumers: []control.ResourceConsumer{
+		{Kind: "lambda", Name: "prod", Identity: map[string]string{"dimension_FunctionName": "enrich-fn"}},
+	}}}
+	fn := func(name string, base, live float64) scopeSeries {
+		return scopeSeries{labels: map[string]string{"dimension_FunctionName": name}, base: base, whenLive: live}
+	}
+	quiet := &scopeFixture{t: t, schema: schema, series: []scopeSeries{fn("enrich-fn", 0, 0), fn("legacy-fn", 0, 80)}}
+	if d := quiet.run().Dispositions[0]; d.Verdict != "fail" {
+		t.Fatalf("disposition = %+v, want a failure: only the unbound function throttled", d)
+	}
+	bound := &scopeFixture{t: t, schema: schema, series: []scopeSeries{fn("enrich-fn", 0, 40), fn("legacy-fn", 0, 0)}}
+	if d := bound.run().Dispositions[0]; d.Verdict != "pass" {
+		t.Fatalf("disposition = %+v, want a pass on the bound function's throttles", d)
+	}
+}
+
+// A resource with no consumer of a kind the query can filter on keeps its blueprint-wide
+// observation and says so.
+func TestResourceWithOnlyAnUnfilterableConsumerStaysBlueprintWide(t *testing.T) {
+	schema := scenarioFor("pool_exhausted", "orders-pool")
+	schema.Resources = []control.ResourceInfo{{Blueprint: "bp", Name: "orders-pool", Kind: "pool", Env: "prod", Consumers: []control.ResourceConsumer{
+		{Kind: "rds", Name: "orders-db", Identity: map[string]string{"dimension_DBInstanceIdentifier": "orders-db"}},
+	}}}
+	f := &scopeFixture{t: t, schema: schema, series: []scopeSeries{latencySeries("api", 2, 100)}}
+	d := f.run().Dispositions[0]
+	if d.Verdict != "pass" || !strings.Contains(d.Scope, "blueprint-wide") {
+		t.Fatalf("disposition = %+v, want the blueprint-wide pass, labelled", d)
 	}
 }

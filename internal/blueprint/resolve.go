@@ -205,6 +205,9 @@ type Resolved struct {
 	Targets            []Target
 	Scenarios          []ResolvedScenario
 	resRefs            map[string][]resourceRef
+	// Resources is every declared causal resource with the consumers bound to it, empty when the
+	// blueprint declares none. Read-only inventory for the control schema.
+	Resources []ResolvedResource
 	// Warnings are non-fatal resolve-time notes (e.g. a database/cache declaration that produced
 	// zero emitting constructs) surfaced to operators via the control-plane diagnostics panel.
 	Warnings []string
@@ -1119,6 +1122,7 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 				c.UseResources(set)
 			}
 		}
+		r.Resources = resolvedResources(set, r)
 	}
 
 	// Pass 6 — addressable-target inventory, scenario resolution, then incident compilation.

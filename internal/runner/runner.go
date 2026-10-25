@@ -1391,6 +1391,9 @@ func (r *Runner) ControlSchema() control.Schema {
 				sc.Kinds = append(sc.Kinds, bc.kind)
 			}
 		}
+		if bp.res != nil {
+			sc.Resources = append(sc.Resources, resourceInfos(bp.name, bp.res.Resources)...)
+		}
 	}
 	return sc
 }

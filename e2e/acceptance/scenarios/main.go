@@ -12,6 +12,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"net/http"
 	"net/url"
@@ -21,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/control"
 	"github.com/rknightion/synthkit/internal/failuremode"
 )
@@ -37,6 +39,9 @@ type config struct {
 	siblingEnv   string
 	settle       time.Duration
 	minChange    float64
+	// resources are the schema's declared causal resources with their bound consumers, read once
+	// per run; they narrow a resource-mode assertion to the series its consumers emit.
+	resources []control.ResourceInfo
 }
 
 type disposition struct {
@@ -49,6 +54,8 @@ type disposition struct {
 	Active   *float64 `json:"active,omitempty"`
 	Cleared  *float64 `json:"cleared,omitempty"`
 	Sibling  *float64 `json:"sibling,omitempty"`
+	// Scope says what the observation was narrowed to, or that it stayed blueprint-wide.
+	Scope string `json:"scope,omitempty"`
 }
 
 type report struct {
@@ -95,6 +102,7 @@ func run(ctx context.Context, cfg config) (report, error) {
 	if err != nil {
 		return report{}, err
 	}
+	cfg.resources = schema.Resources
 	scenarios := append([]control.ScenarioInfo(nil), schema.Scenarios...)
 	sort.Slice(scenarios, func(i, j int) bool {
 		return scenarios[i].Blueprint+"/"+scenarios[i].Name < scenarios[j].Blueprint+"/"+scenarios[j].Name
@@ -131,14 +139,15 @@ func exercise(ctx context.Context, c *http.Client, cfg config, sc control.Scenar
 		}
 		return d
 	}
+	target := targets[a.Mode]
+	a, scope := narrowToConsumers(a, cfg.resources, sc.Blueprint, target)
 	a.Query = strings.ReplaceAll(a.Query, "{{blueprint}}", queryLabelValue(sc.Blueprint))
 	a.SiblingQuery = strings.ReplaceAll(a.SiblingQuery, "{{blueprint}}", queryLabelValue(sc.Blueprint))
-	d := disposition{ID: id, Mode: a.Mode, Source: a.Source, Verdict: "fail"}
+	d := disposition{ID: id, Mode: a.Mode, Source: a.Source, Verdict: "fail", Scope: scope}
 	if a.SiblingQuery != "" && cfg.siblingEnv == "" {
 		d.Detail = "environment-scoped assertion requires -sibling-env"
 		return d
 	}
-	target := targets[a.Mode]
 	if a.AnySeries {
 		return exerciseAnySeries(ctx, c, cfg, a, id, target, d)
 	}
@@ -506,4 +515,87 @@ func wait(ctx context.Context, d time.Duration) error {
 	case <-t.C:
 		return nil
 	}
+}
+
+// narrowToConsumers restricts a resource-mode assertion to the series its targeted resource's
+// bound consumers emit, as the control schema lists them, and says what it did. The floors and
+// direction are untouched; only the query changes. A resource with no consumer of a kind the query
+// can filter on (or an assertion whose series carry no consumer identity) keeps the blueprint-wide
+// observation and the label says so, so a pass is never read as narrower than it was.
+func narrowToConsumers(a failuremode.Assertion, resources []control.ResourceInfo, blueprint, target string) (failuremode.Assertion, string) {
+	if _, resourceMode := causal.ModeKind(a.Mode); !resourceMode {
+		return a, ""
+	}
+	if len(a.Scopes) == 0 {
+		return a, "blueprint-wide (the mode's series carry no consumer identity)"
+	}
+	matched := matchResources(resources, blueprint, a.Mode, target)
+	if len(matched) == 0 {
+		return a, fmt.Sprintf("blueprint-wide (the schema lists no resource %q for %s)", target, a.Mode)
+	}
+	consumers, _ := scopeConsumers(resources, blueprint, a.Mode, target)
+	scoped, n := a.Scope(consumers)
+	if n == 0 {
+		return a, fmt.Sprintf("blueprint-wide (no listed consumer of %s is of a kind the query filters on)", resourceNames(matched))
+	}
+	return scoped, fmt.Sprintf("%d bound consumers of %s", n, resourceNames(matched))
+}
+
+func resourceNames(rs []control.ResourceInfo) string {
+	names := make([]string, len(rs))
+	for i, r := range rs {
+		names[i] = r.Name
+	}
+	return strings.Join(names, ", ")
+}
+
+// matchResources are the blueprint's resources a scenario effect reaches. The effect's target is a
+// resource name, a base name shared by one resource per environment (Alias), or the wildcard form
+// (also an empty target) that selects every resource of the kind the mode acts on. A slowed
+// dependency also stretches the pools, concurrency limits and queues that hold their work across
+// it, so dependency_slow reaches those resources' consumers too.
+func matchResources(resources []control.ResourceInfo, blueprint, mode, target string) []control.ResourceInfo {
+	kind, ok := causal.ModeKind(mode)
+	if !ok {
+		return nil
+	}
+	var matched []control.ResourceInfo
+	named := map[string]bool{}
+	for _, r := range resources {
+		if r.Blueprint != blueprint || r.Kind != string(kind) {
+			continue
+		}
+		if target == "" || target == string(causal.AxisResource)+":*" || r.Name == target || r.Alias == target {
+			matched = append(matched, r)
+			named[r.Name] = true
+		}
+	}
+	if mode == causal.ModeDependencySlow {
+		for _, r := range resources {
+			if r.Blueprint == blueprint && r.HeldAcross != "" && named[r.HeldAcross] && !named[r.Name] {
+				matched = append(matched, r)
+			}
+		}
+	}
+	return matched
+}
+
+// scopeConsumers flattens the consumers of the matched resources into the form an assertion
+// scopes by. Each app consumer's callers become consumers of their own kind, with the consumer's
+// identity and their service: their server spans include the consumer's hop. It reports whether
+// any resource matched.
+func scopeConsumers(resources []control.ResourceInfo, blueprint, mode, target string) ([]failuremode.Consumer, bool) {
+	matched := matchResources(resources, blueprint, mode, target)
+	var out []failuremode.Consumer
+	for _, r := range matched {
+		for _, c := range r.Consumers {
+			out = append(out, failuremode.Consumer{Kind: c.Kind, Identity: c.Identity})
+			for _, caller := range c.Callers {
+				id := maps.Clone(c.Identity)
+				id["service"] = caller
+				out = append(out, failuremode.Consumer{Kind: failuremode.ConsumerAppCallers, Identity: id})
+			}
+		}
+	}
+	return out, len(matched) > 0
 }

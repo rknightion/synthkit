@@ -472,7 +472,20 @@ Run the root-owned `just e2e-scenarios` recipe against a deployment with both qu
 configured. The harness discovers IDs from `GET /control/schema`, continues after failures, and
 prints one disposition per ID. For `eval_quality_degraded` and `portkey_scrape_degraded`, pass a
 sibling environment: their observations prove the target moves while that sibling remains at its
-baseline. The current query catalogue is sourced from `signals/agentcore.md`, `signals/cw.md`,
+baseline. No emitted series carries a resource name, so a resource-axis effect is observed
+through its consumers: `GET /control/schema` lists, per declared resource, the app service nodes
+whose `uses` names it (with their callers, whose server spans include the stretched hop) and the
+constructs bound to it with the label values their series carry (lambda `dimension_FunctionName`,
+sqs `dimension_QueueName` and `name`, solace `instance`/`vpn_name`/`queue_name`, rds
+`dimension_DBInstanceIdentifier`, docdb `dimension_DBClusterIdentifier`, agentcore runtime ARN as
+`name`). The harness narrows `dependency_slow`, `pool_exhausted`, `quota_reduced`,
+`concurrency_reduced` and `consumer_slowdown` to those identities and keeps their floors, so an
+unrelated busy series no longer satisfies them. `dependency_slow` also reaches the consumers of
+every resource that holds its work across the slowed dependency. `rule_regression`,
+`dependency_unavailable` and `credential_expired` fail the caller's side of a call, which the
+schema does not name, and a resource with no consumer of a filterable kind keeps the
+blueprint-wide observation; each disposition's `scope` field says which it was. The current
+query catalogue is sourced from `signals/agentcore.md`, `signals/cw.md`,
 `signals/apm.md`, `signals/k8s.md`, `signals/langsmith.md`, `signals/portkey.md`, `signals/solace.md`, and
 `signals/logs.md`; adding a scenario whose effects have no catalogue entry is a failed disposition,
 not a control-plane pass.
