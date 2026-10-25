@@ -1,10 +1,10 @@
 ---
 id: SKT-0210
 title: Reject the legacy throttle switch on causally bound agent runtimes
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-25T15:15:00Z'
-updated_date: '2026-10-25T22:31:00Z'
+updated_date: '2026-10-25T23:05:00Z'
 labels:
   - causal
 dependencies: []
@@ -27,7 +27,7 @@ Owner ruling Q10 (loop58): a bound agent runtime silently ignores the region-sco
 <!-- DOD:BEGIN -->
 - [x] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
 - [x] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
-- [ ] #3 just dump — inventory diffed against signals/
+- [x] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -44,4 +44,6 @@ Loop60: complete selected AgentCore bound/unbound public CLI inventory and sourc
 Two failed review rounds opened integration-fixture and authored/effective-scope mismatch classes. First convergence tripwire selected senior escalation and a fail-closed schedule-representability approach; no landing acceptance yet.
 
 Source published at 9d8185727522f30e8eb7b731ff7f3f8c293904db in exact-gated dac0d2b4139b5fc851a49f2b16c77a5dadd15421. Native guarded PASS and loader/CLI rejection/compatibility retained. Required selected AgentCore CLI inventory/conformance was not run: reviewer lacked required wait helper. Resume with that public-entrypoint proof, not unit-test substitution. Hosted CI independently red; owner ended run without repair push.
+
+Selected bound/unbound public CLI inventory gap closed: exact 60/60 AgentCore metric names and raw label regimes, nonempty app/usage logs, 457/457 names conformance with no parse gaps, expected bound loader rejections and genuine checker negative controls. Relevant published source unchanged. Offline inventory is not numerical backend or vendor verification.
 <!-- SECTION:NOTES:END -->

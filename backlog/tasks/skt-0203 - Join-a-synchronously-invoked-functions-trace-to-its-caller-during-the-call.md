@@ -1,10 +1,10 @@
 ---
 id: SKT-0203
 title: Join a synchronously invoked function's trace to its caller during the call
-status: Parked
+status: In Progress
 assignee: []
 created_date: '2026-10-25T12:55:00Z'
-updated_date: '2026-10-25T22:19:00Z'
+updated_date: '2026-10-25T23:05:00Z'
 labels:
   - causal
 dependencies: []
@@ -36,4 +36,6 @@ Trace context currently joins only queue consumers, and their span starts after 
 loop58 closeout (2026-10-25): parked unlanded; see /Users/rob/repos/synthkit/codex/closeout-2026-10-25-loop58.md. Accepted and in landing-13 mbox (codex/loop58/archive/land13-d4a51b34..3c664fc6.mbox); landing blocked by SKT-0211 (amd64 FMA digest drift). Resume: fix SKT-0211, re-gate, land.
 
 Owner closeout: accepted prior timing/join candidate remains in the retained archived causal stack, not in published database-only delivery. Resume from the explicit engine-only split with accepted timestamp/resend fixes, preserving existing assertions and excluding the held reference migration; final composition, generation, review and exact-tree gate remain required.
+
+Integrated native review found count-based pending expiry can discard fresh synchronous calls after competing consumption or bounded eviction. Same composition lane repairs with a real failing shared-exchange regression and stable identity/watermark; preserve FIFO, caps and late same-tick publication. No source acceptance yet.
 <!-- SECTION:NOTES:END -->

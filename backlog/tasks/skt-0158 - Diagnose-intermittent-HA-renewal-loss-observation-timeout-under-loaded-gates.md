@@ -1,10 +1,10 @@
 ---
 id: SKT-0158
 title: Diagnose intermittent HA renewal-loss observation timeout under loaded gates
-status: In Progress
+status: Parked
 assignee: []
 created_date: '2026-10-21T15:25:00Z'
-updated_date: '2026-10-25T22:31:00Z'
+updated_date: '2026-10-25T23:05:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -63,4 +63,6 @@ loop58: TestFleetUnregisterOwnedHAAuthorityInterruptionAndRecovery failed once i
 loop58: runner TestHAActualFaro5000WholeWrite failed once in a loaded gate-2 just check (f1 lane), passed 100/100 isolated.
 
 Owner closeout: No new measurement: scout lacked native wait helper; no fallback. Preserve existing timeout defect and bounds; resume bounded actual-context native measurement.
+
+One bounded current-context focused native race run passed all four unchanged renewal-loss scenarios, with CPU cap/load and actual readiness/fatal-exit timings retained. Non-reproduction only, not original-cause attribution or repair. Resume with a new failing actual-context log or discriminating controlled scheduling hypothesis; no unchanged repeated sampling.
 <!-- SECTION:NOTES:END -->
