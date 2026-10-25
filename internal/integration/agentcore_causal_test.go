@@ -20,10 +20,11 @@ import (
 )
 
 // agentcoreCausalYAML is a test-only declaration (never a deployable blueprint): the planner
-// runtime bound to a concurrency resource, the retriever runtime unbound, and four scheduled
+// runtime bound to a concurrency resource, the retriever runtime unbound, and three scheduled
 // incidents. The constant 10 rps demand against 900 ms executions offers 9 of 20 concurrent
 // requests, so the healthy runtime never throttles; partner-api (120 ms, 4x slow) is the
-// dependency held across the request. The last incident is the legacy region-scoped mode.
+// dependency held across the request. Legacy region-scoped throttle compatibility is tested
+// separately through a raw shape schedule after valid public blueprint loading.
 const agentcoreCausalYAML = `
 name: agentcore-causal
 label: agentcore-causal
@@ -54,13 +55,10 @@ scenarios:
     effects: [{ mode: dependency_unavailable, target: partner-api, intensity: 0.5 }]
   - name: slow
     effects: [{ mode: dependency_slow, target: partner-api, intensity: 1 }]
-  - name: region-throttle
-    effects: [{ mode: agentcore_throttle, intensity: 1 }]
 incidents:
   - { scenario: reduced, at: "2026-10-24T09:10", for: 10m }
   - { scenario: unavailable, at: "2026-10-24T09:25", for: 5m }
   - { scenario: slow, at: "2026-10-24T09:35", for: 5m }
-  - { scenario: region-throttle, at: "2026-10-24T09:45", for: 5m }
 `
 
 const (
@@ -184,7 +182,7 @@ func TestBoundAgentCoreRuntimeFollowsResourceWindow(t *testing.T) {
 			if g == healthy {
 				t.Fatalf("minute %d: an edge window shows no effect: %+v", i, g)
 			}
-		default: // before, between and after, including the legacy region-scoped incident: drained
+		default: // before, between and after resource incidents: drained
 			if !near(g.invocations, healthy.invocations) || g.throttles != 0 || g.systemErrors != 0 || g.totalErrors != 0 || !near(g.latency, healthy.latency) || !g.latencySeen {
 				t.Fatalf("minute %d: %+v, want the healthy baseline %+v", i, g, healthy)
 			}
@@ -249,13 +247,16 @@ func seriesKey(name string, labels map[string]string, v float64) string {
 	return b.String() + "|" + strconv.FormatFloat(v, 'g', -1, 64)
 }
 
-// The legacy region-scoped agentcore_throttle mode cannot be a load error for a bound runtime (it
-// targets the environment, not the runtime, and still drives the deployment-wide series), so a
-// bound runtime is excluded from it: the deployment-wide series amplifies during the incident
-// while the bound runtime's series stay at the resource's healthy baseline.
-func TestBoundAgentCoreIgnoresRegionScopedLegacyMode(t *testing.T) {
+// Public loading rejects legacy throttle effects reaching a bound runtime. This
+// ad-hoc/runtime escape-hatch compatibility proof injects a raw region-scoped shape
+// schedule only AFTER valid public loading: deployment-global series still amplify,
+// while the bound runtime stays at its resource's healthy baseline. It does not
+// assert admission of a scheduled blueprint scenario (the loader tests reject that).
+func TestBoundAgentCoreRawLegacyScheduleCompatibility(t *testing.T) {
 	c, res := buildAgentcore(t, agentcoreCausalYAML)
-	with := tickAgentcore(t, c, shape.New("UTC", res.Incidents))
+	legacySchedule := append([]string(nil), res.Incidents...)
+	legacySchedule = append(legacySchedule, "agentcore_throttle@2026-10-24T09:45/5m#1@eu-west-1")
+	with := tickAgentcore(t, c, shape.New("UTC", legacySchedule))
 	noIncidents := strings.Index(agentcoreCausalYAML, "incidents:")
 	quiet, _ := buildAgentcore(t, agentcoreCausalYAML[:noIncidents])
 	without := tickAgentcore(t, quiet, shape.New("UTC", nil))

@@ -53,7 +53,15 @@ dependency's unavailability or its credentials), `total_errors` = `system_errors
 (the model has no client-error source), `latency` = the effective hold in milliseconds, absent in a
 window with no admitted request. The other invocation-class names have no modelled source and are
 not emitted for a bound runtime. The `name=…/runtime/global` series is unchanged. The derivations
-are synthkit's, `v: assumed` like the names.
+are synthkit's, `v: assumed` like the names. Blueprint loading rejects legacy
+`agentcore_throttle` incidents and scenario effects that reach a bound runtime, including mixed
+bound/unbound deployments, `cloud:*` and omitted targets. Use `concurrency_reduced` on the bound
+resource or a resource-axis fault on its dependency instead. Unrelated unbound deployments retain
+legacy throttle admission; deployment-global series and their legacy throttle response are unchanged.
+Before checking bindings, every expanded cloud scope must satisfy the scheduler-safe name rules
+(no `@`, `/`, `#`, space, tab, newline, carriage return or `:*` suffix) and remain unchanged by Unicode
+whitespace trimming. Invalid names are rejected, not normalized or skipped. This loader fence does
+not change raw runtime shape schedules; see the [cloud-axis guide](../docs/incidents.md#cloud-axis).
 
 ## Resource-usage — `aws_bedrock_agentcore_*` (hyphen+unit names) [slug: agentcore-resource-usage]
 

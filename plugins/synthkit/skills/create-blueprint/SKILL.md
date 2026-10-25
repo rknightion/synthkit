@@ -103,6 +103,13 @@ no resource to name, and say so in a comment.
 5. Verify through the loader and the dump (Procedure step 7), then confirm the incident moves the
    state you expect: healthy before, the cause during, recovered after.
 
+For AgentCore runtimes bound to a concurrency resource, use resource-axis faults instead of legacy
+`agentcore_throttle`: loading rejects that legacy effect if its cloud scope reaches any bound
+runtime, including mixed deployments, `cloud:*` and omitted targets. Expanded cloud names must also
+survive scheduler parsing unchanged; malformed or whitespace-altered names are rejected even on
+unbound deployments. See the [cloud-axis contract](https://github.com/rknightion/synthkit/blob/main/docs/incidents.md#cloud-axis)
+for scope rules and the raw runtime escape-hatch boundary.
+
 Follow the [Declaring causes guide](https://github.com/rknightion/synthkit/blob/main/docs/blueprints.md#declaring-causes)
 for the worked example (a connection pool held across a slow database, loaded from
 `e2e/fixtures/causal-example.yaml`) and the

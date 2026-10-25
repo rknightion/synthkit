@@ -1176,7 +1176,10 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 		if err := validateResolvedEffect(r, reg, e, axes, vocab, multi); err != nil {
 			return err
 		}
-		return validateResourceKind(e, axes, resRefs)
+		if err := validateResourceKind(e, axes, resRefs); err != nil {
+			return err
+		}
+		return validateAgentCoreThrottle(r, e)
 	}
 
 	// Validate + resolve scenarios (must precede the incident loop: a scheduled incident may

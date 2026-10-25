@@ -220,13 +220,22 @@ entry. See [App workload](workloads.md#app) for the declarations and
 
 An AgentCore runtime listed under `cloud.agentcore.runtimes` with a `resource:` (a `concurrency`
 resource under `environments[].resources`) emits its own `aws_bedrock_agentcore_*` invocation-class
-series, named by the runtime ARN, from the shared resource model, and ignores `agentcore_throttle`:
-that mode is scoped to the environment, not to a runtime, so it cannot be a load error for one bound
-runtime, and it keeps amplifying the deployment-wide `.../runtime/global` series. The resource-axis
+series, named by the runtime ARN, from the shared resource model. Blueprint loading rejects
+`agentcore_throttle` incidents and scenario effects whose cloud target reaches a bound runtime,
+including mixed bound/unbound deployments, `cloud:*` and an omitted target. Name an unrelated
+unbound environment to retain the legacy switch there. The deployment-wide `.../runtime/global`
+series is unchanged; this validation does not remove its legacy throttle response. The resource-axis
 modes reach the bound runtime instead: `concurrency_reduced` on the resource (`throttles` rise,
 `invocations` fall), `dependency_slow` on its held-across dependency (`latency` rises, then
 `throttles` once the limit is reached) and `dependency_unavailable` or `credential_expired`
 (`system_errors` and `total_errors`). Each family drains back to the baseline when the incident ends.
+
+Before checking runtime bindings, legacy AgentCore throttle admission validates every expanded cloud
+scope, including names selected by `cloud:*`. The reserved characters `@`, `/`, `#`, space, tab,
+newline and carriage return, a `:*` suffix, or leading/trailing Unicode whitespace fail even for an
+unbound deployment. Names are never trimmed or silently skipped to make the schedule fit. An
+explicitly omitted target retains its unscoped meaning and still rejects if any runtime is bound.
+This declaration fence does not change the raw runtime shape-schedule escape hatch.
 
 ### network axis
 
@@ -412,7 +421,7 @@ declarations are unchanged.
 | `solace` | `queues[].resource` (`queue`) | Not a queue-axis target (unknown-target load error); `publish_msgs_per_sec`, `consume_msgs_per_sec`, `rate_scale`, `shape_profile`, `drain_schedule` and a `max_depth` on the resource are rejected | Publish and consume rates, queue depth, spool usage and spool-full discards (`solace_queue_msg_spool_usage_exceeded`) |
 | `dynamodb` | `tables[].operations[].resource` (`quota`, counted in `quota_unit`: `requests`, `read_units` or `write_units`), GetItem and PutItem only | A table whose GetItem and PutItem operations are all bound is not a table-axis target (unknown-target load error); `table_throttle_storm` never adds to a bound operation. `requests_per_second`, `throttled_requests_per_second` and `load` must be omitted | The quota's admitted volume is the operation's successful requests (`aws_dynamodb_successful_request_latency`, consumed capacity) and its rejected volume the throttled requests (`aws_dynamodb_throttled_requests`, and `aws_dynamodb_read_throttle_events` or `aws_dynamodb_write_throttle_events`), each divided by the operation's `read_units` or `write_units` when the quota counts capacity units. `quota_reduced` throttles them |
 | `rds`, optional PostgreSQL/MySQL `dbo11y`, and `docdb` databases | `databases[].resource` (`dependency` or `pool`), CloudWatch required | Not a database-axis target (unknown-target load error); direct legacy injection ignored. DocumentDB/Neptune dbo11y unsupported | Cloud read/write latency and pool mean connections; dbo11y statement-seconds increments and synthetic query/wait durations, without Lock/IO or SQL-error attribution (see the database axis above) |
-| `agentcore` | `runtimes[].resource` (`concurrency`) | `agentcore_throttle` is scoped to the environment, so a bound runtime ignores it rather than rejecting it, and it keeps driving the deployment-wide `runtime/global` series | The runtime's own `invocations`, `throttles`, `system_errors`, `total_errors` and `latency` series, named by the runtime ARN |
+| `agentcore` | `runtimes[].resource` (`concurrency`) | Loader rejects `agentcore_throttle` targeting a deployment with a bound runtime (also `cloud:*` and omitted targets); unrelated unbound deployments retain the legacy switch, and deployment-global series stay unchanged | The runtime's own `invocations`, `throttles`, `system_errors`, `total_errors` and `latency` series, named by the runtime ARN |
 
 Counts agree across consumers, not only shares: a bound Lambda function's invocations plus throttles
 equal the attempts the app makes through it in expectation.
