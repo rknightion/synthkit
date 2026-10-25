@@ -44,6 +44,17 @@ metrics:   # prose-derived names (no CW table); dims undocumented → omitted
   - {root: outbound_streaming_bytes_processed, type: gauge, unit: bytes, v: assumed}
 ```
 
+**Bound runtimes (causal resources).** A runtime declared under `runtimes:` with a `resource:` emits
+`invocations`, `throttles`, `system_errors`, `total_errors` and `latency` from the blueprint's
+causal model, with `name` set to the runtime ARN (`arn:aws:bedrock-agentcore:<region>:<account>:runtime/<agent>`,
+the allowed `<resource-arn|global>` form) and no other dimension. `invocations` = admitted requests,
+`throttles` = rejected requests, `system_errors` = admitted requests that failed (a held-across
+dependency's unavailability or its credentials), `total_errors` = `system_errors` + `throttles`
+(the model has no client-error source), `latency` = the effective hold in milliseconds, absent in a
+window with no admitted request. The other invocation-class names have no modelled source and are
+not emitted for a bound runtime. The `name=…/runtime/global` series is unchanged. The derivations
+are synthkit's, `v: assumed` like the names.
+
 ## Resource-usage — `aws_bedrock_agentcore_*` (hyphen+unit names) [slug: agentcore-resource-usage]
 
 ⚠ Resource-usage CW names are ✅ **exact with hyphens + embedded units** (`CPUUsed-vCPUHours`,

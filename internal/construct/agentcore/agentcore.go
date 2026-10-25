@@ -43,6 +43,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/cw"
 	"github.com/rknightion/synthkit/internal/fixture"
@@ -59,7 +60,37 @@ type Config struct {
 	// Valid: runtime, resource_usage, usage_logs, gateway (deferred Spec 3).
 	// Empty ⇒ runtime + resource_usage + app_logs (always) emit; usage_logs is opt-in.
 	SubSignals []string `yaml:"sub_signals"`
+	// Runtimes binds declared agents' runtimes to causal `concurrency` resources of the
+	// blueprint (environments[].resources). A bound runtime emits its own invocation-class
+	// series, named by the runtime ARN, read from the shared causal model's window: throttles
+	// are the rejected requests, invocations the admitted ones, system_errors the admitted
+	// requests that failed (held-across dependency unavailability and credential failures),
+	// total_errors their sum and latency the effective hold. Nothing is re-simulated. The other
+	// invocation-class families have no modelled source and are omitted for a bound runtime.
+	// The deployment-wide series (name `.../runtime/global`) and every other family are
+	// unchanged, and keep responding to the region-scoped agentcore_throttle mode, which a
+	// bound runtime ignores: its capacity constraint is concurrency_reduced on its resource,
+	// and a held-across dependency's faults reach it through the resource. Omitted keeps
+	// today's output byte for byte.
+	Runtimes []Runtime `yaml:"runtimes"`
+
+	// set is the blueprint's declared causal resources, injected by the resolver
+	// (causal.Consumer) only when the blueprint declares at least one.
+	set causal.Set `yaml:"-"`
 }
+
+// Runtime binds one declared agent's runtime to a causal resource.
+type Runtime struct {
+	// Agent names an entry of Config.Agents (including the default list when agents is empty).
+	// One runtime appears at most once.
+	Agent string `yaml:"agent"`
+	// Resource names a `concurrency` resource of environments[].resources; one resource binds at
+	// most one runtime. The runtime's request, throttle and error families are its window.
+	Resource string `yaml:"resource"`
+}
+
+// UseResources receives the declared causal resources (causal.Consumer).
+func (c *Config) UseResources(s causal.Set) { c.set = s }
 
 // defaults applies Config defaults in-place.
 func (c *Config) defaults() {
@@ -112,6 +143,11 @@ type Construct struct {
 	cloud *fixture.Cloud
 	env   *fixture.Env
 	st    *state.State
+
+	// model is the compiled causal model; nil when no runtime is bound.
+	model *causal.Model
+	// bound lists the runtimes bound to a causal resource, in declaration order.
+	bound []boundRuntime
 }
 
 // Compile-time interface check.
@@ -127,7 +163,11 @@ func Build(cfgAny any, fx *fixture.Set) (core.Construct, error) {
 		cfg = &Config{}
 	}
 	cfg.defaults()
-	return &Construct{cfg: cfg, cloud: fx.Cloud, env: fx.Env, st: state.NewState()}, nil
+	c := &Construct{cfg: cfg, cloud: fx.Cloud, env: fx.Env, st: state.NewState()}
+	if err := c.bind(fx); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 func (c *Construct) Kind() string { return "agentcore" }
@@ -176,6 +216,17 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		emitGauge(c.st, "aws_bedrock_agentcore_active_streaming_connections", lbls, (5+20*bf)*vf("streams|"+r, volAmp))
 		emitGauge(c.st, "aws_bedrock_agentcore_inbound_streaming_bytes_processed", lbls, (1e4+4e4*bf)*vf("inbytes|"+r, volAmp))
 		emitGauge(c.st, "aws_bedrock_agentcore_outbound_streaming_bytes_processed", lbls, (2e4+8e4*bf)*vf("outbytes|"+r, volAmp))
+	}
+
+	// ── Bound runtimes (causal model) ─────────────────────────────────────────────────
+	// Each reads the shared model's window for its concurrency resource; it never reads
+	// throttleMult or the business curve, so the region-scoped agentcore_throttle mode excludes it.
+	if c.cfg.wantRuntime() && len(c.bound) > 0 {
+		c.advance(now, w.Shape)
+		from := now.Add(-c.Interval())
+		for i := range c.bound {
+			c.emitBound(&c.bound[i], from, now)
+		}
 	}
 
 	// ── Resource-usage (resource_usage sub-signal) ───────────────────────────────────
