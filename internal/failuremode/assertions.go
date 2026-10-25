@@ -37,9 +37,15 @@ type Assertion struct {
 	Query        string
 	SiblingQuery string
 	AnySeries    bool
-	Direction    Direction
-	Source       string
-	Priority     int
+	// MinActive is an absolute floor for Increase assertions: an observation counts as moved only
+	// once it reaches this value, in addition to the proportional rule. It exists for observations
+	// that sit at zero when healthy, where "any positive value" is a 0 -> small flip that unrelated
+	// telemetry produces. Zero keeps the proportional rule alone. A floored baseline below the floor
+	// clears once the observation is back under the floor.
+	MinActive float64
+	Direction Direction
+	Source    string
+	Priority  int
 }
 
 // assertions are deliberately narrow, stable observations for the modes used
@@ -68,11 +74,24 @@ var assertions = []Assertion{
 	{Mode: "dependency_unavailable", QueryAPI: "prometheus", Query: clientErrorRate, Direction: DirectionIncrease, Source: "signals/apm.md [slug: apm-calls]; a connect failure is a transport failure on the caller's CLIENT span", Priority: 80},
 	{Mode: "credential_expired", QueryAPI: "prometheus", Query: clientErrorRate, Direction: DirectionIncrease, Source: "signals/apm.md [slug: apm-calls]; a handshake or 401 failure fails the caller's CLIENT span", Priority: 80},
 	{Mode: "quota_reduced", QueryAPI: "prometheus", Query: "sum(rate(traces_service_graph_request_failed_total{blueprint=\"{{blueprint}}\"}[2m]) or rate(traces_service_graph_request_failed_total{client_blueprint=\"{{blueprint}}\"}[2m])) or vector(0)", Direction: DirectionIncrease, Source: "signals/apm.md [slug: apm-service-graph]; a 429 answer fails the caller's edge; the scoped writer stamps a bare blueprint label on synthkit-emitted edges and a generator-derived edge carries client_blueprint, so both are read", Priority: 80},
-	{Mode: "concurrency_reduced", QueryAPI: "prometheus", Query: "sum(aws_lambda_throttles_sum) or vector(0)", Direction: DirectionIncrease, Source: "signals/cw.md (aws_lambda_throttles); a reduced concurrency limit raises the bound function's Throttles", Priority: 90},
-	{Mode: "consumer_slowdown", QueryAPI: "prometheus", Query: "aws_sqs_approximate_age_of_oldest_message_maximum or solace_queue_spool_usage_msgs", AnySeries: true, Direction: DirectionIncrease, Source: "signals/cw.md (aws_sqs_approximate_age_of_oldest_message) and signals/solace.md (solace_queue_spool_usage_msgs); a slower consumer ages and deepens the bound queue", Priority: 90},
+	{Mode: "concurrency_reduced", QueryAPI: "prometheus", Query: "sum(aws_lambda_throttles_sum) or vector(0)", MinActive: throttleFloor, Direction: DirectionIncrease, Source: "signals/cw.md (aws_lambda_throttles); a reduced concurrency limit raises the bound function's Throttles", Priority: 90},
+	{Mode: "consumer_slowdown", QueryAPI: "prometheus", Query: "aws_sqs_approximate_age_of_oldest_message_maximum or solace_queue_spool_usage_msgs", AnySeries: true, MinActive: backlogFloor, Direction: DirectionIncrease, Source: "signals/cw.md (aws_sqs_approximate_age_of_oldest_message) and signals/solace.md (solace_queue_spool_usage_msgs); a slower consumer ages and deepens the bound queue", Priority: 90},
 }
 
 const (
+	// throttleFloor is the least Throttles Sum (per 60-second emission) that counts for
+	// concurrency_reduced. A healthy bound function throttles nothing and a legacy function with a
+	// fractional throttles_per_min flips between 0 and 1 per period. A bound function carries
+	// declared demand of 1 rps or more (design examples run 2 to 15 rps, 120 to 900 arrivals a
+	// minute); once a cut limit bites, the reject share is 1 - limit/offered, so even a modest
+	// shortfall rejects well over 5 a minute.
+	throttleFloor = 5
+	// backlogFloor is the least oldest-message age (seconds) or queue depth (messages) that counts
+	// for consumer_slowdown. The harness settles 130 s after activation, so the oldest age cannot
+	// exceed about that; 30 s needs the consumer to have lost roughly a quarter of the time since
+	// activation (service rate at or under ~0.77 of demand), and 30 messages is the same deficit at
+	// 1 msg/s. It rejects the sub-second ages and one-message blips an idle unrelated queue shows.
+	backlogFloor = 30
 	// serverLatencyByService is the per-series mean SERVER span latency. The 0.05/s floor (about six
 	// observations in the two-minute window) keeps a nearly idle series from passing on noise.
 	serverLatencyByService = "histogram_avg(rate(traces_spanmetrics_latency{blueprint=\"{{blueprint}}\",span_kind=\"SPAN_KIND_SERVER\"}[2m])) and histogram_count(rate(traces_spanmetrics_latency{blueprint=\"{{blueprint}}\",span_kind=\"SPAN_KIND_SERVER\"}[2m])) > 0.05"

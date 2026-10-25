@@ -215,3 +215,17 @@ func TestResourceAxisQueriesReadOnlyDocumentedSeries(t *testing.T) {
 		}
 	}
 }
+
+// Observations that are zero when healthy carry an absolute floor, so a 0 -> small flip from an
+// unrelated series is not the mode; every other assertion stays proportional-only.
+func TestOnlyZeroBaselineResourceAssertionsCarryAFloor(t *testing.T) {
+	floored := map[string]bool{"consumer_slowdown": true, "concurrency_reduced": true}
+	for _, a := range Assertions() {
+		if floored[a.Mode] && a.MinActive <= 0 {
+			t.Errorf("%s needs an absolute floor", a.Mode)
+		}
+		if !floored[a.Mode] && a.MinActive != 0 {
+			t.Errorf("%s carries a floor %v it did not have before", a.Mode, a.MinActive)
+		}
+	}
+}

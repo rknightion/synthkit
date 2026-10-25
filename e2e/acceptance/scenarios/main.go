@@ -176,7 +176,7 @@ func exercise(ctx context.Context, c *http.Client, cfg config, sc control.Scenar
 		return d
 	}
 	d.Active = &active
-	if !moved(a.Direction, baseline, active, cfg.minChange) {
+	if !movedFor(a, baseline, active, cfg.minChange) {
 		d.Detail = fmt.Sprintf("active value %.6g did not %s from baseline %.6g by %.0f%%", active, a.Direction, baseline, cfg.minChange*100)
 		return d
 	}
@@ -207,7 +207,7 @@ func exercise(ctx context.Context, c *http.Client, cfg config, sc control.Scenar
 		return d
 	}
 	d.Cleared = &cleared
-	if !near(baseline, cleared, cfg.minChange) {
+	if !clearedFor(a, baseline, cleared, cfg.minChange) {
 		d.Detail = fmt.Sprintf("deactivation did not return near baseline: baseline %.6g, cleared %.6g", baseline, cleared)
 		return d
 	}
@@ -248,7 +248,7 @@ func exerciseAnySeries(ctx context.Context, c *http.Client, cfg config, a failur
 	}
 	var movedKeys []string
 	for key, was := range baseline {
-		if now, ok := active[key]; ok && moved(a.Direction, was, now, cfg.minChange) {
+		if now, ok := active[key]; ok && movedFor(a, was, now, cfg.minChange) {
 			movedKeys = append(movedKeys, key)
 		}
 	}
@@ -283,7 +283,7 @@ func exerciseAnySeries(ctx context.Context, c *http.Client, cfg config, a failur
 		if !ok {
 			continue // a series that stopped being reported has not stayed elevated
 		}
-		if !near(baseline[key], got, cfg.minChange) {
+		if !clearedFor(a, baseline[key], got, cfg.minChange) {
 			d.Detail = fmt.Sprintf("deactivation did not return series {%s} near baseline: baseline %.6g, cleared %.6g", key, baseline[key], got)
 			d.Cleared = ptr(got)
 			return d
@@ -459,6 +459,26 @@ func moved(direction failuremode.Direction, baseline, active, minChange float64)
 	default:
 		return false
 	}
+}
+
+// movedFor is moved plus the assertion's absolute floor: an observation that must reach MinActive
+// before it counts, so a series at (or near) zero that blips to a small positive value is noise,
+// not the fault. Assertions without a floor keep moved's semantics exactly.
+func movedFor(a failuremode.Assertion, baseline, active, minChange float64) bool {
+	if a.MinActive > 0 && active < a.MinActive {
+		return false
+	}
+	return moved(a.Direction, baseline, active, minChange)
+}
+
+// clearedFor is near, except that a floored assertion whose baseline sat below the floor clears
+// once the observation is back under the floor: near's tolerance around zero is a fixed 0.2, far
+// below the floor, and a residual between the two is neither elevated nor an exact return.
+func clearedFor(a failuremode.Assertion, baseline, cleared, minChange float64) bool {
+	if a.MinActive > 0 && baseline < a.MinActive {
+		return cleared < a.MinActive
+	}
+	return near(baseline, cleared, minChange)
 }
 
 func near(want, got, tolerance float64) bool {

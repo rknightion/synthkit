@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -123,7 +124,7 @@ func (f *resourceFixture) servers() (controlURL, promURL string, closeFn func())
 		elevated := f.effect && (f.active || f.sticky && f.activate > 0)
 		value := "1"
 		if elevated {
-			value = "5"
+			value = "100" // above every per-mode absolute floor
 		}
 		series := func(labels map[string]string, v string) map[string]any {
 			return map[string]any{"metric": labels, "value": []any{0, v}}
@@ -245,5 +246,77 @@ func TestAnySeriesDoesNotInventAClearedValue(t *testing.T) {
 	d := exercise(context.Background(), &http.Client{}, config{controlURL: controlServer.URL, promURL: promServer.URL, minChange: 0.2}, sc)
 	if d.Verdict != "pass" || d.Cleared != nil {
 		t.Fatalf("disposition = %+v, want a pass with no cleared value", d)
+	}
+}
+
+// zeroBaselineRun drives one scenario whose only moving series is "carrier", reading the given
+// values on the baseline, active and cleared observations, beside an unrelated steady series.
+func zeroBaselineRun(t *testing.T, mode string, baseline, active, cleared string) disposition {
+	t.Helper()
+	var polls int
+	controlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{})
+	}))
+	defer controlServer.Close()
+	promServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		polls++
+		value := []string{baseline, active, cleared}[min(polls, 3)-1]
+		result := []any{map[string]any{"metric": map[string]string{"queue": "carrier"}, "value": []any{0, value}}}
+		_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": map[string]any{"result": result}})
+	}))
+	defer promServer.Close()
+	sc := control.ScenarioInfo{Blueprint: "bp", Name: "causal", Effects: []control.EffectInfo{{Mode: mode, Target: "r", Intensity: 0.7}}}
+	return exercise(context.Background(), &http.Client{}, config{controlURL: controlServer.URL, promURL: promServer.URL, minChange: 0.2}, sc)
+}
+
+// A series that sits at zero when healthy and blips to a small positive value is unrelated noise:
+// the proportional rule alone accepts any positive value over a zero baseline.
+func TestZeroBaselineNeedsTheAbsoluteFloor(t *testing.T) {
+	for _, mode := range []string{"consumer_slowdown", "concurrency_reduced"} {
+		a, _ := failuremode.AssertionFor([]string{mode})
+		if a.MinActive <= 0 {
+			t.Fatalf("%s has no absolute floor", mode)
+		}
+		below := strconv.FormatFloat(a.MinActive/2, 'f', -1, 64)
+		at := strconv.FormatFloat(a.MinActive, 'f', -1, 64)
+		t.Run(mode+"/blip fails", func(t *testing.T) {
+			if d := zeroBaselineRun(t, mode, "0", below, "0"); d.Verdict != "fail" || !strings.Contains(d.Detail, "increase") {
+				t.Fatalf("0 -> %s -> 0 disposition = %+v, want a movement failure", below, d)
+			}
+		})
+		t.Run(mode+"/true positive passes", func(t *testing.T) {
+			if d := zeroBaselineRun(t, mode, "0", at, "0"); d.Verdict != "pass" {
+				t.Fatalf("0 -> %s -> 0 disposition = %+v, want a pass", at, d)
+			}
+		})
+		t.Run(mode+"/residual under the floor clears", func(t *testing.T) {
+			if d := zeroBaselineRun(t, mode, "0", "200", below); d.Verdict != "pass" {
+				t.Fatalf("0 -> 200 -> %s disposition = %+v, want a pass (back under the floor)", below, d)
+			}
+		})
+		t.Run(mode+"/still elevated fails to clear", func(t *testing.T) {
+			if d := zeroBaselineRun(t, mode, "0", "200", at); d.Verdict != "fail" || !strings.Contains(d.Detail, "deactivation did not return") {
+				t.Fatalf("0 -> 200 -> %s disposition = %+v, want a clearance failure", at, d)
+			}
+		})
+	}
+}
+
+// A non-zero baseline keeps the proportional rule (the floor only adds to it), and an assertion
+// with no floor keeps the old semantics exactly.
+func TestFloorKeepsTheProportionalRuleForNonZeroBaselines(t *testing.T) {
+	a := failuremode.Assertion{Direction: failuremode.DirectionIncrease, MinActive: 30}
+	if movedFor(a, 40, 45, 0.2) {
+		t.Fatal("a 12% rise over a non-zero baseline passed")
+	}
+	if !movedFor(a, 40, 50, 0.2) {
+		t.Fatal("a 25% rise above the floor failed")
+	}
+	if movedFor(a, 0, 29, 0.2) || !movedFor(a, 0, 30, 0.2) {
+		t.Fatal("zero baseline must need the floor exactly")
+	}
+	plain := failuremode.Assertion{Direction: failuremode.DirectionIncrease}
+	if !movedFor(plain, 0, 0.001, 0.2) || !clearedFor(plain, 10, 11, 0.2) {
+		t.Fatal("an assertion without a floor changed behaviour")
 	}
 }
