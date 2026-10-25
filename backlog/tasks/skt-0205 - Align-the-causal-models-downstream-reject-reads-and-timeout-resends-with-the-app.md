@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@loop59-root'
 created_date: '2026-10-25T13:38:00Z'
-updated_date: '2026-10-25T19:32:00Z'
+updated_date: '2026-10-25T20:57:00Z'
 labels:
   - causal
 dependencies: []
@@ -43,4 +43,6 @@ Restore the accepted archived stack as a disposable baseline, rebase the accepte
 
 <!-- SECTION:NOTES:BEGIN -->
 loop58 closeout (2026-10-25): parked unlanded; see /Users/rob/repos/synthkit/codex/closeout-2026-10-25-loop58.md. Accepted on scratch: codex/loop58/maln/candidate.patch (4e34f6eb… on d61cf24e) plus fielddocs/docs hunks; R2 (timeout share approximates child calls nested in own work) and R3 (spike test correction) for ratification.
+
+First convergence tripwire after legacy-duration omission and independent review findings for admitted pool-wait distribution plus architecture-dependent fused arithmetic. Senior escalation will share actual acquisition-wait semantics with expected timing and preserve all sampler, timing and identity checks. Current candidate is not accepted for landing.
 <!-- SECTION:NOTES:END -->
