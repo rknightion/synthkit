@@ -424,8 +424,10 @@ func TestCausalBoundDurations(t *testing.T) {
 	}
 }
 
-// A healthy causal request keeps the legacy facts of every unbound service field for field, and
-// the causal path adds no engine draw (the next draw of each engine agrees).
+// A healthy causal request keeps the legacy facts of every unbound service, and the causal path
+// adds no engine draw (the next draw of each engine agrees). Its hops sit on the engine's timeline
+// (SKT-0200): each carries the engine's Offset and a serving node's 200, and a caller's duration
+// covers its calls in sequence, so only an unbound leaf keeps its legacy duration exactly.
 func TestCausalHealthyIdentityAndDrawCount(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -465,10 +467,22 @@ func TestCausalHealthyIdentityAndDrawCount(t *testing.T) {
 				if len(c.Calls) != len(l.Calls) {
 					t.Fatalf("request %d: %d calls vs %d", i, len(c.Calls), len(l.Calls))
 				}
+				// A request failed by the entry's baseline draw keeps the legacy facts (root ruling D85).
+				engine := c.Outcome == ledger.OutcomeSuccess
+				caller := map[int]bool{}
+				for _, cc := range c.Calls {
+					caller[cc.ParentHopIndex] = true
+				}
 				for j := range c.Calls {
 					cc, lc := c.Calls[j], l.Calls[j]
 					cc.SpanID, cc.PeerSpanID, lc.SpanID, lc.PeerSpanID = "", "", "", ""
-					if bound[cc.Target] {
+					if engine {
+						if j > 0 && cc.Offset <= 0 || cc.StatusCode != 0 && cc.StatusCode != 200 {
+							t.Fatalf("request %d call %d: offset %v status %d, want an engine offset and no failure status", i, j, cc.Offset, cc.StatusCode)
+						}
+						cc.Offset, cc.StatusCode = 0, 0
+					}
+					if bound[cc.Target] || engine && caller[j] {
 						cc.Duration, lc.Duration = 0, 0
 					}
 					if cc != lc {
@@ -637,15 +651,18 @@ func TestCausalHeldDependencyCountedOnce(t *testing.T) {
 	}
 	healthy := shape.New("UTC", nil)
 	slow := incident(causal.ModeDependencySlow, "store-db", 1) // lf = 4
-	depFactor := mean(slow, "store") / mean(healthy, "store")
-	svcFactor := mean(slow, "svc") / mean(healthy, "svc")
-	t.Logf("store hop x%.3f, svc hop x%.3f", depFactor, svcFactor)
+	storeH, storeS := mean(healthy, "store"), mean(slow, "store")
+	svcH, svcS := mean(healthy, "svc"), mean(slow, "svc")
+	depFactor := storeS / storeH
+	t.Logf("store hop %.1f -> %.1f ms (x%.3f), svc hop %.1f -> %.1f ms", storeH, storeS, depFactor, svcH, svcS)
 	if math.Abs(depFactor-4) > 0.25 {
 		t.Fatalf("store-db slowed the store hop x%.2f, want about x4", depFactor)
 	}
-	// The node keeps its pre-call work (10%% of the unstretched hold), about 2.5%% over the factor.
-	if math.Abs(svcFactor-depFactor) > 0.06*depFactor {
-		t.Errorf("svc held store-pool across store-db and called it: slowed x%.2f for a x%.2f dependency, want within 6%%", svcFactor, depFactor)
+	// Healthy and slowed svc hops are both on the engine timeline (SKT-0200): the hold's pre-call
+	// work plus the held call. Counted once, svc slows by exactly the store hop's extra time; counted
+	// twice (the hold stretched beside the call) it would slow by about twice that.
+	if extra, dep := svcS-svcH, storeS-storeH; math.Abs(extra-dep) > 0.06*dep {
+		t.Errorf("svc held store-pool across store-db and called it: slowed by %.1f ms for a %.1f ms slower store hop, want within 6%%", extra, dep)
 	}
 }
 

@@ -16,8 +16,10 @@ import (
 
 // The causal projection (internal/causal, design §5): requests minted by a causal workload carry
 // hop facts (status, attempt, offset, fault) that every signal family reads. A request that is
-// not causal projects exactly as before; a healthy causal request carries legacy-shaped facts and
-// so also projects as before, apart from the M10 root status rules, which only change failures.
+// not causal projects exactly as before. A successful causal request, healthy or touched, is laid
+// out on the engine's timeline (each hop at its Offset), so a subtree a fault never reaches keeps
+// the same span durations on healthy and faulted requests; its statuses, logs and span-metric rows
+// stay as before. A request failed only by the entry's baseline draw keeps the legacy facts.
 
 // Span attribute names stamped on failing causal spans. Sourced in signals/traces.md
 // (OpenTelemetry semantic-conventions v1.44.0, HTTP spans and the error registry).

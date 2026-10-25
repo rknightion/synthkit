@@ -422,8 +422,10 @@ func TestCausalProjectWorkerRootNamedForQueueOperation(t *testing.T) {
 	}
 }
 
-// A healthy causal request (no fault, nothing touched) projects exactly as the same request
-// marked legacy: spans and logs are byte-identical (design §4.6 M6).
+// A healthy causal request (no fault, nothing touched) projects as the same request marked
+// legacy except for where its hops sit: every span keeps its name, ids, parent, kind, status and
+// attributes and every log line is byte-identical, while the hop spans are laid out on the
+// engine's timeline, each CLIENT span starting at its hop's Offset (SKT-0200; design §4.6 M6).
 func TestCausalProjectHealthyIdentity(t *testing.T) {
 	w := causalApps(t, causalResources, loggedIntakeApp)[0]
 	reqs := mintAt(w, shape.New("UTC", nil), causalNow)
@@ -442,8 +444,35 @@ func TestCausalProjectHealthyIdentity(t *testing.T) {
 	}
 	a := project(t, w, shape.New("UTC", nil), healthy)
 	b := project(t, w, shape.New("UTC", nil), legacy)
-	if !reflect.DeepEqual(a.all, b.all) {
-		t.Fatal("healthy causal spans differ from their legacy projection")
+	untimed := func(rs []otlp.Resource) []otlp.Resource {
+		out := make([]otlp.Resource, len(rs))
+		for i, r := range rs {
+			out[i] = r
+			out[i].Spans = make([]otlp.Span, len(r.Spans))
+			for j, sp := range r.Spans {
+				sp.Start, sp.End = time.Time{}, time.Time{}
+				out[i].Spans[j] = sp
+			}
+		}
+		return out
+	}
+	if !reflect.DeepEqual(untimed(a.all), untimed(b.all)) {
+		t.Fatal("healthy causal spans differ from their legacy projection beyond their timing")
+	}
+	hops := 0
+	for _, r := range healthy {
+		if !causalLayout(r) {
+			continue
+		}
+		for _, c := range r.Calls {
+			hops++
+			if got, want := a.spans[c.SpanID].Start, r.RenderStart().Add(c.Offset); !got.Equal(want) {
+				t.Fatalf("hop %s CLIENT span starts at %v, want its engine offset %v", c.Target, got, want)
+			}
+		}
+	}
+	if hops == 0 {
+		t.Fatal("no healthy causal hop was laid out on the engine timeline")
 	}
 	if !reflect.DeepEqual(a.logs, b.logs) {
 		t.Fatal("healthy causal logs differ from their legacy projection")

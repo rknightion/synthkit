@@ -828,9 +828,27 @@ func sameWire(t *testing.T, what string, got, want []string) {
 	t.Errorf("%s: opted-healthy output differs from legacy (%d vs %d lines):\n%s", what, len(got), len(want), strings.Join(diff, "\n"))
 }
 
+// spanTimes is the Start and End of a rendered span line.
+var spanTimes = regexp.MustCompile(`"Start":"[^"]*","End":"[^"]*"`)
+
+// untimedSpans drops each span line's Start and End, keeping every other emitted fact.
+func untimedSpans(lines []string) []string {
+	out := make([]string, len(lines))
+	for i, l := range lines {
+		if strings.HasPrefix(l, "span ") {
+			l = spanTimes.ReplaceAllString(l, `"Start":"","End":""`)
+		}
+		out[i] = l
+	}
+	sort.Strings(out)
+	return out
+}
+
 // TestCausalOptedHealthyIdentity is the opted-healthy guard (codex design §10.5, §4.6): a shipped
 // app blueprint that declares resources and binds them, with no fault active, emits the same app
-// wire output as without them for every node not bound to a capacity or dependency resource.
+// wire output as without them for every node not bound to a capacity or dependency resource,
+// apart from span timing: a successful causal request is laid out on the engine's timeline
+// (SKT-0200), so span Start and End are left out of the comparison.
 // A rule binds no duration, so binding one on the entry must leave the whole app unchanged; a
 // dependency bound on a leaf may change only that leaf and the hop cover of its caller.
 func TestCausalOptedHealthyIdentity(t *testing.T) {
@@ -849,9 +867,9 @@ func TestCausalOptedHealthyIdentity(t *testing.T) {
 	}
 	all := map[string]bool{"checkout": true, "catalog": true, "cart-store": true}
 	ruleOpted := opt("{name: checkout-rule, kind: rule, reject_share: 0.2}", "checkout-rule", "        entry: true\n")
-	sameWire(t, "rule bound on the entry", appWire(t, ruleOpted, all), appWire(t, legacy, all))
+	sameWire(t, "rule bound on the entry", untimedSpans(appWire(t, ruleOpted, all)), untimedSpans(appWire(t, legacy, all)))
 
 	depOpted := opt("{name: cart-store-db, kind: dependency, latency_ms: 4}", "cart-store-db", "        controller: statefulset\n")
 	unbound := map[string]bool{"catalog": true}
-	sameWire(t, "dependency bound on cart-store, catalog", appWire(t, depOpted, unbound), appWire(t, legacy, unbound))
+	sameWire(t, "dependency bound on cart-store, catalog", untimedSpans(appWire(t, depOpted, unbound)), untimedSpans(appWire(t, legacy, unbound)))
 }

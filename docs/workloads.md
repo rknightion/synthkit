@@ -309,8 +309,13 @@ every signal projects the same request facts. The field reference is the generat
 - **Custom metrics.** The `resource` and `outcomes` value models read the same state and the node's
   hop outcomes for the window.
 - **Unbound nodes stay as they were.** A service that names no resource keeps its legacy request
-  facts field for field, and a healthy causal request keeps the legacy spans and logs. The one
-  difference is a hop failure from `error_spike` or a declared `error_rate`, which in a causal
+  facts (outcome, statuses and its own drawn duration), and a healthy causal request keeps the
+  legacy logs, span statuses and span-metric rows. Its spans are laid out on the engine's timeline,
+  as a faulted request's are: each call starts after the caller's pre-call work and the previous
+  call, and a caller's span covers its calls. A service a fault never reaches therefore keeps the
+  same span durations on healthy and faulted requests. A request failed only by the entry's
+  baseline error draw keeps the legacy layout. The one difference is a hop failure from
+  `error_spike` or a declared `error_rate`, which in a causal
   workload propagates by the mapped status and can be absorbed by a retry, and in any other
   blueprint stays independent (see the
   [service axis](incidents.md#service-axis-app-workload-per-node)).

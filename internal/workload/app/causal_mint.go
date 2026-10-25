@@ -551,7 +551,11 @@ func (p *causalPlan) overlay(m *minter, r *ledger.Request, now time.Time, eng *s
 			r.Fault = res.slow
 		}
 	}
-	if ev.touched {
+	// A touched request and a healthy successful one both take the engine's timeline (offsets and
+	// durations from serve), so a subtree the fault never reaches is laid out by the same rule on
+	// healthy and faulted requests and its spans keep one duration distribution (SKT-0200). Only a
+	// request failed by the entry's baseline draw keeps the legacy facts (root ruling D85).
+	if ev.touched || r.Outcome == ledger.OutcomeSuccess {
 		r.Calls = ev.out
 		r.Duration = durOf(res.durMS)
 		for _, c := range r.Calls { // rounding and the 1 ms floor must not push a hop past the request
@@ -561,8 +565,9 @@ func (p *causalPlan) overlay(m *minter, r *ledger.Request, now time.Time, eng *s
 		}
 		return
 	}
-	// Healthy: legacy facts field for field, except bound services take their duration from the
-	// declared hold or latency (one duration source) and the hop cover follows them.
+	// A baseline entry failure: legacy facts field for field, except bound services take their
+	// duration from the declared hold or latency (one duration source) and the hop cover follows
+	// them.
 	calls := make([]ledger.Call, len(r.Calls))
 	copy(calls, r.Calls)
 	var hopSum time.Duration
