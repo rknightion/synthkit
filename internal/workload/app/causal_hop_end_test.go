@@ -39,7 +39,7 @@ func TestCausalChildHopEndingWithItsCallerDoesNotOutliveIt(t *testing.T) {
 		reqs := mintAt(w, eng, now)
 		for _, r := range reqs {
 			if r.Outcome != ledger.OutcomeSuccess {
-				continue // a baseline entry failure keeps the legacy layout (no offsets); its spans are checked below
+				continue // check successful requests' ledger hops here; every outcome's projected spans are checked below
 			}
 			for _, c := range r.Calls {
 				end := c.Offset + c.Duration
@@ -55,7 +55,7 @@ func TestCausalChildHopEndingWithItsCallerDoesNotOutliveIt(t *testing.T) {
 				}
 			}
 		}
-		if v := nestingViolations(project(t, w, eng, reqs).all); len(v) > 0 {
+		if v := nestingRequestViolations(project(t, w, eng, reqs).all, reqs, nil); len(v) > 0 {
 			t.Fatalf("%d span(s) outside their parent, e.g. %s", len(v), v[0])
 		}
 	}

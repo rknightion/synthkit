@@ -18,14 +18,10 @@ import (
 	"github.com/rknightion/synthkit/internal/sink/otlp"
 )
 
-// nestingViolations lists every span that is not inside its parent's window. A child of the same
-// trace must start at or after its parent and end at or before it: a blocking call cannot outlive
-// the span waiting on it. Only a producer or consumer edge may cross a window (an asynchronous
-// hand-off), so a CONSUMER child is exempt from the end rule.
-func nestingViolations(batch []otlp.Resource) []string { return nestingViolationsExcept(batch, nil) }
-
-// nestingViolationsExcept is nestingViolations, leaving the end rule off for the spans in exempt
-// (by span id); they must still start inside their parent.
+// nestingViolationsExcept checks windows for spans with a parent present in the batch.
+// nestingRequestViolations also rejects unexpected parentless spans. A blocking child must start
+// at or after its parent and end at or before it. CONSUMER spans and explicitly exempt spans
+// (by span id) may end later, but must still start inside their parent.
 func nestingViolationsExcept(batch []otlp.Resource, exempt map[string]bool) []string {
 	byID := map[string]otlp.Span{}
 	for _, res := range batch {
@@ -54,9 +50,69 @@ func nestingViolationsExcept(batch []otlp.Resource, exempt map[string]bool) []st
 	return out
 }
 
+// nestingRequestViolations exempts only the ledger's exact request roots from requiring a
+// parent. Timeout and CONSUMER exceptions relax the end rule, never the parent requirement.
+func nestingRequestViolations(batch []otlp.Resource, reqs []*ledger.Request, exempt map[string]bool) []string {
+	roots := map[[2]string]bool{}
+	for _, r := range reqs {
+		roots[[2]string{r.TraceID, r.SpanID}] = true
+	}
+	out := nestingViolationsExcept(batch, exempt)
+	for _, res := range batch {
+		for _, sp := range res.Spans {
+			if sp.ParentID == "" && !roots[[2]string{sp.TraceID, sp.SpanID}] {
+				out = append(out, fmt.Sprintf("%q is parentless but is not a request root", sp.Name))
+			}
+		}
+	}
+	return out
+}
+
+// TestNestingRejectsParentlessChildren checks the nesting oracle itself: losing a child's parent
+// must not turn it into an exempt request root, even for timeout and asynchronous spans.
+func TestNestingRejectsParentlessChildren(t *testing.T) {
+	now := time.Date(2026, 9, 27, 9, 30, 0, 0, time.UTC)
+	root := otlp.Span{TraceID: "trace", SpanID: "root", Name: "entry", Kind: otlp.KindServer, Start: now, End: now.Add(time.Second)}
+	for _, kind := range []otlp.SpanKind{otlp.KindClient, otlp.KindServer, otlp.KindConsumer} {
+		t.Run(fmt.Sprint(kind), func(t *testing.T) {
+			child := otlp.Span{TraceID: root.TraceID, SpanID: "child", Name: "child", Kind: kind, Start: now, End: now.Add(2 * time.Second)}
+			batch := []otlp.Resource{{Spans: []otlp.Span{root, child}}}
+			reqs := []*ledger.Request{{TraceID: root.TraceID, SpanID: root.SpanID}}
+			exempt := map[string]bool{child.SpanID: kind == otlp.KindServer}
+			if v := nestingRequestViolations(batch, reqs, exempt); len(v) != 1 || v[0] != `"child" is parentless but is not a request root` {
+				t.Fatalf("want only the parentless child violation, got %v", v)
+			}
+			child.ParentID = root.SpanID
+			batch[0].Spans[1] = child
+			want := 0
+			if kind == otlp.KindClient {
+				want = 1 // a blocking CLIENT overrun is never a timeout-server exception
+			}
+			if v := nestingRequestViolations(batch, reqs, exempt); len(v) != want {
+				t.Fatalf("attached child: got %v, want %d violations", v, want)
+			}
+			if v := nestingRequestViolations(batch, reqs, nil); kind != otlp.KindConsumer && len(v) != 1 || kind == otlp.KindConsumer && len(v) != 0 {
+				t.Fatalf("only CONSUMER may overrun without an explicit timeout exemption: %v", v)
+			}
+			batch[0].Spans[1].End = root.End
+			batch[0].Spans[1].Start = now.Add(-time.Nanosecond)
+			if v := nestingRequestViolations(batch, reqs, exempt); len(v) != 1 {
+				t.Fatalf("end-exempt child starting before its parent must fail: %v", v)
+			}
+		})
+	}
+	// A matching span ID in a different trace is not an admitted request root.
+	batch := []otlp.Resource{{Spans: []otlp.Span{root}}}
+	reqs := []*ledger.Request{{TraceID: "other-trace", SpanID: root.SpanID}}
+	if v := nestingRequestViolations(batch, reqs, nil); len(v) != 1 {
+		t.Fatalf("request root exemption leaked across traces: %v", v)
+	}
+}
+
 // TestShippedAppSpansNestInsideTheirParent mints a few hundred healthy requests for every app
 // declaration in the shipped blueprints and requires every child span to sit inside its parent's
-// window, on the legacy nesting. The causal timeline is covered by TestCausalSpansNestInsideTheirParent.
+// window on the declaration's selected timeline. Declarations without causal resources use legacy
+// nesting; causal fault cases are also covered by TestCausalSpansNestInsideTheirParent.
 func TestShippedAppSpansNestInsideTheirParent(t *testing.T) {
 	now := time.Date(2026, 9, 27, 9, 30, 0, 0, time.UTC)
 	for _, tc := range appParityDeclarations(t) {
@@ -95,7 +151,7 @@ func TestShippedAppSpansNestInsideTheirParent(t *testing.T) {
 				if err := workload.ProjectBatch(context.Background(), now, world, []*ledger.Request{r}); err != nil {
 					t.Fatalf("ProjectBatch: %v", err)
 				}
-				if v := nestingViolations(traces.batch); len(v) > 0 {
+				if v := nestingRequestViolations(traces.batch, []*ledger.Request{r}, nil); len(v) > 0 {
 					t.Fatalf("request %s (%d hops): %d span(s) outside their parent, e.g. %s", r.TraceID, len(r.Calls), len(v), v[0])
 				}
 			}
@@ -105,8 +161,8 @@ func TestShippedAppSpansNestInsideTheirParent(t *testing.T) {
 
 // TestCausalSpansNestInsideTheirParent holds the causal timeline to the same rule: healthy and
 // touched requests (slowed, retried, timed out, rejected) keep every span inside its parent. The
-// one exception is the callee SERVER span of a timed-out call, which keeps its own duration after
-// the caller has given up.
+// callee SERVER span of a timed-out call keeps its own duration after the caller has given up;
+// CONSUMER spans may also end later. Both must still have a parent and start inside its window.
 func TestCausalSpansNestInsideTheirParent(t *testing.T) {
 	w := causalApps(t, causalResources, intakeApp)[0]
 	for _, c := range []struct {
@@ -134,7 +190,7 @@ func TestCausalSpansNestInsideTheirParent(t *testing.T) {
 					}
 				}
 			}
-			if v := nestingViolationsExcept(p.all, timedOut); len(v) > 0 {
+			if v := nestingRequestViolations(p.all, reqs, timedOut); len(v) > 0 {
 				t.Fatalf("%d span(s) outside their parent, e.g. %s", len(v), v[0])
 			}
 		})
