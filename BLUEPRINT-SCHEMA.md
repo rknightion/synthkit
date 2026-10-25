@@ -1702,6 +1702,22 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].custom_metrics[].value.outcomes.status[]` | string |  |  |
 | `services[].custom_metrics[].value.outcomes.status_label` | string |  |  |
 | `services[].custom_metrics[].value.outcomes.measure` | string |  |  |
+| `services[].custom_metrics[].value.request_draw` | object | yes |  |
+| `services[].custom_metrics[].value.request_draw.key` | string |  |  |
+| `services[].custom_metrics[].value.request_draw.format` | string |  |  |
+| `services[].custom_metrics[].value.request_draw.enum[]` | object |  |  |
+| `services[].custom_metrics[].value.request_draw.enum[].value` | string |  |  |
+| `services[].custom_metrics[].value.request_draw.enum[].weight` | float |  |  |
+| `services[].custom_metrics[].value.request_draw.enum[].rate_scale` | float | yes |  |
+| `services[].custom_metrics[].value.request_draw.enum[].value_scale` | float | yes |  |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile` | object | yes |  |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.timezone` | string |  |  |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.floor` | float | yes |  |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.ramp_up_start_hour` | float | yes |  |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.plateau_start_hour` | float | yes |  |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.plateau_end_hour` | float | yes |  |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.ramp_down_end_hour` | float | yes |  |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.weekend_factor` | float | yes |  |
 | `services[].custom_metrics[].buckets[]` | float |  |  |
 | `services[].custom_metrics[].le_style` | string |  |  |
 | `services[].custom_metrics[].stock_of` | object | yes |  |
@@ -1769,6 +1785,22 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].metrics[].value.outcomes.status[]` | string |  |  |
 | `services[].metrics[].value.outcomes.status_label` | string |  |  |
 | `services[].metrics[].value.outcomes.measure` | string |  |  |
+| `services[].metrics[].value.request_draw` | object | yes |  |
+| `services[].metrics[].value.request_draw.key` | string |  |  |
+| `services[].metrics[].value.request_draw.format` | string |  |  |
+| `services[].metrics[].value.request_draw.enum[]` | object |  |  |
+| `services[].metrics[].value.request_draw.enum[].value` | string |  |  |
+| `services[].metrics[].value.request_draw.enum[].weight` | float |  |  |
+| `services[].metrics[].value.request_draw.enum[].rate_scale` | float | yes |  |
+| `services[].metrics[].value.request_draw.enum[].value_scale` | float | yes |  |
+| `services[].metrics[].value.request_draw.enum[].shape_profile` | object | yes |  |
+| `services[].metrics[].value.request_draw.enum[].shape_profile.timezone` | string |  |  |
+| `services[].metrics[].value.request_draw.enum[].shape_profile.floor` | float | yes |  |
+| `services[].metrics[].value.request_draw.enum[].shape_profile.ramp_up_start_hour` | float | yes |  |
+| `services[].metrics[].value.request_draw.enum[].shape_profile.plateau_start_hour` | float | yes |  |
+| `services[].metrics[].value.request_draw.enum[].shape_profile.plateau_end_hour` | float | yes |  |
+| `services[].metrics[].value.request_draw.enum[].shape_profile.ramp_down_end_hour` | float | yes |  |
+| `services[].metrics[].value.request_draw.enum[].shape_profile.weekend_factor` | float | yes |  |
 | `services[].metrics[].buckets[]` | float |  |  |
 | `services[].metrics[].le_style` | string |  |  |
 | `services[].metrics[].stock_of` | object | yes |  |
