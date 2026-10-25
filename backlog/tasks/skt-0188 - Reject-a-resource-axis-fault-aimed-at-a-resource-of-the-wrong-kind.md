@@ -1,11 +1,11 @@
 ---
 id: SKT-0188
 title: Reject a resource-axis fault aimed at a resource of the wrong kind
-status: In Progress
+status: Done
 assignee:
   - '@loop58-root'
 created_date: '2026-10-25T07:44:00Z'
-updated_date: '2026-10-25T07:49:00Z'
+updated_date: '2026-10-25T10:03:00Z'
 labels: []
 dependencies:
   - SKT-0168.09.15
@@ -21,8 +21,8 @@ The loader accepts a resource-axis mode whose target is a resource of a kind the
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A wrong-kind resource-axis effect fails at load with a clear error, red then green
-- [ ] #2 Every valid mode-kind pairing still loads
+- [x] #1 A wrong-kind resource-axis effect fails at load with a clear error, red then green
+- [x] #2 Every valid mode-kind pairing still loads
 <!-- AC:END -->
 
 ## Definition of Done
@@ -31,3 +31,9 @@ The loader accepts a resource-axis mode whose target is a resource of a kind the
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop58: landed (landings 5-7), gates gate-2 pass, hosted CI green 0cb0310.
+<!-- SECTION:NOTES:END -->

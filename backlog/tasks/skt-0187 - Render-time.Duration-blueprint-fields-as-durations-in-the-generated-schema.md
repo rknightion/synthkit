@@ -1,11 +1,11 @@
 ---
 id: SKT-0187
 title: Render time.Duration blueprint fields as durations in the generated schema
-status: In Progress
+status: Done
 assignee:
   - '@loop58-root'
 created_date: '2026-10-25T07:09:00Z'
-updated_date: '2026-10-25T07:09:00Z'
+updated_date: '2026-10-25T10:03:00Z'
 labels: []
 dependencies: []
 priority: low
@@ -20,8 +20,8 @@ BLUEPRINT-SCHEMA.md lists solace drain_schedule.period/window/phase (time.Durati
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 time.Duration fields render as a duration type in BLUEPRINT-SCHEMA.md and fielddocs.json
-- [ ] #2 No other schema row changes
+- [x] #1 time.Duration fields render as a duration type in BLUEPRINT-SCHEMA.md and fielddocs.json
+- [x] #2 No other schema row changes
 <!-- AC:END -->
 
 ## Definition of Done
@@ -30,3 +30,9 @@ BLUEPRINT-SCHEMA.md lists solace drain_schedule.period/window/phase (time.Durati
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop58: landed (landings 5-7), gates gate-2 pass, hosted CI green 0cb0310.
+<!-- SECTION:NOTES:END -->

@@ -3,11 +3,11 @@ id: SKT-0186
 title: >-
   Classify agento11y-provision TLS whole-closure test failure under loaded race
   gates
-status: In Progress
+status: Done
 assignee:
   - '@loop58-root'
 created_date: '2026-10-25T06:33:00Z'
-updated_date: '2026-10-25T06:33:00Z'
+updated_date: '2026-10-25T10:03:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -22,7 +22,7 @@ TestPublicCommandTLSWholeClosure in cmd/agento11y-provision failed once in a ful
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The failure is attributed with evidence and either fixed or bounded without relaxing assertions
+- [x] #1 The failure is attributed with evidence and either fixed or bounded without relaxing assertions
 <!-- AC:END -->
 
 ## Definition of Done
@@ -31,3 +31,9 @@ TestPublicCommandTLSWholeClosure in cmd/agento11y-provision failed once in a ful
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop58: landed (landings 5-7), gates gate-2 pass, hosted CI green 0cb0310.
+<!-- SECTION:NOTES:END -->

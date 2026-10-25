@@ -1,9 +1,11 @@
 ---
 id: SKT-0190
 title: Align gateway export log status with causal request failures
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop58-root'
 created_date: '2026-10-25T08:00:00Z'
+updated_date: '2026-10-25T09:58:00Z'
 labels: []
 dependencies: []
 priority: medium
