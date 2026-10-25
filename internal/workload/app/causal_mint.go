@@ -80,6 +80,13 @@ type causalPlan struct {
 	loads     []causal.Load
 
 	served servedEvents
+
+	// Trigger context across a queue (causal_trigger.go): the queues a hop publishes into, by
+	// service, the queue channel a worker consumes, and the joined worker requests' triggers.
+
+	publishes map[string][]*causal.Exchange
+	consumes  *causal.Exchange
+	triggers  triggerBook
 }
 
 // causalNode is one service's resolved resources and client policies.
@@ -115,6 +122,7 @@ func buildCausalPlan(cfg *Config, g *graph, env string) (*causalPlan, error) {
 	if p.model, err = causal.Compile(cfg.resources); err != nil {
 		return nil, fmt.Errorf("app: resources: %w", err)
 	}
+	p.bindExchanges(cfg.resources)
 	return p, nil
 }
 

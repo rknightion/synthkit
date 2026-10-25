@@ -285,6 +285,7 @@ func (m *minter) mintRequest(now time.Time, eng *shape.Engine, tick uint64, requ
 	if m.causal != nil {
 		// Every legacy draw above ran exactly as on the legacy path; the overlay adds none.
 		m.causal.overlay(m, r, now, eng, seed, causes, legacyOutcome{draw: outcomeDraw, base: base, entryRate: entryRate})
+		m.causal.exchange(m, r) // a worker joins its message's trace; a publishing hop leaves a message
 		return r
 	}
 	var hopSum time.Duration

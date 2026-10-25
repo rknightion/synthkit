@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync/atomic"
 )
 
 // Resource is one declared resource; it is also the blueprint YAML shape
@@ -78,6 +79,11 @@ type Demand struct {
 	// rate is this resource's demand (a queue's processed rate, the others' admitted rate). With
 	// from, off_peak_rps, peak_rps and load are omitted.
 	From string `yaml:"from"`
+
+	// A queue's message exchange (exchange.go) is created on first use and lives here, on the
+	// declaration the resolver shares with every consumer of the blueprint.
+
+	exchange atomic.Pointer[Exchange]
 }
 
 // ErrorTemplate overrides the default failure presentation of a resource.

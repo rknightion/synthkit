@@ -170,6 +170,26 @@ load. The retry rules:
   that times out cannot know the cause), so `retry_on: [timeout]` resends it. With no timeout, or a
   timeout longer than the rejection, the same rejection is made once.
 
+### Worker apps continue the trace that queued their message
+
+An app whose `traffic.from_resource` names a queue and whose entry is a `worker` mints one request
+per message the queue serves. When a hop of another app in the blueprint publishes into that queue
+(its service `uses` the queue), the worker request continues the publishing request's trace instead
+of starting one: its CONSUMER span takes the publisher's span as its parent and links to it, as the
+messaging span conventions allow for a single message (semantic-conventions v1.44.0, messaging
+spans), and the worker's logs carry that trace id. The pairing is fixed, not drawn:
+
+- A request publishes one message per successful hop into a service that uses the queue. A failed
+  hop publishes nothing.
+- A worker request takes the oldest unconsumed message whose producing request started no later
+  than the worker request started minus its own duration, so a message becomes consumable one tick
+  after it was published and the consumer span never begins before its producer ends.
+- A worker request that finds no such message, or a queue nothing publishes into, keeps its own
+  trace exactly as before. At most 32768 messages wait per queue; beyond that the oldest are dropped.
+
+No span is added or removed, so span metrics and service-graph counts are unchanged. The entry
+service's own use of a queue is not a hop and publishes nothing.
+
 ### Service graph example
 
 ```yaml

@@ -100,7 +100,8 @@ type Declaration struct {
 // Set is every environment's declarations of one blueprint plus the retrying caller edges into
 // its resources. Resource names are unique blueprint-wide (Validate enforces it). The composition
 // root hands one Set to every consumer, so a Set, its slices and the pointers inside its resources are
-// read-only: Compile reads it without modifying it and no consumer may mutate it.
+// read-only: Compile reads it without modifying it and no consumer may mutate it. The one exception
+// is a queue's message exchange (QueueExchange), a lazily created pointer private to the Set's data.
 type Set struct {
 	Envs  []Declaration
 	Loads []Load

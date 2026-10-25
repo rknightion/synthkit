@@ -86,6 +86,12 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 				Attrs:  eAttrs,
 			}
 			decorateRoot(&root, r, httpNode(entry))
+			if t, ok := w.triggerOf(r); ok {
+				// A worker request that took a queue message continues the producing request's
+				// trace under the publisher's span, and links to that creation context.
+				root.ParentID = t.span
+				root.Links = []otlp.Link{{TraceID: t.trace, SpanID: t.span}}
+			}
 			er.Spans = append(er.Spans, root)
 			er.Spans = append(er.Spans, eChildren...)
 			entryContext = r.SpanID
