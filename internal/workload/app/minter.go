@@ -150,14 +150,22 @@ func (m *minter) expectedVolume(now time.Time, tickSec float64, eng *shape.Engin
 	return m.rpsAt(now, eng) * tickSec
 }
 
-// Mint fabricates this tick's correlated requests (StochasticRound of the expected volume).
+// Mint fabricates this tick's correlated requests: StochasticRound of the expected volume, or
+// for a from_resource consumer the whole messages its queue served in the window.
 func (m *minter) Mint(now time.Time, tickSec float64, eng *shape.Engine) []*ledger.Request {
 	// Empty ticks also consume an identity unit, matching the live tick sequence.
 	tick := atomic.AddUint64(&m.tick, 1) - 1
 	if m.causal != nil {
 		m.causal.model.Advance(now, eng) // idempotent; no engine draw
 	}
-	n := ledger.StochasticRound(m.expectedVolume(now, tickSec, eng), eng.Float64())
+	var n int
+	if m.causal != nil && m.causal.fromQueue != "" {
+		// A queue consumer mints the whole messages the queue served in this window through a
+		// deterministic carry: no engine draw, and the count matches a bound construct's.
+		n = m.causal.mintServed(now, tickSec, eng.Paused())
+	} else {
+		n = ledger.StochasticRound(m.expectedVolume(now, tickSec, eng), eng.Float64())
+	}
 	if n <= 0 {
 		return nil
 	}

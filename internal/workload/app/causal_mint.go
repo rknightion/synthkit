@@ -7,6 +7,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/rknightion/synthkit/internal/causal"
@@ -77,6 +78,8 @@ type causalPlan struct {
 	worker    bool
 	nodes     map[string]*causalNode
 	loads     []causal.Load
+
+	served servedEvents
 }
 
 // causalNode is one service's resolved resources and client policies.
@@ -334,6 +337,66 @@ func sortedPolicyKeys(m map[string]causal.CallPolicy) []string {
 func (p *causalPlan) servedRPS(now time.Time) float64 {
 	st, _ := p.model.State(p.fromQueue, now)
 	return st.ServedRPS
+}
+
+// eventCarry holds the fractional remainder of a count of whole events, with a compensation term
+// so a long run of tiny additions does not drift.
+type eventCarry struct{ fraction, correction float64 }
+
+// take adds amount to the carry and returns the whole events that have accrued. It is the same
+// arithmetic as the lambda construct's carry, so a bound function counting a queue's window and
+// an app minting from it agree on every whole event; TestFromResourceAppMintsTheBoundFunctionsInvocations
+// pins the two together.
+func (c *eventCarry) take(amount float64) float64 {
+	if amount == 0 {
+		return 0
+	}
+	y := amount - c.correction
+	v := c.fraction + y
+	c.correction = (v - c.fraction) - y
+	n := math.Max(0, math.Floor(v))
+	if n+1-v <= math.Max(1e-12, 8*(math.Nextafter(v, math.Inf(1))-v)) {
+		n++
+	}
+	c.fraction = v - n
+	return n
+}
+
+// servedEvents turns a from_resource queue's served messages into whole requests. The count is the
+// model's window volume through a deterministic carry, never a random draw, so the requests a
+// consumer app mints (its traces and logs) are exactly the executions a construct bound to the
+// same flow counts. The observation window is (now - elapsed, now], elapsed capped at the tick
+// length: a missed window is not replayed, and a repeated or backward timestamp mints nothing and
+// consumes no carry.
+type servedEvents struct {
+	mu      sync.Mutex
+	carry   eventCarry
+	last    time.Time
+	started bool
+}
+
+// mintServed returns the whole requests for the window ending at now. paused advances the observation
+// clock without accruing, so the resumed tick does not claim the paused interval.
+func (p *causalPlan) mintServed(now time.Time, tickSec float64, paused bool) int {
+	s := &p.served
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	seconds := tickSec
+	if s.started {
+		if !now.After(s.last) {
+			return 0
+		}
+		seconds = math.Min(seconds, now.Sub(s.last).Seconds())
+	}
+	s.last, s.started = now, true
+	if paused || seconds <= 0 {
+		return 0
+	}
+	win, ok := p.model.Window(p.fromQueue, now.Add(-time.Duration(seconds*float64(time.Second))), now)
+	if !ok {
+		return 0
+	}
+	return int(s.carry.take(win.Served))
 }
 
 // legacyOutcome is the entry's baseline outcome draw and the rates it was compared against.
