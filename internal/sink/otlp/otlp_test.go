@@ -3,6 +3,7 @@
 package otlp
 
 import (
+	"bytes"
 	"compress/gzip"
 	"context"
 	"io"
@@ -687,5 +688,119 @@ func TestCapturedInventoryExcludesInvalidSpans(t *testing.T) {
 	_, names, _ := sink.Inventory()
 	if got := names["checkout"]; len(got) != 1 || got[0] != "valid" {
 		t.Fatalf("inventory names=%v", got)
+	}
+}
+
+// TestConvertSpansEncodesEvents round-trips a span with one event through the proto
+// decoder and checks the wire field numbers: Span.events = 11; Span.Event.time_unix_nano
+// = 1 (fixed64), name = 2, attributes = 3.
+func TestConvertSpansEncodesEvents(t *testing.T) {
+	now := time.Unix(1_700_000_000, 123)
+	evTime := now.Add(5 * time.Millisecond)
+	in := []Span{{
+		Name: "op", TraceID: "0123456789abcdef0123456789abcdef", SpanID: "0123456789abcdef",
+		Start: now, End: now.Add(10 * time.Millisecond), Status: StatusError,
+		Events: []Event{{
+			Name: "exception", Time: evTime,
+			Attrs: map[string]any{"exception.type": "timeout"},
+		}},
+	}}
+	spans, skipped := convertSpans(in)
+	if skipped != 0 || len(spans) != 1 {
+		t.Fatalf("convertSpans: %d spans, %d skipped", len(spans), skipped)
+	}
+	raw, err := proto.Marshal(spans[0])
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var got tracepb.Span
+	if err := proto.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(got.Events) != 1 {
+		t.Fatalf("decoded %d events, want 1", len(got.Events))
+	}
+	ev := got.Events[0]
+	if ev.Name != "exception" || ev.TimeUnixNano != uint64(evTime.UnixNano()) {
+		t.Errorf("event = name %q time %d, want exception %d", ev.Name, ev.TimeUnixNano, evTime.UnixNano())
+	}
+	if len(ev.Attributes) != 1 || ev.Attributes[0].Key != "exception.type" || ev.Attributes[0].Value.GetStringValue() != "timeout" {
+		t.Errorf("event attributes = %v", ev.Attributes)
+	}
+
+	// Raw wire field numbers, independent of the generated decoder.
+	var evBytes []byte
+	for b := raw; len(b) > 0; {
+		num, typ, n := protowire.ConsumeTag(b)
+		if n < 0 {
+			t.Fatalf("bad tag")
+		}
+		b = b[n:]
+		vn := protowire.ConsumeFieldValue(num, typ, b)
+		if vn < 0 {
+			t.Fatalf("bad field value")
+		}
+		if num == 11 {
+			if typ != protowire.BytesType {
+				t.Fatalf("field 11 wire type %v, want bytes", typ)
+			}
+			evBytes, _ = protowire.ConsumeBytes(b)
+		}
+		b = b[vn:]
+	}
+	if evBytes == nil {
+		t.Fatal("span has no field 11 (events)")
+	}
+	seen := map[protowire.Number]protowire.Type{}
+	for b := evBytes; len(b) > 0; {
+		num, typ, n := protowire.ConsumeTag(b)
+		b = b[n:]
+		seen[num] = typ
+		b = b[protowire.ConsumeFieldValue(num, typ, b):]
+	}
+	if seen[1] != protowire.Fixed64Type || seen[2] != protowire.BytesType || seen[3] != protowire.BytesType {
+		t.Errorf("event wire fields = %v, want 1=fixed64 2=bytes 3=bytes", seen)
+	}
+}
+
+// TestConvertSpansNilEventsByteIdentical verifies a span with nil (or empty) Events encodes
+// byte-for-byte as a span built with no Events field, and carries no field 11.
+func TestConvertSpansNilEventsByteIdentical(t *testing.T) {
+	now := time.Unix(1_700_000_000, 0)
+	mk := func(ev []Event) []byte {
+		spans, _ := convertSpans([]Span{{
+			Name: "op", TraceID: "0123456789abcdef0123456789abcdef", SpanID: "0123456789abcdef",
+			Start: now, End: now.Add(time.Millisecond), Attrs: map[string]any{"k": "v"}, Events: ev,
+		}})
+		b, err := proto.MarshalOptions{Deterministic: true}.Marshal(spans[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		return b
+	}
+	ref, err := proto.MarshalOptions{Deterministic: true}.Marshal(&tracepb.Span{
+		TraceId: []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef},
+		SpanId:  []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef},
+		Name:    "op", Kind: tracepb.Span_SPAN_KIND_INTERNAL,
+		StartTimeUnixNano: uint64(now.UnixNano()), EndTimeUnixNano: uint64(now.Add(time.Millisecond).UnixNano()),
+		Attributes: kvs(map[string]any{"k": "v"}),
+		Status:     &tracepb.Status{Code: tracepb.Status_STATUS_CODE_UNSET},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, ev := range map[string][]Event{"nil": nil, "empty": {}} {
+		if got := mk(ev); !bytes.Equal(got, ref) {
+			t.Errorf("%s Events: encoding differs from base\n got %x\nwant %x", name, got, ref)
+		}
+	}
+	for b := ref; len(b) > 0; {
+		num, typ, n := protowire.ConsumeTag(b)
+		if num == 11 {
+			t.Fatal("base encoding carries field 11")
+		}
+		b = b[n:]
+		b = b[protowire.ConsumeFieldValue(num, typ, b):]
 	}
 }

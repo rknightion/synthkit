@@ -281,6 +281,7 @@ func convertSpans(in []Span) ([]*tracepb.Span, int) {
 			StartTimeUnixNano: uint64(sp.Start.UnixNano()),
 			EndTimeUnixNano:   uint64(sp.End.UnixNano()),
 			Attributes:        kvs(sp.Attrs),
+			Events:            convertEvents(sp.Events),
 			Status: &tracepb.Status{
 				Code:    mapStatusCode(sp.Status),
 				Message: sp.StatusMsg,
@@ -288,6 +289,27 @@ func convertSpans(in []Span) ([]*tracepb.Span, int) {
 		})
 	}
 	return out, skipped
+}
+
+// convertEvents converts span events to OTLP Span.Event messages. nil or empty input
+// returns nil so the encoded span is byte-identical to one without events.
+func convertEvents(in []Event) []*tracepb.Span_Event {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]*tracepb.Span_Event, 0, len(in))
+	for _, ev := range in {
+		var ts uint64
+		if !ev.Time.IsZero() {
+			ts = uint64(ev.Time.UnixNano())
+		}
+		out = append(out, &tracepb.Span_Event{
+			TimeUnixNano: ts,
+			Name:         ev.Name,
+			Attributes:   kvs(ev.Attrs),
+		})
+	}
+	return out
 }
 
 // kvs converts a map[string]any into a []*commonpb.KeyValue slice. Value types

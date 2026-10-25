@@ -48,6 +48,17 @@ type Span struct {
 	Attrs     map[string]any
 	Status    StatusCode
 	StatusMsg string
+	// Events are the span's timestamped events (OTLP Span.events, field 11), e.g. the
+	// OTel "exception" event. nil or empty encodes byte-identically to a span without them.
+	Events []Event
+}
+
+// Event is one OTLP Span.Event: a named, timestamped annotation on a span. Attrs values
+// follow the same rules as Span.Attrs. A zero Time encodes as time_unix_nano 0.
+type Event struct {
+	Name  string
+	Time  time.Time
+	Attrs map[string]any
 }
 
 // Scope is the OTLP InstrumentationScope (the real instrumentation library name+version,
