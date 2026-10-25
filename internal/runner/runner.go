@@ -1788,3 +1788,8 @@ func (r *Runner) WindowStats(blueprint string, now time.Time, window time.Durati
 	}
 	return ledger.WindowStats{}
 }
+
+// The real engine must keep satisfying causal.ScheduledClock: warm start relies on the optional
+// assertion to keep live faults out of all but the last stretch of steps (a signature drift would
+// otherwise silently fall back to applying them over the whole horizon).
+var _ causal.ScheduledClock = (*shape.Engine)(nil)
