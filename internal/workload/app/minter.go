@@ -34,6 +34,8 @@ type minter struct {
 	automation    *AutomationFlow // optional coherent app-local sequence; no graph calls
 	agentPipeline *AgentPipeline
 	tick          uint64
+	// causal is the compiled causal derivation (internal/causal); nil keeps every request legacy.
+	causal *causalPlan
 }
 
 func newMinter(name, env, cluster string, weight float64, nonProd bool, traffic Traffic, models []ModelChoice, g *graph) *minter {
@@ -132,6 +134,9 @@ func (m *minter) rpsAt(now time.Time, eng *shape.Engine) float64 {
 	if eng.Paused() { // explicit volume 0: no requests, not the off_peak_rps floor
 		return 0
 	}
+	if m.causal != nil && m.causal.fromQueue != "" {
+		return m.causal.servedRPS(now)
+	}
 	f := m.load.factor(now, eng, m.weight, m.nonProd)
 	f = clampF(f, 0, 1)
 	return m.traffic.OffPeakRPS + (m.traffic.PeakRPS-m.traffic.OffPeakRPS)*f
@@ -149,6 +154,9 @@ func (m *minter) expectedVolume(now time.Time, tickSec float64, eng *shape.Engin
 func (m *minter) Mint(now time.Time, tickSec float64, eng *shape.Engine) []*ledger.Request {
 	// Empty ticks also consume an identity unit, matching the live tick sequence.
 	tick := atomic.AddUint64(&m.tick, 1) - 1
+	if m.causal != nil {
+		m.causal.model.Advance(now, eng) // idempotent; no engine draw
+	}
 	n := ledger.StochasticRound(m.expectedVolume(now, tickSec, eng), eng.Float64())
 	if n <= 0 {
 		return nil
@@ -162,6 +170,9 @@ func (m *minter) Mint(now time.Time, tickSec float64, eng *shape.Engine) []*ledg
 
 // mintOne fabricates one fully-correlated request and walks the graph into a hop tree.
 func (m *minter) mintOne(now time.Time, eng *shape.Engine) *ledger.Request {
+	if m.causal != nil {
+		m.causal.model.Advance(now, eng)
+	}
 	return m.mintRequest(now, eng, atomic.AddUint64(&m.tick, 1)-1, 0)
 }
 
@@ -221,7 +232,7 @@ func (m *minter) mintRequest(now time.Time, eng *shape.Engine, tick uint64, requ
 	// (trace + logs), not just its aggregate metrics, responds, while requests not touching it
 	// are unaffected.
 	base := m.baseErrorRate()
-	errRate := base
+	errRate, entryRate := base, base
 	for _, n := range m.pathNodes {
 		if burst, inten := eng.Eval(now, "error_spike", n); burst {
 			spike := 0.01 + (1-0.01)*0.5*inten // the legacy expression, kept verbatim for the default
@@ -229,9 +240,13 @@ func (m *minter) mintRequest(now time.Time, eng *shape.Engine, tick uint64, requ
 				spike = base + (1-base)*0.5*inten
 			}
 			errRate = maxF(errRate, spike)
+			if n == m.entry {
+				entryRate = maxF(entryRate, spike)
+			}
 		}
 	}
-	r.Outcome, r.StatusCode, r.ErrorKind = drawOutcome(errRate, eng)
+	var outcomeDraw float64
+	r.Outcome, r.StatusCode, r.ErrorKind, outcomeDraw = m.drawOutcome(errRate, eng)
 	// Opt-in downstream attribution: each reachable service declaring error_rate fails its own hop
 	// independently, so a hop's failure share is exactly its declared rate and the request fails
 	// with 1-(1-entry)(1-a)(1-b)... overall. The entry draw above is the same one the default path
@@ -257,7 +272,13 @@ func (m *minter) mintRequest(now time.Time, eng *shape.Engine, tick uint64, requ
 	// Per-hop durations apply each hop's OWN node latency factor (only the targeted node's hop is
 	// slow — siblings unaffected). A slow downstream hop then SLOWS THE WHOLE REQUEST (it waits on
 	// the hop), so grow r.Duration to cover the hop sum + overhead.
-	r.Calls = m.drawGraphCalls(now, r.Duration, r.Outcome, failHops, eng)
+	var causes []string
+	r.Calls, causes = m.drawGraphCallCauses(now, r.Duration, failHops, eng)
+	if m.causal != nil {
+		// Every legacy draw above ran exactly as on the legacy path; the overlay adds none.
+		m.causal.overlay(m, r, now, eng, seed, causes, legacyOutcome{draw: outcomeDraw, base: base, entryRate: entryRate})
+		return r
+	}
 	var hopSum time.Duration
 	for i := range r.Calls {
 		hopSum += r.Calls[i].Duration
@@ -322,12 +343,15 @@ func validateErrorRates(services []ServiceNode, g *graph) error {
 	return nil
 }
 
-// drawGraphCalls walks the graph from the entry (spanning-tree DFS — each node visited at most
+// drawGraphCallCauses walks the graph from the entry (spanning-tree DFS — each node visited at most
 // once per request, bounding DAG diamonds + any cycle) and builds one ledger.Call per edge: a
 // CLIENT span (call.SpanID) plus, when the callee is an instrumented service, its SERVER span
 // (call.PeerSpanID). ParentHopIndex links each edge to the edge that reached its caller (-1 = the
 // entry's own SERVER/root span).
-func (m *minter) drawGraphCalls(now time.Time, reqDur time.Duration, outcome ledger.Outcome, failHops []string, eng *shape.Engine) []ledger.Call {
+//
+// It also returns each hop's legacy failure cause ("error_spike", "error_rate" or ""), which the
+// causal overlay attributes; the legacy path discards it.
+func (m *minter) drawGraphCallCauses(now time.Time, reqDur time.Duration, failHops []string, eng *shape.Engine) ([]ledger.Call, []string) {
 	var calls []ledger.Call
 	visited := map[string]bool{m.entry: true}
 
@@ -360,10 +384,10 @@ func (m *minter) drawGraphCalls(now time.Time, reqDur time.Duration, outcome led
 	// error_spike fails — so the trace attributes failure to the INCIDENT node's hop, not a generic
 	// "last hop blew up" (web_service's heuristic, which would mis-attribute under per-node
 	// targeting). Sibling hops are unaffected. The request OUTCOME still reflects the raised error
-	// rate (the entry span carries the error status); _outcome is accepted for that linkage.
+	// rate (the entry span carries the error status).
 	// failHops names the downstream services whose own error_rate failed this request; their hops
 	// (and so their server spans and span metrics) fail without an extra draw.
-	_ = outcome
+	causes := make([]string, len(calls))
 	if reqDur > 0 && len(calls) > 0 {
 		budget := time.Duration(float64(reqDur) * 0.7)
 		per := budget / time.Duration(len(calls))
@@ -377,6 +401,7 @@ func (m *minter) drawGraphCalls(now time.Time, reqDur time.Duration, outcome led
 			calls[i].Duration = d
 			if active, inten := eng.Eval(now, "error_spike", calls[i].Target); active && eng.Float64() < 0.6*inten {
 				calls[i].Failed = true
+				causes[i] = "error_spike"
 			}
 		}
 	}
@@ -384,10 +409,13 @@ func (m *minter) drawGraphCalls(now time.Time, reqDur time.Duration, outcome led
 		for i := range calls {
 			if calls[i].Target == name {
 				calls[i].Failed = true
+				if causes[i] == "" {
+					causes[i] = "error_rate"
+				}
 			}
 		}
 	}
-	return calls
+	return calls, causes
 }
 
 func maxF(a, b float64) float64 {
@@ -397,18 +425,58 @@ func maxF(a, b float64) float64 {
 	return b
 }
 
-func drawOutcome(errRate float64, eng *shape.Engine) (ledger.Outcome, int, string) {
-	if eng.Float64() >= errRate {
-		return ledger.OutcomeSuccess, 200, ""
+// drawOutcome draws the entry's baseline outcome: success (the declared success_status, default
+// 200) when the first draw is at or above errRate, else one entry of the declared error_mix
+// weighted by weight (default 50% 500 upstream_5xx, 30% 400 bad_request, 20% 429 rate_limited).
+// It always takes one draw, plus one more on failure, whatever the mix. It also returns the first
+// draw, which the causal overlay compares against the entry's own error rate.
+func (m *minter) drawOutcome(errRate float64, eng *shape.Engine) (ledger.Outcome, int, string, float64) {
+	u := eng.Float64()
+	if u >= errRate {
+		status := m.traffic.SuccessStatus
+		if status == 0 {
+			status = 200
+		}
+		return ledger.OutcomeSuccess, status, "", u
 	}
-	switch r := eng.Float64(); {
-	case r < 0.5:
-		return ledger.OutcomeServerError, 500, "upstream_5xx"
-	case r < 0.8:
-		return ledger.OutcomeClientError, 400, "bad_request"
-	default:
-		return ledger.OutcomeThrottled, 429, "rate_limited"
+	r := eng.Float64()
+	if len(m.traffic.ErrorMix) == 0 {
+		switch {
+		case r < 0.5:
+			return ledger.OutcomeServerError, 500, "upstream_5xx", u
+		case r < 0.8:
+			return ledger.OutcomeClientError, 400, "bad_request", u
+		default:
+			return ledger.OutcomeThrottled, 429, "rate_limited", u
+		}
 	}
+	total := 0.0
+	for _, e := range m.traffic.ErrorMix {
+		total += e.Weight
+	}
+	pick := m.traffic.ErrorMix[len(m.traffic.ErrorMix)-1]
+	cum := 0.0
+	for _, e := range m.traffic.ErrorMix {
+		cum += e.Weight
+		if r*total < cum {
+			pick = e
+			break
+		}
+	}
+	return outcomeOf(pick.Status), pick.Status, pick.errorCode(), u
+}
+
+// outcomeOf classifies an HTTP status into the request's outcome class.
+func outcomeOf(status int) ledger.Outcome {
+	switch {
+	case status == 429:
+		return ledger.OutcomeThrottled
+	case status >= 500:
+		return ledger.OutcomeServerError
+	case status >= 400:
+		return ledger.OutcomeClientError
+	}
+	return ledger.OutcomeSuccess
 }
 
 func drawDuration(p95ms float64, eng *shape.Engine) float64 {

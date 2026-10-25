@@ -19,8 +19,11 @@ package app
 
 import (
 	"fmt"
+	"math"
+	"strconv"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/failuremode"
 	"github.com/rknightion/synthkit/internal/fixture"
@@ -75,6 +78,10 @@ type Config struct {
 	// hours, weekend factor) instead of the blueprint's shared curve. It drives entry request
 	// volume and every shape-scaled metric of the workload. Omitted keeps the blueprint curve.
 	ShapeProfile *ShapeProfile `yaml:"shape_profile"`
+
+	// resources is the blueprint's declared causal resources, injected by the resolver
+	// (UseResources) when the blueprint declares any; empty otherwise.
+	resources causal.Set
 }
 
 // ShapeProfile is a per-workload diurnal load curve: a floor before ramp_up_start_hour, a smooth
@@ -235,6 +242,39 @@ type ServiceNode struct {
 	// the entry, the request volume). Each field it sets replaces the workload's; omitted fields
 	// keep the workload's, then the blueprint default. Omitted keeps the workload's profile.
 	ShapeProfile *ShapeProfile `yaml:"shape_profile"`
+	// Uses names the declared environments[].resources a request meets on arrival at this
+	// service, in order (resolved as "<name>-<lower(env)>" first, then the exact name). A capacity
+	// resource (pool, concurrency, quota) or a rule applies at this service; a dependency (and every
+	// credential of it, applied after it) applies to the call into this service, so the entry may
+	// not use one. A service bound to a pool or concurrency resource takes its duration from the
+	// resource's effective hold, one bound to a dependency from its latency; a queue here is the
+	// producer side (an enqueue that fails only when the queue is full). Requires resources.
+	Uses []string `yaml:"uses"`
+	// CallPolicies is this service's per-callee client policy, keyed by names in calls:
+	// timeout_ms (0 = none), retries (0..3), backoff_ms (doubled per resend), retry_on (5xx,
+	// throttle, timeout, connect) and propagate_throttle (pass a callee 429 on as 429, not 503).
+	// Rule and credential failures are never resent. Requires resources.
+	CallPolicies map[string]causal.CallPolicy `yaml:"call_policies"`
+	// Worker marks the entry as a message consumer of traffic.from_resource: its root span is a
+	// CONSUMER span and each request records the queue's backlog wait. Entry only.
+	Worker bool `yaml:"worker"`
+}
+
+// ErrorOutcome is one weighted entry of an app's error_mix.
+type ErrorOutcome struct {
+	// Status is the HTTP status of the failed request, 400 to 599 (429 is a throttle).
+	Status int `yaml:"status"`
+	// Code is the error code recorded on the request (log detail); empty records the status.
+	Code string `yaml:"code"`
+	// Weight is this entry's relative share of failed requests, > 0.
+	Weight float64 `yaml:"weight"`
+}
+
+func (e ErrorOutcome) errorCode() string {
+	if e.Code != "" {
+		return e.Code
+	}
+	return strconv.Itoa(e.Status)
 }
 
 // NodeSignals selects telemetry emitted by this service. Omitted block or key means enabled.
@@ -262,6 +302,15 @@ type Traffic struct {
 	// apps should set this to seconds (e.g. 9000) so http_server_request_duration + the in-process
 	// invoke_workflow/agent/chat span latencies reflect real LLM-wait time, not HTTP speed.
 	RequestLatencyP95Ms float64 `yaml:"request_latency_p95_ms"`
+	// FromResource names a declared queue resource whose served (processed) rate is this app's
+	// request rate, replacing off_peak_rps and peak_rps (which are then ignored); the entry is
+	// typically a worker. Requires resources.
+	FromResource string `yaml:"from_resource"`
+	// SuccessStatus is the HTTP status of a successful entry request, 200 to 299. Omitted is 200.
+	SuccessStatus int `yaml:"success_status"`
+	// ErrorMix is the weighted set of statuses and codes a failed entry request draws from.
+	// Omitted keeps 50% 500 upstream_5xx, 30% 400 bad_request and 20% 429 rate_limited.
+	ErrorMix []ErrorOutcome `yaml:"error_mix"`
 }
 
 // NewConfig returns a *Config with documented defaults. An app MUST declare services (no default
@@ -297,7 +346,9 @@ func Registration() core.WorkloadReg {
 		NewConfig:         NewConfig,
 		Build:             build,
 		AgentDeclarations: agentDeclarations,
-		FailureModes:      FailureModes,
+		// The resource-axis vocabulary is appended so resource-axis faults validate whichever causal
+		// consumers a build registers; the registry deduplicates repeats.
+		FailureModes: append(append([]failuremode.Mode(nil), FailureModes...), causal.FailureModes...),
 	}
 }
 
@@ -359,6 +410,9 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 	if err := validateAutomation(cfg); err != nil {
 		return nil, err
 	}
+	if err := validateOutcomeMix(cfg); err != nil {
+		return nil, err
+	}
 	load, err := resolveLoadProfile(cfg.ShapeProfile)
 	if err != nil {
 		return nil, err
@@ -405,7 +459,44 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 	// Wire BrowserOrigin minting: the minter sets r.BrowserOrigin only when RUM is active
 	// (entry has rum_faro + binding carries a Faro sink). Mirror webservice minter's cfg.RUM flag.
 	w.m.rumEnabled = w.rumEnabled()
+	plan, err := buildCausalPlan(cfg, g, w.env)
+	if err != nil {
+		return nil, err
+	}
+	w.m.causal = plan
 	return w, nil
+}
+
+// AdvanceCausal implements causal.Advancer: the runner advances the workload's causal model on
+// every master tick so every consumer samples live faults at the same instants. No-op when the
+// workload derives no causal outcomes.
+func (w *Workload) AdvanceCausal(now time.Time, c causal.Clock) {
+	if w.m != nil && w.m.causal != nil {
+		w.m.causal.model.Advance(now, c)
+	}
+}
+
+// validateOutcomeMix checks success_status and error_mix, which only the graph request path draws.
+func validateOutcomeMix(cfg *Config) error {
+	t := cfg.Traffic
+	if t.SuccessStatus == 0 && len(t.ErrorMix) == 0 {
+		return nil
+	}
+	if cfg.Automation != nil || cfg.AgentPipeline != nil {
+		return fmt.Errorf("app: traffic.success_status and traffic.error_mix apply to graph requests, which an automation or agent_pipeline workload does not mint")
+	}
+	if t.SuccessStatus != 0 && (t.SuccessStatus < 200 || t.SuccessStatus > 299) {
+		return fmt.Errorf("app: traffic.success_status %d must be in [200, 299]", t.SuccessStatus)
+	}
+	for i, e := range t.ErrorMix {
+		if e.Status < 400 || e.Status > 599 {
+			return fmt.Errorf("app: traffic.error_mix[%d]: status %d must be in [400, 599]", i, e.Status)
+		}
+		if math.IsNaN(e.Weight) || math.IsInf(e.Weight, 0) || e.Weight <= 0 {
+			return fmt.Errorf("app: traffic.error_mix[%d]: weight must be a finite number > 0", i)
+		}
+	}
+	return nil
 }
 
 // resolveIdentity pins cluster/env/weight from the binding once. Absent dimensions are OMITTED
