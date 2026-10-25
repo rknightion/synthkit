@@ -9,7 +9,6 @@ import (
 	"github.com/rknightion/synthkit/internal/fixture"
 	"github.com/rknightion/synthkit/internal/semconv"
 	"github.com/rknightion/synthkit/internal/sink/otlp"
-	"github.com/rknightion/synthkit/internal/state"
 	"github.com/rknightion/synthkit/internal/telemetryspec"
 	"github.com/rknightion/synthkit/internal/telemetryspec/profiles"
 )
@@ -182,8 +181,8 @@ func checkCustomMetricNames(existing []telemetryspec.MetricSpec, custom telemetr
 }
 
 // checkDerivedMetrics resolves each stock_of / count_of reference to a counter on the same node
-// and, for count_of, requires the histogram's label combinations to equal the counter's so every
-// histogram series has exactly one increment to follow.
+// and, for count_of, requires the histogram's labels to be a subset of the counter's, each with
+// the counter's value domain, so every counter series projects onto exactly one histogram series.
 func checkDerivedMetrics(n *node) error {
 	for _, m := range n.metrics {
 		ref := m.CountOf
@@ -200,26 +199,68 @@ func checkDerivedMetrics(n *node) error {
 		if m.CountOf == "" {
 			continue
 		}
-		if max, ok := nominalMax(src.Value); ok {
-			if n := max * telemetryspec.MaxRateScale(src.Labels); n > telemetryspec.MaxObservationsPerTick {
-				return fmt.Errorf("metric %q: count_of counter %q can increment %v per tick, above %d observations per series per tick", m.Name, ref, n, telemetryspec.MaxObservationsPerTick)
+		srcCombos := scaledLabelCombos(src.Labels)
+		domains := labelDomains(labelCombos(src.Labels))
+		histCombos := labelCombos(m.Labels)
+		for _, k := range sortedValueModelKeys(m.Labels) {
+			if _, ok := domains[k]; !ok {
+				return fmt.Errorf("metric %q: count_of label %q is not a label of counter %q (histogram labels must be a subset of the counter's)", m.Name, k, ref)
 			}
 		}
-		want := map[string]bool{}
-		for _, c := range labelCombos(src.Labels) {
-			want[state.LabelSig(c)] = true
-		}
-		got := labelCombos(m.Labels)
-		if len(got) != len(want) {
-			return fmt.Errorf("metric %q: count_of labels must have the same combinations as counter %q", m.Name, ref)
-		}
-		for _, c := range got {
-			if !want[state.LabelSig(c)] {
+		for k, vals := range labelDomains(histCombos) {
+			if len(vals) != len(domains[k]) {
 				return fmt.Errorf("metric %q: count_of labels must have the same combinations as counter %q", m.Name, ref)
+			}
+			for v := range vals {
+				if !domains[k][v] {
+					return fmt.Errorf("metric %q: count_of labels must have the same combinations as counter %q", m.Name, ref)
+				}
+			}
+		}
+		// The most one histogram series can observe in a tick is the sum of the largest
+		// increments of the counter series it projects (one series when the labels are equal).
+		if nominal, ok := nominalMax(src.Value); ok {
+			worst := 0.0
+			for _, h := range histCombos {
+				rate := 0.0
+				for _, c := range srcCombos {
+					if projects(h, c.labels) {
+						rate += c.rate
+					}
+				}
+				worst = max(worst, rate)
+			}
+			if n := nominal * worst; n > telemetryspec.MaxObservationsPerTick {
+				return fmt.Errorf("metric %q: count_of counter %q can increment %v per tick, above %d observations per series per tick", m.Name, ref, n, telemetryspec.MaxObservationsPerTick)
 			}
 		}
 	}
 	return nil
+}
+
+// labelDomains collects the set of values each label name takes across the combinations.
+func labelDomains(combos []map[string]string) map[string]map[string]bool {
+	out := map[string]map[string]bool{}
+	for _, c := range combos {
+		for k, v := range c {
+			if out[k] == nil {
+				out[k] = map[string]bool{}
+			}
+			out[k][v] = true
+		}
+	}
+	return out
+}
+
+// projects reports whether a counter series (its DSL label combination) belongs to the histogram
+// series with the given label combination: every histogram label carries the same value.
+func projects(hist, counter map[string]string) bool {
+	for k, v := range hist {
+		if counter[k] != v {
+			return false
+		}
+	}
+	return true
 }
 
 // nominalMax is a counter value model's largest per-tick increment at master volume 1, or false

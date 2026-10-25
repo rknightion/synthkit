@@ -94,9 +94,22 @@ func (w *Workload) observeDerived(st, native *state.State, id nodeIdentity, n *n
 		if paused {
 			return
 		}
+		src := n.counterSpec(spec.CountOf)
+		if src == nil {
+			return // unreachable: buildGraph rejects a missing source counter
+		}
+		srcCombos := labelCombos(src.Labels)
 		for _, combo := range scaledLabelCombos(spec.Labels) {
 			labels := mergeLabels(base, combo.labels)
-			k := min(w.carryCount(spec.Name, labels, incs[incKey(spec.CountOf, combo.labels)]), telemetryspec.MaxObservationsPerTick)
+			// The histogram series observes the counter increments of every series that
+			// projects onto it: one series when the labels are equal, a sum for a label subset.
+			var rate float64
+			for _, c := range srcCombos {
+				if projects(combo.labels, c) {
+					rate += incs[incKey(src.Name, c)]
+				}
+			}
+			k := min(w.carryCount(spec.Name, labels, rate), telemetryspec.MaxObservationsPerTick)
 			for range k {
 				val, _ := spec.Value.Eval(ctx)
 				w.observeHistogram(st, native, spec, labels, combo.labels, val*combo.value)

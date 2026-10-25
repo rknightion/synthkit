@@ -70,8 +70,10 @@ type MetricSpec struct {
 	StockOf *StockOf `yaml:"stock_of"`
 	// CountOf makes a histogram observe, per label combination and tick, as many values as the
 	// named counter on the same service node incremented (fractions carry deterministically), so
-	// the histogram's _count tracks the counter. Histogram only; its label domains must equal the
-	// counter's, and its labels may not declare rate_scale (the counter owns the rate).
+	// the histogram's _count tracks the counter. Histogram only; its labels must be a subset of
+	// the counter's, each with the counter's value domain, and a series observes the summed
+	// increments of the counter series that match it (the whole counter when it has no labels).
+	// Its labels may not declare rate_scale (the counter owns the rate).
 	CountOf string `yaml:"count_of"`
 	// ShapeProfile gives every series of this metric its own business clock and curve, laid over
 	// the node's inherited profile field by field (an enum value's shape_profile lays over this

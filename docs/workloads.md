@@ -258,7 +258,7 @@ Each node can declare custom metrics, log streams, and extra span attributes via
 | `lognormal` | `lognormal: {median: 120, p95: 3600}` | Right-skewed positive draw with the given median and 95th percentile (see below) |
 | `bool` | `bool: {p_true: 0.1}` | Weighted boolean |
 | `shape` | `shape: {base: 100.0, mode: latency_storm}` | Legacy `base × load × incident multiplier`; optional metric-only `incident_value` selects an explicit endpoint instead, and `incident_absolute` keeps that endpoint off the load curve (see below) |
-| `now` | `now: {}` | The tick time in Unix seconds (gauge metric values only), for a collector heartbeat; it advances every tick whether or not work succeeded, so it is not a last-success timestamp. Never the wall clock; `value_scale` is rejected on its labels |
+| `now` | `now: {}` or `now: {stall_mode: error_spike}` | The tick time in Unix seconds (gauge metric values only), for a collector heartbeat. Plain `now: {}` advances every tick whether or not work succeeded. With `stall_mode`, the gauge holds its last reading while that incident mode is active on the service the metric belongs to and resumes at the tick time afterwards, so a last-success-age alert can fire; a stall already active on the first tick holds that tick's reading, and the hold is not persisted across a restart. Never the wall clock; `value_scale` is rejected on its labels |
 | `ref` | `ref: trace_id` | Pulls a correlation field by name |
 
 **Capability matrix** (enforced at load time):
@@ -412,8 +412,8 @@ They belong under `labels.<key>.enum[]`. The generated schema does not expand `l
 
 One series makes at most **10,000 histogram observations per tick** through `rate_scale` or
 `count_of`. A declaration whose nominal per-tick count exceeds that is rejected at load (the
-product of the largest `rate_scale` per label; for `count_of`, the counter's largest increment,
-with a legacy `shape` incident at ×3). Rates that only grow at runtime (a master volume above 1,
+product of the largest `rate_scale` per label; for `count_of`, the largest summed increment of
+the counter series one histogram series follows, with a legacy `shape` incident at ×3). Rates that only grow at runtime (a master volume above 1,
 an unbounded `normal` / `lognormal` counter) are clamped at the bound and the excess is dropped.
 
 **Skewed durations.** `lognormal: {median, p95}` draws `median × exp(sigma × z)` with
@@ -433,9 +433,12 @@ zero and the level drains.
 **Histogram counts from a counter.** `count_of: <counter>` makes a histogram observe, per label
 combination and tick, as many values as the named same-node counter incremented (fractions
 carry, rounding half up), so `_count` equals the counter's total rounded to a whole count, within
-the per-tick bound above. Its label combinations must equal the counter's; its own
-enum values may declare `value_scale` but not `rate_scale`. A combination is absent until its
-counter first increments. Observation cost grows with the counter's increment, so keep it a
+the per-tick bound above. Its labels must be a subset of the counter's, each with the counter's
+value domain: a histogram on every counter label follows one counter series per combination,
+and one on fewer labels (or none) observes the summed increments of the counter series that
+match it, so a latency histogram split by `outcome` still follows a counter split by `outcome`
+and `route`. A histogram label the counter lacks is rejected. Its own enum values may declare
+`value_scale` but not `rate_scale`. A combination is absent until its counter first increments. Observation cost grows with the counter's increment, so keep it a
 plausible per-tick event count.
 
 ```yaml
