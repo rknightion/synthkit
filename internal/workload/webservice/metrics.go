@@ -161,6 +161,10 @@ func (w *Workload) activeRoutes(now time.Time, world *core.World) []routeStat {
 		}
 		out = append(out, *rs)
 	}
+	// Stable order: the callers draw from the shared shape RNG once per route (spanmetrics latency,
+	// OTLP http.server.request.duration), so the stats map's randomised iteration would change which
+	// route receives which draw, and the point order, on every run.
+	sort.Slice(out, func(i, j int) bool { return out[i].route < out[j].route })
 	return out
 }
 

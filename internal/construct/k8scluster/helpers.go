@@ -6,6 +6,7 @@ package k8scluster
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/rknightion/synthkit/internal/fixture"
@@ -507,6 +508,20 @@ func workloadDeployments(cl *fixture.Cluster) map[string][]string {
 		}
 	}
 	return m
+}
+
+// sortedNamespaces returns the keys of a namespace→deployments map in ascending order. Go map
+// iteration is randomised per run, so any emitter that draws from the shared shape RNG once per
+// namespace/deployment/pod must iterate this order, not the map itself: the draw sequence (and so
+// every drawn value) is then identical across runs. Within a namespace the deployment slice is
+// already in a fixed order (declared workloads, then substrate workloads, then the static baselines).
+func sortedNamespaces(m map[string][]string) []string {
+	keys := make([]string, 0, len(m))
+	for ns := range m {
+		keys = append(keys, ns)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // podWorkloadByName indexes BOTH cl.Workloads and cl.SubstrateWorkloads by deployment name, so the
