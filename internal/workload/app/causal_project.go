@@ -3,6 +3,7 @@
 package app
 
 import (
+	"math"
 	"strconv"
 	"time"
 
@@ -45,21 +46,29 @@ func causalLayout(r *ledger.Request) bool {
 	return false
 }
 
-// causalFailing reports a causal request carrying a Fault or a failure (design M6): only these
-// get per-node log facts and drive span-metric latency cycling.
+// causalFailing reports a causal request carrying a Fault or a failure on the causal timeline
+// (design M6): only these get per-node log facts and drive span-metric latency cycling. A request
+// that failed only from the legacy baseline error draw carries no Fault and no causal hop facts,
+// so it projects exactly as legacy (root ruling D85, design §10.5).
 func causalFailing(r *ledger.Request) bool {
-	if !r.Causal {
+	if !causalLayout(r) {
 		return false
 	}
 	if r.Fault != nil || r.Outcome != ledger.OutcomeSuccess {
 		return true
 	}
 	for _, c := range r.Calls {
-		if c.Failed {
+		if c.Failed || c.Fault != nil {
 			return true
 		}
 	}
 	return false
+}
+
+// httpNode reports whether a node answers over HTTP: an instrumented service that is not gRPC.
+// Only HTTP hops carry http.response.status_code and the HTTP span-status rules.
+func httpNode(n *node) bool {
+	return n != nil && !n.kind.leaf && n.decl.Type != "grpc"
 }
 
 // entryRootKind is the entry's root span kind: CONSUMER for a worker entry (a message consumer of
@@ -78,18 +87,19 @@ func (w *Workload) successStatus() int {
 	return 200
 }
 
-// rootStatus is the root span status. A legacy request keeps spanStatus. A causal request follows
-// M10: a SERVER root is ERROR only for a 5xx response, a CLIENT root for any 4xx or 5xx, and a
-// CONSUMER or INTERNAL root for any failure.
-func rootStatus(kind otlp.SpanKind, r *ledger.Request) otlp.StatusCode {
-	if !r.Causal {
+// rootStatus is the root span status. A request off the causal timeline keeps spanStatus. A
+// causal request follows M10: an HTTP SERVER root is ERROR only for a 5xx response, a CLIENT root
+// for any 4xx or 5xx, and a CONSUMER, INTERNAL or non-HTTP (gRPC) root for any failure (a failed
+// message or call is a failed operation; root ruling D85).
+func rootStatus(kind otlp.SpanKind, http bool, r *ledger.Request) otlp.StatusCode {
+	if !causalLayout(r) {
 		return spanStatus(r.Outcome)
 	}
 	var failed bool
-	switch kind {
-	case otlp.KindServer:
+	switch {
+	case kind == otlp.KindServer && http:
 		failed = r.StatusCode >= 500
-	case otlp.KindClient:
+	case kind == otlp.KindClient:
 		failed = r.StatusCode >= 400
 	default:
 		failed = r.Outcome != ledger.OutcomeSuccess
@@ -100,14 +110,18 @@ func rootStatus(kind otlp.SpanKind, r *ledger.Request) otlp.StatusCode {
 	return otlp.StatusUnset
 }
 
-// serverStatus is a callee SERVER span's status. On the causal timeline it is ERROR only for a
-// 5xx response (M10): a 4xx answer (rule, token, throttle) stays UNSET and a timed-out call's
-// server span, whose own answer the caller never saw, stays UNSET.
-func serverStatus(r *ledger.Request, c ledger.Call) otlp.StatusCode {
+// serverStatus is a callee SERVER span's status. On the causal timeline an HTTP callee is ERROR
+// only for a 5xx response (M10): a 4xx answer (rule, token, throttle) stays UNSET. A non-HTTP
+// (gRPC) callee is ERROR for any failed answer. A timed-out call's server span, whose own answer
+// the caller never saw, stays UNSET.
+func serverStatus(r *ledger.Request, c ledger.Call, http bool) otlp.StatusCode {
 	if !causalLayout(r) {
 		return callStatus(c)
 	}
-	if !c.TimedOut && c.StatusCode >= 500 {
+	if c.TimedOut {
+		return otlp.StatusUnset
+	}
+	if c.StatusCode >= 500 || !http && c.Failed && c.StatusCode >= 400 {
 		return otlp.StatusError
 	}
 	return otlp.StatusUnset
@@ -160,18 +174,23 @@ func errorTypeOf(f *ledger.Fault, status int, origin bool) string {
 	return errorTypeOther
 }
 
-// decorateRoot stamps a failing causal root span: error.type, the response status on an HTTP
-// SERVER root, and the cause message when the root is the origin and the span is ERROR.
-func decorateRoot(sp *otlp.Span, r *ledger.Request) {
-	if !r.Causal || r.Outcome == ledger.OutcomeSuccess {
+// decorateRoot stamps a failing causal root span: the response status on an HTTP SERVER root,
+// and, only when the span is ERROR, error.type and (at the origin) the cause message. A 4xx HTTP
+// SERVER answer stays UNSET without error.type (semconv v1.44.0 http-spans note [4]); its cause
+// rides the log. A baseline failure off the causal timeline is not decorated.
+func decorateRoot(sp *otlp.Span, r *ledger.Request, http bool) {
+	if !causalLayout(r) || r.Outcome == ledger.OutcomeSuccess {
+		return
+	}
+	if sp.Kind == otlp.KindServer && http && r.StatusCode != 0 {
+		sp.Attrs[attrHTTPResponseStatusCode] = r.StatusCode
+	}
+	if sp.Status != otlp.StatusError {
 		return
 	}
 	origin := rootIsOrigin(r)
 	sp.Attrs[attrErrorType] = errorTypeOf(r.Fault, r.StatusCode, origin)
-	if sp.Kind == otlp.KindServer && r.StatusCode != 0 {
-		sp.Attrs[attrHTTPResponseStatusCode] = r.StatusCode
-	}
-	if origin && sp.Status == otlp.StatusError {
+	if origin {
 		sp.StatusMsg = r.Fault.Message
 	}
 }
@@ -191,7 +210,7 @@ func decorateClient(sp *otlp.Span, r *ledger.Request, i int, callee *node) {
 	}
 	origin := callIsOrigin(r, i) && originOnClient(c, callee)
 	sp.Attrs[attrErrorType] = errorTypeOf(c.Fault, c.StatusCode, origin)
-	if c.StatusCode != 0 && !callee.kind.leaf {
+	if c.StatusCode != 0 && httpNode(callee) {
 		sp.Attrs[attrHTTPResponseStatusCode] = c.StatusCode
 	}
 	if origin && c.Fault != nil {
@@ -199,7 +218,10 @@ func decorateClient(sp *otlp.Span, r *ledger.Request, i int, callee *node) {
 	}
 }
 
-// decorateServer stamps a failing causal hop's callee SERVER span (a 4xx or 5xx answer).
+// decorateServer stamps a failing causal hop's callee SERVER span (a 4xx or 5xx answer): the
+// response status on an HTTP callee, and, only when the span is ERROR, error.type and (at the
+// origin) the cause message. A 4xx HTTP answer stays UNSET without error.type (semconv v1.44.0
+// http-spans note [4]).
 func decorateServer(sp *otlp.Span, r *ledger.Request, i int, callee *node) {
 	if !causalLayout(r) {
 		return
@@ -208,12 +230,51 @@ func decorateServer(sp *otlp.Span, r *ledger.Request, i int, callee *node) {
 	if !c.Failed || c.TimedOut || c.StatusCode < 400 {
 		return
 	}
+	if httpNode(callee) {
+		sp.Attrs[attrHTTPResponseStatusCode] = c.StatusCode
+	}
+	if sp.Status != otlp.StatusError {
+		return
+	}
 	origin := callIsOrigin(r, i) && !originOnClient(c, callee)
 	sp.Attrs[attrErrorType] = errorTypeOf(c.Fault, c.StatusCode, origin)
-	sp.Attrs[attrHTTPResponseStatusCode] = c.StatusCode
-	if origin && c.Fault != nil && sp.Status == otlp.StatusError {
+	if origin && c.Fault != nil {
 		sp.StatusMsg = c.Fault.Message
 	}
+}
+
+// onResendPath reports whether call is a resend attempt or sits under one.
+func onResendPath(r *ledger.Request, call *ledger.Call) bool {
+	if call == nil || !r.Causal {
+		return false
+	}
+	c := *call
+	for range len(r.Calls) + 1 {
+		if c.Attempt >= 1 {
+			return true
+		}
+		if c.ParentHopIndex < 0 || c.ParentHopIndex >= len(r.Calls) {
+			return false
+		}
+		c = r.Calls[c.ParentHopIndex]
+	}
+	return false
+}
+
+// unitRand is a uniform and a standard-normal source backed by causal.UnitDraw of seed: each call
+// hashes a fresh purpose, so it consumes no engine draw.
+func unitRand(seed string) (uniform, normal func() float64) {
+	d := causal.UnitDraw(seed)
+	i := 0
+	uniform = func() float64 {
+		i++
+		return d("span/" + strconv.Itoa(i))
+	}
+	normal = func() float64 { // Box-Muller
+		u1 := math.Max(uniform(), 1e-12)
+		return math.Sqrt(-2*math.Log(u1)) * math.Cos(2*math.Pi*uniform())
+	}
+	return uniform, normal
 }
 
 // causalHopWindow positions hop c on the causal timeline: client span [start, end) and the callee
@@ -270,19 +331,19 @@ func (w *Workload) hopViews(r *ledger.Request) []hopView {
 	// clientOrigin: the node's unabsorbed failing call is itself the origin, on its CLIENT span.
 	clientOrigin := func(parent int) bool {
 		j, has := lastChild[parent]
-		if !has || !r.Causal || !callIsOrigin(r, j) {
+		if !has || !layout || !callIsOrigin(r, j) {
 			return false
 		}
 		callee := w.graph.byName[r.Calls[j].Target]
 		return callee != nil && originOnClient(r.Calls[j], callee)
 	}
 	entryFailed := r.Outcome != ledger.OutcomeSuccess
-	entryUp := upstreamOf(-1, entryFailed && r.Causal)
+	entryUp := upstreamOf(-1, entryFailed && layout)
 	views := []hopView{{
 		node: w.graph.entry.decl.Name, index: -1, spanID: r.SpanID, reached: true,
 		status: r.StatusCode, failed: entryFailed, fault: r.Fault, dur: r.Duration,
 		upstream: entryUp,
-		origin:   r.Causal && entryFailed && (rootIsOrigin(r) || entryUp != "" && clientOrigin(-1)),
+		origin:   layout && entryFailed && (rootIsOrigin(r) || entryUp != "" && clientOrigin(-1)),
 	}}
 	base, reqEnd := r.RenderStart(), r.RenderStart().Add(r.Duration)
 	for i, c := range r.Calls {
@@ -295,7 +356,7 @@ func (w *Workload) hopViews(r *ledger.Request) []hopView {
 			v.spanID = c.SpanID
 		}
 		switch {
-		case !r.Causal:
+		case !causalLayout(r):
 			v.reached = true
 			v.status = ok
 			if c.Failed {
@@ -414,13 +475,13 @@ func (cw *causalSpanWindow) serverDurations(n *node, status string) []float64 {
 	var out []float64
 	for _, r := range cw.reqs {
 		if n == cw.w.graph.entry {
-			if spanMetricStatus(rootStatus(cw.w.entryRootKind(), r)) == status {
+			if spanMetricStatus(rootStatus(cw.w.entryRootKind(), httpNode(n), r)) == status {
 				out = append(out, seconds(r.Duration))
 			}
 			continue
 		}
 		for _, c := range r.Calls {
-			if c.Target != n.decl.Name || c.PeerSpanID == "" || spanMetricStatus(serverStatus(r, c)) != status {
+			if c.Target != n.decl.Name || c.PeerSpanID == "" || spanMetricStatus(serverStatus(r, c, httpNode(n))) != status {
 				continue
 			}
 			d := c.Duration
@@ -488,19 +549,55 @@ func (cw *causalSpanWindow) edgeVolume(target string, volume float64) float64 {
 	return volume * float64(n) / float64(len(cw.reqs))
 }
 
-// cycled returns a latency source that still takes lat's draw on every call (so the engine's
-// draw sequence is unchanged) but reports the window's real span durations in turn. With no
-// durations it is lat itself.
-func cycled(lat func() float64, durs []float64) func() float64 {
-	if len(durs) == 0 {
-		return lat
+// latGroup is one span-metric row group's latency source in a gated window. It takes exactly the
+// legacy path's number of latency draws (legacy), whatever the gated rows observe, so the engine's
+// later draws do not shift: each observation draws while the budget lasts and reports the
+// window's real span durations in turn; drain takes the draws the rows did not.
+type latGroup struct {
+	lat  func() float64
+	left int
+	last float64
+}
+
+// latGroup returns nil (the legacy path: source returns lat itself) when there is no gated window;
+// legacy is evaluated only in a gated window.
+func (cw *causalSpanWindow) latGroup(lat func() float64, legacy func() int) *latGroup {
+	if cw == nil {
+		return &latGroup{lat: lat, left: -1}
+	}
+	return &latGroup{lat: lat, left: legacy()}
+}
+
+func (g *latGroup) draw() float64 {
+	if g.left > 0 {
+		g.left--
+		g.last = g.lat()
+	}
+	return g.last
+}
+
+// source is a row's latency source: lat itself off a gated window; else the window's durations
+// in turn (or the last drawn value when the row has none), drawing within the budget.
+func (g *latGroup) source(durs []float64) func() float64 {
+	if g.left < 0 {
+		return g.lat
 	}
 	i := 0
 	return func() float64 {
-		_ = lat()
-		v := durs[i%len(durs)]
+		v := g.draw()
+		if len(durs) == 0 {
+			return v
+		}
+		v = durs[i%len(durs)]
 		i++
 		return v
+	}
+}
+
+// drain takes the legacy draws the gated rows did not.
+func (g *latGroup) drain() {
+	for g.left > 0 {
+		g.draw()
 	}
 }
 

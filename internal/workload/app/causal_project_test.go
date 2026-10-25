@@ -7,13 +7,16 @@ import (
 	"encoding/json"
 	"math"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/rknightion/synthkit/internal/causal"
+	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/core/coretest"
+	"github.com/rknightion/synthkit/internal/fixture"
 	"github.com/rknightion/synthkit/internal/ledger"
 	"github.com/rknightion/synthkit/internal/shape"
 	"github.com/rknightion/synthkit/internal/sink/loki"
@@ -281,7 +284,8 @@ func TestCausalProjectEntryOrigins(t *testing.T) {
 		}
 		rule++
 		root := p.spans[r.SpanID]
-		if root.Status != otlp.StatusUnset || root.Attrs["http.response.status_code"] != 422 || root.StatusMsg != "" {
+		_, hasType := root.Attrs["error.type"]
+		if root.Status != otlp.StatusUnset || root.Attrs["http.response.status_code"] != 422 || hasType || root.StatusMsg != "" {
 			t.Fatalf("rule root: status %v attrs %v msg %q", root.Status, root.Attrs, root.StatusMsg)
 		}
 		in := p.linesFor("intake-api", r)
@@ -294,8 +298,8 @@ func TestCausalProjectEntryOrigins(t *testing.T) {
 	}
 }
 
-// Story 2 projected: a throttled enrich-fn answers 429; its SERVER span stays UNSET (a 4xx), the
-// caller's CLIENT span is ERROR with the 429 it saw.
+// Story 2 projected: a throttled enrich-fn answers 429; its SERVER span stays UNSET (a 4xx) with
+// the status code and no error.type, the caller's CLIENT span is ERROR with the 429 it saw.
 func TestCausalProjectThrottleStatusRules(t *testing.T) {
 	w := causalApps(t, causalResources, loggedIntakeApp)[0]
 	eng := incident(causal.ModeConcurrencyReduced, "enrich-fn-concurrency", 1)
@@ -312,7 +316,10 @@ func TestCausalProjectThrottleStatusRules(t *testing.T) {
 			if cs.Status != otlp.StatusError || cs.Attrs["http.response.status_code"] != 429 {
 				t.Fatalf("throttled client span: %v %v", cs.Status, cs.Attrs)
 			}
-			if ss.Status != otlp.StatusUnset || ss.Attrs["error.type"] != "TooManyRequestsException" || ss.StatusMsg != "" {
+			// A 4xx HTTP SERVER answer stays UNSET and carries no error.type (semconv v1.44.0
+			// http-spans note [4]); the cause rides the log.
+			_, hasType := ss.Attrs["error.type"]
+			if ss.Status != otlp.StatusUnset || ss.Attrs["http.response.status_code"] != 429 || hasType || ss.StatusMsg != "" {
 				t.Fatalf("throttled server span: %v %v %q", ss.Status, ss.Attrs, ss.StatusMsg)
 			}
 		}
@@ -539,4 +546,255 @@ func TestCausalCustomMetricValues(t *testing.T) {
 	if got := one("intake_503_seconds_sum", nil); got < 3*float64(n503) {
 		t.Errorf("intake_503_seconds_sum %v, want at least 3 s per 503", got)
 	}
+}
+
+// A gRPC callee follows the generic span-status rule, not the HTTP one: its SERVER span is ERROR
+// for any failed answer and carries error.type, and no hop to it carries http.response.status_code.
+func TestCausalProjectGRPCHopHasNoHTTPStatus(t *testing.T) {
+	doc := strings.Replace(loggedIntakeApp, "    type: function\n", "    type: grpc\n", 1)
+	w := causalApps(t, causalResources, doc)[0]
+	eng := incident(causal.ModeConcurrencyReduced, "enrich-fn-concurrency", 1)
+	reqs := mintAt(w, eng, causalNow)
+	p := project(t, w, eng, reqs)
+	seen := 0
+	for _, r := range reqs {
+		for _, c := range callsTo(r, "enrich-fn") {
+			if c.StatusCode != 429 {
+				continue
+			}
+			seen++
+			cs, ss := p.spans[c.SpanID], p.spans[c.PeerSpanID]
+			if _, has := cs.Attrs["http.response.status_code"]; has || cs.Status != otlp.StatusError || cs.Attrs["error.type"] != "429" {
+				t.Fatalf("grpc client span: %v %v", cs.Status, cs.Attrs)
+			}
+			if _, has := ss.Attrs["http.response.status_code"]; has || ss.Status != otlp.StatusError || ss.Attrs["error.type"] != "TooManyRequestsException" {
+				t.Fatalf("grpc server span: %v %v", ss.Status, ss.Attrs)
+			}
+		}
+	}
+	if seen == 0 {
+		t.Fatal("no throttled grpc calls minted")
+	}
+}
+
+// loggedLegacyIntakeApp is loggedIntakeApp without any causal field.
+var loggedLegacyIntakeApp = `
+traffic: {off_peak_rps: 5, peak_rps: 60}
+services:
+  - name: intake-api
+    entry: true
+    calls: [records-db, enrich-fn, validation-publisher]` + causalLogBody + `
+  - {name: records-db, type: db}
+  - name: enrich-fn
+    type: function
+    external: true
+    calls: [partner-gateway]` + causalLogBody + `
+  - name: partner-gateway
+    external: true` + causalLogBody + `
+  - {name: validation-publisher}
+`
+
+// Design §10.5 (root ruling D85): an opted blueprint with no active fault and the default 1%
+// baseline error rate projects its app logs, root span status and attributes, and span-metric
+// latency exactly as the same app without resources. A baseline failure carries no Fault, so it
+// is not causal.
+func TestCausalOptedHealthyMatchesLegacy(t *testing.T) {
+	opted := causalApps(t, causalResources, loggedIntakeApp)[0]
+	// The same binding as causalApps, so seeded correlation ids agree.
+	lw, err := build(decodeStrict(t, loggedLegacyIntakeApp), core.Binding{Name: "appa", Env: &fixture.Env{Name: "prod", Weight: 1}, Cluster: coretest.Cluster()})
+	if err != nil {
+		t.Fatalf("build legacy: %v", err)
+	}
+	legacy := lw.(*Workload)
+	type run struct {
+		reqs  []*ledger.Request
+		p     projected
+		lat   []string
+		after float64
+	}
+	do := func(w *Workload) run {
+		eng := shape.New("UTC", nil)
+		led := ledger.New(eng, 0, 0)
+		led.AddMinter(w.Minter())
+		reqs := led.Mint(causalNow)
+		p := project(t, w, eng, reqs)
+		mc := &coretest.MetricCapture{}
+		world := coretest.World(mc, nil, nil)
+		world.Shape, world.Ledger = eng, led
+		if err := w.Tick(context.Background(), causalNow, world); err != nil {
+			t.Fatalf("Tick: %v", err)
+		}
+		var lat []string
+		for _, name := range []string{"traces_spanmetrics_latency_sum", "traces_spanmetrics_latency_count", "traces_service_graph_request_server_seconds_sum"} {
+			for _, s := range mc.Find(name) {
+				lat = append(lat, name+fmtLabels(s.Labels)+"="+strconv.FormatFloat(s.Value, 'g', -1, 64))
+			}
+		}
+		sort.Strings(lat)
+		return run{reqs: reqs, p: p, lat: lat, after: eng.Float64()}
+	}
+	a, b := do(opted), do(legacy)
+	if len(a.reqs) != len(b.reqs) {
+		t.Fatalf("minted %d vs %d", len(a.reqs), len(b.reqs))
+	}
+	failed := 0
+	for i, r := range a.reqs {
+		if r.Fault != nil {
+			t.Fatalf("healthy opted request carries %+v", r.Fault)
+		}
+		if r.Outcome != ledger.OutcomeSuccess {
+			failed++
+		}
+		ra, rb := a.p.spans[r.SpanID], b.p.spans[b.reqs[i].SpanID]
+		if ra.Status != rb.Status || !reflect.DeepEqual(maskIDs(ra.Attrs), maskIDs(rb.Attrs)) || ra.StatusMsg != rb.StatusMsg {
+			t.Fatalf("root span differs: opted %v %v vs legacy %v %v", ra.Status, ra.Attrs, rb.Status, rb.Attrs)
+		}
+	}
+	if failed == 0 {
+		t.Fatal("no baseline failures minted")
+	}
+	if !reflect.DeepEqual(logShape(a.p.logs), logShape(b.p.logs)) {
+		t.Fatal("opted-healthy app logs differ from the app without resources")
+	}
+	if !reflect.DeepEqual(a.lat, b.lat) {
+		for i := range min(len(a.lat), len(b.lat)) {
+			if a.lat[i] != b.lat[i] {
+				t.Logf("first diff %d:\n opted  %s\n legacy %s", i, a.lat[i], b.lat[i])
+				break
+			}
+		}
+		t.Fatalf("opted-healthy span-metric latency differs from the app without resources (%d vs %d series)", len(a.lat), len(b.lat))
+	}
+	if a.after != b.after {
+		t.Fatal("engine draws diverged")
+	}
+}
+
+func fmtLabels(l map[string]string) string {
+	keys := make([]string, 0, len(l))
+	for k := range l {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	for _, k := range keys {
+		b.WriteString("," + k + "=" + l[k])
+	}
+	return "{" + b.String() + "}"
+}
+
+// staticMinter hands the ledger a prepared batch once.
+type staticMinter struct {
+	name  string
+	batch []*ledger.Request
+}
+
+func (m *staticMinter) Workload() string { return m.name }
+func (m *staticMinter) Mint(time.Time, float64, *shape.Engine) []*ledger.Request {
+	b := m.batch
+	m.batch = nil
+	return b
+}
+
+// Under a fault with retries, a gated span-metric window takes exactly the legacy path's engine
+// draws (the same requests marked legacy), and resend spans' DSL values draw nothing from the
+// engine (design §4.1): only the first attempts' spans do.
+func TestCausalProjectionKeepsEngineDraws(t *testing.T) {
+	doc := strings.Replace(intakeApp, `    type: function
+    external: true
+`, `    type: function
+    external: true
+    spans:
+      - name_template: enrich
+        attributes:
+          jitter: {float_range: {min: 0, max: 1}}
+`, 1)
+	w := causalApps(t, causalResources, doc)[0]
+	reqs := mintAt(w, incident(causal.ModeCredentialExpired, "partner-api-cert", 1), causalNow)
+	resends := 0
+	var legacyCopy []*ledger.Request
+	for _, r := range reqs {
+		cp := *r
+		cp.Causal = false
+		legacyCopy = append(legacyCopy, &cp)
+		for _, c := range r.Calls {
+			if c.Attempt >= 1 {
+				resends++
+			}
+		}
+	}
+	if resends == 0 {
+		t.Fatal("no resends minted")
+	}
+
+	tick := func(batch []*ledger.Request) float64 {
+		eng := shape.New("UTC", nil)
+		led := ledger.New(eng, 0, 0)
+		led.AddMinter(&staticMinter{name: w.Name(), batch: batch})
+		led.Mint(causalNow)
+		mc := &coretest.MetricCapture{}
+		world := coretest.World(mc, nil, nil)
+		world.Shape, world.Ledger = eng, led
+		if err := w.Tick(context.Background(), causalNow, world); err != nil {
+			t.Fatalf("Tick: %v", err)
+		}
+		return eng.Float64()
+	}
+	if got, want := tick(reqs), tick(legacyCopy); got != want {
+		t.Fatalf("gated span metrics shifted the engine: next draw %v, legacy path %v", got, want)
+	}
+
+	// Traces: one engine draw per enrich-fn SERVER span off a resend path.
+	firsts := 0
+	for _, r := range reqs {
+		for _, c := range r.Calls {
+			if c.Target == "enrich-fn" && c.PeerSpanID != "" && c.Attempt == 0 {
+				firsts++
+			}
+		}
+	}
+	eng := shape.New("UTC", nil)
+	tc := &coretest.TraceCapture{}
+	world := coretest.World(nil, nil, tc)
+	world.Shape = eng
+	if err := w.ProjectBatch(context.Background(), causalNow, world, reqs); err != nil {
+		t.Fatalf("ProjectBatch: %v", err)
+	}
+	ref := shape.New("UTC", nil)
+	for range firsts {
+		ref.Float64()
+	}
+	if got, want := eng.Float64(), ref.Float64(); got != want {
+		t.Fatalf("trace projection took a different number of engine draws than the %d first-attempt spans", firsts)
+	}
+}
+
+// maskIDs drops the per-request random correlation ids (the mint path's ids are not seeded).
+func maskIDs(attrs map[string]any) map[string]any {
+	out := map[string]any{}
+	for k, v := range attrs {
+		switch k {
+		case "app.correlation_id", "request_id", "session_id":
+			continue
+		}
+		out[k] = v
+	}
+	return out
+}
+
+// logShape is a stream set with per-request ids and timestamps masked: stream labels, each line's
+// body and its structured-metadata keys.
+func logShape(streams []loki.Stream) []string {
+	var out []string
+	for _, st := range streams {
+		for _, ln := range st.Lines {
+			keys := make([]string, 0, len(ln.Meta))
+			for k := range ln.Meta {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			out = append(out, fmtLabels(st.Labels)+" "+ln.Body+" "+strings.Join(keys, ","))
+		}
+	}
+	return out
 }

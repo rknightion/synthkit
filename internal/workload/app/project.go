@@ -80,10 +80,10 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 				TraceID: r.TraceID, SpanID: r.SpanID, ParentID: "",
 				Kind:  rootKind,
 				Start: base, End: base.Add(dur),
-				Status: rootStatus(rootKind, r),
+				Status: rootStatus(rootKind, httpNode(entry), r),
 				Attrs:  eAttrs,
 			}
-			decorateRoot(&root, r)
+			decorateRoot(&root, r, httpNode(entry))
 			er.Spans = append(er.Spans, root)
 			er.Spans = append(er.Spans, eChildren...)
 			entryContext = r.SpanID
@@ -180,7 +180,7 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 						TraceID: r.TraceID, SpanID: call.PeerSpanID, ParentID: calleeContext,
 						Kind:  otlp.KindServer,
 						Start: hopStart, End: serverEnd,
-						Status: serverStatus(r, call),
+						Status: serverStatus(r, call, httpNode(callee)),
 						Attrs:  sAttrs,
 					}
 					decorateServer(&server, r, i, callee)
@@ -234,6 +234,11 @@ func (w *Workload) nodeSpan(n *node, structuralKind otlp.SpanKind, structuralSpa
 	name = defaultName
 	attrs = universalAttrs(r)
 	ctx := telemetryspec.EvalCtx{Ref: reqRefs(r, call), Rand: world.Shape.Float64, Norm: world.Shape.NormFloat64}
+	if onResendPath(r, call) {
+		// A resend attempt (or a span under one) has no legacy counterpart: its values draw from
+		// the request's hash unit, never the engine (design §4.1), so later draws do not shift.
+		ctx.Rand, ctx.Norm = unitRand(r.TraceID + "\x00" + structuralSpanID)
+	}
 	childStart := start.Add(time.Duration(float64(end.Sub(start)) * 0.1))
 	for _, sp := range n.spans {
 		spAttrs := make(map[string]any, len(sp.Attributes))
