@@ -84,9 +84,10 @@ func (w *Workload) tickSpanMetrics(now time.Time, world *core.World) {
 	}
 	allTraceSwitchesOn := w.allTraceSwitchesOn()
 	// cw is non-nil only for a causal workload whose window holds a request with a Fault or a
-	// failure (M6): latency then cycles through the window's real span durations, every row group
-	// takes exactly the legacy path's latency draws (so later engine draws do not shift), and edge
-	// volume follows the sampled calls per request.
+	// failure (M6): every row group then takes exactly the legacy path's latency draws (so later
+	// engine draws do not shift), a row whose own hops carry the fault scales those draws by its
+	// real slowdown over its healthy reference (rows the fault never touches keep the plain draws),
+	// and edge volume follows the sampled calls per request.
 	cw := w.causalSpanWindow(now, world)
 	latVal := func(service string) func() float64 {
 		// The APM metric families are derived from this workload's spans, so retain the
@@ -124,8 +125,8 @@ func (w *Workload) tickSpanMetrics(now time.Time, world *core.World) {
 				_, _, okL, errL := splitSpanMetricVolume(share, w.legacyNodeStatuses(now, world, n))
 				return obsCount(okL) + obsCount(errL)
 			})
-			w.observeSpanLatency(base, kind, name, okStatus, okCalls, g.source(cw.serverDurations(n, okStatus)))
-			w.observeSpanLatency(base, kind, name, errStatus, errCalls, g.source(cw.serverDurations(n, errStatus)))
+			w.observeSpanLatency(base, kind, name, okStatus, okCalls, g.source(cw.serverFactors(n, okStatus)))
+			w.observeSpanLatency(base, kind, name, errStatus, errCalls, g.source(cw.serverFactors(n, errStatus)))
 			g.drain()
 		}
 	}
@@ -147,8 +148,8 @@ func (w *Workload) tickSpanMetrics(now time.Time, world *core.World) {
 				w.observeSpanCallsRow(cbase, spanKindClient, clientName, okStatus, okCalls, callerID.sdkLang())
 				w.observeSpanCallsRow(cbase, spanKindClient, clientName, errStatus, errCalls, callerID.sdkLang())
 				g := cw.latGroup(latVal(calleeID.service), w.legacyClientDraws(now, world, calleeName, float64(calls)))
-				w.observeSpanLatency(cbase, spanKindClient, clientName, okStatus, okCalls, g.source(cw.clientDurations(calleeName, okStatus)))
-				w.observeSpanLatency(cbase, spanKindClient, clientName, errStatus, errCalls, g.source(cw.clientDurations(calleeName, errStatus)))
+				w.observeSpanLatency(cbase, spanKindClient, clientName, okStatus, okCalls, g.source(cw.clientFactors(calleeName, okStatus)))
+				w.observeSpanLatency(cbase, spanKindClient, clientName, errStatus, errCalls, g.source(cw.clientFactors(calleeName, errStatus)))
 				g.drain()
 				connType := ""
 				if callee.kind.leaf {
@@ -159,10 +160,10 @@ func (w *Workload) tickSpanMetrics(now time.Time, world *core.World) {
 				w.st.Add("traces_service_graph_request_failed_total", sg, errCalls)
 				edgeDraws := func() int { return obsCount(float64(calls)) }
 				gs := cw.latGroup(latVal(calleeID.service), edgeDraws)
-				w.observeEdgeLatency("traces_service_graph_request_server_seconds", sg, volume, gs.source(cw.serverEdgeDurations(calleeName)))
+				w.observeEdgeLatency("traces_service_graph_request_server_seconds", sg, volume, gs.source(cw.serverEdgeFactors(calleeName)))
 				gs.drain()
 				gc := cw.latGroup(latVal(calleeID.service), edgeDraws)
-				w.observeEdgeLatency("traces_service_graph_request_client_seconds", sg, volume, gc.source(cw.clientDurations(calleeName, "")))
+				w.observeEdgeLatency("traces_service_graph_request_client_seconds", sg, volume, gc.source(cw.clientFactors(calleeName, "")))
 				gc.drain()
 			}
 		}
@@ -187,8 +188,8 @@ func (w *Workload) tickSpanMetrics(now time.Time, world *core.World) {
 			w.observeSpanCallsRow(cbase, spanKindClient, clientName, okStatus, okCalls, callerID.sdkLang())
 			w.observeSpanCallsRow(cbase, spanKindClient, clientName, errStatus, errCalls, callerID.sdkLang())
 			g := cw.latGroup(latVal(calleeID.service), w.legacyClientDraws(now, world, calleeName, float64(calls)))
-			w.observeSpanLatency(cbase, spanKindClient, clientName, okStatus, okCalls, g.source(cw.clientDurations(calleeName, okStatus)))
-			w.observeSpanLatency(cbase, spanKindClient, clientName, errStatus, errCalls, g.source(cw.clientDurations(calleeName, errStatus)))
+			w.observeSpanLatency(cbase, spanKindClient, clientName, okStatus, okCalls, g.source(cw.clientFactors(calleeName, okStatus)))
+			w.observeSpanLatency(cbase, spanKindClient, clientName, errStatus, errCalls, g.source(cw.clientFactors(calleeName, errStatus)))
 			g.drain()
 		}
 	}
@@ -219,10 +220,10 @@ func (w *Workload) tickSpanMetrics(now time.Time, world *core.World) {
 			}
 		}
 		gs := cw.latGroup(latVal(serverID.service), edgeDraws(edge.serverSpan))
-		w.observeEdgeLatencyPresence("traces_service_graph_request_server_seconds", labels, volume, gs.source(cw.serverEdgeDurations(edge.server.decl.Name)), edge.serverSpan)
+		w.observeEdgeLatencyPresence("traces_service_graph_request_server_seconds", labels, volume, gs.source(cw.serverEdgeFactors(edge.server.decl.Name)), edge.serverSpan)
 		gs.drain()
 		gc := cw.latGroup(latVal(serverID.service), edgeDraws(edge.clientSpan))
-		w.observeEdgeLatencyPresence("traces_service_graph_request_client_seconds", labels, volume, gc.source(cw.clientDurations(edge.server.decl.Name, "")), edge.clientSpan)
+		w.observeEdgeLatencyPresence("traces_service_graph_request_client_seconds", labels, volume, gc.source(cw.clientFactors(edge.server.decl.Name, "")), edge.clientSpan)
 		gc.drain()
 	}
 }

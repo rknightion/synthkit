@@ -389,6 +389,9 @@ type Workload struct {
 	carry map[string]float64
 	// stock holds each stock_of gauge's current level per label combination.
 	stock map[string]float64
+	// healthySpan holds a causal workload's latest healthy real span duration (seconds) per
+	// span-metric reference key, the basis a faulted row scales its legacy draws by.
+	healthySpan map[string]float64
 }
 
 // build constructs a Workload: decode-time defaults, resolve + validate the graph, freeze identity.

@@ -534,9 +534,19 @@ func (w *Workload) projectCausalLogs(r *ledger.Request, line func(n *node, level
 // causalSpanWindow holds the metric window's ledger sample when the workload is causal and the
 // window holds a request with a Fault or a failure (M6); nil otherwise, keeping every span-metric
 // row on its legacy path.
+//
+// Inside a gated window a row leaves the legacy latency path only when one of its own hops in the
+// window carries the fault (SKT-0168.09.35): a hop that has a Fault, failed, is a resend, or has
+// such a hop beneath it (the entry covers its whole request). Every other row keeps the legacy
+// draw exactly. A faulted row keeps the legacy draw too, scaled per observation by how far that
+// hop's real duration sits from the row's healthy real duration (the mean of the row's latest
+// fault-free hops, remembered across ticks), so the fault moves a row by the factor it moved the
+// real span and never by the gap between the real and legacy duration scales. Until the workload
+// has seen a healthy hop of a row there is no basis to scale by, and the row stays on the draw.
 type causalSpanWindow struct {
 	w    *Workload
 	reqs []*ledger.Request
+	hurt map[*ledger.Request][]bool // per gated request: whether each call hop carries the fault
 }
 
 func (w *Workload) causalSpanWindow(now time.Time, world *core.World) *causalSpanWindow {
@@ -544,80 +554,195 @@ func (w *Workload) causalSpanWindow(now time.Time, world *core.World) *causalSpa
 		return nil
 	}
 	reqs := world.Ledger.ActiveFor(w.Name(), now, interval)
+	w.learnHealthySpans(reqs)
+	var cw *causalSpanWindow
 	for _, r := range reqs {
-		if causalFailing(r) {
-			return &causalSpanWindow{w: w, reqs: reqs}
+		if !causalFailing(r) {
+			continue
+		}
+		if cw == nil {
+			cw = &causalSpanWindow{w: w, reqs: reqs, hurt: map[*ledger.Request][]bool{}}
+		}
+		cw.hurt[r] = faultedHops(r)
+	}
+	return cw
+}
+
+// faultedHops marks each call hop of r that carries a fault: its own Fault, failure or resend, or
+// one in the subtree beneath it (the hop's span covers its children's time).
+func faultedHops(r *ledger.Request) []bool {
+	marked := make([]bool, len(r.Calls))
+	for i, c := range r.Calls {
+		if c.Fault == nil && !c.Failed && c.Attempt == 0 {
+			continue
+		}
+		for j := i; j >= 0 && j < len(marked) && !marked[j]; j = r.Calls[j].ParentHopIndex {
+			marked[j] = true
 		}
 	}
-	return nil
+	return marked
+}
+
+func entryFaulted(r *ledger.Request, marked []bool) bool {
+	if r.Fault != nil || r.Outcome != ledger.OutcomeSuccess {
+		return true
+	}
+	for _, m := range marked {
+		if m {
+			return true
+		}
+	}
+	return false
 }
 
 func seconds(d time.Duration) float64 { return d.Seconds() }
 
-// serverDurations are the durations (seconds) of node n's own SERVER/root spans in the window
-// whose span-metric status is status.
-func (cw *causalSpanWindow) serverDurations(n *node, status string) []float64 {
+// Healthy-reference keys: a node's SERVER/root spans and the CLIENT spans calling a target.
+func serverRefKey(node string) string   { return "server\x00" + node }
+func clientRefKey(target string) string { return "client\x00" + target }
+
+func serverHopSeconds(c ledger.Call) float64 {
+	if c.ServerDuration > 0 {
+		return seconds(c.ServerDuration)
+	}
+	return seconds(c.Duration)
+}
+
+// learnHealthySpans records, per reference key, the mean real duration of the window's
+// fault-free hops. It reads only the ledger, so it takes no engine draw.
+func (w *Workload) learnHealthySpans(reqs []*ledger.Request) {
+	type acc struct{ sum, n float64 }
+	sums := map[string]*acc{}
+	add := func(key string, v float64) {
+		a := sums[key]
+		if a == nil {
+			a = &acc{}
+			sums[key] = a
+		}
+		a.sum += v
+		a.n++
+	}
+	entry := w.graph.entry.decl.Name
+	for _, r := range reqs {
+		marked := faultedHops(r)
+		if !entryFaulted(r, marked) {
+			add(serverRefKey(entry), seconds(r.Duration))
+		}
+		for i, c := range r.Calls {
+			if marked[i] {
+				continue
+			}
+			add(clientRefKey(c.Target), seconds(c.Duration))
+			if c.PeerSpanID != "" {
+				add(serverRefKey(c.Target), serverHopSeconds(c))
+			}
+		}
+	}
+	if len(sums) == 0 {
+		return
+	}
+	if w.healthySpan == nil {
+		w.healthySpan = map[string]float64{}
+	}
+	for k, a := range sums {
+		w.healthySpan[k] = a.sum / a.n
+	}
+}
+
+// scaled is one observation's factor on the legacy draw: the hop's real duration over its row's
+// healthy reference for a faulted hop with a reference, else 1.
+func (cw *causalSpanWindow) scaled(key string, d float64, faulted bool) float64 {
+	if !faulted {
+		return 1
+	}
+	if ref := cw.w.healthySpan[key]; ref > 0 {
+		return d / ref
+	}
+	return 1
+}
+
+// rowFactors returns the factors when at least one hop of the row carries the fault, else nil
+// (the row stays on the legacy draw).
+func rowFactors(factors []float64, anyFaulted bool) []float64 {
+	if !anyFaulted {
+		return nil
+	}
+	return factors
+}
+
+// serverFactors are the legacy-draw factors of node n's own SERVER/root spans in the window whose
+// span-metric status is status; nil when none of them carries the fault.
+func (cw *causalSpanWindow) serverFactors(n *node, status string) []float64 {
 	if cw == nil {
 		return nil
 	}
+	key := serverRefKey(n.decl.Name)
 	var out []float64
+	hit := false
 	for _, r := range cw.reqs {
+		marked, gated := cw.hurt[r]
 		if n == cw.w.graph.entry {
 			if spanMetricStatus(rootStatus(cw.w.entryRootKind(), protoOf(n), r)) == status {
-				out = append(out, seconds(r.Duration))
+				f := gated && entryFaulted(r, marked)
+				hit = hit || f
+				out = append(out, cw.scaled(key, seconds(r.Duration), f))
 			}
 			continue
 		}
-		for _, c := range r.Calls {
+		for i, c := range r.Calls {
 			if c.Target != n.decl.Name || c.PeerSpanID == "" || spanMetricStatus(serverStatus(r, c, protoOf(n))) != status {
 				continue
 			}
-			d := c.Duration
-			if c.ServerDuration > 0 {
-				d = c.ServerDuration
-			}
-			out = append(out, seconds(d))
+			f := gated && marked[i]
+			hit = hit || f
+			out = append(out, cw.scaled(key, serverHopSeconds(c), f))
 		}
 	}
-	return out
+	return rowFactors(out, hit)
 }
 
-// clientDurations are the durations (seconds) of the CLIENT spans calling target in the window;
-// status "" matches every status.
-func (cw *causalSpanWindow) clientDurations(target, status string) []float64 {
+// clientFactors are the legacy-draw factors of the CLIENT spans calling target in the window;
+// status "" matches every status. nil when none of them carries the fault.
+func (cw *causalSpanWindow) clientFactors(target, status string) []float64 {
 	if cw == nil {
 		return nil
 	}
+	key := clientRefKey(target)
 	var out []float64
+	hit := false
 	for _, r := range cw.reqs {
-		for _, c := range r.Calls {
+		marked, gated := cw.hurt[r]
+		for i, c := range r.Calls {
 			if c.Target == target && (status == "" || spanMetricStatus(callStatus(c)) == status) {
-				out = append(out, seconds(c.Duration))
+				f := gated && marked[i]
+				hit = hit || f
+				out = append(out, cw.scaled(key, seconds(c.Duration), f))
 			}
 		}
 	}
-	return out
+	return rowFactors(out, hit)
 }
 
-// serverEdgeDurations are the callee SERVER span durations (seconds) of calls to target.
-func (cw *causalSpanWindow) serverEdgeDurations(target string) []float64 {
+// serverEdgeFactors are the legacy-draw factors of the callee SERVER spans of calls to target.
+func (cw *causalSpanWindow) serverEdgeFactors(target string) []float64 {
 	if cw == nil {
 		return nil
 	}
+	key := serverRefKey(target)
 	var out []float64
+	hit := false
 	for _, r := range cw.reqs {
-		for _, c := range r.Calls {
+		marked, gated := cw.hurt[r]
+		for i, c := range r.Calls {
 			if c.Target != target || c.PeerSpanID == "" {
 				continue
 			}
-			d := c.Duration
-			if c.ServerDuration > 0 {
-				d = c.ServerDuration
-			}
-			out = append(out, seconds(d))
+			f := gated && marked[i]
+			hit = hit || f
+			out = append(out, cw.scaled(key, serverHopSeconds(c), f))
 		}
 	}
-	return out
+	return rowFactors(out, hit)
 }
 
 // edgeVolume scales an edge's volume by calls to the callee in the sample per sampled request
@@ -639,8 +764,8 @@ func (cw *causalSpanWindow) edgeVolume(target string, volume float64) float64 {
 
 // latGroup is one span-metric row group's latency source in a gated window. It takes exactly the
 // legacy path's number of latency draws (legacy), whatever the gated rows observe, so the engine's
-// later draws do not shift: each observation draws while the budget lasts and reports the
-// window's real span durations in turn; drain takes the draws the rows did not.
+// later draws do not shift: each observation draws while the budget lasts, scaled by the row's
+// factors in turn (see causalSpanWindow); drain takes the draws the rows did not.
 type latGroup struct {
 	lat  func() float64
 	left int
@@ -664,19 +789,20 @@ func (g *latGroup) draw() float64 {
 	return g.last
 }
 
-// source is a row's latency source: lat itself off a gated window; else the window's durations
-// in turn (or the last drawn value when the row has none), drawing within the budget.
-func (g *latGroup) source(durs []float64) func() float64 {
+// source is a row's latency source: lat itself off a gated window; else the legacy draws within
+// the budget, each scaled by the row's factors in turn (nil factors: the draws unscaled, exactly
+// as on the legacy path).
+func (g *latGroup) source(factors []float64) func() float64 {
 	if g.left < 0 {
 		return g.lat
 	}
 	i := 0
 	return func() float64 {
 		v := g.draw()
-		if len(durs) == 0 {
+		if len(factors) == 0 {
 			return v
 		}
-		v = durs[i%len(durs)]
+		v *= factors[i%len(factors)]
 		i++
 		return v
 	}

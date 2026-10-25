@@ -297,8 +297,12 @@ every signal projects the same request facts. The field reference is the generat
 - **Logs.** In a request carrying a fault or a failure, each service logs from its own hop: the log
   `ref` names listed in the Telemetry DSL section below. A service the request never reached logs nothing.
 - **Span metrics and service graph.** In a metric window that holds a faulted or failed request,
-  each row's latency cycles through the window's real span durations for that row and status, and
-  an edge's volume is scaled by the calls to its callee per sampled request, so retries count. A
+  only the rows whose own spans carry the fault (a span with a fault, a failure or a resend, or one
+  above such a span) change their latency: each observation keeps the established 20 to 200 ms
+  draw, multiplied by that span's real duration over the row's healthy real duration (the mean of
+  the row's latest fault-free spans). A row the fault never reaches keeps the established latency
+  exactly, and a row with no healthy span observed yet (a fault active since start) keeps the draw
+  unscaled. An edge's volume is scaled by the calls to its callee per sampled request, so retries count. A
   `worker` entry's row is `SPAN_KIND_CONSUMER`, and a `traffic.from_resource` app's request volume
   is the queue's served rate. Windows with no fault or failure, and workloads that declare no
   resources, take the established path unchanged.

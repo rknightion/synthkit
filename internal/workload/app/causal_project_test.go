@@ -450,35 +450,46 @@ func TestCausalProjectHealthyIdentity(t *testing.T) {
 	}
 }
 
-// Span metrics in a faulted window: the entry's error row observes the real request durations
-// (pool rejections last at least the 3 s acquire timeout), not the 20 to 200 ms legacy draw; and
-// a retried edge counts its attempts.
+// Span metrics in a faulted window: the entry's error row moves off the 20 to 200 ms legacy draw
+// by the real rejections' slowdown over the entry's healthy duration (pool rejections last at
+// least the 3 s acquire timeout, about 2.5x a healthy request here), once a healthy window has given that reference; and a retried
+// edge counts its attempts.
 func TestCausalSpanMetricsFollowHops(t *testing.T) {
 	w := causalApps(t, causalResources, intakeApp)[0]
 	eng := incident(causal.ModeDependencySlow, "records-db", 1)
 	led := ledger.New(eng, 0, 0)
 	led.AddMinter(w.Minter())
+	before := causalNow.Add(-90 * time.Minute) // the incident starts at 12:00
+	led.Mint(before)
+	warm := &coretest.MetricCapture{}
+	world := coretest.World(warm, nil, nil)
+	world.Shape, world.Ledger = eng, led
+	if err := w.Tick(context.Background(), before, world); err != nil {
+		t.Fatalf("warm-up Tick: %v", err)
+	}
 	led.Mint(causalNow)
 	mc := &coretest.MetricCapture{}
-	world := coretest.World(mc, nil, nil)
+	world = coretest.World(mc, nil, nil)
 	world.Shape, world.Ledger = eng, led
 	if err := w.Tick(context.Background(), causalNow, world); err != nil {
 		t.Fatalf("Tick: %v", err)
 	}
-	var sum, count float64
-	for _, s := range mc.Find("traces_spanmetrics_latency_sum") {
-		if s.Labels["service_name"] == "intake-api" && s.Labels["span_kind"] == spanKindServer && s.Labels["status_code"] == statusCodeError {
-			sum += s.Value
+	errRow := func(mc *coretest.MetricCapture, name string) float64 {
+		var v float64
+		for _, s := range mc.Find(name) {
+			if s.Labels["service_name"] == "intake-api" && s.Labels["span_kind"] == spanKindServer && s.Labels["status_code"] == statusCodeError {
+				v += s.Value
+			}
 		}
+		return v
 	}
-	for _, s := range mc.Find("traces_spanmetrics_latency_count") {
-		if s.Labels["service_name"] == "intake-api" && s.Labels["span_kind"] == spanKindServer && s.Labels["status_code"] == statusCodeError {
-			count += s.Value
-		}
+	sum := errRow(mc, "traces_spanmetrics_latency_sum") - errRow(warm, "traces_spanmetrics_latency_sum")
+	count := errRow(mc, "traces_spanmetrics_latency_count") - errRow(warm, "traces_spanmetrics_latency_count")
+	// Every legacy draw is at most 200 ms, so a mean above it is the rejections' slowdown.
+	if count == 0 || sum/count <= 0.2 {
+		t.Fatalf("entry error-row mean latency %.3f s over %v observations, want the rejections' slowdown lifting it past the 200 ms legacy ceiling", sum/math.Max(count, 1), count)
 	}
-	if count == 0 || sum/count < 1 {
-		t.Fatalf("entry error-row mean latency %.3f s over %v observations, want the real (>= 3 s) rejection durations", sum/math.Max(count, 1), count)
-	}
+	t.Logf("entry error-row mean %.3f s over %v observations (healthy entry reference %.3f s)", sum/count, count, w.healthySpan[serverRefKey("intake-api")])
 
 	w = causalApps(t, causalResources, intakeApp)[0]
 	eng = incident(causal.ModeCredentialExpired, "partner-api-cert", 1)
