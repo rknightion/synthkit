@@ -305,6 +305,14 @@ databases:
 
 Both lanes share the same `fixture.DB` identity, so they join correctly. Setting both to `false` is valid — the database still exists as a workload call-target. The same pattern applies to cluster EC2 CloudWatch, cache CloudWatch, and cloud sub-family toggles.
 
+A `postgres` or `mysql` database may also set `resource:` to a declared `dependency` or `pool`
+(`environments[].resources`): its CloudWatch read and write latency then scale with the resource's
+latency factor (the dependency's, or for a pool the dependency it is held across), and a pool-bound
+database's `DatabaseConnections` follows the pool's busy connections. The legacy `database`-axis
+incident modes no longer target a bound database; `dependency_slow` and `pool_exhausted` do. The
+binding needs the CloudWatch lane, cannot combine with `observability.dbo11y`, and is checked when
+the construct is built.
+
 See [emission-switches.md](emission-switches.md) for the full list of gates.
 
 ## How loading works

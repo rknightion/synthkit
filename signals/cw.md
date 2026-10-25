@@ -1374,6 +1374,11 @@ info_series: aws_firehose_info
 
 **Aurora MySQL (`engine=aurora-mysql`; writer/reader/serverless-v2) — 📋 not modelled, largest family (~105):** full DML set `{commit,ddl,dml,delete,insert,select,update}_latency` + `*_throughput` (⚠ **milliseconds**), `queries, active_transactions, num_active_transactions, blocked_transactions, deadlocks, aborted_clients, connection_attempts, login_failures, row_lock_time, rollback_segment_history_list_length, num_undo_row_operations`; write-forwarding `forwarding_writer_{dmllatency,dmlthroughput,open_sessions}`, `forwarding_replica_{dmllatency,dmlthroughput,open_sessions,read_wait_latency,read_wait_throughput,select_latency,select_throughput}`; parallel-query `aurora_pq_request_*` (~30 variants incl. `_attempted/_executed/_failed/_in_progress/_throttled/_chosen_pk_range_scan` and ~24 `_not_chosen_*` reasons); Aurora memory/OOM `aurora_memory_{health_state,num_declined_sql_total,num_kill_conn_total,num_kill_query_total}, aurora_num_oom_recovery_{successful,triggered}, aurora_milliseconds_spent_in_oom_recovery, aurora_slow_connection_handle_count, aurora_slow_handshake_count`; binlog `num_binary_log_files, sum_binary_log_size, aurora_binlog_replica_lag`; storage/volume `aurora_volume_bytes_left_total, volume_bytes_used, volume_read_iops, volume_write_iops`; lifecycle `purge_boundary, purge_finished_point, truncate_finished_point, transaction_age_maximum, aurora_dmlrejected_writer_full`.
 
+A database bound to a declared causal `dependency` or `pool` resource (`databases[].resource`) scales
+`read_latency` and `write_latency` by the resource's latency factor (mean over the 5 s model steps of
+the 60 s window) and, when bound to a pool, takes `database_connections` from the pool's mean in-use
+connections; it emits no new family or label, and every other family is unchanged.
+
 Instance class is a blueprint `instance_class` knob (default `db.t3.medium`; SK-4 â declared attribute on `fixture.DB`, no class-derived series). (Raw per-engine/role capture taken 2026-06-14; full inventory not retained in-repo — signals/cw.md is now the contract of record.)
 
 ```yaml signals

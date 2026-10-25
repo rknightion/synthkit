@@ -128,6 +128,15 @@ resolved-zero values or live activation semantics.
 | `lock_contention` | Lock waits climb. (Also fires the `query_data_locks` dbo11y op when active.) |
 | `slow_query_storm` | Query latency right-tail spikes. |
 
+A database with `resource:` (bound to a `dependency` or `pool` under `environments[].resources`) is not
+a database-axis target: an effect naming it with a database-axis mode is an unknown-target load error.
+Its `aws_rds_*` latency and connection families follow the shared resource model instead, so the
+resource-axis modes reach it: `dependency_slow` on the dependency (or on the dependency the pool is
+held across) multiplies `aws_rds_read_latency` and `aws_rds_write_latency` by the dependency's latency
+factor, and on a pool-bound database `aws_rds_database_connections` follows the pool's busy
+connections (they rise as the hold stretches, and `pool_exhausted` caps them at the reduced size).
+Every other family keeps its baseline, and each family returns to the baseline once the incident ends.
+
 ### workload axis (web_service)
 
 | Mode | Effect |
@@ -235,6 +244,11 @@ queue carrying it. The queue's changes roll up into its VPN and broker totals.
 
 There is no separate discard mode: the sourced discard counter records spool-full discards, which
 `queue_consumer_stall` reaches when the quota fills.
+
+A queue that declares a `drain_schedule` (a batch consumer that runs only inside periodic windows,
+so its spool is a sawtooth) is stalled the same way: the stall scales the drain rate inside each
+window, and the window schedule is unchanged. A queue bound to a causal resource cannot declare
+`drain_schedule`; its drain follows the resource's model.
 
 ### table axis (DynamoDB)
 
