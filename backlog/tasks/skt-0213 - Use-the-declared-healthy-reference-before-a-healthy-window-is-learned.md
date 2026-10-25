@@ -1,9 +1,11 @@
 ---
 id: SKT-0213
 title: Use the declared healthy reference before a healthy window is learned
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop59-root'
 created_date: '2026-10-25T19:30:00Z'
+updated_date: '2026-10-25T20:12:00Z'
 labels:
   - causal
 dependencies: []
@@ -28,3 +30,9 @@ A fault live from process start currently leaves faulted span-metric rows flat u
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Use the accepted restored engine/timestamp candidate as baseline; reproduce a fault live from first tick, derive a declared healthy reference for causal span-metric rows until real healthy observations exist, preserve unaffected rows and learned-reference behavior, and return only the task delta.
+<!-- SECTION:PLAN:END -->
