@@ -1,11 +1,11 @@
 ---
 id: SKT-0183
 title: Tighten unslashed archtest allowlist prefixes
-status: In Progress
+status: Done
 assignee:
   - '@loop58-root'
 created_date: '2026-10-25T02:43:00Z'
-updated_date: '2026-10-25T06:05:00Z'
+updated_date: '2026-10-25T08:23:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -20,8 +20,8 @@ TestCatalogImportIsolation matches allowedPrefixes by string prefix; eight entri
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A package whose path only shares a prefix with an allowed entry is rejected, proven red then green
-- [ ] #2 Every current catalog package still passes
+- [x] #1 A package whose path only shares a prefix with an allowed entry is rejected, proven red then green
+- [x] #2 Every current catalog package still passes
 <!-- AC:END -->
 
 ## Definition of Done
@@ -30,3 +30,9 @@ TestCatalogImportIsolation matches allowedPrefixes by string prefix; eight entri
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+loop58: landed fcf4443; CI green 5007f33.
+<!-- SECTION:NOTES:END -->

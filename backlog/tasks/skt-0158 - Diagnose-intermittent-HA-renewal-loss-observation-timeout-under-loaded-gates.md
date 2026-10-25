@@ -4,7 +4,7 @@ title: Diagnose intermittent HA renewal-loss observation timeout under loaded ga
 status: Parked
 assignee: []
 created_date: '2026-10-21T15:25:00Z'
-updated_date: '2026-10-25T07:17:00Z'
+updated_date: '2026-10-25T08:51:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -51,4 +51,6 @@ Fresh bounded remote race measurement ran ten iterations of the unchanged HA los
 loop57 closeout: parked/open, see codex/closeout-2026-10-24-loop57.md.
 
 loop58 evidence (SKT-0186 lane): gate-1 ran at load ~50 on 32 cores during loop58 gates; cmd/synthkit HA tests (TestFleetHAGracefulRestartKeepsIDsAndExplicitTeardown 100ms lease lookup deadline, TestHAExpiredGlobalDrainDoesNotRelease) went red under that load. Same oversubscription class; fix routes to the gate-runner per-host heavy-slot cap. Evidence: codex loop58 tlsf return.
+
+loop58: TestFleetUnregisterOwnedHAAuthorityInterruptionAndRecovery failed once in a loaded gate-2 just check (slot 12, 'interruption consumed intent'); passes -race -count=5 isolated on candidate and base.
 <!-- SECTION:NOTES:END -->
