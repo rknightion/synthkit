@@ -40,7 +40,7 @@ func TestOnlyFilterableResourceModesCarryAScope(t *testing.T) {
 		}
 		for _, s := range a.Scopes {
 			for _, ph := range regexp.MustCompile(`\{\{[^}]*\}\}`).FindAllString(s.Query, -1) {
-				if !strings.HasPrefix(ph, "{{consumers.") && ph != "{{blueprint}}" {
+				if !strings.HasPrefix(ph, "{{consumers.") && !strings.HasPrefix(ph, "{{consumers?") && ph != "{{blueprint}}" && ph != "{{selectors}}" {
 					t.Errorf("%s scope %q uses placeholder %s the harness does not fill", a.Mode, s.Query, ph)
 				}
 			}
@@ -109,13 +109,13 @@ func TestScopeEscapesIdentityValues(t *testing.T) {
 func TestScopeKeepsFloorsAndZeroFallbackForSums(t *testing.T) {
 	a := assertionOf(t, "concurrency_reduced")
 	scoped, n := a.Scope([]Consumer{
-		{Kind: ConsumerLambda, Identity: map[string]string{"dimension_FunctionName": "enrich-fn"}},
+		lambdaConsumer("enrich-fn", "111122223333", "eu-west-1"),
 		{Kind: ConsumerAgentcore, Identity: map[string]string{"name": "arn:aws:bedrock-agentcore:eu-west-1:111122223333:runtime/planner"}},
 	})
 	if n != 2 || scoped.MinActive != throttleFloor {
 		t.Fatalf("n=%d floor=%v, want 2 consumers and the %d floor kept", n, scoped.MinActive, throttleFloor)
 	}
-	for _, want := range []string{`aws_lambda_throttles_sum{dimension_FunctionName=~"enrich-fn"}`, `aws_bedrock_agentcore_throttles_sum{name=~"arn:aws:bedrock-agentcore:eu-west-1:111122223333:runtime/planner"}`, "or vector(0)"} {
+	for _, want := range []string{`aws_lambda_throttles_sum{dimension_FunctionName=~"enrich-fn",account_id=~"111122223333",region=~"eu-west-1"}`, `aws_bedrock_agentcore_throttles_sum{name=~"arn:aws:bedrock-agentcore:eu-west-1:111122223333:runtime/planner"}`, "or vector(0)"} {
 		if !strings.Contains(scoped.Query, want) {
 			t.Errorf("scoped query %q missing %s", scoped.Query, want)
 		}
@@ -124,7 +124,7 @@ func TestScopeKeepsFloorsAndZeroFallbackForSums(t *testing.T) {
 		t.Error("concurrency_reduced is a single aggregate and must stay one")
 	}
 	// One kind alone scopes to that kind alone.
-	onlyLambda, n := a.Scope([]Consumer{{Kind: ConsumerLambda, Identity: map[string]string{"dimension_FunctionName": "enrich-fn"}}})
+	onlyLambda, n := a.Scope([]Consumer{lambdaConsumer("enrich-fn", "111122223333", "eu-west-1")})
 	if n != 1 || strings.Contains(onlyLambda.Query, "agentcore") {
 		t.Errorf("lambda-only scope = %q (n=%d)", onlyLambda.Query, n)
 	}
@@ -133,13 +133,13 @@ func TestScopeKeepsFloorsAndZeroFallbackForSums(t *testing.T) {
 func TestScopeQueueSlowdownCoversBothBrokers(t *testing.T) {
 	a := assertionOf(t, "consumer_slowdown")
 	scoped, n := a.Scope([]Consumer{
-		{Kind: ConsumerSQS, Identity: map[string]string{"dimension_QueueName": "validation-queue", "name": "validation-collector"}},
+		sqsConsumer("validation-queue", "validation-collector", "111122223333", "eu-west-1"),
 		{Kind: ConsumerSolace, Identity: map[string]string{"instance": "broker-a:9628", "vpn_name": "vpn-1", "queue_name": "orders-q"}},
 	})
 	if n != 2 || !scoped.AnySeries || scoped.MinActive != backlogFloor {
 		t.Fatalf("n=%d anySeries=%v floor=%v", n, scoped.AnySeries, scoped.MinActive)
 	}
-	for _, want := range []string{`aws_sqs_approximate_age_of_oldest_message_maximum{dimension_QueueName=~"validation-queue"}`, `solace_queue_spool_usage_msgs{`, `queue_name=~"orders-q"`, `vpn_name=~"vpn-1"`, `instance=~"broker-a:9628"`, " or "} {
+	for _, want := range []string{`aws_sqs_approximate_age_of_oldest_message_maximum{dimension_QueueName=~"validation-queue",account_id=~"111122223333",region=~"eu-west-1"}`, `solace_queue_spool_usage_msgs{`, `queue_name=~"orders-q"`, `vpn_name=~"vpn-1"`, `instance=~"broker-a:9628"`, " or "} {
 		if !strings.Contains(scoped.Query, want) {
 			t.Errorf("scoped query %q missing %s", scoped.Query, want)
 		}
@@ -224,5 +224,147 @@ func TestMultiLabelScopeSelectsEachConsumersOwnCombination(t *testing.T) {
 	})
 	if strings.Count(dup.Query, "solace_queue_spool_usage_msgs") != 1 {
 		t.Errorf("duplicate identities repeated: %q", dup.Query)
+	}
+}
+
+func lambdaConsumer(name, account, region string) Consumer {
+	id := map[string]string{"dimension_FunctionName": name}
+	if account != "" {
+		id["account_id"] = account
+	}
+	if region != "" {
+		id["region"] = region
+	}
+	return Consumer{Kind: ConsumerLambda, Identity: id}
+}
+
+func sqsConsumer(name, collector, account, region string) Consumer {
+	id := map[string]string{"dimension_QueueName": name, "name": collector}
+	if account != "" {
+		id["account_id"] = account
+	}
+	if region != "" {
+		id["region"] = region
+	}
+	return Consumer{Kind: ConsumerSQS, Identity: id}
+}
+
+// selects evaluates a rendered scoped query the way Prometheus selects series: a series is
+// selected when every =~ matcher of at least one selector block matches its labels (anchored; an
+// absent label reads as empty).
+func selects(query string, labels map[string]string) bool {
+	blocks := regexp.MustCompile(`\{([^{}]*)\}`).FindAllStringSubmatch(query, -1)
+	matcher := regexp.MustCompile(`(\w+)=~"((?:[^"\\]|\\.)*)"`)
+	for _, b := range blocks {
+		ms := matcher.FindAllStringSubmatch(b[1], -1)
+		if len(ms) == 0 {
+			continue
+		}
+		all := true
+		for _, m := range ms {
+			pattern := strings.NewReplacer(`\\`, `\`, `\"`, `"`).Replace(m[2])
+			if !regexp.MustCompile("^(?:" + pattern + ")$").MatchString(labels[m[1]]) {
+				all = false
+			}
+		}
+		if all {
+			return true
+		}
+	}
+	return false
+}
+
+// Two functions (queues) with the same name in different accounts or regions are different
+// resources: the scoped query selects the bound one's series and no look-alike.
+func TestScopeSeparatesSameNamedConsumersByAccountAndRegion(t *testing.T) {
+	type series struct {
+		name            string
+		labels          map[string]string
+		boundOnly, both bool
+	}
+	lambdaSeries := func(account, region string) map[string]string {
+		return map[string]string{"dimension_FunctionName": "enrich-fn", "account_id": account, "region": region}
+	}
+	sqsSeries := func(account, region string) map[string]string {
+		return map[string]string{"dimension_QueueName": "validation-queue", "name": "validation-collector", "account_id": account, "region": region}
+	}
+	cases := []struct {
+		mode             string
+		bound, otherBind Consumer
+		series           func(account, region string) map[string]string
+	}{
+		{"concurrency_reduced", lambdaConsumer("enrich-fn", "111122223333", "eu-west-1"), lambdaConsumer("enrich-fn", "444455556666", "us-east-1"), lambdaSeries},
+		{"consumer_slowdown", sqsConsumer("validation-queue", "validation-collector", "111122223333", "eu-west-1"), sqsConsumer("validation-queue", "validation-collector", "444455556666", "us-east-1"), sqsSeries},
+	}
+	for _, tc := range cases {
+		a := assertionOf(t, tc.mode)
+		one, n := a.Scope([]Consumer{tc.bound})
+		if n != 1 {
+			t.Fatalf("%s: matched %d", tc.mode, n)
+		}
+		for _, s := range []struct {
+			account, region string
+			want            bool
+		}{
+			{"111122223333", "eu-west-1", true},
+			{"444455556666", "eu-west-1", false}, // same name and region, other account
+			{"111122223333", "us-east-1", false}, // same name and account, other region
+			{"444455556666", "us-east-1", false},
+		} {
+			if got := selects(one.Query, tc.series(s.account, s.region)); got != s.want {
+				t.Errorf("%s: series in %s/%s selected = %v, want %v (query %s)", tc.mode, s.account, s.region, got, s.want, one.Query)
+			}
+		}
+		// Two bound consumers select each own combination, never the pairing across them.
+		both, n := a.Scope([]Consumer{tc.bound, tc.otherBind})
+		if n != 2 {
+			t.Fatalf("%s: matched %d", tc.mode, n)
+		}
+		for _, s := range []struct {
+			account, region string
+			want            bool
+		}{
+			{"111122223333", "eu-west-1", true},
+			{"444455556666", "us-east-1", true},
+			{"111122223333", "us-east-1", false},
+			{"444455556666", "eu-west-1", false},
+		} {
+			if got := selects(both.Query, tc.series(s.account, s.region)); got != s.want {
+				t.Errorf("%s: two bound, series in %s/%s selected = %v, want %v (query %s)", tc.mode, s.account, s.region, got, s.want, both.Query)
+			}
+		}
+	}
+}
+
+// A sum over several bound functions counts every function's series once: single-element sums
+// that share an empty label set would collapse under `or`.
+func TestScopeSumsSeveralFunctionsInOneAggregate(t *testing.T) {
+	a := assertionOf(t, "concurrency_reduced")
+	scoped, n := a.Scope([]Consumer{lambdaConsumer("enrich-fn", "111122223333", "eu-west-1"), lambdaConsumer("enrich-fn", "444455556666", "us-east-1")})
+	if n != 2 || strings.Count(scoped.Query, "sum(") != 1 || !strings.HasSuffix(scoped.Query, "or vector(0)") {
+		t.Fatalf("n=%d query=%q, want one sum over both functions", n, scoped.Query)
+	}
+}
+
+// An identity that carries no account or region (a binding that predates them) is neither dropped
+// nor narrowed by an invented value: the query is the name-only one, with one alternation.
+func TestScopeWithoutAccountAndRegionIsNameOnly(t *testing.T) {
+	l := assertionOf(t, "concurrency_reduced")
+	ls, n := l.Scope([]Consumer{lambdaConsumer("enrich-fn", "", ""), lambdaConsumer("score-fn", "", "")})
+	if n != 2 || !strings.Contains(ls.Query, `sum(aws_lambda_throttles_sum{dimension_FunctionName=~"enrich-fn|score-fn"}) or vector(0)`) {
+		t.Errorf("n=%d lambda query = %q", n, ls.Query)
+	}
+	q := assertionOf(t, "consumer_slowdown")
+	qs, n := q.Scope([]Consumer{sqsConsumer("validation-queue", "c", "", "")})
+	if n != 1 || qs.Query != `aws_sqs_approximate_age_of_oldest_message_maximum{dimension_QueueName=~"validation-queue"}` {
+		t.Errorf("n=%d sqs query = %q", n, qs.Query)
+	}
+	if strings.Contains(ls.Query+qs.Query, "account_id") || strings.Contains(ls.Query+qs.Query, `region=~""`) {
+		t.Errorf("an absent label was rendered: %q %q", ls.Query, qs.Query)
+	}
+	// A consumer carrying only one of the two narrows by that one alone.
+	part, _ := l.Scope([]Consumer{lambdaConsumer("enrich-fn", "", "eu-west-1")})
+	if !strings.Contains(part.Query, `dimension_FunctionName=~"enrich-fn",region=~"eu-west-1"}`) || strings.Contains(part.Query, "account_id") {
+		t.Errorf("region-only query = %q", part.Query)
 	}
 }

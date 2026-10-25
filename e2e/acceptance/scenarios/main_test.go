@@ -537,22 +537,59 @@ func TestScopeConsumersResolvesAliasWildcardAndKind(t *testing.T) {
 }
 
 // A function-bound concurrency resource is observed through that function's throttles alone: a busy
-// unrelated function does not satisfy the assertion.
+// unrelated function, or a same-named function in another account or region, does not satisfy the
+// assertion.
 func TestConcurrencyReducedIsScopedToTheBoundFunction(t *testing.T) {
 	schema := scenarioFor("concurrency_reduced", "enrich-fn-concurrency")
 	schema.Resources = []control.ResourceInfo{{Blueprint: "bp", Name: "enrich-fn-concurrency", Kind: "concurrency", Env: "prod", Consumers: []control.ResourceConsumer{
-		{Kind: "lambda", Name: "prod", Identity: map[string]string{"dimension_FunctionName": "enrich-fn"}},
+		{Kind: "lambda", Name: "prod", Identity: map[string]string{"dimension_FunctionName": "enrich-fn", "account_id": "111122223333", "region": "eu-west-1"}},
 	}}}
-	fn := func(name string, base, live float64) scopeSeries {
-		return scopeSeries{labels: map[string]string{"dimension_FunctionName": name}, base: base, whenLive: live}
+	fn := func(name, account, region string, base, live float64) scopeSeries {
+		return scopeSeries{labels: map[string]string{"dimension_FunctionName": name, "account_id": account, "region": region}, base: base, whenLive: live}
 	}
-	quiet := &scopeFixture{t: t, schema: schema, series: []scopeSeries{fn("enrich-fn", 0, 0), fn("legacy-fn", 0, 80)}}
+	quiet := &scopeFixture{t: t, schema: schema, series: []scopeSeries{
+		fn("enrich-fn", "111122223333", "eu-west-1", 0, 0),
+		fn("legacy-fn", "111122223333", "eu-west-1", 0, 80),
+		fn("enrich-fn", "444455556666", "eu-west-1", 0, 80), // same name, other account
+		fn("enrich-fn", "111122223333", "us-east-1", 0, 80), // same name, other region
+	}}
 	if d := quiet.run().Dispositions[0]; d.Verdict != "fail" {
-		t.Fatalf("disposition = %+v, want a failure: only the unbound function throttled", d)
+		t.Fatalf("disposition = %+v, want a failure: only unbound functions throttled", d)
 	}
-	bound := &scopeFixture{t: t, schema: schema, series: []scopeSeries{fn("enrich-fn", 0, 40), fn("legacy-fn", 0, 0)}}
+	bound := &scopeFixture{t: t, schema: schema, series: []scopeSeries{
+		fn("enrich-fn", "111122223333", "eu-west-1", 0, 40),
+		fn("legacy-fn", "111122223333", "eu-west-1", 0, 0),
+		fn("enrich-fn", "444455556666", "eu-west-1", 0, 0),
+	}}
 	if d := bound.run().Dispositions[0]; d.Verdict != "pass" {
 		t.Fatalf("disposition = %+v, want a pass on the bound function's throttles", d)
+	}
+}
+
+// A queue-bound resource is observed through that queue's age alone: a same-named queue in another
+// account or region backing up does not satisfy the assertion.
+func TestConsumerSlowdownIsScopedToTheBoundQueue(t *testing.T) {
+	schema := scenarioFor("consumer_slowdown", "validation-queue-backlog")
+	schema.Resources = []control.ResourceInfo{{Blueprint: "bp", Name: "validation-queue-backlog", Kind: "queue", Env: "prod", Consumers: []control.ResourceConsumer{
+		{Kind: "sqs", Name: "prod", Identity: map[string]string{"dimension_QueueName": "validation-queue", "name": "validation-collector", "account_id": "111122223333", "region": "eu-west-1"}},
+	}}}
+	q := func(account, region string, base, live float64) scopeSeries {
+		return scopeSeries{labels: map[string]string{"dimension_QueueName": "validation-queue", "name": "validation-collector", "account_id": account, "region": region}, base: base, whenLive: live}
+	}
+	other := &scopeFixture{t: t, schema: schema, series: []scopeSeries{
+		q("111122223333", "eu-west-1", 5, 5),
+		q("444455556666", "eu-west-1", 5, 900),
+		q("111122223333", "us-east-1", 5, 900),
+	}}
+	if d := other.run().Dispositions[0]; d.Verdict != "fail" {
+		t.Fatalf("disposition = %+v, want a failure: only look-alike queues backed up", d)
+	}
+	bound := &scopeFixture{t: t, schema: schema, series: []scopeSeries{
+		q("111122223333", "eu-west-1", 5, 900),
+		q("444455556666", "eu-west-1", 5, 5),
+	}}
+	if d := bound.run().Dispositions[0]; d.Verdict != "pass" {
+		t.Fatalf("disposition = %+v, want a pass on the bound queue", d)
 	}
 }
 

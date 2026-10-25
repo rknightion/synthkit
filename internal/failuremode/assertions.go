@@ -83,11 +83,17 @@ type Consumer struct {
 
 // ConsumerScope is the observation restricted to what one kind of consumer emits. Query carries
 // one {{consumers.<label>}} placeholder per identity label it filters on; Scope replaces each with
-// a regex alternation of the matching consumers' values. Kinds lists every consumer kind the
+// a regex alternation of the matching consumers' values. A {{consumers?<label>}} placeholder is an
+// optional matcher: it renders as `,<label>=~"<value>"` for a consumer whose identity carries the
+// label and as nothing for one that does not, so a consumer that predates the label is neither
+// dropped from the scope nor narrowed by an invented value. Kinds lists every consumer kind the
 // query is valid for.
 type ConsumerScope struct {
 	Kinds []string
 	Query string
+	// Aggregate, when set, wraps the rendered selectors: {{selectors}} is replaced by the Query
+	// rendered for each consumer group, joined as a union. Query is then a bare selector.
+	Aggregate string
 }
 
 // assertions are deliberately narrow, stable observations for the modes used
@@ -117,11 +123,11 @@ var assertions = []Assertion{
 	{Mode: "credential_expired", QueryAPI: "prometheus", Query: clientErrorRate, Direction: DirectionIncrease, Source: "signals/apm.md [slug: apm-calls]; a handshake or 401 failure fails the caller's CLIENT span", Priority: 80},
 	{Mode: "quota_reduced", QueryAPI: "prometheus", Query: "sum(rate(traces_service_graph_request_failed_total{blueprint=\"{{blueprint}}\"}[2m]) or rate(traces_service_graph_request_failed_total{client_blueprint=\"{{blueprint}}\"}[2m])) or vector(0)", Scopes: []ConsumerScope{{Kinds: []string{ConsumerApp}, Query: quotaFailedEdges}}, Direction: DirectionIncrease, Source: "signals/apm.md [slug: apm-service-graph]; a 429 answer fails the caller's edge; the scoped writer stamps a bare blueprint label on synthkit-emitted edges and a generator-derived edge carries client_blueprint, so both are read", Priority: 80},
 	{Mode: "concurrency_reduced", QueryAPI: "prometheus", Query: "sum(aws_lambda_throttles_sum) or vector(0)", MinActive: throttleFloor, ScopeJoin: " + ", Scopes: []ConsumerScope{
-		{Kinds: []string{ConsumerLambda}, Query: `sum(aws_lambda_throttles_sum{dimension_FunctionName=~"{{consumers.dimension_FunctionName}}"}) or vector(0)`},
+		{Kinds: []string{ConsumerLambda}, Query: `aws_lambda_throttles_sum{dimension_FunctionName=~"{{consumers.dimension_FunctionName}}"` + accountRegion + `}`, Aggregate: `sum({{selectors}}) or vector(0)`},
 		{Kinds: []string{ConsumerAgentcore}, Query: `sum(aws_bedrock_agentcore_throttles_sum{name=~"{{consumers.name}}"}) or vector(0)`},
 	}, Direction: DirectionIncrease, Source: "signals/cw.md (aws_lambda_throttles); a reduced concurrency limit raises the bound function's Throttles", Priority: 90},
 	{Mode: "consumer_slowdown", QueryAPI: "prometheus", Query: "aws_sqs_approximate_age_of_oldest_message_maximum or solace_queue_spool_usage_msgs", AnySeries: true, MinActive: backlogFloor, Scopes: []ConsumerScope{
-		{Kinds: []string{ConsumerSQS}, Query: `aws_sqs_approximate_age_of_oldest_message_maximum{dimension_QueueName=~"{{consumers.dimension_QueueName}}"}`},
+		{Kinds: []string{ConsumerSQS}, Query: `aws_sqs_approximate_age_of_oldest_message_maximum{dimension_QueueName=~"{{consumers.dimension_QueueName}}"` + accountRegion + `}`},
 		{Kinds: []string{ConsumerSolace}, Query: `solace_queue_spool_usage_msgs{instance=~"{{consumers.instance}}",vpn_name=~"{{consumers.vpn_name}}",queue_name=~"{{consumers.queue_name}}"}`},
 	}, Direction: DirectionIncrease, Source: "signals/cw.md (aws_sqs_approximate_age_of_oldest_message) and signals/solace.md (solace_queue_spool_usage_msgs); a slower consumer ages and deepens the bound queue", Priority: 90},
 }
@@ -161,13 +167,19 @@ var appLatencyScope = ConsumerScope{
 	Query: "histogram_avg(rate(traces_spanmetrics_latency{" + scopedServerSpans + "}[2m])) and histogram_count(rate(traces_spanmetrics_latency{" + scopedServerSpans + "}[2m])) > 0.05",
 }
 
-var placeholder = regexp.MustCompile(`\{\{consumers\.([A-Za-z0-9_]+)\}\}`)
+// accountRegion narrows a CloudWatch-family series to the account and region its consumer is
+// declared in: a same-named function or queue elsewhere is another resource. Both are core
+// collector labels on every CloudWatch series (signals/cw.md) and optional in the identity.
+const accountRegion = `{{consumers?account_id}}{{consumers?region}}`
+
+// placeholder matches {{consumers.<label>}} (required) and {{consumers?<label>}} (optional).
+var placeholder = regexp.MustCompile(`\{\{consumers([.?])([A-Za-z0-9_]+)\}\}`)
 
 // Scope narrows the assertion to the given consumers: for each scope whose kinds some consumer
 // matches, the scope's query is rendered from those consumers' identity values (escaped as a
 // PromQL string holding a regex, which the query API anchors), and the rendered queries are joined
 // by ScopeJoin. A scope filtering on one label renders one regex alternation of the values; a
-// scope filtering on several renders the query once per distinct identity, joined by " or ", so a
+// scope filtering on several (or carrying an optional matcher) renders the query once per distinct identity, joined by " or ", so a
 // series pairing one consumer's value of a label with another's is not selected. It returns the
 // narrowed assertion and the number of consumers the rendered queries select. A scope renders only
 // for consumers that carry every label its query filters on, so a partial identity never widens
@@ -177,23 +189,37 @@ func (a Assertion) Scope(consumers []Consumer) (Assertion, int) {
 	var parts []string
 	matched := 0
 	for _, sc := range a.Scopes {
-		var labels []string
+		var labels, required []string
+		optional := map[string]bool{}
 		for _, m := range placeholder.FindAllStringSubmatch(sc.Query, -1) {
-			if !slices.Contains(labels, m[1]) {
-				labels = append(labels, m[1])
+			if !slices.Contains(labels, m[2]) {
+				labels = append(labels, m[2])
+			}
+			if m[1] == "?" {
+				optional[m[2]] = true
+			} else if !slices.Contains(required, m[2]) {
+				required = append(required, m[2])
 			}
 		}
 		sort.Strings(labels)
-		var tuples [][]string // each consumer's escaped values, in label order
+		var tuples [][]string // each consumer's rendered values, in label order
 		n := 0
 		for _, c := range consumers {
-			if !kindIn(sc.Kinds, c.Kind) || !hasLabels(c.Identity, labels) {
+			if !kindIn(sc.Kinds, c.Kind) || !hasLabels(c.Identity, required) {
 				continue
 			}
 			n++
 			t := make([]string, len(labels))
 			for i, label := range labels {
-				t[i] = promString(regexp.QuoteMeta(c.Identity[label]))
+				v, ok := c.Identity[label]
+				switch {
+				case optional[label] && !ok:
+					// absent: the matcher is omitted, never rendered against an empty value
+				case optional[label]:
+					t[i] = `,` + label + `=~"` + promString(regexp.QuoteMeta(v)) + `"`
+				default:
+					t[i] = promString(regexp.QuoteMeta(v))
+				}
 			}
 			tuples = append(tuples, t)
 		}
@@ -201,7 +227,7 @@ func (a Assertion) Scope(consumers []Consumer) (Assertion, int) {
 			continue
 		}
 		matched += n
-		parts = append(parts, renderScope(sc.Query, labels, tuples))
+		parts = append(parts, renderScope(sc, labels, len(required), tuples))
 	}
 	if len(parts) == 0 {
 		return a, 0
@@ -219,39 +245,69 @@ func (a Assertion) Scope(consumers []Consumer) (Assertion, int) {
 	return scoped, matched
 }
 
-// renderScope fills a scope query's placeholders: one alternation per label when it filters on a
-// single label, one rendering per distinct value tuple otherwise.
-func renderScope(query string, labels []string, tuples [][]string) string {
+// renderScope fills a scope query's placeholders. With one required label the consumers are
+// grouped by their optional matchers and each group renders one alternation of the label's values
+// (a scope with no optional matcher renders a single alternation); several required labels render
+// once per distinct value tuple, so a series pairing one consumer's value of a label with
+// another's is not selected. Renderings are joined by " or ". A scope with an Aggregate wraps the
+// joined selectors in it, so a sum counts every consumer's series once instead of unioning
+// single-element sums that share a label set.
+func renderScope(sc ConsumerScope, labels []string, required int, tuples [][]string) string {
+	query := sc.Query
 	fill := func(values []string) string {
 		return placeholder.ReplaceAllStringFunc(query, func(ph string) string {
-			return values[slices.Index(labels, placeholder.FindStringSubmatch(ph)[1])]
+			return values[slices.Index(labels, placeholder.FindStringSubmatch(ph)[2])]
 		})
 	}
-	if len(labels) == 1 {
-		vs := make([]string, len(tuples))
-		for i, t := range tuples {
-			vs[i] = t[0]
+	var rendered []string
+	if required == 1 {
+		key := slices.IndexFunc(labels, func(l string) bool { return placeholderRequired(query, l) })
+		groups := map[string][]string{}
+		var names []string
+		for _, t := range tuples {
+			rest := slices.Clone(t)
+			rest[key] = ""
+			g := strings.Join(rest, "\x00")
+			if _, ok := groups[g]; !ok {
+				names = append(names, g)
+			}
+			groups[g] = append(groups[g], t[key])
 		}
-		sort.Strings(vs)
-		return fill([]string{strings.Join(slices.Compact(vs), "|")})
+		sort.Strings(names)
+		for _, g := range names {
+			vs := groups[g]
+			sort.Strings(vs)
+			values := strings.Split(g, "\x00")
+			values[key] = strings.Join(slices.Compact(vs), "|")
+			rendered = append(rendered, fill(values))
+		}
+	} else {
+		keys := map[string][]string{}
+		for _, t := range tuples {
+			keys[strings.Join(t, "\x00")] = t
+		}
+		sorted := make([]string, 0, len(keys))
+		for k := range keys {
+			sorted = append(sorted, k)
+		}
+		sort.Strings(sorted)
+		for _, k := range sorted {
+			rendered = append(rendered, fill(keys[k]))
+		}
 	}
-	keys := map[string][]string{}
-	for _, t := range tuples {
-		keys[strings.Join(t, "\x00")] = t
+	joined := rendered[0]
+	if len(rendered) > 1 {
+		joined = "(" + strings.Join(rendered, ") or (") + ")"
 	}
-	sorted := make([]string, 0, len(keys))
-	for k := range keys {
-		sorted = append(sorted, k)
+	if sc.Aggregate != "" {
+		return strings.ReplaceAll(sc.Aggregate, "{{selectors}}", joined)
 	}
-	sort.Strings(sorted)
-	rendered := make([]string, len(sorted))
-	for i, k := range sorted {
-		rendered[i] = fill(keys[k])
-	}
-	if len(rendered) == 1 {
-		return rendered[0]
-	}
-	return "(" + strings.Join(rendered, ") or (") + ")"
+	return joined
+}
+
+// placeholderRequired reports whether the query names label as a required {{consumers.<label>}}.
+func placeholderRequired(query, label string) bool {
+	return strings.Contains(query, "{{consumers."+label+"}}")
 }
 
 func kindIn(kinds []string, kind string) bool { return slices.Contains(kinds, kind) }
