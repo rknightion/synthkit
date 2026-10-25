@@ -60,8 +60,40 @@ func TestExchangeBoundsItsBacklog(t *testing.T) {
 	if _, ok := x.Take(now.Add(-time.Second)); ok {
 		t.Fatal("took a message published after the cutoff")
 	}
-	first, ok := x.Take(now)
+	first, seen, ok := x.TakeWithWatermark(now)
 	if !ok || first.Span != fmt.Sprintf("m%d", extra) {
 		t.Fatalf("oldest message %+v, want m%d (the first %d dropped)", first, extra, extra)
+	}
+	if first.Sequence != uint64(extra+1) || seen != uint64(MaxPendingMessages+extra) {
+		t.Fatalf("oldest sequence %d, watermark %d after bounded eviction", first.Sequence, seen)
+	}
+	// Another consumer can take a leftover without making a newer publication part of the
+	// old observation. Publish owns the sequence even when passed a message from another take.
+	x.AddConsumer()
+	if _, ok := x.Take(now); !ok {
+		t.Fatal("competing consumer could not take a leftover")
+	}
+	x.Publish(first)
+	var last Message
+	for {
+		msg, ok := x.Take(now)
+		if !ok {
+			break
+		}
+		last = msg
+	}
+	if last.Span != first.Span || last.Sequence != seen+1 {
+		t.Fatalf("republished message %+v, want the same content at a position after %d", last, seen)
+	}
+	// Emptying the backlog must not reset publication identity or the observed watermark.
+	if _, mark, ok := x.TakeWithWatermark(now); ok || mark != last.Sequence {
+		t.Fatalf("empty take returned watermark %d, ok %v, want %d false", mark, ok, last.Sequence)
+	}
+	x.Publish(Message{Start: now.Add(time.Second), Span: "future"})
+	if _, mark, ok := x.TakeWithWatermark(now); ok || mark != last.Sequence+1 {
+		t.Fatalf("future message cutoff/watermark = %d, %v", mark, ok)
+	}
+	if msg, _, ok := x.TakeWithWatermark(now.Add(time.Second)); !ok || msg.Span != "future" || msg.Sequence != last.Sequence+1 {
+		t.Fatalf("future message after the cutoff %+v, ok %v", msg, ok)
 	}
 }

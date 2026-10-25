@@ -319,6 +319,105 @@ func TestSynchronousConsumerDropsCallsUnservedAtItsPreviousMint(t *testing.T) {
 	}
 }
 
+// Expiry belongs to the messages observed at the previous take, not the queue's length: a
+// competing consumer or bounded eviction may remove those messages before fresh calls arrive.
+// Use real producer Mint messages and emitted CLIENT spans, then control only exchange scheduling.
+func TestSynchronousFreshCallsSurviveSharedExchangeChanges(t *testing.T) {
+	for _, eviction := range []bool{false, true} {
+		name := "competing consumer"
+		if eviction {
+			name = "bounded eviction"
+		}
+		t.Run(name, func(t *testing.T) {
+			// A small test-only function duration ensures every served request fits the real
+			// caller window; neither shipped rates nor call-retention bounds are changed.
+			fast := strings.Replace(syncFunctionApp, "synchronous: true}", "synchronous: true, request_latency_p95_ms: 1}", 1)
+			ws := causalApps(t, syncResources, syncIntakeApp, fast)
+			producer, fn := ws[0], ws[1]
+			eng := shape.New("UTC", nil)
+			t1, t2 := causalNow, causalNow.Add(time.Minute)
+			made := syncMint(t, syncLedger(eng, producer), eng, t1, producer)[0]
+			pp := project(t, producer, eng, made)
+			x := fn.m.causal.consumes
+			var messages []causal.Message
+			for {
+				msg, ok := x.Take(t1)
+				if !ok {
+					break
+				}
+				messages = append(messages, msg)
+			}
+			if len(messages) < 3 {
+				t.Fatal("producer did not publish three real calls")
+			}
+			a, b, fresh := messages[0], messages[1], messages[2]
+			led := syncLedger(eng, fn)
+			first := syncMint(t, led, eng, t1, fn)[0]
+			if len(first) < 2 {
+				t.Fatal("function minted fewer than two requests")
+			}
+			x.Publish(a)
+			old := 1
+			if eviction {
+				old = causal.MaxPendingMessages - 1
+			}
+			for range old {
+				x.Publish(b)
+			}
+			// Consumer A serves one real request at t1 and leaves old messages pending.
+			if _, fits := syncPlacement(a, first[0].Duration); !fits {
+				t.Fatal("test request does not fit the initial real caller window")
+			}
+			fn.m.causal.exchange(fn.m, first[0])
+			if tr, ok := fn.triggerOf(first[0]); !ok || tr.span != a.Client || x.Pending() != old {
+				t.Fatal("first take did not join a and leave the expected old messages")
+			}
+			freshCount := 1
+			if eviction {
+				freshCount = causal.MaxPendingMessages
+			} else {
+				// Consumer B owns b before a later producer in the same tick publishes fresh.
+				x.AddConsumer()
+				if msg, ok := x.Take(t1); !ok || msg.Trace != b.Trace || msg.Client != b.Client {
+					t.Fatal("competing consumer did not take b")
+				}
+			}
+			for range freshCount {
+				x.Publish(fresh)
+			}
+			if x.Pending() != freshCount {
+				t.Fatal("fresh publications did not replace the old backlog")
+			}
+			served := syncMint(t, led, eng, t2, fn)[0]
+			fp := project(t, fn, eng, served)
+			client, emitted := pp.spans[fresh.Client]
+			if !emitted || client.Kind != otlp.KindClient || client.TraceID != fresh.Trace {
+				t.Fatal("fresh call has no real emitted CLIENT parent")
+			}
+			joined := 0
+			for _, r := range served {
+				if _, fits := syncPlacement(fresh, r.Duration); !fits {
+					t.Fatal("test request does not fit the fresh real caller window")
+				}
+				if tr, ok := fn.triggerOf(r); ok {
+					joined++
+					root := fp.spans[r.SpanID]
+					if tr.span != fresh.Client || r.TraceID != fresh.Trace || root.ParentID != client.SpanID || root.Start.Before(client.Start) || root.End.After(client.End) {
+						t.Fatal("fresh invocation did not join inside its real CLIENT parent")
+					}
+				}
+			}
+			want := min(freshCount, len(served))
+			if joined != want || want == 0 {
+				t.Fatalf("joined %d fresh calls, want %d; old pending messages were removed, not replaced by fresh stale calls", joined, want)
+			}
+			if n, want := x.Pending(), freshCount-want; n != want {
+				t.Fatalf("%d fresh calls pending, want %d (no expiry of replacement messages)", n, want)
+			}
+		})
+	}
+}
+
 // A function declared before its caller mints first in each tick: it serves the calls of the
 // previous tick, which were published after its own previous mint, and still nests inside them.
 func TestSynchronousFunctionMintingBeforeItsCallerJoinsTheNextTick(t *testing.T) {

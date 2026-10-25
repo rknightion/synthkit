@@ -229,16 +229,17 @@ func (p *causalPlan) takeCall(now time.Time) (causal.Message, bool) {
 	defer sm.mu.Unlock()
 	if !now.Equal(sm.now) {
 		sm.prev, sm.now = sm.now, now
-		sm.stale, sm.left = sm.left, 0
+		sm.stale = sm.seen
 	}
-	defer func() { sm.left = p.consumes.Pending() }()
 	for {
-		msg, ok := p.consumes.Take(now)
+		msg, seen, ok := p.consumes.TakeWithWatermark(now)
+		sm.seen = seen
 		switch {
 		case !ok:
 			return msg, false
-		case sm.stale > 0:
-			sm.stale--
+		case msg.Sequence <= sm.stale:
+			// Only publications actually observed at the previous mint expire. Taking or
+			// evicting them must not transfer that expiry to newer messages in their place.
 		case msg.Start.Before(sm.prev):
 		default:
 			return msg, true
@@ -246,13 +247,13 @@ func (p *causalPlan) takeCall(now time.Time) (causal.Message, bool) {
 	}
 }
 
-// syncMints is a synchronous consumer's current and previous mint instants, the calls left
-// pending after its latest take, and how many of the oldest pending calls are still to be dropped
-// as unserved at the previous mint.
+// syncMints is a synchronous consumer's current and previous mint instants and exchange
+// publication watermarks: seen at its latest take, stale through the previous mint's last take.
+// These identify the actual old publications, independent of competing takes or bounded eviction.
 type syncMints struct {
 	mu          sync.Mutex
 	now, prev   time.Time
-	left, stale int
+	seen, stale uint64
 }
 
 // syncPlacement is where a synchronous request of duration d runs inside the call that published

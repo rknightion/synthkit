@@ -23,6 +23,10 @@ type Message struct {
 
 	Client             string
 	CallStart, CallEnd time.Time
+
+	// Sequence is the exchange-local publication position, assigned by Publish (any supplied
+	// value is overwritten). Taking or evicting other messages never changes this position.
+	Sequence uint64
 }
 
 // Exchange is one declared queue's published messages, handed first in, first out to the
@@ -35,6 +39,7 @@ type Exchange struct {
 	mu        sync.Mutex
 	consumers int
 	msgs      []Message
+	published uint64 // latest retained publication's sequence, never reset when the queue empties
 }
 
 // QueueExchange returns the exchange of the declared queue named name (a resolved resource name,
@@ -80,19 +85,30 @@ func (x *Exchange) Publish(m Message) {
 		// sustained full backlog costs amortised O(1) per publish.
 		x.msgs = x.msgs[len(x.msgs)-MaxPendingMessages+1:]
 	}
+	x.published++
+	m.Sequence = x.published
 	x.msgs = append(x.msgs, m)
 }
 
 // Take removes and returns the oldest message whose producer started no later than notAfter.
 func (x *Exchange) Take(notAfter time.Time) (Message, bool) {
+	m, _, ok := x.TakeWithWatermark(notAfter)
+	return m, ok
+}
+
+// TakeWithWatermark takes as Take does, and atomically reports the latest publication sequence
+// observed at that take, even when no message is eligible. A message published after the take has
+// a greater Sequence; consumers can distinguish it from observed leftovers even when another
+// consumer takes those leftovers or Publish evicts them. A separate Pending read cannot do this.
+func (x *Exchange) TakeWithWatermark(notAfter time.Time) (Message, uint64, bool) {
 	x.mu.Lock()
 	defer x.mu.Unlock()
 	if len(x.msgs) == 0 || x.msgs[0].Start.After(notAfter) {
-		return Message{}, false
+		return Message{}, x.published, false
 	}
 	m := x.msgs[0]
 	x.msgs = x.msgs[1:]
-	return m, true
+	return m, x.published, true
 }
 
 // Pending reports the unconsumed message count.
