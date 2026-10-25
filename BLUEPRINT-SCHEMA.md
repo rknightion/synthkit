@@ -656,12 +656,12 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `environments[].resources[].demand.load` | string |  | Load is business (default: the environment's diurnal and weekly curve, as the app workload's traffic) or constant (peak_rps scaled by the volume multiplier). |
 | `environments[].resources[].demand.from` | string |  | From names an upstream capacity resource (pool, concurrency, queue or quota) whose served rate is this resource's demand (a queue's processed rate, the others' admitted rate). With from, off_peak_rps, peak_rps and load are omitted. |
 | `environments[].resources[].size` | int |  | Size is the connection count (pool), concurrency limit (concurrency) or consumer count (queue). Integer >= 1. |
-| `environments[].resources[].hold_ms` | float |  | HoldMS is the mean hold, execution or processing time per request at baseline, in ms, including the held-across dependency's baseline latency. Required for pool, concurrency and queue. |
+| `environments[].resources[].hold_ms` | float |  | HoldMS is the mean hold, execution or processing time per request at baseline, in ms, including the held-across dependency's baseline latency, so it is at least that latency_ms. Required for pool, concurrency and queue. |
 | `environments[].resources[].held_across` | string |  | HeldAcross names a dependency resource (pool, concurrency, queue; optional). The effective hold is hold_ms + latency_ms(dependency) x (latency factor - 1), and the dependency's unavailability and its credentials' failures fail admitted work. |
 | `environments[].resources[].acquire_timeout_ms` | float |  | AcquireTimeoutMS bounds how long a request waits for a pool connection before the acquisition fails. Required for pool. |
 | `environments[].resources[].limit_rps` | float |  | LimitRPS is the admitted rate of a quota. Required for quota. |
 | `environments[].resources[].max_depth` | float |  | MaxDepth bounds a queue's backlog in messages; arrivals beyond it are rejected. Omitted means unbounded. |
-| `environments[].resources[].latency_ms` | float |  | LatencyMS is a dependency's baseline latency in ms (informational). |
+| `environments[].resources[].latency_ms` | float |  | LatencyMS is a dependency's baseline latency in ms. It is the base duration of a node bound to the dependency, and the unit by which dependency_slow stretches every pool, concurrency or queue held across it: effective hold = hold_ms + latency_ms x (latency factor - 1). Must be > 0 when any resource names the dependency in held_across. |
 | `environments[].resources[].slow_factor` | float |  | SlowFactor is a dependency's latency multiplier under dependency_slow at intensity 1. Default 4, at least 1. |
 | `environments[].resources[].of` | string |  | Of names the dependency a credential authenticates. Required for credential. |
 | `environments[].resources[].credential_type` | string |  | CredentialType is server_certificate, client_certificate or token. Required for credential. |
@@ -1204,6 +1204,7 @@ FunctionName-only Lambda CloudWatch metrics (remote-write only)
 | `functions[].duration_ms_idle` | float |  | DurationMSIdle opts the function into load-following batch duration: with `load: business`, the mean per-execution duration moves with the business curve from this idle (curve value 0) duration up to duration_ms (curve value 1.0, the weekday business-hours plateau), so a scheduled batch does less work per run overnight and on weekends. The curve factor is capped at 1, so duration_ms stays the ceiling. duration_ms_min/duration_ms_max, when declared, scale with the mean so they keep bracketing it. Positive and not above duration_ms, and only valid with `load: business` or `duration_load: business`. Zero (omitted) keeps the constant duration, so default output is unchanged. Operator assumption, not an AWS behaviour. |
 | `functions[].duration_load` | string |  | DurationLoad selects whether duration_ms_idle follows the business curve without the arrival rates doing so. Empty or "constant" leaves the duration switch to `load: business`. "business" makes the mean duration follow the curve (as duration_ms_idle describes) while the four arrival rates stay at their configured constants, which models a scheduled function that fires at a fixed cadence but does less work per run off-peak. It requires duration_ms_idle and is valid with any `load`; with `load: business` it changes nothing. Operator assumption, not an AWS behaviour. |
 | `functions[].zero_valued_samples` | bool |  | ZeroValuedSamples makes Throttles and Errors observe every request (execution attempts plus throttled requests) with 1 for the event and 0 otherwise, as a lab capture of this service reported, instead of only the events. Throttles then has Sum = throttles and SampleCount = requests; Errors has Sum = errors and the same SampleCount, throttled requests contributing 0. A window with no request still emits neither. Omitted keeps the event-only observations, so default output is unchanged. |
+| `functions[].resource` | string |  | Resource binds the function to a declared `concurrency` resource of the blueprint's causal model (environments[].resources). The resource is then the function's whole declaration: Throttles are the window's rejected requests, Invocations the admitted ones, Errors the admitted executions that failed (held-across dependency unavailability and credential failures), ConcurrentExecutions the in-use concurrency and Duration the effective hold. They are read from the shared model, never re-simulated. A bound function omits every arrival-rate and duration field (invocations_per_min, async_received_per_min, async_dropped_fraction, async_age_ms, stream_batches_per_min, iterator_age_ms, throttles_per_min, duration_ms, duration_ms_min, duration_ms_max, duration_ms_idle, duration_load, error_fraction, load) and is not a target of the function-axis modes; incidents reach it through the resource-axis modes (concurrency_reduced, dependency_slow, dependency_unavailable, credential_expired). One resource binds at most one function. Omitted keeps the function-axis behaviour, so default output is unchanged. |
 | `reserved_concurrency` | float |  | ReservedConcurrency is account capacity reserved/provisioned outside these unreserved functions. Must be an integer capacity count. Claimed concurrency = this allocation + modelled activity. |
 
 ## langsmith_eval config
@@ -1463,6 +1464,7 @@ AWS/SQS ordinary queue metrics (remote-write only)
 | `queues[].enrichment.owner` | string |  |  |
 | `queues[].enrichment.purpose` | string |  |  |
 | `queues[].enrichment.terraform` | string |  |  |
+| `queues[].resource` | string |  | Resource binds the queue to a declared `queue` resource (environments[].resources). A bound queue is driven by the causal model: NumberOfMessagesSent is the window's arrivals, NumberOfMessagesReceived and NumberOfMessagesDeleted are what the consumers served, ApproximateNumberOfMessagesVisible is the backlog and ApproximateAgeOfOldestMessage the oldest message's age. The resource owns arrival rate, consumer throughput and processing time, so arrivals_per_second, receives_per_second, processing_seconds, delay_seconds and load must be omitted, and the resource must not set max_depth (a standard queue is unbounded). NotVisible, Delayed and EmptyReceives are not emitted for a bound queue. |
 
 ## synthetic_monitoring config
 
@@ -1680,6 +1682,13 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].custom_metrics[].value.lognormal.p95` | float |  |  |
 | `services[].custom_metrics[].value.now` | object | yes |  |
 | `services[].custom_metrics[].value.now.stall_mode` | string |  |  |
+| `services[].custom_metrics[].value.resource` | object | yes |  |
+| `services[].custom_metrics[].value.resource.name` | string |  |  |
+| `services[].custom_metrics[].value.resource.field` | string |  |  |
+| `services[].custom_metrics[].value.outcomes` | object | yes |  |
+| `services[].custom_metrics[].value.outcomes.status[]` | string |  |  |
+| `services[].custom_metrics[].value.outcomes.status_label` | string |  |  |
+| `services[].custom_metrics[].value.outcomes.measure` | string |  |  |
 | `services[].custom_metrics[].buckets[]` | float |  |  |
 | `services[].custom_metrics[].le_style` | string |  |  |
 | `services[].custom_metrics[].stock_of` | object | yes |  |
@@ -1740,6 +1749,13 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].metrics[].value.lognormal.p95` | float |  |  |
 | `services[].metrics[].value.now` | object | yes |  |
 | `services[].metrics[].value.now.stall_mode` | string |  |  |
+| `services[].metrics[].value.resource` | object | yes |  |
+| `services[].metrics[].value.resource.name` | string |  |  |
+| `services[].metrics[].value.resource.field` | string |  |  |
+| `services[].metrics[].value.outcomes` | object | yes |  |
+| `services[].metrics[].value.outcomes.status[]` | string |  |  |
+| `services[].metrics[].value.outcomes.status_label` | string |  |  |
+| `services[].metrics[].value.outcomes.measure` | string |  |  |
 | `services[].metrics[].buckets[]` | float |  |  |
 | `services[].metrics[].le_style` | string |  |  |
 | `services[].metrics[].stock_of` | object | yes |  |
@@ -1865,12 +1881,17 @@ The valid `mode:` values an incident or scenario effect may reference (union acr
 |---|---|---|---|
 | `agentcore_throttle` | axis: cloud |  | AgentCore request throttles + system_errors spike (region-scoped capacity constraint) |
 | `bedrock_throttle` | axis: cloud |  | Bedrock invocation throttling climbs |
+| `concurrency_reduced` | axis: resource |  | concurrency: effective limit shrinks to size x (1 - intensity) |
 | `connection_saturation` | axis: database |  | active connections climb toward max |
+| `consumer_slowdown` | axis: resource |  | queue: service rate scales by (1 - intensity); backlog and oldest-message age grow |
 | `cpu_hotspot` | axis: cluster |  | elevated CPU concentrated in a hot frame on the cluster's profiled pods |
 | `cpu_hotspot` | axis: service |  | elevated CPU concentrated in a hot frame on the targeted service node |
 | `cpu_hotspot` | axis: workload |  | elevated CPU concentrated in a hot frame (visible in process_cpu flamegraph) |
+| `credential_expired` | axis: resource |  | credential: share intensity of calls to its dependency fail at handshake or authentication |
 | `dcgm_ecc_error_growth` | axis: gpu |  | Declared ECC and row-remap collection events |
 | `dcgm_health_failure` | axis: gpu |  | Source-supported memory health failure |
+| `dependency_slow` | axis: resource |  | dependency: latency factor 1 + (slow_factor - 1) x intensity; held resources stretch with it |
+| `dependency_unavailable` | axis: resource |  | dependency: share intensity of calls fail to connect |
 | `error_burst` | axis: workload |  | elevated 5xx error rate |
 | `error_spike` | axis: service |  | elevated 5xx error rate on the targeted service node |
 | `eval_quality_degraded` | axis: cloud |  | LangSmith eval quality regresses — faithfulness/completeness/relevance and retrieval scores drop while retry/fallback/HITL rates and error/pending run-outcomes climb |
@@ -1933,12 +1954,15 @@ The valid `mode:` values an incident or scenario effect may reference (union acr
 | `node_not_ready` | axis: cluster |  | a node flips NotReady; its pods go Pending |
 | `oom_kill` | axis: cluster |  | containers OOM-killed; intensity selects fraction of pods affected (low intensity ⇒ a few pods); restart count climbs, status reason OOMKilled |
 | `pod_crashloop` | axis: cluster |  | pods crash-looping; intensity selects fraction of pods affected (low intensity ⇒ a few pods); restarts climb, phase Pending not Running |
+| `pool_exhausted` | axis: resource |  | pool: effective size shrinks to size x (1 - intensity) (connections leaked or held elsewhere) |
 | `portkey_scrape_degraded` | axis: cloud |  | Portkey Analytics scrape degrades — API error_rate and 4xx/5xx share climb, latency rises, and the poller falls behind (poller errors + window lag grow) |
 | `provider_call_error` | axis: workload |  | elevated provider/LLM call-error rate on the targeted ai_agent fleet — call_error generations, ERROR spans, error_type/error_category on operation_duration |
 | `queue_consumer_stall` | axis: queue |  | the queue's consumers stop draining (rate x (1-intensity)): depth and spool usage grow until the spool quota discards |
 | `queue_publish_drop` | axis: queue |  | publishes into the queue stop (rate x (1-intensity)): spooled messages flatten and the backlog drains |
+| `quota_reduced` | axis: resource |  | quota: admitted rate shrinks to limit_rps x (1 - intensity) |
 | `replication_lag` | axis: database |  | replica falls behind primary |
 | `retry_storm` | axis: service |  | elevated gateway retry rate on the targeted service node |
+| `rule_regression` | axis: resource |  | rule: share intensity x reject_share of arrivals fail validation |
 | `run_failure` | axis: pipeline_stage |  | runs completing the stage fail (fraction = intensity) and end with a FAILED outcome |
 | `slow_query_storm` | axis: database |  | query latency right-tail spikes |
 | `stage_stall` | axis: pipeline_stage |  | stage starts nothing: arriving runs wait and age, later stages complete nothing until cleared |
