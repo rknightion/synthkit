@@ -179,6 +179,8 @@ func spanTree(g *graph) (map[string]string, []string) {
 
 // bindCausal resolves and validates every causal field against s for environment env.
 func bindCausal(cfg *Config, g *graph, env string, s causal.Set) (*causalPlan, error) {
+	// Match baseMS/hopCause and the legacy minter without altering their draws or arithmetic.
+	const latencyStormAtFull, errorSpikeHopShare = 4.0, 0.6
 	p := &causalPlan{res: map[string]causal.Resource{}, entry: g.entry.decl.Name, nodes: map[string]*causalNode{}, worker: g.entry.decl.Worker}
 	for _, d := range s.Envs {
 		for _, r := range d.Resources {
@@ -251,7 +253,11 @@ func bindCausal(cfg *Config, g *graph, env string, s causal.Set) (*causalPlan, e
 	// SKT-0168.09.33): the spanning tree in the minter's DFS order, each node's resolved uses and
 	// the policy of the call into it, so a fault upstream on the path lowers what reaches a
 	// resource downstream exactly as the evaluator stops requests.
-	flow := &causal.Flow{Nodes: make([]causal.FlowNode, len(order))}
+	flow := &causal.Flow{
+		Nodes: make([]causal.FlowNode, len(order)),
+		Legacy: &causal.LegacyTiming{P95MS: cfg.Traffic.RequestLatencyP95Ms,
+			EntryStretch: causal.FaultScale{Mode: "latency_storm", Scope: p.entry, AtFull: latencyStormAtFull}},
+	}
 	index := map[string]int{}
 	for i, name := range order {
 		index[name] = i
@@ -311,6 +317,17 @@ func bindCausal(cfg *Config, g *graph, env string, s causal.Set) (*causalPlan, e
 				share = peak / r.Demand.PeakRPS
 			}
 			p.loads = append(p.loads, causal.Load{Resource: r.Name, Share: share, Policy: pol, Flow: flow, Node: i})
+		}
+		// The node's own work and its own failure, as serve draws them (baseMS, hopCause): the
+		// model counts an attempt that outlasts the caller's timeout, or fails on its own, as a
+		// failure the caller resends with the whole subtree.
+		fn.Duration = cn.durRes
+		fn.Stretch = causal.FaultScale{Mode: "latency_storm", Scope: name, AtFull: latencyStormAtFull}
+		if name != p.entry {
+			fn.HopError = causal.HopError{Mode: "error_spike", Scope: name, PerIntensity: errorSpikeHopShare, Status: 500}
+			if r := n.decl.ErrorRate; r != nil && *r > 0 {
+				fn.HopError.Rate = *r
+			}
 		}
 		if cn.durRes == "" && name == p.entry && p.worker {
 			cn.durRes = p.fromQueue // a consumer's processing time is the queue's hold

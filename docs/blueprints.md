@@ -415,14 +415,34 @@ actually reach the resource: a request rejected earlier on its path (by a quota,
 call that failed before this one) never arrives, so a bound Lambda function, queue or broker queue
 reports the calls that get through. Every attempt of a call re-runs the callee, so a caller that
 resends a failure from anywhere below it (a `retry_on: [5xx]` caller resending a function's 502 after
-the function's partner handshake failed) sends the resource one arrival per attempt. Work that fails
+the function's partner handshake failed) sends the resource one arrival per attempt. This includes
+resends after a caller's `timeout_ms` expires and failures from the callee's own `error_rate` or
+`error_spike`. Timeout accounting includes sequential child calls, their spent attempts and backoffs,
+and pool waits. Admitted acquisitions use the same independent clipped-uniform wait law as the app
+(minimum of `WaitMS * (0.5 + U)` and `acquire_timeout_ms`, rounded to nanoseconds), not a scalar
+mean. The clipped endpoint retains its probability mass, and earlier acquisitions still count when
+a later resource rejects the attempt. Transport failures retain their existing pre-work-only timing.
+A held-across dependency call supplies its part of the hold once, not twice.
+Resource admission and resend demand are solved together for the same step, including a fault's onset.
+
+Services without a duration-bearing resource still do their existing legacy work: the shared request
+latency budget supplies their baseline hop durations. Those baseline values persist across the whole
+request; resends jitter the same values rather than drawing independent new baselines. The model
+retains these shared variables while integrating timeout and resend demand. Resource-backed own work
+uses its lognormal distribution. Conditional duration sums and legacy timing are integrated with bounded
+deterministic numerical quadrature: these are expected arrivals, not an exact replay of sampled app
+requests, and compression can lose timing detail near a timeout boundary. There is no global error
+bound for arbitrary tree depth or sharp boundaries. Caches reuse identical numerical inputs, not
+changing waits, storms or reject shares: a novel legacy-sibling input can take more than a five-second
+step for one gate evaluation alone, before further fixed-point iterations. This is not a real-time
+performance guarantee for dynamic or large-fanout trees. Work that fails
 at the dependency it is held across (unavailable, a failed handshake, a refused token) holds a pool
 connection or a concurrency slot only until it fails: a tenth of `hold_ms` of work before the call,
 then each attempt of that call (a tenth of the dependency's `latency_ms`, with the holder's
 `backoff_ms` between resends of a refused connection). Resends of a fast failure therefore do not
 saturate the limit they pass through. A queue keeps its full processing time for a failed message,
-and a quota has no hold: it counts every attempt. With no fault on the path the declared demand is
-unchanged.
+and a quota has no hold: it counts every attempt. Without rejection, hop errors or timeout resends,
+the declared demand is unchanged.
 
 Something has to meet a resource before a signal moves:
 

@@ -565,16 +565,22 @@ func TestCausalSpikePropagatesAndRetryRecovers(t *testing.T) {
 	failedAbsorbed, failedReturned := 0, 0
 	for _, r := range reqs {
 		enrich := callsTo(r, "enrich-fn")
-		if len(enrich) == 0 || !enrich[0].Failed {
+		// The spike's resends (1 + 0.6 + 0.36 attempts per request, SKT-0205) load the function
+		// past its 80 executions, so some attempts are throttled before they run.
+		if len(enrich) == 0 || !enrich[0].Failed || enrich[0].StatusCode == 429 {
 			continue
 		}
 		if enrich[0].StatusCode != 500 || enrich[0].Fault == nil || enrich[0].Fault.Mode != "error_spike" {
 			t.Fatalf("spiked hop %+v", enrich[0])
 		}
-		if enrich[len(enrich)-1].Failed {
+		if last := enrich[len(enrich)-1]; last.Failed {
 			failedReturned++
-			if r.StatusCode != 502 || r.Outcome != ledger.OutcomeServerError {
-				t.Fatalf("unabsorbed spike: request %d", r.StatusCode)
+			want := 502 // the spike's 500
+			if last.StatusCode == 429 {
+				want = 503 // a throttled resend
+			}
+			if r.StatusCode != want || r.Outcome != ledger.OutcomeServerError {
+				t.Fatalf("unabsorbed spike: request %d, want %d", r.StatusCode, want)
 			}
 		} else {
 			failedAbsorbed++

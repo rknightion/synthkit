@@ -91,7 +91,7 @@ func (m *Model) Apply(name string, at time.Time, d Draw) Effect {
 	switch c.r.Kind {
 	case KindPool:
 		if st.WaitMS > 0 {
-			e.Wait = min(msDuration(st.WaitMS*(0.5+d("wait"))), msDuration(c.r.AcquireTimeoutMS))
+			e.Wait = (acquisitionWait{scale: st.WaitMS, limit: c.r.AcquireTimeoutMS}).quantile(d("wait"))
 			e.Message = c.slowMessage(e.Mode)
 		}
 	case KindDependency:

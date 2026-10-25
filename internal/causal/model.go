@@ -93,6 +93,14 @@ type compiled struct {
 	cumA    float64
 	cumD    float64
 	arr     []point // cumulative arrival breakpoints, oldest first (queue only)
+
+	// transport reports that a rejection here fails the caller's connection or handshake (it
+	// never reaches a caller's timeout).
+	transport bool
+	// solving is set while the resource's own demand iterates; iterWait is the iterate's pool
+	// wait (waitMS reads it for the resource being solved).
+	solving  bool
+	iterWait float64
 }
 
 // Model is one consumer's deterministic simulation of a blueprint's declared resources.
@@ -100,7 +108,10 @@ type compiled struct {
 type Model struct {
 	mu      sync.Mutex
 	order   []*compiled // dependencies, credentials and rules, then capacity kinds in demand.from order
+	nCap    int         // the capacity kinds, the tail of order
 	byName  map[string]*compiled
+	flows   []*cflow    // the request trees the loads place resources in, in load order
+	late    []*compiled // capacity resources a flow reads before they are solved (see step)
 	started bool
 	last    int64
 }
@@ -148,6 +159,9 @@ func Compile(s Set) (*Model, error) {
 	}
 	for _, c := range decl {
 		c.key = c.failKey()
+		e := Effect{}
+		c.failArrival(&e)
+		c.transport = e.Transport
 	}
 	flows := map[*Flow]*cflow{}
 	for _, l := range s.Loads {
@@ -158,6 +172,7 @@ func Compile(s Set) (*Model, error) {
 			if !ok {
 				cf = compileFlow(l.Flow, m.byName)
 				flows[l.Flow] = cf
+				m.flows = append(m.flows, cf)
 			}
 			g = cf.gateFor(l.Flow, l.Node, l.Resource)
 		}
@@ -236,7 +251,41 @@ func Compile(s Set) (*Model, error) {
 			break
 		}
 	}
+	m.nCap = len(placed)
+	m.late = lateReads(m.order[len(m.order)-m.nCap:])
 	return m, nil
+}
+
+// lateReads lists the capacity resources (in solve order) that some earlier capacity resource's
+// flow-derived demand reads (gate.reads) before they are solved within a step.
+func lateReads(caps []*compiled) []*compiled {
+	pos := map[*compiled]int{}
+	for i, c := range caps {
+		pos[c] = i
+	}
+	late := map[*compiled]bool{}
+	for i, c := range caps {
+		if c.from != nil {
+			continue // a demand.from resource ignores its gates (amplified)
+		}
+		for _, g := range c.gates {
+			if g == nil {
+				continue
+			}
+			g.reads(func(u *compiled) {
+				if j, ok := pos[u]; ok && j > i {
+					late[u] = true
+				}
+			})
+		}
+	}
+	var out []*compiled
+	for _, c := range caps {
+		if late[c] {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 func floorDiv(a, b int64) int64 {
@@ -557,93 +606,200 @@ func (c *compiled) capPhysics(d, h, i float64) capResult {
 	return res
 }
 
+// step integrates grid point k. Dependencies, credentials and rules are solved once; then the
+// capacity kinds in order, each reading the reject shares (and pool waits) of the resources its
+// flow-derived demand depends on. A resource read before it is solved this step (late: request
+// trees made the order circular) is read at its previous record, so the capacity kinds are solved
+// again, reading this step's values, until every late read equals the value solved (to 1e-12),
+// at most maxFixedPoint passes. Queues restart each pass from the state before the step. The
+// result is the step's joint fixed point, so model arrivals agree with what the app delivers
+// from the same states even at a fault's onset; a step whose late reads already match (every
+// healthy step) solves once and is bitwise what one pass gives. Cost: one extra pass of the
+// capacity kinds per pass needed, only on steps where a late-read resource changed.
 func (m *Model) step(k int64, clk Clock) {
 	t := gridTime(k)
-	for _, c := range m.order {
-		r := rec{k: k, valid: true}
-		st := &r.st
-		st.At = t
-		st.LatencyFactor = 1
-		setMode := func(mode string, active bool, i float64) {
-			if active && i > 0 && st.Mode == "" {
-				st.Mode, st.Intensity = mode, i
-			}
-		}
-		switch c.r.Kind {
-		case KindDependency:
-			aS, iS := c.fault(clk, t, ModeDependencySlow)
-			aU, iU := c.fault(clk, t, ModeDependencyUnavailable)
-			st.LatencyFactor = 1 + float64((c.slow-1)*iS)
-			st.RejectShare, st.FailedShare = iU, iU
-			// Dominant: the stronger active fault; a tie goes to unavailability.
-			if iU >= iS {
-				setMode(ModeDependencyUnavailable, aU, iU)
-				setMode(ModeDependencySlow, aS, iS)
-			} else {
-				setMode(ModeDependencySlow, aS, iS)
-				setMode(ModeDependencyUnavailable, aU, iU)
-			}
-		case KindCredential:
-			a, i := c.fault(clk, t, ModeCredentialExpired)
-			st.RejectShare, st.FailedShare = i, i
-			setMode(ModeCredentialExpired, a, i)
-		case KindRule:
-			a, i := c.fault(clk, t, ModeRuleRegression)
-			st.RejectShare = i * c.r.RejectShare
-			st.FailedShare = st.RejectShare
-			setMode(ModeRuleRegression, a, i)
-		case KindPool, KindConcurrency, KindQuota:
-			mode := map[Kind]string{KindPool: ModePoolExhausted, KindConcurrency: ModeConcurrencyReduced, KindQuota: ModeQuotaReduced}[c.r.Kind]
-			a, i := c.fault(clk, t, mode)
-			setMode(mode, a, i)
-			base := c.baseDemand(clk, t)
-			lf, failed := 1.0, 0.0
-			if c.r.Kind != KindQuota {
-				lf, failed = c.refState()
-			}
-			h := c.hold(lf)
-			occ := c.occupancy(h, lf, failed)
-			d := base
-			res := c.capPhysics(d, occ, i)
-			for n := 0; n < maxFixedPoint && len(c.loads) > 0; n++ {
-				next := c.amplified(base, res.reject)
-				if math.Abs(next-d) <= 1e-12*math.Max(1, next) {
-					break
-				}
-				d = next
-				res = c.capPhysics(d, occ, i)
-			}
-			st.Demand, st.Capacity, st.Utilization = d, res.capacity, finiteUtil(res.rho)
-			st.RejectShare, st.WaitMS, st.LatencyFactor, st.InUse = res.reject, res.wait, lf, res.inUse
-			if c.r.Kind != KindQuota {
-				st.HoldMS = h
-				st.FailedShare = failed
-			}
-			st.Waiting = d * (1 - res.reject) * res.wait / 1000
-			r.arrivals = d * stepSec
-			r.rejected = r.arrivals * res.reject
-			r.admitted = r.arrivals - r.rejected
-			r.served = r.admitted
-			r.failed = r.served * st.FailedShare
-			if c.r.Kind != KindQuota {
-				r.failedHold = c.failedHoldMean(h, lf, failed)
-			}
-			st.ServedRPS = r.served / stepSec
-		case KindQueue:
-			a, i := c.fault(clk, t, ModeConsumerSlowdown)
-			setMode(ModeConsumerSlowdown, a, i)
-			lf, failed := c.refState()
-			h := c.hold(lf)
-			mu := float64(c.r.Size) * 1000 / h * (1 - i)
-			base := c.baseDemand(clk, t)
-			c.queueStep(&r, k, base, mu)
-			st.LatencyFactor, st.HoldMS, st.FailedShare = lf, h, failed
-			r.failed = r.served * failed
-			r.failedHold = h // failed work keeps the full hold (see occupancy)
-		}
-		c.ring[mod(k, ringSteps)] = r
-		c.last = r
+	split := len(m.order) - m.nCap
+	for _, c := range m.order[:split] {
+		m.solve(c, k, t, clk)
 	}
+	for _, cf := range m.flows {
+		cf.prepare(clk, t)
+	}
+	caps := m.order[split:]
+	if len(m.late) == 0 {
+		for _, c := range caps {
+			m.solve(c, k, t, clk)
+		}
+		return
+	}
+	saved := make([]queueSnap, len(caps))
+	for i, c := range caps {
+		saved[i] = c.snapshot()
+	}
+	read := make([][2]float64, len(m.late))
+	for pass := 0; ; pass++ {
+		for i, c := range m.late {
+			read[i] = c.lateValue()
+		}
+		if pass > 0 {
+			for i, c := range caps {
+				c.restore(saved[i])
+			}
+		}
+		for _, c := range caps {
+			m.solve(c, k, t, clk)
+		}
+		settled := true
+		for i, c := range m.late {
+			now := c.lateValue()
+			for j := range now {
+				if math.Abs(now[j]-read[i][j]) > 1e-12*math.Max(1, math.Abs(now[j])) {
+					settled = false
+				}
+			}
+		}
+		if settled || pass+1 >= maxFixedPoint {
+			return
+		}
+	}
+}
+
+// lateValue is what a flow evaluation reads of the resource before it is solved: its latest
+// record's reject share and pool wait (zero before the first step).
+func (c *compiled) lateValue() [2]float64 {
+	if !c.last.valid {
+		return [2]float64{}
+	}
+	return [2]float64{c.last.st.RejectShare, c.waitMS()}
+}
+
+// queueSnap is a queue's integration state before a step, so a step solved again restarts from
+// it. arr's elements before its length are never written while a step runs (append writes past
+// it, oldestAge only reslices), so restoring the header restores the curve.
+type queueSnap struct {
+	backlog, cumA, cumD float64
+	arr                 []point
+}
+
+func (c *compiled) snapshot() queueSnap {
+	return queueSnap{backlog: c.backlog, cumA: c.cumA, cumD: c.cumD, arr: c.arr}
+}
+
+func (c *compiled) restore(q queueSnap) {
+	c.backlog, c.cumA, c.cumD, c.arr = q.backlog, q.cumA, q.cumD, q.arr
+}
+
+// latency is the dependency's latest latency factor (1 before the first step).
+func (c *compiled) latency() float64 {
+	if !c.last.valid {
+		return 1
+	}
+	return c.last.st.LatencyFactor
+}
+
+// waitMS is the scale of a pool's admitted acquisition-wait law: the iterate's while
+// its own demand is being solved, else its latest record's; zero for other kinds.
+// Acquisition-timeout clipping means this is NOT generally the admitted wait's mean.
+func (c *compiled) waitMS() float64 {
+	switch {
+	case c.r.Kind != KindPool:
+		return 0
+	case c.solving:
+		return c.iterWait
+	case !c.last.valid:
+		return 0
+	}
+	return c.last.st.WaitMS
+}
+
+// solve integrates one resource at grid point k.
+func (m *Model) solve(c *compiled, k int64, t time.Time, clk Clock) {
+	r := rec{k: k, valid: true}
+	st := &r.st
+	st.At = t
+	st.LatencyFactor = 1
+	setMode := func(mode string, active bool, i float64) {
+		if active && i > 0 && st.Mode == "" {
+			st.Mode, st.Intensity = mode, i
+		}
+	}
+	switch c.r.Kind {
+	case KindDependency:
+		aS, iS := c.fault(clk, t, ModeDependencySlow)
+		aU, iU := c.fault(clk, t, ModeDependencyUnavailable)
+		st.LatencyFactor = 1 + float64((c.slow-1)*iS)
+		st.RejectShare, st.FailedShare = iU, iU
+		// Dominant: the stronger active fault; a tie goes to unavailability.
+		if iU >= iS {
+			setMode(ModeDependencyUnavailable, aU, iU)
+			setMode(ModeDependencySlow, aS, iS)
+		} else {
+			setMode(ModeDependencySlow, aS, iS)
+			setMode(ModeDependencyUnavailable, aU, iU)
+		}
+	case KindCredential:
+		a, i := c.fault(clk, t, ModeCredentialExpired)
+		st.RejectShare, st.FailedShare = i, i
+		setMode(ModeCredentialExpired, a, i)
+	case KindRule:
+		a, i := c.fault(clk, t, ModeRuleRegression)
+		st.RejectShare = i * c.r.RejectShare
+		st.FailedShare = st.RejectShare
+		setMode(ModeRuleRegression, a, i)
+	case KindPool, KindConcurrency, KindQuota:
+		mode := map[Kind]string{KindPool: ModePoolExhausted, KindConcurrency: ModeConcurrencyReduced, KindQuota: ModeQuotaReduced}[c.r.Kind]
+		a, i := c.fault(clk, t, mode)
+		setMode(mode, a, i)
+		base := c.baseDemand(clk, t)
+		lf, failed := 1.0, 0.0
+		if c.r.Kind != KindQuota {
+			lf, failed = c.refState()
+		}
+		h := c.hold(lf)
+		occ := c.occupancy(h, lf, failed)
+		d := base
+		res := c.capPhysics(d, occ, i)
+		c.solving = true
+		for n := 0; n < maxFixedPoint && len(c.loads) > 0; n++ {
+			c.iterWait = res.wait
+			next := c.amplified(base, res.reject)
+			if math.Abs(next-d) <= 1e-12*math.Max(1, next) {
+				break
+			}
+			d = next
+			res = c.capPhysics(d, occ, i)
+		}
+		c.solving = false
+		st.Demand, st.Capacity, st.Utilization = d, res.capacity, finiteUtil(res.rho)
+		st.RejectShare, st.WaitMS, st.LatencyFactor, st.InUse = res.reject, res.wait, lf, res.inUse
+		if c.r.Kind != KindQuota {
+			st.HoldMS = h
+			st.FailedShare = failed
+		}
+		st.Waiting = d * (1 - res.reject) * res.wait / 1000
+		r.arrivals = float64(d * stepSec)
+		r.rejected = float64(r.arrivals * res.reject)
+		r.admitted = r.arrivals - r.rejected
+		r.served = r.admitted
+		r.failed = r.served * st.FailedShare
+		if c.r.Kind != KindQuota {
+			r.failedHold = c.failedHoldMean(h, lf, failed)
+		}
+		st.ServedRPS = r.served / stepSec
+	case KindQueue:
+		a, i := c.fault(clk, t, ModeConsumerSlowdown)
+		setMode(ModeConsumerSlowdown, a, i)
+		lf, failed := c.refState()
+		h := c.hold(lf)
+		mu := float64(c.r.Size) * 1000 / h * (1 - i)
+		base := c.baseDemand(clk, t)
+		c.queueStep(&r, k, base, mu)
+		st.LatencyFactor, st.HoldMS, st.FailedShare = lf, h, failed
+		r.failed = r.served * failed
+		r.failedHold = h // failed work keeps the full hold (see occupancy)
+	}
+	c.ring[mod(k, ringSteps)] = r
+	c.last = r
 }
 
 func mod(a, b int64) int64 {
@@ -695,7 +851,7 @@ func (c *compiled) queueStep(r *rec, k int64, base, mu float64) {
 		d = nd
 		next, served, overflow = c.queueOutcome(c.backlog, d, mu)
 	}
-	inflow := d * stepSec
+	inflow := float64(d * stepSec)
 	admitted := inflow - overflow
 	c.backlog = next
 	c.cumA += admitted
@@ -740,7 +896,7 @@ func (c *compiled) oldestAge(k int64) float64 {
 		drop = lim
 	}
 	if drop > 0 {
-		c.arr = append(c.arr[:0], c.arr[drop:]...)
+		c.arr = c.arr[drop:] // reslice, never shift in place: a step solved again restores arr (queueSnap)
 	}
 	if len(c.arr) < 2 {
 		return 0
