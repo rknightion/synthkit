@@ -470,6 +470,9 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := validateCausalValues(g, plan, w.env, cfg.resources); err != nil {
+		return nil, err
+	}
 	w.m.causal = plan
 	return w, nil
 }

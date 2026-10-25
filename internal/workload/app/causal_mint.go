@@ -13,6 +13,7 @@ import (
 	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/ledger"
 	"github.com/rknightion/synthkit/internal/shape"
+	"github.com/rknightion/synthkit/internal/telemetryspec"
 )
 
 // The causal derivation (internal/causal, design §4): a workload whose services name declared
@@ -124,6 +125,30 @@ func buildCausalPlan(cfg *Config, g *graph, env string) (*causalPlan, error) {
 	}
 	p.bindExchanges(cfg.resources)
 	return p, nil
+}
+
+// validateCausalValues rejects a custom or inline metric whose value reads the causal model
+// (resource) or the node's causal hop outcomes (outcomes) on an app that derives no causal
+// outcomes, where it would read 0 forever, and a resource value naming a resource not declared
+// for the app's environment.
+func validateCausalValues(g *graph, plan *causalPlan, env string, s causal.Set) error {
+	for _, n := range g.nodes {
+		for _, m := range n.metrics {
+			kind := m.Value.Kind()
+			if kind != telemetryspec.KindResource && kind != telemetryspec.KindOutcomes {
+				continue
+			}
+			if plan == nil {
+				return fmt.Errorf("app service %q: metric %q reads a %s value, but the app derives no causal outcomes (no uses, call_policies, worker or traffic.from_resource)", n.decl.Name, m.Name, kind)
+			}
+			if kind == telemetryspec.KindResource {
+				if _, _, ok := s.Resolve(m.Value.Resource.Name, env); !ok {
+					return fmt.Errorf("app service %q: metric %q: resource %q is not declared for environment %q", n.decl.Name, m.Name, m.Value.Resource.Name, env)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // spanTree is the request's spanning tree (the minter's DFS order: each node reached once, from

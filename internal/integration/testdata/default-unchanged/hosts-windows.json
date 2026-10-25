@@ -1,0 +1,33 @@
+{
+  "blueprint": "hosts-windows",
+  "digest": "per family: [row count, first 16 hex digits of sha256 over the sorted canonical masked rows]; numbers quantised to 6 significant digits",
+  "families": {
+    "metrics": {
+      "up": [3, "f01d8c5ee20bff36"],
+      "windows_cpu_logical_processor": [3, "16c94698303bb67f"],
+      "windows_cpu_time_total": [140, "61433696f7ecde3d"],
+      "windows_diskdrive_status": [3, "95d9e71356473c6c"],
+      "windows_logical_disk_free_bytes": [3, "87e8c50c06f0e738"],
+      "windows_logical_disk_read_bytes_total": [3, "e3ac4fe1045f3a27"],
+      "windows_logical_disk_size_bytes": [3, "d30b7990adfe2515"],
+      "windows_logical_disk_write_bytes_total": [3, "4a79e0cccdb5da79"],
+      "windows_memory_physical_free_bytes": [3, "887e27ccfaebb132"],
+      "windows_memory_physical_total_bytes": [3, "1250d3ebb6e4a71b"],
+      "windows_net_bytes_received_total": [3, "3109184b61472f89"],
+      "windows_net_bytes_sent_total": [3, "e97a75ee46c67cf2"],
+      "windows_os_info": [3, "0d8c22ac9f242b70"],
+      "windows_pagefile_free_bytes": [3, "f6365c955c9b12ac"],
+      "windows_pagefile_limit_bytes": [3, "180657f537fdaf68"],
+      "windows_service_state": [15, "e653e3018f28c26a"],
+      "windows_system_context_switches_total": [3, "9865707779c9d6fd"],
+      "windows_system_processor_queue_length": [3, "1d35ddd636381ac7"],
+      "windows_time_computed_time_offset_seconds": [3, "fdc7ddd11323b2d7"],
+      "windows_time_ntp_client_time_sources": [3, "90d3c4058c6e26db"],
+      "windows_time_ntp_round_trip_delay_seconds": [3, "35a3fdc908de77f6"],
+      "windows_time_timezone": [3, "3759610aca37cc8a"]
+    },
+    "logs": {
+      "job=integrations/windows_exporter level=Information": [28, "e68f3c4678119a48"]
+    }
+  }
+}
