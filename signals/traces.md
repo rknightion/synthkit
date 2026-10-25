@@ -79,9 +79,13 @@ OpenTelemetry specification v1.61.0:
 https://github.com/open-telemetry/opentelemetry-specification/blob/v1.61.0/specification/trace/api.md
 (span status description only with `Error`; `CONSUMER` span kind).
 
-- SERVER span status is ERROR only for a 5xx response; a 4xx answer stays UNSET. CLIENT spans are
-  ERROR for 4xx, 5xx and transport failures (connect, credential, timeout). A worker entry's root
-  is a CONSUMER span; the HTTP rules do not apply to it, so any failed request sets ERROR.
+- HTTP SERVER span status is ERROR only for a 5xx response; a 4xx answer stays UNSET. A gRPC
+  SERVER span follows the pinned gRPC rule instead: ERROR only for UNKNOWN, DEADLINE_EXCEEDED,
+  UNIMPLEMENTED, INTERNAL, UNAVAILABLE and DATA_LOSS (here the 5xx class and a call that timed
+  out), UNSET for a throttle or a 4xx rejection ([slug: traces-causal-grpc-status]). CLIENT spans
+  are ERROR for 4xx, 5xx and transport failures (connect, credential, timeout), gRPC included. A
+  worker entry's root is a CONSUMER span; the HTTP rules do not apply to it, so any failed request
+  sets ERROR.
 - `http.response.status_code` is stamped on failing HTTP service hops and a failing SERVER root,
   never on gRPC hops; db/cache leaf CLIENT spans get `error.type` only.
 - `error.type` is set only on a span whose status is ERROR (a SERVER span answering 4xx or 429
@@ -111,8 +115,10 @@ app_causal:
     - {name: error.type, type: string, present: failed-operations-only}
     - {name: http.request.resend_count, type: int, present: resends-only}
   status:
-    server_5xx: STATUS_CODE_ERROR
-    server_4xx: STATUS_CODE_UNSET
+    http_server_5xx: STATUS_CODE_ERROR
+    http_server_4xx: STATUS_CODE_UNSET
+    grpc_server_error_class: STATUS_CODE_ERROR      # 5xx class and timeouts; see traces-causal-grpc-status
+    grpc_server_throttle_or_4xx: STATUS_CODE_UNSET
     client_4xx_5xx_transport_timeout: STATUS_CODE_ERROR
     consumer_root_any_failure: STATUS_CODE_ERROR
   span_kinds:
@@ -325,3 +331,21 @@ app_db_leaf_client_span:
     db_instance_identifier: first DNS label of server.address   # → dbo11y RDS instance metrics
   provenance: 2026-06-17 — app db-leaf RDS link (Option A); faithful to OTel/Beyla DB semconv, demoability-motivated
 ```
+
+## Causal gRPC hop span status [slug: traces-causal-grpc-status]
+
+A causal hop to or from a `type: grpc` node follows the gRPC span-status rules, not the HTTP
+ones. Provenance: OpenTelemetry semantic-conventions v1.44.0
+https://github.com/open-telemetry/semantic-conventions/blob/v1.44.0/docs/rpc/grpc.md
+
+- A gRPC SERVER span (a callee's, or a gRPC entry's root) is ERROR only for the statuses the
+  convention lists as server errors: UNKNOWN, DEADLINE_EXCEEDED, UNIMPLEMENTED, INTERNAL,
+  UNAVAILABLE and DATA_LOSS. The causal facts carry HTTP-class statuses, so the 5xx class and a
+  call that timed out are server errors; a throttle (429, RESOURCE_EXHAUSTED) and a rule or
+  argument rejection (4xx, INVALID_ARGUMENT) leave the SERVER span UNSET with no `error.type`.
+- A CLIENT span calling a gRPC node is ERROR on any failed answer (every status except OK).
+- No HTTP status attribute is stamped on any span of a gRPC hop. The gRPC status attribute
+  (`rpc.response.status_code` in v1.44.0) is not emitted until its values are sourced (cantfind
+  SK-133); `error.type` keeps its generic value.
+- Only HTTP service types carry `http.response.status_code`; `worker`, `stream` and `job`
+  nodes do not.

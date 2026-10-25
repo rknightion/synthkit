@@ -349,12 +349,12 @@ func (w *Workload) nodeTraceStatuses(now time.Time, world *core.World, n *node) 
 	var statuses []otlp.StatusCode
 	for _, r := range world.Ledger.ActiveFor(w.Name(), now, interval) {
 		if n == w.graph.entry {
-			statuses = append(statuses, rootStatus(w.entryRootKind(), httpNode(n), r))
+			statuses = append(statuses, rootStatus(w.entryRootKind(), protoOf(n), r))
 			continue
 		}
 		for _, call := range r.Calls {
 			if call.Target == n.decl.Name && call.PeerSpanID != "" {
-				statuses = append(statuses, serverStatus(r, call, httpNode(n)))
+				statuses = append(statuses, serverStatus(r, call, protoOf(n)))
 			}
 		}
 	}

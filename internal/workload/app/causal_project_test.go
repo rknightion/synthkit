@@ -548,11 +548,22 @@ func TestCausalCustomMetricValues(t *testing.T) {
 	}
 }
 
-// A gRPC callee follows the generic span-status rule, not the HTTP one: its SERVER span is ERROR
-// for any failed answer and carries error.type, and no hop to it carries http.response.status_code.
+// grpcEntryApp is loggedIntakeApp with a gRPC entry service.
+func grpcEntryApp() string {
+	return strings.Replace(loggedIntakeApp, "  - name: intake-api\n    entry: true\n", "  - name: intake-api\n    type: grpc\n    entry: true\n", 1)
+}
+
+// grpcCalleeApp is loggedIntakeApp with a gRPC enrich-fn.
+func grpcCalleeApp() string {
+	return strings.Replace(loggedIntakeApp, "    type: function\n", "    type: grpc\n", 1)
+}
+
+// A gRPC callee follows the gRPC span-status rule (semconv v1.44.0 gRPC server spans), not the HTTP
+// one: a throttle answer (RESOURCE_EXHAUSTED) is not a SERVER error, so the span stays UNSET and
+// carries no error.type; the caller's CLIENT span is ERROR on any failed answer. No hop to a gRPC
+// node carries http.response.status_code.
 func TestCausalProjectGRPCHopHasNoHTTPStatus(t *testing.T) {
-	doc := strings.Replace(loggedIntakeApp, "    type: function\n", "    type: grpc\n", 1)
-	w := causalApps(t, causalResources, doc)[0]
+	w := causalApps(t, causalResources, grpcCalleeApp())[0]
 	eng := incident(causal.ModeConcurrencyReduced, "enrich-fn-concurrency", 1)
 	reqs := mintAt(w, eng, causalNow)
 	p := project(t, w, eng, reqs)
@@ -567,13 +578,231 @@ func TestCausalProjectGRPCHopHasNoHTTPStatus(t *testing.T) {
 			if _, has := cs.Attrs["http.response.status_code"]; has || cs.Status != otlp.StatusError || cs.Attrs["error.type"] != "429" {
 				t.Fatalf("grpc client span: %v %v", cs.Status, cs.Attrs)
 			}
-			if _, has := ss.Attrs["http.response.status_code"]; has || ss.Status != otlp.StatusError || ss.Attrs["error.type"] != "TooManyRequestsException" {
-				t.Fatalf("grpc server span: %v %v", ss.Status, ss.Attrs)
+			_, hasStatus := ss.Attrs["http.response.status_code"]
+			_, hasType := ss.Attrs["error.type"]
+			if hasStatus || hasType || ss.Status != otlp.StatusUnset || ss.StatusMsg != "" {
+				t.Fatalf("grpc server span for a throttle: %v %v %q", ss.Status, ss.Attrs, ss.StatusMsg)
 			}
 		}
 	}
 	if seen == 0 {
 		t.Fatal("no throttled grpc calls minted")
+	}
+}
+
+// A gRPC callee that answers 5xx (INTERNAL, UNAVAILABLE, ...) is a SERVER error: ERROR with
+// error.type and still no HTTP status code.
+func TestCausalProjectGRPCServerErrorForServerFailures(t *testing.T) {
+	w := causalApps(t, causalResources, grpcCalleeApp())[0]
+	eng := incident(causal.ModeCredentialExpired, "partner-api-cert", 1)
+	reqs := mintAt(w, eng, causalNow)
+	p := project(t, w, eng, reqs)
+	seen := 0
+	for _, r := range reqs {
+		for _, c := range callsTo(r, "enrich-fn") {
+			if c.StatusCode < 500 || c.PeerSpanID == "" {
+				continue
+			}
+			seen++
+			ss := p.spans[c.PeerSpanID]
+			_, hasStatus := ss.Attrs["http.response.status_code"]
+			if hasStatus || ss.Status != otlp.StatusError || ss.Attrs["error.type"] == nil {
+				t.Fatalf("grpc server span for %d: %v %v", c.StatusCode, ss.Status, ss.Attrs)
+			}
+		}
+	}
+	if seen == 0 {
+		t.Fatal("no 5xx grpc calls minted")
+	}
+}
+
+// A call that timed out against a gRPC callee is DEADLINE_EXCEEDED on its SERVER span, an error;
+// the same timeout against an HTTP callee leaves the span UNSET (the server never saw the caller
+// give up, http-spans note [4]).
+func TestCausalProjectGRPCTimeoutIsServerError(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		doc  string
+		want otlp.StatusCode
+	}{
+		{"grpc", grpcCalleeApp(), otlp.StatusError},
+		{"http", loggedIntakeApp, otlp.StatusUnset},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w := causalApps(t, causalResources, tc.doc)[0]
+			eng := incident(causal.ModeConcurrencyReduced, "enrich-fn-concurrency", 1)
+			reqs := mintAt(w, eng, causalNow)
+			var timed *ledger.Request
+			var idx int
+			for _, r := range reqs {
+				for i, c := range r.Calls {
+					if c.Target == "enrich-fn" && c.PeerSpanID != "" && timed == nil {
+						timed, idx = r, i
+					}
+				}
+			}
+			if timed == nil {
+				t.Fatal("no enrich-fn call with a server span minted")
+			}
+			c := &timed.Calls[idx]
+			c.Failed, c.TimedOut, c.StatusCode = true, true, 0
+			c.ServerDuration = c.Duration * 2
+			c.Fault = &ledger.Fault{ErrorType: "timeout"}
+			timed.Fault = c.Fault
+			timed.Outcome, timed.StatusCode = ledger.OutcomeServerError, 504
+			p := project(t, w, eng, []*ledger.Request{timed})
+			ss := p.spans[c.PeerSpanID]
+			if ss.Status != tc.want {
+				t.Fatalf("timed-out server span status %v, want %v (attrs %v)", ss.Status, tc.want, ss.Attrs)
+			}
+			if tc.want == otlp.StatusError && ss.Attrs["error.type"] != "timeout" {
+				t.Fatalf("timed-out grpc server span error.type %v", ss.Attrs["error.type"])
+			}
+			if cs := p.spans[c.SpanID]; cs.Status != otlp.StatusError {
+				t.Fatalf("timed-out client span %v", cs.Status)
+			}
+		})
+	}
+}
+
+// A gRPC entry's SERVER root follows the same rule: a pool's 503 (UNAVAILABLE) is an error, a rule
+// rejection (INVALID_ARGUMENT, mapped 422) is not; neither carries an HTTP status code.
+func TestCausalProjectGRPCEntryRootStatus(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		mode, res string
+		status    int
+		want      otlp.StatusCode
+	}{
+		{"pool 503", causal.ModeDependencySlow, "records-db", 503, otlp.StatusError},
+		{"rule 422", causal.ModeRuleRegression, "completeness-rule", 422, otlp.StatusUnset},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w := causalApps(t, causalResources, grpcEntryApp())[0]
+			eng := incident(tc.mode, tc.res, 1)
+			reqs := mintAt(w, eng, causalNow)
+			p := project(t, w, eng, reqs)
+			seen := 0
+			for _, r := range reqs {
+				if r.Fault == nil || r.StatusCode != tc.status {
+					continue
+				}
+				seen++
+				root := p.spans[r.SpanID]
+				_, hasStatus := root.Attrs["http.response.status_code"]
+				if hasStatus || root.Status != tc.want {
+					t.Fatalf("grpc root for %d: status %v attrs %v", tc.status, root.Status, root.Attrs)
+				}
+				if _, hasType := root.Attrs["error.type"]; hasType != (tc.want == otlp.StatusError) {
+					t.Fatalf("grpc root for %d: error.type presence %v, attrs %v", tc.status, hasType, root.Attrs)
+				}
+			}
+			if seen == 0 {
+				t.Fatalf("no %d requests minted", tc.status)
+			}
+		})
+	}
+}
+
+// Only HTTP kinds stamp http.response.status_code: a worker, stream or job callee answers
+// over its own protocol. Their span status keeps the HTTP-shaped rule they always had, and every
+// other attribute is unchanged; an HTTP callee still stamps the code.
+func TestCausalProjectNonHTTPKindsCarryNoHTTPStatus(t *testing.T) {
+	for _, tc := range []struct {
+		typ  string
+		http bool
+	}{
+		{"function", true}, {"web", true}, {"gateway", true}, {"llm", true},
+		{"worker", false}, {"stream", false}, {"job", false},
+	} {
+		t.Run(tc.typ, func(t *testing.T) {
+			doc := strings.Replace(loggedIntakeApp, "    type: function\n", "    type: "+tc.typ+"\n", 1)
+			w := causalApps(t, causalResources, doc)[0]
+			eng := incident(causal.ModeConcurrencyReduced, "enrich-fn-concurrency", 1)
+			reqs := mintAt(w, eng, causalNow)
+			p := project(t, w, eng, reqs)
+			seen := 0
+			for _, r := range reqs {
+				for _, c := range callsTo(r, "enrich-fn") {
+					if c.StatusCode != 429 || c.PeerSpanID == "" {
+						continue
+					}
+					seen++
+					for _, sp := range []otlp.Span{p.spans[c.SpanID], p.spans[c.PeerSpanID]} {
+						if _, has := sp.Attrs["http.response.status_code"]; has != tc.http {
+							t.Fatalf("%s callee span %q: http.response.status_code present=%v, want %v (%v)", tc.typ, sp.Name, has, tc.http, sp.Attrs)
+						}
+					}
+					if cs, ss := p.spans[c.SpanID], p.spans[c.PeerSpanID]; cs.Status != otlp.StatusError || ss.Status != otlp.StatusUnset {
+						t.Fatalf("%s callee statuses: client %v server %v", tc.typ, cs.Status, ss.Status)
+					}
+				}
+			}
+			if seen == 0 {
+				t.Fatal("no throttled calls minted")
+			}
+		})
+	}
+}
+
+// Faulted requests project their per-attempt log lines from the request's hash unit, like resend
+// spans, so the engine's later draws do not depend on how many attempts a fault produced (design
+// §4.1): the projection takes none, and the values are deterministic per line.
+func TestCausalProjectionLogsTakeNoEngineDraws(t *testing.T) {
+	doc := strings.ReplaceAll(loggedIntakeApp, "          error_code: {ref: error_code}", "          error_code: {ref: error_code}\n          jitter: {float_range: {min: 0, max: 1}}")
+	w := causalApps(t, causalResources, doc)[0]
+	reqs := mintAt(w, incident(causal.ModeCredentialExpired, "partner-api-cert", 1), causalNow)
+	var failing []*ledger.Request
+	attempts := 0
+	for _, r := range reqs {
+		if causalFailing(r) {
+			failing = append(failing, r)
+			for _, c := range r.Calls {
+				if c.Attempt >= 1 {
+					attempts++
+				}
+			}
+		}
+	}
+	if len(failing) == 0 || attempts == 0 {
+		t.Fatalf("minted %d failing requests with %d resend attempts", len(failing), attempts)
+	}
+	logsOf := func() ([]loki.Stream, float64) {
+		eng := shape.New("UTC", nil)
+		lc := &coretest.LogCapture{}
+		world := coretest.World(nil, lc, nil)
+		world.Shape = eng
+		if err := w.projectLogs(context.Background(), world, failing); err != nil {
+			t.Fatalf("projectLogs: %v", err)
+		}
+		return lc.Streams, eng.Float64()
+	}
+	a, next := logsOf()
+	if want := shape.New("UTC", nil).Float64(); next != want {
+		t.Fatalf("faulted log projection took engine draws: next draw %v, untouched engine %v", next, want)
+	}
+	b, _ := logsOf()
+	if !reflect.DeepEqual(a, b) {
+		t.Fatal("faulted log values are not deterministic across projections")
+	}
+	jitters := map[string]bool{}
+	lines := 0
+	for _, st := range a {
+		for _, ln := range st.Lines {
+			var body map[string]any
+			if err := json.Unmarshal([]byte(ln.Body), &body); err != nil {
+				t.Fatalf("log body %q: %v", ln.Body, err)
+			}
+			j, ok := body["jitter"].(float64)
+			if !ok {
+				t.Fatalf("log body %q carries no jitter value", ln.Body)
+			}
+			jitters[strconv.FormatFloat(j, 'g', -1, 64)] = true
+			lines++
+		}
+	}
+	if len(jitters) < lines/2 {
+		t.Fatalf("%d lines share only %d distinct jitter values; each line draws its own", lines, len(jitters))
 	}
 }
 

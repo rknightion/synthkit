@@ -80,7 +80,7 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 				TraceID: r.TraceID, SpanID: r.SpanID, ParentID: "",
 				Kind:  rootKind,
 				Start: base, End: base.Add(dur),
-				Status: rootStatus(rootKind, httpNode(entry), r),
+				Status: rootStatus(rootKind, protoOf(entry), r),
 				Attrs:  eAttrs,
 			}
 			decorateRoot(&root, r, httpNode(entry))
@@ -180,7 +180,7 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 						TraceID: r.TraceID, SpanID: call.PeerSpanID, ParentID: calleeContext,
 						Kind:  otlp.KindServer,
 						Start: hopStart, End: serverEnd,
-						Status: serverStatus(r, call, httpNode(callee)),
+						Status: serverStatus(r, call, protoOf(callee)),
 						Attrs:  sAttrs,
 					}
 					decorateServer(&server, r, i, callee)
@@ -382,7 +382,7 @@ func (w *Workload) projectLogs(ctx context.Context, world *core.World, batch []*
 		completedAt := r.RenderStart().Add(dur)
 		level := logLevel(r.Outcome)
 		if causalFailing(r) {
-			w.projectCausalLogs(r, world, func(n *node, level string, t time.Time, ctxEval telemetryspec.EvalCtx) {
+			w.projectCausalLogs(r, func(n *node, level string, t time.Time, ctxEval telemetryspec.EvalCtx) {
 				for _, spec := range n.logs {
 					emit(n, spec, level, t, ctxEval)
 				}
