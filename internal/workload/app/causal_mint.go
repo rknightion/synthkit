@@ -618,7 +618,7 @@ func (ev *evaluator) baseMS(name, path string, legacyMS float64, fresh bool, li 
 	if cn.durRes == "" {
 		bd.d = legacyMS
 		if fresh {
-			bd.d *= 0.8 + 0.4*ev.draw(path+"/jitter")
+			bd.d *= 0.8 + float64(0.4*ev.draw(path+"/jitter"))
 		}
 	} else {
 		st, _ := ev.p.model.State(cn.durRes, ev.now)
@@ -628,7 +628,7 @@ func (ev *evaluator) baseMS(name, path string, legacyMS float64, fresh bool, li 
 			mean = r.LatencyMS * math.Max(1, st.LatencyFactor)
 		}
 		u := math.Min(math.Max(ev.draw(path+"/"+cn.durRes+"/duration"), 1e-12), 1-1e-12)
-		z := math.Sqrt2 * math.Erfinv(2*u-1)
+		z := math.Sqrt2 * math.Erfinv(float64(2*u)-1)
 		median := mean / math.Exp(causalDurationSigma*causalDurationSigma/2)
 		spread := math.Exp(causalDurationSigma*z) * ev.eng.FailFactor(ev.now, "latency_storm", name, 4.0)
 		bd.d = median * spread
@@ -643,7 +643,7 @@ func (ev *evaluator) baseMS(name, path string, legacyMS float64, fresh bool, li 
 	}
 	for _, dep := range cn.extraDeps {
 		if st, ok := ev.p.model.State(dep, ev.now); ok && st.LatencyFactor > 1 {
-			x := ev.p.res[dep].LatencyMS * (st.LatencyFactor - 1)
+			x := float64(ev.p.res[dep].LatencyMS * (st.LatencyFactor - 1))
 			bd.d += x
 			bd.own += x
 		}
@@ -677,7 +677,7 @@ func (ev *evaluator) serve(name, path string, hop, li int, start, legacyMS float
 			case e.Kind == causal.KindRule:
 				res.durMS = msOf(e.Wait) + wait + d0 // the record is examined, then rejected
 			default:
-				res.durMS = msOf(e.Wait) + wait + preWorkFraction*d0
+				res.durMS = msOf(e.Wait) + wait + float64(preWorkFraction*d0)
 			}
 			return res
 		}
@@ -691,7 +691,10 @@ func (ev *evaluator) serve(name, path string, hop, li int, start, legacyMS float
 		}
 		wait += msOf(e.Wait)
 	}
-	cursor := start + wait + preWorkFraction*pre0
+	// Explicit binary64 conversions are rounding barriers under the Go spec: without them
+	// arm64 may fuse multiply-adds that baseline amd64 rounds separately. The timeline feeds
+	// integer nanosecond timestamps (and shipped digests), so even a last-bit difference matters.
+	cursor := start + wait + float64(preWorkFraction*pre0)
 	childStart := cursor
 	heldSpan := 0.0 // elapsed time of the calls that run the held dependency
 	for _, ci := range ev.children[li] {
@@ -713,9 +716,9 @@ func (ev *evaluator) serve(name, path string, hop, li int, start, legacyMS float
 	if bd.covered {
 		// The hold is the service's own time plus the held call, so the slowed dependency counts
 		// once, inside that call; the hold still spans every other call.
-		res.durMS = wait + math.Max(bd.own+heldSpan, preWorkFraction*pre0+(cursor-childStart))
+		res.durMS = wait + math.Max(bd.own+heldSpan, float64(preWorkFraction*pre0)+(cursor-childStart))
 	} else {
-		res.durMS = wait + math.Max(d0, preWorkFraction*pre0+(cursor-childStart))
+		res.durMS = wait + math.Max(d0, float64(preWorkFraction*pre0)+(cursor-childStart))
 	}
 	if li >= 0 {
 		if cause := ev.hopCause(li, path, name, fresh); cause != "" {
@@ -753,7 +756,7 @@ func (ev *evaluator) edge(parentOut, li int, parentPath string, start float64, f
 	for k := 0; ; k++ {
 		if k > 0 {
 			ev.touched = true
-			t += pol.BackoffMS * math.Pow(2, float64(k-1))
+			t += float64(pol.BackoffMS * math.Pow(2, float64(k-1)))
 		}
 		path := parentPath + ">" + target + "#" + strconv.Itoa(k)
 		a := ev.attempt(parentOut, li, k, path, t, fresh || k > 0, pol)

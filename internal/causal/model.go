@@ -347,7 +347,9 @@ func (c *compiled) baseDemand(clk Clock, t time.Time) float64 {
 		return dm.PeakRPS * vm
 	}
 	f := clamp01(clk.Factor(t, c.decl.Weight, c.decl.NonProd))
-	return dm.OffPeakRPS + (dm.PeakRPS-dm.OffPeakRPS)*f
+	// Round products before adding: this model supplies digest-sensitive app timestamps, and
+	// Go otherwise permits architecture-dependent fused multiply-adds (see the app evaluator).
+	return dm.OffPeakRPS + float64((dm.PeakRPS-dm.OffPeakRPS)*f)
 }
 
 // refState is the referenced dependency's latency factor and the failed share of work held
@@ -369,7 +371,7 @@ func (c *compiled) refState() (lf, failed float64) {
 func (c *compiled) hold(lf float64) float64 {
 	h := c.r.HoldMS
 	if c.ref != nil {
-		h += c.ref.r.LatencyMS * (lf - 1)
+		h += float64(c.ref.r.LatencyMS * (lf - 1))
 	}
 	return h
 }
@@ -406,7 +408,7 @@ func (c *compiled) amplified(d, reject float64) float64 {
 	for i, l := range c.loads {
 		rest -= l.Share
 		if g := c.gates[i]; g != nil && c.from == nil {
-			out += l.Share * g.arrivals(latestReject(c, reject))
+			out += float64(l.Share * g.arrivals(latestReject(c, reject)))
 			continue
 		}
 		p := 0.0
@@ -418,7 +420,7 @@ func (c *compiled) amplified(d, reject float64) float64 {
 			attempts += pk
 			pk *= p
 		}
-		out += l.Share * attempts
+		out += float64(l.Share * attempts)
 	}
 	return d * (math.Max(0, rest) + out)
 }
@@ -456,7 +458,7 @@ func (c *compiled) occupancy(h, lf, failed float64) float64 {
 		return h
 	}
 	sum, w := c.failedHoldSum(lf, failed)
-	return (1-failed)*h + failed*sum/w
+	return float64((1-failed)*h) + failed*sum/w
 }
 
 // failedHoldMean is the mean elapsed time of a failed unit of work, the failed term of
@@ -475,11 +477,11 @@ func (c *compiled) failedHoldSum(lf, failed float64) (sum, w float64) {
 	rest := 1.0
 	for i, l := range c.loads {
 		rest -= l.Share
-		sum += l.Share * c.failedHold(c.held[i], lf, failed)
+		sum += float64(l.Share * c.failedHold(c.held[i], lf, failed))
 		w += l.Share
 	}
 	if rest = math.Max(0, rest); rest > 0 || w == 0 {
-		sum += rest * c.failedHold(nil, lf, failed)
+		sum += float64(rest * c.failedHold(nil, lf, failed))
 		w += rest
 	}
 	return sum, w
@@ -494,17 +496,17 @@ func (c *compiled) failedHoldSum(lf, failed float64) (sum, w float64) {
 // nil (no request tree places the call) is one attempt. Every term is a declared quantity (hold_ms,
 // latency_ms, the latency factor, retries, backoff_ms) or the layout share; none is tuned.
 func (c *compiled) failedHold(pol *CallPolicy, lf, failed float64) float64 {
-	per := PreWorkFraction * c.ref.r.LatencyMS * lf
+	per := float64(PreWorkFraction * c.ref.r.LatencyMS * lf)
 	span := per
 	if pol != nil && pol.Retryable(ClassConnect, 0) {
 		connect := clamp01(c.ref.last.st.RejectShare / failed)
 		resent := per
 		for k := range pol.Retries {
-			resent += pol.BackoffMS*math.Pow(2, float64(k)) + per
+			resent += float64(pol.BackoffMS*math.Pow(2, float64(k))) + per
 		}
-		span = connect*resent + (1-connect)*per
+		span = float64(connect*resent) + float64((1-connect)*per)
 	}
-	return PreWorkFraction*c.r.HoldMS + span
+	return float64(PreWorkFraction*c.r.HoldMS) + span
 }
 
 // capResult is one capacity step's physics for an offered demand.
@@ -571,7 +573,7 @@ func (m *Model) step(k int64, clk Clock) {
 		case KindDependency:
 			aS, iS := c.fault(clk, t, ModeDependencySlow)
 			aU, iU := c.fault(clk, t, ModeDependencyUnavailable)
-			st.LatencyFactor = 1 + (c.slow-1)*iS
+			st.LatencyFactor = 1 + float64((c.slow-1)*iS)
 			st.RejectShare, st.FailedShare = iU, iU
 			// Dominant: the stronger active fault; a tie goes to unavailability.
 			if iU >= iS {
@@ -662,8 +664,8 @@ func finiteUtil(rho float64) float64 {
 
 // queueOutcome integrates one fluid FIFO step from backlog b: inflow and service over Step.
 func (c *compiled) queueOutcome(b, d, mu float64) (next, served, overflow float64) {
-	inflow := d * stepSec
-	raw := b + inflow - mu*stepSec
+	inflow := float64(d * stepSec)
+	raw := b + inflow - float64(mu*stepSec)
 	if raw <= 0 {
 		return 0, b + inflow, 0
 	}
@@ -747,7 +749,7 @@ func (c *compiled) oldestAge(k int64) float64 {
 	var tau float64 // seconds relative to grid point k
 	if p0.a <= c.cumD && p1.a > p0.a {
 		frac := (c.cumD - p0.a) / (p1.a - p0.a)
-		tau = float64(p0.k-k)*stepSec + frac*float64(p1.k-p0.k)*stepSec
+		tau = float64(float64(p0.k-k)*stepSec) + float64(frac*float64(p1.k-p0.k)*stepSec)
 	} else {
 		tau = float64(p0.k-k) * stepSec
 	}

@@ -21,6 +21,23 @@ import (
 	"github.com/rknightion/synthkit/internal/shape"
 )
 
+// TestCausalTimelineRoundsPreWorkBeforeAddingStart exercises the evaluator, not a copy of its
+// arithmetic. These synthetic durations put the child at a half-nanosecond boundary: rounding
+// 0.1*legacyMS to binary64 before adding start gives 3099467568 ns, whereas a fused multiply-add
+// gives 3099467567 ns. arm64 used to fuse the cursor expression; baseline amd64 did not.
+func TestCausalTimelineRoundsPreWorkBeforeAddingStart(t *testing.T) {
+	ev := evaluator{
+		p:        &causalPlan{nodes: map[string]*causalNode{"parent": {}, "child": {}}},
+		legacy:   []ledger.Call{{Target: "child", Duration: time.Millisecond}},
+		causes:   []string{""},
+		children: map[int][]int{-1: {0}},
+	}
+	ev.serve("parent", "parent#0", -1, -1, 2766.078404020539, 3333.891634794606, false)
+	if got, want := ev.out[0].Offset, time.Duration(3099467568); got != want {
+		t.Fatalf("child offset = %d ns, want %d ns (pre-work must round before addition)", got, want)
+	}
+}
+
 // causalNow is a Monday on the business plateau (UTC), inside every test incident window.
 var causalNow = time.Date(2026, 6, 15, 13, 0, 0, 0, time.UTC)
 
