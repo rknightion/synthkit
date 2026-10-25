@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
 )
 
 // Value-model kind discriminators (the YAML keys), returned by ValueModel.Kind.
@@ -31,6 +32,7 @@ const (
 	KindShape      = "shape"
 	KindRef        = "ref"
 	KindLognormal  = "lognormal"
+	KindNow        = "now"
 )
 
 // z95 is the standard-normal 0.95 quantile: a lognormal's p95 is median × exp(sigma × z95).
@@ -51,7 +53,15 @@ type ValueModel struct {
 	Shape      *ShapeModel `yaml:"shape"`       // base × the shape/incident engine reading (incident-aware)
 	Ref        string      `yaml:"ref"`         // pulls a correlation field by name (the correlation glue)
 	Lognormal  *Lognormal  `yaml:"lognormal"`   // right-skewed positive draw (median, p95)
+	Now        *NowModel   `yaml:"now"`         // the tick timestamp in Unix seconds (gauge value only)
 }
+
+// NowModel selects the emission time as a metric value: the tick timestamp in Unix seconds, for
+// a "last success" or heartbeat timestamp gauge. It takes no fields (declare it as `now: {}`).
+// The reading is the tick time the workload was driven with, never the wall clock, so it is
+// deterministic under the fixed clock `-once -dump` uses. It is valid on a gauge value only: a
+// counter or histogram built from a timestamp is not a meaningful series.
+type NowModel struct{}
 
 // EnumEntry is one weighted categorical value. Weight only steers a per-request draw (a log body
 // field, span attribute or stream label); it never divides traffic among metric series, because a
@@ -139,6 +149,7 @@ type EvalCtx struct {
 	IncidentIntensity float64           // scoped intensity in [0,1], only for shape.incident_value; zero when inactive
 	Rand              func() float64    // uniform [0,1) — the shape engine's Float64; nil ⇒ deterministic 0.5
 	Norm              func() float64    // standard-normal — the shape engine's NormFloat64; nil ⇒ deterministic 0
+	Now               time.Time         // tick time read by the now model; zero ⇒ the model reads 0
 }
 
 func (c EvalCtx) rand() float64 {
@@ -212,6 +223,11 @@ func (v ValueModel) Eval(ctx EvalCtx) (float64, string) {
 			return 0, ""
 		}
 		return 0, ctx.Ref[v.Ref]
+	case KindNow:
+		if ctx.Now.IsZero() {
+			return 0, ""
+		}
+		return float64(ctx.Now.Unix()) + float64(ctx.Now.Nanosecond())/1e9, ""
 	case KindLognormal:
 		sigma := math.Log(v.Lognormal.P95/v.Lognormal.Median) / z95
 		return v.Lognormal.Median * math.Exp(sigma*ctx.norm()), ""
@@ -284,6 +300,8 @@ func (v ValueModel) Kind() string {
 		return KindRef
 	case v.Lognormal != nil:
 		return KindLognormal
+	case v.Now != nil:
+		return KindNow
 	}
 	return ""
 }
@@ -294,7 +312,7 @@ func (v ValueModel) setCount() int {
 	for _, set := range []bool{
 		v.Const != nil, v.ConstStr != nil, len(v.Enum) > 0, v.IntRange != nil,
 		v.FloatRange != nil, v.Normal != nil, v.Bool != nil, v.Shape != nil, v.Ref != "",
-		v.Lognormal != nil,
+		v.Lognormal != nil, v.Now != nil,
 	} {
 		if set {
 			n++
@@ -308,7 +326,7 @@ func (v ValueModel) setCount() int {
 func (v ValueModel) Validate() error {
 	switch n := v.setCount(); {
 	case n == 0:
-		return fmt.Errorf("value model: no model set (need exactly one of const|const_str|enum|int_range|float_range|normal|lognormal|bool|shape|ref)")
+		return fmt.Errorf("value model: no model set (need exactly one of const|const_str|enum|int_range|float_range|normal|lognormal|bool|shape|now|ref)")
 	case n > 1:
 		return fmt.Errorf("value model: %d models set, need exactly one", n)
 	}

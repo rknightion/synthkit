@@ -258,12 +258,13 @@ Each node can declare custom metrics, log streams, and extra span attributes via
 | `lognormal` | `lognormal: {median: 120, p95: 3600}` | Right-skewed positive draw with the given median and 95th percentile (see below) |
 | `bool` | `bool: {p_true: 0.1}` | Weighted boolean |
 | `shape` | `shape: {base: 100.0, mode: latency_storm}` | Legacy `base × load × incident multiplier`; optional metric-only `incident_value` selects an explicit endpoint instead, and `incident_absolute` keeps that endpoint off the load curve (see below) |
+| `now` | `now: {}` | The tick time in Unix seconds (gauge metric values only), for a last-success or heartbeat timestamp; never the wall clock |
 | `ref` | `ref: trace_id` | Pulls a correlation field by name |
 
 **Capability matrix** (enforced at load time):
 
 - **Metric labels** and **Loki stream labels**: only `const` / `const_str` / `enum`. These must enumerate a stable, total domain on every run.
-- **Metric values**: only numeric models — `const`, `int_range`, `float_range`, `normal`, `lognormal`, `bool`, `shape`.
+- **Metric values**: only numeric models — `const`, `int_range`, `float_range`, `normal`, `lognormal`, `bool`, `shape`, and `now` on gauges.
 - Enum `rate_scale` / `value_scale` are admitted on **metric labels** only (see below); a log, stream-label or span enum carrying them is rejected.
 - **Log body fields** and **span attributes**: any model, including `ref`, except `shape.incident_value` (metric values only). High-cardinality correlation keys (`trace_id`, `portkey_trace_id`, `run_id`, etc.) ride here — never as labels or stream labels.
 

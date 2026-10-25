@@ -181,6 +181,9 @@ func (m MetricSpec) Validate() error {
 			}
 		}
 	}
+	if m.Value.Now != nil && m.Instrument != InstrumentGauge {
+		return fmt.Errorf("metric %q: now is valid on a gauge value only", m.Name)
+	}
 	if m.StockOf != nil {
 		if err := m.validateStock(); err != nil {
 			return err

@@ -29,7 +29,7 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 	// observePausedMetricStates instead of evaluating shape values, whose evaluator treats a zero
 	// load factor as full load.
 	paused := world.Shape.Paused()
-	pausedCtx := telemetryspec.EvalCtx{Rand: world.Shape.Float64, Norm: world.Shape.NormFloat64}
+	pausedCtx := telemetryspec.EvalCtx{Rand: world.Shape.Float64, Norm: world.Shape.NormFloat64, Now: now}
 	dt := interval.Seconds()
 	if !w.lastMetricTick.IsZero() && now.After(w.lastMetricTick) {
 		dt = now.Sub(w.lastMetricTick).Seconds()
@@ -129,6 +129,7 @@ func (w *Workload) metricCtx(now time.Time, world *core.World, id nodeIdentity, 
 		IncidentIntensity: intensity,
 		Rand:              world.Shape.Float64,
 		Norm:              world.Shape.NormFloat64,
+		Now:               now, // the `now` value model reads the tick time, never the wall clock
 	}
 }
 
