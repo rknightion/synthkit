@@ -1176,6 +1176,7 @@ FunctionName-only Lambda CloudWatch metrics (remote-write only)
 | `functions[].load` | string |  | Load selects how the arrival rates follow time. Empty or "constant" keeps every rate fixed (the default). "business" scales invocations_per_min, async_received_per_min, stream_batches_per_min and throttles_per_min together by the blueprint's business curve (diurnal x weekly x master volume), so the disjoint populations stay coherent and error_fraction applies to the scaled executions. The configured rates are then the rate at a curve value of 1.0 (weekday business-hours plateau). Operator assumption, not an AWS behaviour. |
 | `functions[].duration_ms_min` | float |  | DurationMSMin is the lower bound of the per-execution duration distribution, in milliseconds. duration_ms stays the mean (Duration _sum and _average unchanged). Must be declared together with duration_ms_max (both zero means constant duration) and not exceed duration_ms. The observed Minimum moves from the mean toward this bound as executions per window increase and is limited so a sample set with the window's sum exists; one execution has no spread. A bound equal to duration_ms leaves no room for spread on either side. |
 | `functions[].duration_ms_max` | float |  | DurationMSMax is the upper bound of the per-execution duration distribution, in milliseconds, with the same rules as duration_ms_min. It must not be below duration_ms. |
+| `functions[].duration_ms_idle` | float |  | DurationMSIdle opts the function into load-following batch duration: with `load: business`, the mean per-execution duration moves with the business curve from this idle (curve value 0) duration up to duration_ms (curve value 1.0, the weekday business-hours plateau), so a scheduled batch does less work per run overnight and on weekends. The curve factor is capped at 1, so duration_ms stays the ceiling. duration_ms_min/duration_ms_max, when declared, scale with the mean so they keep bracketing it. Positive and not above duration_ms, and only valid with `load: business`. Zero (omitted) keeps the constant duration, so default output is unchanged. Operator assumption, not an AWS behaviour. |
 | `functions[].zero_valued_samples` | bool |  | ZeroValuedSamples makes Throttles and Errors observe every request (execution attempts plus throttled requests) with 1 for the event and 0 otherwise, as a lab capture of this service reported, instead of only the events. Throttles then has Sum = throttles and SampleCount = requests; Errors has Sum = errors and the same SampleCount, throttled requests contributing 0. A window with no request still emits neither. Omitted keeps the event-only observations, so default output is unchanged. |
 | `reserved_concurrency` | float |  | ReservedConcurrency is account capacity reserved/provisioned outside these unreserved functions. Must be an integer capacity count. Claimed concurrency = this allocation + modelled activity. |
 
@@ -1634,6 +1635,7 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].custom_metrics[].value.lognormal` | object | yes |  |
 | `services[].custom_metrics[].value.lognormal.median` | float |  |  |
 | `services[].custom_metrics[].value.lognormal.p95` | float |  |  |
+| `services[].custom_metrics[].value.now` | object | yes |  |
 | `services[].custom_metrics[].buckets[]` | float |  |  |
 | `services[].custom_metrics[].le_style` | string |  |  |
 | `services[].custom_metrics[].stock_of` | object | yes |  |
@@ -1676,6 +1678,7 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].metrics[].value.lognormal` | object | yes |  |
 | `services[].metrics[].value.lognormal.median` | float |  |  |
 | `services[].metrics[].value.lognormal.p95` | float |  |  |
+| `services[].metrics[].value.now` | object | yes |  |
 | `services[].metrics[].buckets[]` | float |  |  |
 | `services[].metrics[].le_style` | string |  |  |
 | `services[].metrics[].stock_of` | object | yes |  |
