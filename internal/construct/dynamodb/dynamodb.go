@@ -152,7 +152,7 @@ type construct struct {
 }
 
 // AxisTable is the failure axis of one declared table, addressed by its TableName.
-const AxisTable failuremode.Axis = "table"
+const AxisTable = failuremode.AxisTable
 
 // ModeThrottleStorm is the table-axis incident: requests of the throttle-captured operations
 // (GetItem, PutItem) are additionally rejected for exceeding provisioned throughput. The extra
