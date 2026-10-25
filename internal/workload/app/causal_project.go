@@ -599,9 +599,40 @@ func entryFaulted(r *ledger.Request, marked []bool) bool {
 
 func seconds(d time.Duration) float64 { return d.Seconds() }
 
-// Healthy-reference keys: a node's SERVER/root spans and the CLIENT spans calling a target.
-func serverRefKey(node string) string   { return "server\x00" + node }
-func clientRefKey(target string) string { return "client\x00" + target }
+// Healthy-reference keys: a node's SERVER/root spans and one caller's CLIENT spans calling a
+// target (SKT-0197: each caller's CLIENT row follows only its own hops).
+func serverRefKey(node string) string { return "server\x00" + node }
+func clientRefKey(caller, target string) string {
+	return "client\x00" + caller + "\x00" + target
+}
+
+// hopCaller is the node whose CLIENT span makes hop i: the target of the hop it nests under, or
+// the entry for a direct child of the entry's own span.
+func (w *Workload) hopCaller(r *ledger.Request, i int) *node {
+	if p := r.Calls[i].ParentHopIndex; p >= 0 && p < len(r.Calls) {
+		if n := w.graph.byName[r.Calls[p].Target]; n != nil {
+			return n
+		}
+	}
+	return w.graph.entry
+}
+
+// hopEdgeClient is the service-graph client of hop i: its nearest traced caller up the hop's
+// ancestry, as serviceGraphMetricEdges pairs a callee with the last traced service above it;
+// nil when no caller above the hop is traced.
+func (w *Workload) hopEdgeClient(r *ledger.Request, i int) *node {
+	for {
+		caller := w.hopCaller(r, i)
+		if caller.decl.tracesEnabled() {
+			return caller
+		}
+		p := r.Calls[i].ParentHopIndex
+		if caller == w.graph.entry || p < 0 || p >= len(r.Calls) {
+			return nil
+		}
+		i = p
+	}
+}
 
 func serverHopSeconds(c ledger.Call) float64 {
 	if c.ServerDuration > 0 {
@@ -634,7 +665,7 @@ func (w *Workload) learnHealthySpans(reqs []*ledger.Request) {
 			if marked[i] {
 				continue
 			}
-			add(clientRefKey(c.Target), seconds(c.Duration))
+			add(clientRefKey(w.hopCaller(r, i).decl.Name, c.Target), seconds(c.Duration))
 			if c.PeerSpanID != "" {
 				add(serverRefKey(c.Target), serverHopSeconds(c))
 			}
@@ -703,30 +734,47 @@ func (cw *causalSpanWindow) serverFactors(n *node, status string) []float64 {
 	return rowFactors(out, hit)
 }
 
-// clientFactors are the legacy-draw factors of the CLIENT spans calling target in the window;
-// status "" matches every status. nil when none of them carries the fault.
-func (cw *causalSpanWindow) clientFactors(target, status string) []float64 {
+// clientFactors are the legacy-draw factors of caller's CLIENT spans calling target in the
+// window; status "" matches every status. nil when none of them carries the fault. Another
+// caller's hops to the same target never scale caller's row (SKT-0197).
+func (cw *causalSpanWindow) clientFactors(caller *node, target, status string) []float64 {
 	if cw == nil {
 		return nil
 	}
-	key := clientRefKey(target)
+	return cw.clientHopFactors(target, status, func(r *ledger.Request, i int) bool { return cw.w.hopCaller(r, i) == caller })
+}
+
+// edgeClientFactors are the legacy-draw factors of the CLIENT spans of the service-graph edge
+// from client to target: the hops to target whose nearest traced caller is client.
+func (cw *causalSpanWindow) edgeClientFactors(client *node, target string) []float64 {
+	if cw == nil {
+		return nil
+	}
+	return cw.clientHopFactors(target, "", func(r *ledger.Request, i int) bool { return cw.w.hopEdgeClient(r, i) == client })
+}
+
+// clientHopFactors scales each matching hop to target against the healthy reference of its own
+// (caller, target) CLIENT spans.
+func (cw *causalSpanWindow) clientHopFactors(target, status string, match func(*ledger.Request, int) bool) []float64 {
 	var out []float64
 	hit := false
 	for _, r := range cw.reqs {
 		marked, gated := cw.hurt[r]
 		for i, c := range r.Calls {
-			if c.Target == target && (status == "" || spanMetricStatus(callStatus(c)) == status) {
-				f := gated && marked[i]
-				hit = hit || f
-				out = append(out, cw.scaled(key, seconds(c.Duration), f))
+			if c.Target != target || (status != "" && spanMetricStatus(callStatus(c)) != status) || !match(r, i) {
+				continue
 			}
+			f := gated && marked[i]
+			hit = hit || f
+			out = append(out, cw.scaled(clientRefKey(cw.w.hopCaller(r, i).decl.Name, target), seconds(c.Duration), f))
 		}
 	}
 	return rowFactors(out, hit)
 }
 
-// serverEdgeFactors are the legacy-draw factors of the callee SERVER spans of calls to target.
-func (cw *causalSpanWindow) serverEdgeFactors(target string) []float64 {
+// serverEdgeFactors are the legacy-draw factors of the callee SERVER spans of the service-graph
+// edge from client to target: the calls to target whose nearest traced caller is client.
+func (cw *causalSpanWindow) serverEdgeFactors(client *node, target string) []float64 {
 	if cw == nil {
 		return nil
 	}
@@ -736,7 +784,7 @@ func (cw *causalSpanWindow) serverEdgeFactors(target string) []float64 {
 	for _, r := range cw.reqs {
 		marked, gated := cw.hurt[r]
 		for i, c := range r.Calls {
-			if c.Target != target || c.PeerSpanID == "" {
+			if c.Target != target || c.PeerSpanID == "" || cw.w.hopEdgeClient(r, i) != client {
 				continue
 			}
 			f := gated && marked[i]
