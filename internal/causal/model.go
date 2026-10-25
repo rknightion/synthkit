@@ -192,16 +192,24 @@ func gridTime(k int64) time.Time { return time.Unix(0, k*int64(Step)).UTC() }
 // per master tick (Advancer) so all consumers sample live inputs at the same instants. A live
 // fault says nothing about when it began, so a warm start applies it only to the final
 // liveSteps (the retained history) and reads scheduled windows alone before that, when the Clock
-// is a ScheduledClock; without one every step reads Eval, live state included.
+// is a ScheduledClock; without one every step reads Eval, live state included. A catch-up after a
+// gap shorter than Horizon splits the same way whenever more than liveSteps steps are due (a
+// blueprint disabled for 12 h and re-enabled under a live fault builds no 12 h backlog); a call
+// of at most liveSteps steps, every ordinary tick, reads Eval throughout.
 func (m *Model) Advance(now time.Time, c Clock) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	k := gridIndex(now)
-	hist := c // the Clock for steps before the live stretch of a warm start
+	hist := c // the Clock for steps before the live stretch of a warm start or a long catch-up
 	if !m.started || k-m.last > horizonSteps {
 		m.started = true
 		m.last = k - horizonSteps - 1
 		m.reset(m.last)
+	}
+	// More than liveSteps to integrate is a warm start or a catch-up over a gap: the live fault's
+	// start is unknown for all but the final liveSteps, so the earlier steps read scheduled windows
+	// alone. A continuous advance (at most liveSteps) never reaches hist.
+	if k-m.last > liveSteps {
 		if sc, ok := c.(ScheduledClock); ok {
 			hist = scheduledView{Clock: c, sc: sc}
 		}

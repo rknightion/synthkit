@@ -526,3 +526,75 @@ func TestWarmStartWithoutScheduledClock(t *testing.T) {
 		t.Errorf("backlog %.0f, want %.0f (live over the whole Horizon)", st.Backlog, want)
 	}
 }
+
+// A catch-up after a gap longer than the retained history (liveSteps) but shorter than the Horizon
+// splits like a warm start: a live fault says nothing about when it began, so it is applied to the
+// final liveSteps only and the gap before that reads scheduled windows alone. A blueprint disabled
+// for 12 h and re-enabled under a live consumer_slowdown must not invent a 12 h backlog.
+func TestCatchUpGapLiveFaultFinalStretchOnly(t *testing.T) {
+	q := Resource{Name: "jobs-queue", Kind: KindQueue, Size: 5, HoldMS: 500, Demand: constant(8)} // 10 msg/s
+	live := func() *fakeClock {
+		c := newClock()
+		c.live = map[string]float64{ModeConsumerSlowdown + "\x00jobs-queue": 0.5}
+		return c
+	}
+	maxLive := 3.0 * float64(liveSteps) * stepSec // deficit 3 msg/s over the live stretch
+
+	m := mustCompile(t, set(q))
+	m.Advance(t0, newClock())
+	gap := t0.Add(12 * time.Hour)
+	m.Advance(gap, live())
+	st, _ := m.State("jobs-queue", gap)
+	if st.Backlog < maxLive-1 || st.Backlog > maxLive+1 {
+		t.Errorf("12 h catch-up live backlog %.0f, want %.0f (the final stretch only)", st.Backlog, maxLive)
+	}
+	if want := float64(liveSteps) * stepSec; st.OldestAgeSec > want+1 {
+		t.Errorf("oldest age %.0f s exceeds the live stretch %.0f s", st.OldestAgeSec, want)
+	}
+	// The same state a warm start at that instant reaches.
+	fresh := mustCompile(t, set(q))
+	fresh.Advance(gap, live())
+	if b, _ := fresh.State("jobs-queue", gap); !reflect.DeepEqual(st, b) {
+		t.Errorf("catch-up state %+v, warm start %+v", st, b)
+	}
+
+	// A scheduled stall inside the gap (service rate 0 from 1 h to 2 h) counts exactly, under the
+	// same live fault: 720 steps x 8 msg/s x 5 s = 28800 queued, drained at 2 msg/s (10 per step)
+	// from the stall's end up to the live stretch, then 3 msg/s of the live deficit for 180 steps.
+	stall := func() *fakeClock {
+		return live().on(ModeConsumerSlowdown, "jobs-queue", t0.Add(time.Hour), t0.Add(2*time.Hour), 1)
+	}
+	now := t0.Add(3 * time.Hour)
+	m = mustCompile(t, set(q))
+	m.Advance(t0, newClock())
+	m.Advance(now, stall())
+	st, _ = m.State("jobs-queue", now)
+	drain := float64(720-liveSteps) * 10 // steps from 2 h to 3 h, less the live stretch
+	if want := 28800.0 - drain + maxLive; math.Abs(st.Backlog-want) > 20 {
+		t.Errorf("backlog %.0f with a scheduled stall in the gap, want %.0f", st.Backlog, want)
+	}
+	fresh = mustCompile(t, set(q))
+	fresh.Advance(now, stall())
+	if b, _ := fresh.State("jobs-queue", now); !reflect.DeepEqual(st, b) {
+		t.Errorf("catch-up state %+v, warm start %+v", st, b)
+	}
+}
+
+// Continuous advance is unchanged: a live fault integrates over every step when each call
+// covers at most liveSteps, including a call of exactly liveSteps.
+func TestContinuousAdvanceIntegratesLiveFault(t *testing.T) {
+	q := Resource{Name: "jobs-queue", Kind: KindQueue, Size: 5, HoldMS: 500, Demand: constant(8)} // 10 msg/s
+	c := newClock()
+	m := mustCompile(t, set(q))
+	m.Advance(t0, c)
+	c.live = map[string]float64{ModeConsumerSlowdown + "\x00jobs-queue": 0.5}
+	now := t0
+	for range 8 { // 8 calls of exactly liveSteps (15 min) each: 2 h of live fault
+		now = now.Add(time.Duration(liveSteps) * Step)
+		m.Advance(now, c)
+	}
+	st, _ := m.State("jobs-queue", now)
+	if want := 3.0 * 2 * 3600; math.Abs(st.Backlog-want) > 1 {
+		t.Errorf("backlog %.0f after 2 h of continuous live fault, want %.0f", st.Backlog, want)
+	}
+}
