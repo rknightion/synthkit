@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@loop59-root'
 created_date: '2026-10-25T15:15:00Z'
-updated_date: '2026-10-25T19:31:00Z'
+updated_date: '2026-10-25T19:50:00Z'
 labels:
   - causal
 dependencies: []
@@ -36,3 +36,9 @@ Owner ruling Q10 (loop58): a bound agent runtime silently ignores the region-sco
 <!-- SECTION:PLAN:BEGIN -->
 Add loader rejection for legacy throttle targeting a causally bound agent runtime, retain unbound and deployment-global behavior, and prove via public blueprint load plus scoped gates.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Two failed review rounds opened integration-fixture and authored/effective-scope mismatch classes. First convergence tripwire selected senior escalation and a fail-closed schedule-representability approach; no landing acceptance yet.
+<!-- SECTION:NOTES:END -->
