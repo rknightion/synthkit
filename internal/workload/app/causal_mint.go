@@ -818,8 +818,14 @@ func (ev *evaluator) attempt(parentOut, li, k int, path string, start float64, f
 		res = result{class: causal.ClassTimeout, fault: f, slow: res.slow, slowBy: res.slowBy, durMS: pol.TimeoutMS, serverMS: res.serverMS, timedOut: true}
 	}
 	call := &ev.out[idx]
-	call.Duration = durOf(res.durMS)
+	// Round the hop's start and end, not its duration: a hop that ends with its caller (a hold
+	// across the dependency it calls) then ends on the same nanosecond, never one past it. The
+	// 1 ms floor still applies (durOf).
 	call.Offset = time.Duration(math.Round(start * float64(time.Millisecond)))
+	call.Duration = time.Duration(math.Round((start+res.durMS)*float64(time.Millisecond))) - call.Offset
+	if call.Duration < time.Millisecond {
+		call.Duration = durOf(res.durMS)
+	}
 	call.Failed = !res.ok
 	call.TimedOut = res.timedOut
 	if res.timedOut {
