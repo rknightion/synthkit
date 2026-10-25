@@ -121,7 +121,8 @@ age observes admitted async executions, iterator age observes stream batches. Er
 subset of executions; throttles are separate. Ages are explicit constants; durations are constant
 unless `duration_ms_min`/`duration_ms_max` declare operator-assumed bounds (the mean stays
 `duration_ms`); `load: business` is an opt-in operator assumption scaling arrival rates by the
-business curve, not a sourced AWS behaviour. By default Errors and Throttles are emitted only when an
+business curve, not a sourced AWS behaviour; with `load: business`, an opt-in `duration_ms_idle` also moves the mean
+duration with that curve from the idle value up to `duration_ms`. By default Errors and Throttles are emitted only when an
 event occurs; a function's opt-in `zero_valued_samples` instead observes every request with 0 or 1
 as in the throttle capture section [slug: cw-throttle-capture]; concurrency
 is a synthetic snapshot, not an AWS scheduler simulation. Reserved concurrency must be whole.

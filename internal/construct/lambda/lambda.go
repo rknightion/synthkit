@@ -75,6 +75,16 @@ type Function struct {
 	// milliseconds, with the same rules as duration_ms_min. It must not be below
 	// duration_ms.
 	DurationMSMax float64 `yaml:"duration_ms_max"`
+	// DurationMSIdle opts the function into load-following batch duration: with
+	// `load: business`, the mean per-execution duration moves with the business curve
+	// from this idle (curve value 0) duration up to duration_ms (curve value 1.0, the
+	// weekday business-hours plateau), so a scheduled batch does less work per run
+	// overnight and on weekends. The curve factor is capped at 1, so duration_ms stays
+	// the ceiling. duration_ms_min/duration_ms_max, when declared, scale with the mean
+	// so they keep bracketing it. Positive and not above duration_ms, and only valid
+	// with `load: business`. Zero (omitted) keeps the constant duration, so default
+	// output is unchanged. Operator assumption, not an AWS behaviour.
+	DurationMSIdle float64 `yaml:"duration_ms_idle"`
 	// ZeroValuedSamples makes Throttles and Errors observe every request (execution
 	// attempts plus throttled requests) with 1 for the event and 0 otherwise, as a lab
 	// capture of this service reported, instead of only the events. Throttles then has
@@ -199,7 +209,7 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 		}{
 			{"invocations_per_min", f.InvocationsPerMin, 1e9}, {"throttles_per_min", f.ThrottlesPerMin, 1e9},
 			{"async_received_per_min", f.AsyncReceivedPerMin, 1e9}, {"stream_batches_per_min", f.StreamBatchesPerMin, 1e9},
-			{"duration_ms", f.DurationMS, 60000}, {"duration_ms_min", f.DurationMSMin, 60000}, {"duration_ms_max", f.DurationMSMax, 60000}, {"async_age_ms", f.AsyncAgeMS, 604800000}, {"iterator_age_ms", f.IteratorAgeMS, 604800000},
+			{"duration_ms", f.DurationMS, 60000}, {"duration_ms_min", f.DurationMSMin, 60000}, {"duration_ms_max", f.DurationMSMax, 60000}, {"duration_ms_idle", f.DurationMSIdle, 60000}, {"async_age_ms", f.AsyncAgeMS, 604800000}, {"iterator_age_ms", f.IteratorAgeMS, 604800000},
 			{"error_fraction", f.ErrorFraction, 1}, {"async_dropped_fraction", f.AsyncDroppedFraction, 1},
 		} {
 			if !bounded(v.value, v.max) {
@@ -214,6 +224,9 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 		}
 		if (f.DurationMSMin > 0 && f.DurationMSMin > f.DurationMS) || (f.DurationMSMax > 0 && f.DurationMSMax < f.DurationMS) {
 			return nil, fmt.Errorf("lambda: function %q duration_ms_min <= duration_ms <= duration_ms_max is required when a bound is set", f.Name)
+		}
+		if f.DurationMSIdle > 0 && (f.Load != "business" || f.DurationMSIdle > f.DurationMS) {
+			return nil, fmt.Errorf("lambda: function %q duration_ms_idle requires load: business and must not exceed duration_ms", f.Name)
 		}
 		// Resolved duration bounds; both equal duration_ms when no spread is declared.
 		durMin, durMax := f.DurationMS, f.DurationMS
@@ -301,6 +314,13 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		}
 		throttles := take(&f.throttles, throttleDemand)
 		duration, durMin, durMax := cfg.DurationMS, f.durMin, f.durMax
+		if cfg.DurationMSIdle > 0 && duration > 0 {
+			// Mean duration follows the curve between idle and duration_ms; the spread
+			// bounds keep their ratio to the mean so they still bracket it.
+			scaled := duration - (duration-cfg.DurationMSIdle)*(1-math.Min(bf, 1))
+			ratio := scaled / duration
+			duration, durMin, durMax = scaled, durMin*ratio, durMax*ratio
+		}
 		if fx.durationOn {
 			duration, durMin, durMax = duration*fx.durationFactor, durMin*fx.durationFactor, durMax*fx.durationFactor
 		}
