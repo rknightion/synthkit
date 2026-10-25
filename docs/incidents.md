@@ -54,7 +54,7 @@ The `target` field on an effect resolves to a specific declared instance:
 | `orders` | One table declared under an environment's `cloud.dynamodb.tables` (see [table axis](#table-axis-dynamodb)) |
 | `table:*` | Every declared DynamoDB table |
 | `checkout-pool` | One causal resource declared under an environment's `resources` (see [resource axis](#resource-axis-causal-resources)); a resource named `<base>-<lower(env)>` is also reached by `<base>` |
-| `resource:*` | Every declared causal resource |
+| `resource:*` | Every declared causal resource of the mode's kind |
 | omitted | Valid only for single-axis modes — the mode's axis is inferred and all instances of that axis are targeted |
 
 The resolver validates every effect target against the blueprint's actual instance inventory at load time. An unknown name or an axis mismatch is a loud load error.
@@ -274,8 +274,11 @@ it: `concurrency_reduced` on the resource (throttles, fewer invocations, concurr
 reduced limit), `dependency_slow` on its held-across dependency (longer `aws_lambda_duration`, more
 concurrency, throttles once the limit is reached) and `dependency_unavailable` or `credential_expired`
 (`aws_lambda_errors` over `aws_lambda_invocations`). A bound function omits every arrival-rate and
-duration field; `reserved_concurrency` and `zero_valued_samples` still apply. Each family drains back
-to the baseline once the incident ends.
+duration field; `reserved_concurrency` and `zero_valued_samples` still apply. It may declare
+`error_fraction` (0..1), a background share of its admitted invocations that fail whatever the model
+says: `aws_lambda_errors` is that share at baseline and the model's failures are added to it during an
+incident, never exceeding `aws_lambda_invocations`. Each family drains back to the baseline once the
+incident ends.
 
 ### queue axis (Solace)
 
@@ -469,7 +472,7 @@ configured. The harness discovers IDs from `GET /control/schema`, continues afte
 prints one disposition per ID. For `eval_quality_degraded` and `portkey_scrape_degraded`, pass a
 sibling environment: their observations prove the target moves while that sibling remains at its
 baseline. The current query catalogue is sourced from `signals/agentcore.md`, `signals/cw.md`,
-`signals/apm.md`, `signals/k8s.md`, `signals/langsmith.md`, `signals/portkey.md`, and
+`signals/apm.md`, `signals/k8s.md`, `signals/langsmith.md`, `signals/portkey.md`, `signals/solace.md`, and
 `signals/logs.md`; adding a scenario whose effects have no catalogue entry is a failed disposition,
 not a control-plane pass.
 

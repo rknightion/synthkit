@@ -319,5 +319,5 @@ the application's status codes, durations, backlog and the cloud metrics togethe
 A fault on the `resource` axis activates like any other: an entry in `incidents:`, a scenario
 referenced from an incident, or live through the control plane. A target is a declared resource
 name. A resource named `<base>-<environment>` is also reached by `<base>` in every environment, and
-`resource:*` covers every declared resource. The mode name decides the axis, so a resource that
+`resource:*` covers every declared resource of the mode's kind. The mode name decides the axis, so a resource that
 shares its name with a service node or a database is still reached by its own modes.
