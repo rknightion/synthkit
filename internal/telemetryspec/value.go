@@ -59,11 +59,20 @@ type ValueModel struct {
 }
 
 // NowModel selects the emission time as a metric value: the tick timestamp in Unix seconds, for
-// a "last success" or heartbeat timestamp gauge. It takes no fields (declare it as `now: {}`).
-// The reading is the tick time the workload was driven with, never the wall clock, so it is
-// deterministic under the fixed clock `-once -dump` uses. It is valid on a gauge value only: a
-// counter or histogram built from a timestamp is not a meaningful series.
-type NowModel struct{}
+// a "last success" or heartbeat timestamp gauge (declare it as `now: {}`). The reading is the
+// tick time the workload was driven with, never the wall clock, so it is deterministic under the
+// fixed clock `-once -dump` uses. It is valid on a gauge value only: a counter or histogram built
+// from a timestamp is not a meaningful series.
+//
+// StallMode names an incident mode that stalls the producer: while that mode is active for the
+// service the metric belongs to, the gauge holds its last emitted reading instead of advancing,
+// and it resumes at the tick time when the incident ends, so a "last success older than N" alert
+// can fire. Omitted means the gauge always advances. The workload that owns the metric resolves
+// the incident (the same per-service resolution its shape values use); the model itself only
+// carries the name.
+type NowModel struct {
+	StallMode string `yaml:"stall_mode"`
+}
 
 // EnumEntry is one weighted categorical value. Weight only steers a per-request draw (a log body
 // field, span attribute or stream label); it never divides traffic among metric series, because a
@@ -392,6 +401,10 @@ func (v ValueModel) Validate() error {
 				math.IsNaN(*v.Shape.IncidentValue) || math.IsInf(*v.Shape.IncidentValue, 0) {
 				return fmt.Errorf("shape: base and incident_value must be finite")
 			}
+		}
+	case KindNow:
+		if m := v.Now.StallMode; m != "" && strings.TrimSpace(m) != m {
+			return fmt.Errorf("now: stall_mode %q must be a nonblank incident mode name without surrounding whitespace", m)
 		}
 	case KindRef:
 		if strings.TrimSpace(v.Ref) == "" {

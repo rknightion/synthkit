@@ -66,7 +66,9 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 		for i, spec := range n.metrics {
 			native := nativeFor(i)
 			if paused {
-				w.observePausedMetricStates(w.st, native, id, spec, pausedCtx)
+				ctx := pausedCtx
+				ctx.Now = w.heartbeatNow(now, world, id, spec)
+				w.observePausedMetricStates(w.st, native, id, spec, ctx)
 				continue
 			}
 			metricCtx := w.metricCtx(now, world, id, n, spec)
@@ -129,10 +131,36 @@ func (w *Workload) metricCtx(now time.Time, world *core.World, id nodeIdentity, 
 		IncidentIntensity: intensity,
 		Rand:              world.Shape.Float64,
 		Norm:              world.Shape.NormFloat64,
-		Now:               now, // the `now` value model reads the tick time, never the wall clock
+		Now:               w.heartbeatNow(now, world, id, spec), // the tick time (or its stalled hold), never the wall clock
 	}
 }
 
 // incidentAmplification is the magnitude a shape-driven value reaches at full incident intensity
 // (×N at intensity 1.0) — e.g. a fallback rate triples under fallback_storm.
 const incidentAmplification = 3.0
+
+// heartbeatNow is the time a `now` gauge reads this tick: the tick time, unless the metric declares
+// a stall_mode that is active for its service, when it is the last reading taken while the mode was
+// inactive. The hold is workload state keyed by node and metric, advanced only by non-stalled
+// ticks, so it is deterministic and never reads the wall clock. A stall that is already active on
+// the first evaluation has no earlier reading to hold, so that tick reads the tick time and becomes
+// the held value. Every other value model gets the tick time unchanged. The hold is not persisted:
+// after a process restart inside an incident the gauge re-holds from the first tick it sees.
+func (w *Workload) heartbeatNow(now time.Time, world *core.World, id nodeIdentity, spec telemetryspec.MetricSpec) time.Time {
+	if spec.Value.Kind() != telemetryspec.KindNow || spec.Value.Now.StallMode == "" {
+		return now
+	}
+	key := id.service + "\x00" + spec.Name
+	// An active window at intensity 0 is a no-op everywhere else (a shape value reads baseline),
+	// so it does not stall the heartbeat either.
+	if active, intensity := world.Shape.Eval(now, spec.Value.Now.StallMode, id.service); active && intensity > 0 {
+		if held, ok := w.nowHold[key]; ok {
+			return held
+		}
+	}
+	if w.nowHold == nil {
+		w.nowHold = make(map[string]time.Time)
+	}
+	w.nowHold[key] = now
+	return now
+}

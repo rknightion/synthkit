@@ -327,6 +327,9 @@ type Workload struct {
 	load *loadProfile
 	// lastMetricTick is the previous metric tick (zero before the first), for stock_of's dt.
 	lastMetricTick time.Time
+	// nowHold holds each stallable `now` gauge's last advancing reading per node and metric, the
+	// value it keeps emitting while its stall_mode incident is active (see heartbeatNow).
+	nowHold map[string]time.Time
 	// carry holds the fractional observation remainder per scaled-rate histogram series.
 	carry map[string]float64
 	// stock holds each stock_of gauge's current level per label combination.

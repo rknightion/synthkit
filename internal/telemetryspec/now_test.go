@@ -68,3 +68,21 @@ func TestNowModelRejectsValueScale(t *testing.T) {
 		t.Fatalf("want now-gauge value_scale rejection, got %v", err)
 	}
 }
+
+// stall_mode names an incident mode; the model carries it without evaluating it, so the reading
+// is unchanged, and a blank (whitespace-only) name is a load error.
+func TestNowModelStallMode(t *testing.T) {
+	v := ValueModel{Now: &NowModel{StallMode: "error_spike"}}
+	if err := v.Validate(); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	at := time.Date(2026, 6, 10, 13, 0, 0, 0, time.UTC)
+	if got, _ := v.Eval(EvalCtx{Now: at}); got != float64(at.Unix()) {
+		t.Fatalf("Eval = %v, want the tick time %v", got, float64(at.Unix()))
+	}
+	for _, bad := range []string{"  ", " error_spike"} {
+		if err := (ValueModel{Now: &NowModel{StallMode: bad}}).Validate(); err == nil {
+			t.Fatalf("stall_mode %q must be rejected", bad)
+		}
+	}
+}
