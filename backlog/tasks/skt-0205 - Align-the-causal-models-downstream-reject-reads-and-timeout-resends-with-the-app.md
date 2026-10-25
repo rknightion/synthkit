@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@loop59-root'
 created_date: '2026-10-25T13:38:00Z'
-updated_date: '2026-10-25T20:57:00Z'
+updated_date: '2026-10-25T21:00:00Z'
 labels:
   - causal
 dependencies: []
@@ -37,6 +37,8 @@ Landing-12 review (codex/loop58/rv12/review.md m6): the flow model reads a downs
 
 <!-- SECTION:PLAN:BEGIN -->
 Restore the accepted archived stack as a disposable baseline, rebase the accepted downstream-reject/resend candidate, and replace the known nested-child timeout approximation with sequential child elapsed-time accounting. Preserve onset fixed-point behavior, prove model/app attempts parity, and return only the task delta for composition.
+
+After first convergence trip, share the actual admitted acquisition-wait law and clipping with expected-flow timeout timing, preserve sampler and no-timeout identity, and audit newly introduced binary64 products with an actual cross-architecture timeout fixture. No ordinary repair loop beyond the escalation.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
