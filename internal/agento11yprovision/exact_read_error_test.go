@@ -120,7 +120,13 @@ func TestEngineExactReadClientDeadlineCause(t *testing.T) {
 						case <-r.Context().Done():
 						case <-time.After(3 * time.Second):
 						}
-						return
+						// Never answer the interrupted read. The client's cancellation is
+						// what ends r.Context, and net/http's transport deliberately keeps
+						// a response that races its own context close; an empty 200 here
+						// reached the client under load and turned the client deadline
+						// into a "not JSON" conflict. Aborting closes the connection
+						// with no response, so only the client's own deadline can end it.
+						panic(http.ErrAbortHandler)
 					}
 				}
 				original.ServeHTTP(w, r)
@@ -164,6 +170,8 @@ func TestEngineExactReadClientDeadlineCause(t *testing.T) {
 				t.Fatalf("caller expired or refusal mutated backend: caller=%v writes=%v", ctx.Err(), f.writes)
 			}
 			if os.Getenv("SYNTHKIT_EXACT_CLIENT_ASSERTION_CHILD") == "1" {
+				// Logged (child runs -test.v) so a child that wrongly passes shows why.
+				t.Logf("%s: child observed %v", site, err)
 				requireEngineError(t, site, err, ErrConflict)
 				return
 			}
@@ -177,7 +185,7 @@ func TestEngineExactReadClientDeadlineCause(t *testing.T) {
 			}
 			childCtx, childCancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer childCancel()
-			cmd := exec.CommandContext(childCtx, os.Args[0], "-test.run=^TestEngineExactReadClientDeadlineCause$/^"+site+"$", "-test.timeout=8s")
+			cmd := exec.CommandContext(childCtx, os.Args[0], "-test.run=^TestEngineExactReadClientDeadlineCause$/^"+site+"$", "-test.timeout=8s", "-test.v")
 			cmd.Env = append(os.Environ(), "SYNTHKIT_EXACT_CLIENT_ASSERTION_CHILD=1")
 			out, childErr := cmd.CombinedOutput()
 			if childCtx.Err() != nil || childErr == nil || !strings.Contains(string(out), "ended by a deadline or cancellation, not the behaviour under test") {

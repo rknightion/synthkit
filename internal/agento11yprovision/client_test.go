@@ -482,6 +482,9 @@ func TestRedirectsAreNotFollowedAndInjectedClientIsUnchanged(t *testing.T) {
 func TestDeadlineCancellationAndTransportFailuresAreBounded(t *testing.T) {
 	s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		<-r.Context().Done()
+		// Abort with no response: an empty 200 written after the client's own
+		// cancellation can still reach it (see TestEngineExactReadClientDeadlineCause).
+		panic(http.ErrAbortHandler)
 	}))
 	defer s.Close()
 	c := newClient(t, s, func(o *provision.ClientOptions) { o.Timeout = 50 * time.Millisecond })
