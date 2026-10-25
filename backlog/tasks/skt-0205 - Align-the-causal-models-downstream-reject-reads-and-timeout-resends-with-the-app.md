@@ -3,11 +3,11 @@ id: SKT-0205
 title: >-
   Align the causal model's downstream reject reads and timeout resends with the
   app
-status: To Do
+status: In Progress
 assignee:
-  - '@loop58-root'
+  - '@loop59-root'
 created_date: '2026-10-25T13:38:00Z'
-updated_date: '2026-10-25T15:16:00Z'
+updated_date: '2026-10-25T19:32:00Z'
 labels:
   - causal
 dependencies: []
@@ -32,6 +32,12 @@ Landing-12 review (codex/loop58/rv12/review.md m6): the flow model reads a downs
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Restore the accepted archived stack as a disposable baseline, rebase the accepted downstream-reject/resend candidate, and replace the known nested-child timeout approximation with sequential child elapsed-time accounting. Preserve onset fixed-point behavior, prove model/app attempts parity, and return only the task delta for composition.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
