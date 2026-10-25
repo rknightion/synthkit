@@ -565,12 +565,14 @@ func (w *Workload) projectCausalLogs(r *ledger.Request, line func(n *node, level
 // draw exactly. A faulted row keeps the legacy draw too, scaled per observation by how far that
 // hop's real duration sits from the row's healthy real duration (the mean of the row's latest
 // fault-free hops, remembered across ticks), so the fault moves a row by the factor it moved the
-// real span and never by the gap between the real and legacy duration scales. Until the workload
-// has seen a healthy hop of a row there is no basis to scale by, and the row stays on the draw.
+// real span and never by the gap between the real and legacy duration scales. Before learning,
+// declared healthy holds/latencies on the enclosing call layout supply the reference; this is
+// configuration, not a synthetic healthy observation.
 type causalSpanWindow struct {
-	w    *Workload
-	reqs []*ledger.Request
-	hurt map[*ledger.Request][]bool // per gated request: whether each call hop carries the fault
+	w        *Workload
+	reqs     []*ledger.Request
+	hurt     map[*ledger.Request][]bool // per gated request: whether each call hop carries the fault
+	declared map[string]float64         // healthy layout references, never learned ledger observations
 }
 
 func (w *Workload) causalSpanWindow(now time.Time, world *core.World) *causalSpanWindow {
@@ -585,7 +587,7 @@ func (w *Workload) causalSpanWindow(now time.Time, world *core.World) *causalSpa
 			continue
 		}
 		if cw == nil {
-			cw = &causalSpanWindow{w: w, reqs: reqs, hurt: map[*ledger.Request][]bool{}}
+			cw = &causalSpanWindow{w: w, reqs: reqs, hurt: map[*ledger.Request][]bool{}, declared: w.declaredHealthySpans()}
 		}
 		cw.hurt[r] = faultedHops(r)
 	}
@@ -709,13 +711,70 @@ func (w *Workload) learnHealthySpans(reqs []*ledger.Request) {
 	}
 }
 
+// declaredHealthySpans projects the declared means through the same spanning tree's sequential
+// enclosing layout as serve. It does not run the model, mint requests, or draw randomness. A
+// held dependency called by the holder contributes inside its hold, not in addition to it.
+// Undeclared own durations have no fallback: legacy APM draws are unrelated to resource holds.
+// Learned row references always take precedence over these configuration-only references.
+func (w *Workload) declaredHealthySpans() map[string]float64 {
+	p := w.m.causal
+	refs := map[string]float64{}
+	parent, order := spanTree(w.graph)
+	children := map[string][]string{}
+	for _, name := range order[1:] {
+		children[parent[name]] = append(children[parent[name]], name)
+	}
+	var visit func(string) float64
+	visit = func(name string) float64 {
+		cn := p.nodes[name]
+		r := p.res[cn.durRes]
+		base := r.HoldMS
+		if r.Kind == causal.KindDependency {
+			base = r.LatencyMS
+		}
+		var calls, held float64
+		covered := false
+		for _, child := range children[name] {
+			d := visit(child)
+			if timeout := cn.policies[child].TimeoutMS; timeout > 0 && d > timeout {
+				d = timeout
+			}
+			if d > 0 {
+				refs[clientRefKey(name, child)] = d / 1000
+			}
+			calls += d
+			if r.HeldAcross != "" && p.nodes[child].durRes == r.HeldAcross {
+				covered = true
+				held += d
+			}
+		}
+		if base <= 0 {
+			return 0
+		}
+		pre := float64(preWorkFraction * base)
+		d := math.Max(base, pre+calls)
+		if covered {
+			own := math.Max(base-p.res[r.HeldAcross].LatencyMS, pre)
+			d = math.Max(own+held, pre+calls)
+		}
+		d = math.Max(d, 1) // the causal timeline's millisecond floor
+		refs[serverRefKey(name)] = d / 1000
+		return d
+	}
+	visit(p.entry)
+	return refs
+}
+
 // scaled is one observation's factor on the legacy draw: the hop's real duration over its row's
-// healthy reference for a faulted hop with a reference, else 1.
+// learned healthy reference, or its declared healthy layout before learning, else 1.
 func (cw *causalSpanWindow) scaled(key string, d float64, faulted bool) float64 {
 	if !faulted {
 		return 1
 	}
 	if ref := cw.w.healthySpan[key]; ref > 0 {
+		return d / ref
+	}
+	if ref := cw.declared[key]; ref > 0 {
 		return d / ref
 	}
 	return 1

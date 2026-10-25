@@ -169,21 +169,63 @@ func TestCausalFaultedWindowKeepsUntouchedRowsLegacy(t *testing.T) {
 	}
 }
 
-// With no healthy window observed yet (a fault active from the first tick), a faulted row has no
-// healthy reference to scale against and keeps the legacy draw rather than jumping to the real
-// span durations' scale.
-func TestCausalFaultedWindowWithoutReferenceStaysLegacy(t *testing.T) {
+// Before learning a healthy window, slow-svc's declared 200 ms dependency supplies
+// its SERVER and incoming CLIENT/graph references. The first faulted tick must
+// therefore show the declared x4 slowdown, not wait for a healthy observation.
+// The warm-window test above and TestCausalDeclaredHealthyReferenceFromFirstTick
+// retain coverage of learned references and their precedence over this fallback.
+func TestCausalFaultedWindowUsesDeclaredReferenceFromFirstTick(t *testing.T) {
+	const factor = 4.0
 	faulted := faultRowsRun(t, incident(causal.ModeDependencySlow, "slow-dep", 1), false)
 	healthy := faultRowsRun(t, shape.New("UTC", nil), false)
-	all := func(map[string]string) bool { return true }
-	a, b := rowSeries(faulted.mc, all), rowSeries(healthy.mc, all)
-	if len(a) != len(b) {
-		t.Fatalf("%d series faulted vs %d healthy", len(a), len(b))
+	if faulted.next != healthy.next {
+		t.Fatalf("cold fault shifted engine draws: %v vs %v", faulted.next, healthy.next)
+	}
+	unchanged := func(l map[string]string) bool {
+		// front has no declared own timing: even though its root encloses the
+		// fault, it has no cold-start SERVER fallback. Do not substitute a raw
+		// legacy duration for a resource reference. Its learned path is separate.
+		return l["service_name"] == "steady-svc" || l["span_name"] == "call steady-svc" || l["server"] == "steady-svc" ||
+			l["service_name"] == "front" && l["span_kind"] == spanKindServer
+	}
+	a, b := rowSeries(faulted.mc, unchanged), rowSeries(healthy.mc, unchanged)
+	if len(a) == 0 || len(a) != len(b) {
+		t.Fatalf("unchanged cold-start rows: %d series faulted vs %d healthy", len(a), len(b))
 	}
 	for i := range a {
 		if a[i] != b[i] {
-			t.Fatalf("a cold faulted window left the legacy draw:\n faulted %s\n healthy %s", a[i], b[i])
+			t.Fatalf("an unchanged cold-start row differs:\n faulted %s\n healthy %s", a[i], b[i])
 		}
+	}
+	assertSlowdown := func(row string, f, h float64) {
+		t.Helper()
+		if h <= 0 || h > 0.2 {
+			t.Fatalf("%s healthy mean %.3f s, want the legacy 20 to 200 ms draw", row, h)
+		}
+		if ratio := f / h; math.Abs(ratio-factor) > 0.25*factor {
+			t.Fatalf("%s cold-start slowdown x%.2f, want declared x%.0f", row, ratio, factor)
+		}
+	}
+	for _, row := range [][3]string{{"slow-svc", spanKindServer, ""}, {"front", spanKindClient, "call slow-svc"}} {
+		assertSlowdown(row[0]+" "+row[1], rowMeanLatency(faulted, row[0], row[1], row[2]), rowMeanLatency(healthy, row[0], row[1], row[2]))
+	}
+	for _, side := range []string{"client", "server"} {
+		mean := func(mc *coretest.MetricCapture) float64 {
+			var sum, count float64
+			for _, s := range mc.All() {
+				if s.Labels["client"] != "front" || s.Labels["server"] != "slow-svc" {
+					continue
+				}
+				switch s.Name {
+				case "traces_service_graph_request_" + side + "_seconds_sum":
+					sum += s.Value
+				case "traces_service_graph_request_" + side + "_seconds_count":
+					count += s.Value
+				}
+			}
+			return sum / math.Max(count, 1)
+		}
+		assertSlowdown("graph "+side, mean(faulted.mc), mean(healthy.mc))
 	}
 }
 
