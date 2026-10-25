@@ -364,10 +364,15 @@ every signal projects the same request facts. The field reference is the generat
   as a faulted request's are: each call starts after the caller's pre-call work and the previous
   call, and a caller's span covers its calls. A service a fault never reaches therefore keeps the
   same span durations on healthy and faulted requests. A request failed only by the entry's
-  baseline error draw keeps the legacy layout, except in a `traffic.from_resource` app (a bound
-  function's invocations), where that background failure is the entry's `error_rate` cause: it
-  takes the engine's timeline and its entry carries `error.type` (the status), the status message
-  `<service>: <error code>` and the matching log fields, as a causal failure does. The one
+  baseline error draw is laid out on the engine's timeline too, so its spans read the same
+  durations as a successful request's, and the healthy durations a faulted span-metric row is
+  scaled against come only from spans on that timeline. It keeps its drawn status and error code
+  and the legacy span statuses, attributes and log lines, except in a `traffic.from_resource` app
+  (a bound function's invocations), where that background failure is the entry's `error_rate`
+  cause: its entry carries `error.type` (the status), the status message
+  `<service>: <error code>` and the matching log fields, as a causal failure does. A hop that did
+  not fail answers with `traffic.success_status` (default 200) in its log fields and `outcomes`
+  values, as the entry does. The one
   difference is a hop failure from
   `error_spike` or a declared `error_rate`, which in a causal
   workload propagates by the mapped status and can be absorbed by a retry, and in any other

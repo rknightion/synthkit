@@ -457,19 +457,17 @@ type legacyOutcome struct {
 
 // evaluator derives one request's causal facts.
 type evaluator struct {
-	p         *causalPlan
-	m         *minter
-	r         *ledger.Request
-	now       time.Time
-	eng       *shape.Engine
-	draw      causal.Draw
-	legacy    []ledger.Call
-	causes    []string
-	children  map[int][]int // legacy hop index -> its legacy child hops; -1 is the entry
-	out       []ledger.Call
-	base      []float64 // base duration (ms) of each out hop, for the healthy path
-	entryBase float64   // the entry's base duration (ms)
-	touched   bool      // something failed, waited, slowed, timed out or retried
+	p        *causalPlan
+	m        *minter
+	r        *ledger.Request
+	now      time.Time
+	eng      *shape.Engine
+	draw     causal.Draw
+	legacy   []ledger.Call
+	causes   []string
+	children map[int][]int // legacy hop index -> its legacy child hops; -1 is the entry
+	out      []ledger.Call
+	touched  bool // something failed, waited, slowed, timed out or retried
 }
 
 // result is one service's (or one attempt's) outcome as its caller sees it.
@@ -482,7 +480,6 @@ type result struct {
 	slowBy    float64       // ms it added
 	durMS     float64       // server duration (serve) or client duration (attempt)
 	serverMS  float64
-	base      float64 // the service's base duration (serve)
 	transport bool
 	timedOut  bool
 	ownRule   bool // the service's own rule rejected it; only its direct caller holds that back
@@ -547,7 +544,8 @@ func (p *causalPlan) overlay(m *minter, r *ledger.Request, now time.Time, eng *s
 		ev.touched = true
 		r.Fault = &ledger.Fault{Mode: "error_rate", ErrorType: strconv.Itoa(r.StatusCode), Message: p.entry + ": " + r.ErrorKind}
 	case lo.draw < lo.base:
-		// The baseline draw failed the entry itself (its declared error_rate and error_mix).
+		// The baseline draw failed the entry itself (its declared error_rate and error_mix): the
+		// drawn outcome, status and error kind stand, with no Fault.
 	case lo.draw < lo.entryRate:
 		ev.touched = true
 		r.Fault = &ledger.Fault{Mode: "error_spike", ErrorType: r.ErrorKind}
@@ -563,38 +561,18 @@ func (p *causalPlan) overlay(m *minter, r *ledger.Request, now time.Time, eng *s
 			r.Fault = res.slow
 		}
 	}
-	// A touched request and a healthy successful one both take the engine's timeline (offsets and
-	// durations from serve), so a subtree the fault never reaches is laid out by the same rule on
-	// healthy and faulted requests and its spans keep one duration distribution (SKT-0200). Only a
-	// request failed by the entry's baseline draw keeps the legacy facts (root ruling D85).
-	if ev.touched || r.Outcome == ledger.OutcomeSuccess {
-		r.Calls = ev.out
-		r.Duration = durOf(res.durMS)
-		for _, c := range r.Calls { // rounding and the 1 ms floor must not push a hop past the request
-			if end := c.Offset + c.Duration; end > r.Duration {
-				r.Duration = end
-			}
+	// Layout: every causal request takes the engine's timeline (offsets and durations from serve),
+	// so a subtree the fault never reaches is laid out by one rule on healthy, faulted and
+	// baseline-failed requests and its spans keep one duration distribution (SKT-0200, SKT-0206).
+	// A request failed only by the entry's baseline draw keeps its drawn status and error code
+	// above and carries no Fault; the projection gives it no causal decoration (causalDecorated,
+	// root ruling D85 as re-ruled for layout only by D177).
+	r.Calls = ev.out
+	r.Duration = durOf(res.durMS)
+	for _, c := range r.Calls { // rounding and the 1 ms floor must not push a hop past the request
+		if end := c.Offset + c.Duration; end > r.Duration {
+			r.Duration = end
 		}
-		return
-	}
-	// A baseline entry failure: legacy facts field for field, except bound services take their
-	// duration from the declared hold or latency (one duration source) and the hop cover follows
-	// them.
-	calls := make([]ledger.Call, len(r.Calls))
-	copy(calls, r.Calls)
-	var hopSum time.Duration
-	for i := range calls {
-		if p.nodes[calls[i].Target].durRes != "" {
-			calls[i].Duration = durOf(ev.base[i])
-		}
-		hopSum += calls[i].Duration
-	}
-	r.Calls = calls
-	if p.nodes[p.entry].durRes != "" {
-		r.Duration = durOf(ev.entryBase)
-	}
-	if cover := hopSum + hopSum/4; cover > r.Duration {
-		r.Duration = cover
 	}
 }
 
@@ -680,10 +658,7 @@ func (ev *evaluator) serve(name, path string, hop, li int, start, legacyMS float
 	if bd.covered {
 		pre0 = bd.pre
 	}
-	if li < 0 {
-		ev.entryBase = d0
-	}
-	res := result{base: d0}
+	var res result
 	wait := 0.0
 	for _, u := range cn.uses {
 		e := ev.p.model.Apply(u, ev.now, ev.draw.Scope(path+"/"+u))
@@ -803,9 +778,7 @@ func (ev *evaluator) attempt(parentOut, li, k int, path string, start float64, f
 	c.Attempt = k
 	idx := len(ev.out)
 	ev.out = append(ev.out, c)
-	ev.base = append(ev.base, 0)
 	res := ev.serve(lc.Target, path, idx, li, start, msOf(lc.Duration), fresh)
-	ev.base[idx] = res.base
 	res.serverMS = res.durMS
 	if !res.transport && pol.TimeoutMS > 0 && res.durMS > pol.TimeoutMS {
 		ev.touched = true

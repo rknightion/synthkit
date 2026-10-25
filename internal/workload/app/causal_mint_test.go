@@ -473,8 +473,9 @@ func TestCausalBoundDurations(t *testing.T) {
 
 // A healthy causal request keeps the legacy facts of every unbound service, and the causal path
 // adds no engine draw (the next draw of each engine agrees). Its hops sit on the engine's timeline
-// (SKT-0200): each carries the engine's Offset and a serving node's 200, and a caller's duration
-// covers its calls in sequence, so only an unbound leaf keeps its legacy duration exactly.
+// (SKT-0200; a baseline-failed request too, SKT-0206, keeping its drawn outcome, status and error
+// kind): each carries the engine's Offset and a serving node's 200, and a caller's duration covers
+// its calls in sequence, so only an unbound leaf keeps its legacy duration exactly.
 func TestCausalHealthyIdentityAndDrawCount(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -514,8 +515,7 @@ func TestCausalHealthyIdentityAndDrawCount(t *testing.T) {
 				if len(c.Calls) != len(l.Calls) {
 					t.Fatalf("request %d: %d calls vs %d", i, len(c.Calls), len(l.Calls))
 				}
-				// A request failed by the entry's baseline draw keeps the legacy facts (root ruling D85).
-				engine := c.Outcome == ledger.OutcomeSuccess
+				// Every request, a baseline-failed one included, is on the engine's timeline.
 				caller := map[int]bool{}
 				for _, cc := range c.Calls {
 					caller[cc.ParentHopIndex] = true
@@ -523,13 +523,11 @@ func TestCausalHealthyIdentityAndDrawCount(t *testing.T) {
 				for j := range c.Calls {
 					cc, lc := c.Calls[j], l.Calls[j]
 					cc.SpanID, cc.PeerSpanID, lc.SpanID, lc.PeerSpanID = "", "", "", ""
-					if engine {
-						if j > 0 && cc.Offset <= 0 || cc.StatusCode != 0 && cc.StatusCode != 200 {
-							t.Fatalf("request %d call %d: offset %v status %d, want an engine offset and no failure status", i, j, cc.Offset, cc.StatusCode)
-						}
-						cc.Offset, cc.StatusCode = 0, 0
+					if j > 0 && cc.Offset <= 0 || cc.StatusCode != 0 && cc.StatusCode != 200 {
+						t.Fatalf("request %d call %d: offset %v status %d, want an engine offset and no failure status", i, j, cc.Offset, cc.StatusCode)
 					}
-					if bound[cc.Target] || engine && caller[j] {
+					cc.Offset, cc.StatusCode = 0, 0
+					if bound[cc.Target] || caller[j] {
 						cc.Duration, lc.Duration = 0, 0
 					}
 					if cc != lc {

@@ -435,25 +435,30 @@ func TestCausalProjectWorkerRootNamedForQueueOperation(t *testing.T) {
 	}
 }
 
-// A healthy causal request (no fault, nothing touched) projects as the same request marked
-// legacy except for where its hops sit: every span keeps its name, ids, parent, kind, status and
-// attributes and every log line is byte-identical, while the hop spans are laid out on the
-// engine's timeline, each CLIENT span starting at its hop's Offset (SKT-0200; design §4.6 M6).
+// A healthy causal request (no fault, nothing touched), successful or failed only by the entry's
+// baseline draw, projects as the same request marked legacy except for where its hops sit: every
+// span keeps its name, ids, parent, kind, status and attributes and every log line is
+// byte-identical, while the hop spans are laid out on the engine's timeline, each CLIENT span
+// starting at its hop's Offset (SKT-0200, SKT-0206; design §4.6 M6, root ruling D85).
 func TestCausalProjectHealthyIdentity(t *testing.T) {
 	w := causalApps(t, causalResources, loggedIntakeApp)[0]
 	reqs := mintAt(w, shape.New("UTC", nil), causalNow)
 	var healthy, legacy []*ledger.Request
+	baseline := 0
 	for _, r := range reqs {
-		if !r.Causal || r.Fault != nil || r.Outcome != ledger.OutcomeSuccess {
+		if !r.Causal || r.Fault != nil || r.Outcome != ledger.OutcomeSuccess && !baselineFailure(r) {
 			continue
+		}
+		if r.Outcome != ledger.OutcomeSuccess {
+			baseline++
 		}
 		healthy = append(healthy, r)
 		cp := *r
 		cp.Causal = false
 		legacy = append(legacy, &cp)
 	}
-	if len(healthy) == 0 {
-		t.Fatal("no healthy causal requests")
+	if len(healthy) == 0 || baseline == 0 {
+		t.Fatalf("%d healthy causal requests, %d of them baseline-failed; want both kinds", len(healthy), baseline)
 	}
 	a := project(t, w, shape.New("UTC", nil), healthy)
 	b := project(t, w, shape.New("UTC", nil), legacy)

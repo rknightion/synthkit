@@ -281,8 +281,10 @@ func TestCausalStories(t *testing.T) {
 		r := healthy
 		for _, s := range r.spans {
 			// The only message without a declared fault is a bound worker's background error_rate
-			// failure on its own CONSUMER root, naming the service and the drawn code (SKT-0204).
-			background := s.Kind == otlp.KindConsumer && s.Status == otlp.StatusError && strings.HasPrefix(s.StatusMsg, s.service+": ")
+			// failure on its own CONSUMER root, naming the service and the drawn code (SKT-0204). A
+			// root has no parent in its own service: none, or the publisher's span it continues.
+			root := s.ParentID == "" || r.spans[s.ParentID].service != s.service
+			background := root && s.Kind == otlp.KindConsumer && s.Status == otlp.StatusError && strings.HasPrefix(s.StatusMsg, s.service+": ")
 			if s.StatusMsg != "" && !background {
 				t.Fatalf("healthy window: span %s/%s carries a status message %q", s.service, s.Name, s.StatusMsg)
 			}
