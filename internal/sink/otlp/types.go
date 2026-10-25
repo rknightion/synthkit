@@ -50,7 +50,7 @@ type Span struct {
 	StatusMsg string
 	// Events are the span's timestamped events (OTLP Span.events, field 11), e.g. the
 	// OTel "exception" event. nil or empty encodes byte-identically to a span without them.
-	Events []Event
+	Events []Event `json:",omitempty"`
 }
 
 // Event is one OTLP Span.Event: a named, timestamped annotation on a span. Attrs values

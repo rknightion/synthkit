@@ -4,6 +4,7 @@ package app
 
 import (
 	"math"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -48,6 +49,7 @@ func clockDay(t *testing.T, doc string, metric string) (map[string][]float64, []
 			labels = append(labels, s.Labels["site"])
 		}
 	}
+	slices.Sort(labels) // series emission order is not part of the contract
 	return out, labels
 }
 
