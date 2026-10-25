@@ -35,7 +35,54 @@ const (
 	KindRef        = "ref"
 	KindLognormal  = "lognormal"
 	KindNow        = "now"
+	KindResource   = "resource"
+	KindOutcomes   = "outcomes"
 )
+
+// Outcome measures (OutcomeValue.Measure). An omitted measure is MeasureCount.
+const (
+	MeasureCount   = "count"   // counter: matching hop outcomes in the metric window
+	MeasureShare   = "share"   // gauge: matching share of the window's hop outcomes
+	MeasureLatency = "latency" // histogram: durations (seconds) of the window's matching hops
+)
+
+// Outcome status classes (OutcomeValue.Status entries and status_label enum values), besides an
+// exact three-digit HTTP status such as "503".
+const (
+	StatusSuccess = "success"
+	Status4xx     = "4xx"
+	Status5xx     = "5xx"
+)
+
+// resourceGaugeFields and resourceCounterFields are the model-state fields a resource value
+// reads (causal design 5.4). Gauge fields read the latest state; counter fields are window sums
+// over (last tick, now].
+var resourceGaugeFields = map[string]bool{
+	"demand_rps": true, "capacity": true, "utilization": true, "in_use": true, "waiting": true,
+	"wait_seconds": true, "backlog": true, "oldest_age_seconds": true, "latency_factor": true,
+	"hold_seconds": true, "served_rps": true, "failed_share": true,
+}
+
+var resourceCounterFields = map[string]bool{"rejected": true, "admitted": true, "failed": true}
+
+// IsResourceGaugeField reports whether f is a gauge-only resource field.
+func IsResourceGaugeField(f string) bool { return resourceGaugeFields[f] }
+
+// IsResourceCounterField reports whether f is a counter-only resource field.
+func IsResourceCounterField(f string) bool { return resourceCounterFields[f] }
+
+// IsOutcomeStatus reports whether s is a valid outcome status: "success", "4xx", "5xx" or an
+// exact three-digit HTTP status from 100 to 599.
+func IsOutcomeStatus(s string) bool {
+	switch s {
+	case StatusSuccess, Status4xx, Status5xx:
+		return true
+	}
+	if len(s) != 3 || s[0] < '1' || s[0] > '5' {
+		return false
+	}
+	return s[1] >= '0' && s[1] <= '9' && s[2] >= '0' && s[2] <= '9'
+}
 
 // z95 is the standard-normal 0.95 quantile: a lognormal's p95 is median × exp(sigma × z95).
 const z95 = 1.6448536269514722
@@ -56,6 +103,39 @@ type ValueModel struct {
 	Ref        string      `yaml:"ref"`         // pulls a correlation field by name (the correlation glue)
 	Lognormal  *Lognormal  `yaml:"lognormal"`   // right-skewed positive draw (median, p95)
 	Now        *NowModel   `yaml:"now"`         // the tick timestamp in Unix seconds (gauge value only)
+	// Resource reads a field of a declared resource's model state (metric value only).
+	Resource *ResourceValue `yaml:"resource"`
+	// Outcomes reads the service node's hop outcomes in the metric window (metric value only).
+	Outcomes *OutcomeValue `yaml:"outcomes"`
+}
+
+// ResourceValue reads one field of the named resource's state. Gauge fields (demand_rps,
+// capacity, utilization, in_use, waiting, wait_seconds, backlog, oldest_age_seconds,
+// latency_factor, hold_seconds, served_rps, failed_share) are valid on a gauge metric only; counter
+// fields (rejected, admitted, failed) are window sums valid on a counter metric only. The
+// provider supplies the reading; without one, or for an unknown resource, the value reads 0.
+type ResourceValue struct {
+	Name  string `yaml:"name"`
+	Field string `yaml:"field"`
+}
+
+// OutcomeValue reads a node's hop outcomes in the metric window. Status lists the statuses that
+// match ("503", "4xx", "5xx", "success"); StatusLabel instead names an enum label of the same
+// metric whose value selects the status per series (set exactly one). Measure is count (a counter
+// metric, the default), share (a gauge metric) or latency (a histogram metric: each matching hop
+// duration, in seconds, is one observation).
+type OutcomeValue struct {
+	Status      []string `yaml:"status"`
+	StatusLabel string   `yaml:"status_label"`
+	Measure     string   `yaml:"measure"`
+}
+
+// EffectiveMeasure returns Measure with the omitted default (count) applied.
+func (o OutcomeValue) EffectiveMeasure() string {
+	if o.Measure == "" {
+		return MeasureCount
+	}
+	return o.Measure
 }
 
 // NowModel selects the emission time as a metric value: the tick timestamp in Unix seconds, for
@@ -166,6 +246,15 @@ type EvalCtx struct {
 	Rand              func() float64    // uniform [0,1) — the shape engine's Float64; nil ⇒ deterministic 0.5
 	Norm              func() float64    // standard-normal — the shape engine's NormFloat64; nil ⇒ deterministic 0
 	Now               time.Time         // tick time read by the now model; zero ⇒ the model reads 0
+	Labels            map[string]string // the evaluated series' label values, passed to the outcome providers
+
+	// Resource reads a resource field (name, field); ok=false or a nil func ⇒ the model reads 0.
+	Resource func(name, field string) (float64, bool)
+	// Outcomes reads an outcome count or share for the series; a nil func ⇒ the model reads 0.
+	Outcomes func(v OutcomeValue, labels map[string]string) float64
+	// OutcomeLatencies returns the window's matching hop durations in seconds (measure latency);
+	// a nil func ⇒ no observations.
+	OutcomeLatencies func(v OutcomeValue, labels map[string]string) []float64
 }
 
 func (c EvalCtx) rand() float64 {
@@ -247,8 +336,32 @@ func (v ValueModel) Eval(ctx EvalCtx) (float64, string) {
 	case KindLognormal:
 		sigma := math.Log(v.Lognormal.P95/v.Lognormal.Median) / z95
 		return v.Lognormal.Median * math.Exp(sigma*ctx.norm()), ""
+	case KindResource:
+		if ctx.Resource == nil {
+			return 0, ""
+		}
+		if val, ok := ctx.Resource(v.Resource.Name, v.Resource.Field); ok {
+			return val, ""
+		}
+		return 0, ""
+	case KindOutcomes:
+		// A latency model has no single reading: its observations come from Observations.
+		if ctx.Outcomes == nil || v.Outcomes.EffectiveMeasure() == MeasureLatency {
+			return 0, ""
+		}
+		return ctx.Outcomes(*v.Outcomes, ctx.Labels), ""
 	}
 	return 0, ""
+}
+
+// Observations returns the per-observation values (seconds) of an outcomes model with measure
+// latency, for a histogram. It is nil for every other model and when no OutcomeLatencies
+// provider is set.
+func (v ValueModel) Observations(ctx EvalCtx) []float64 {
+	if v.Kind() != KindOutcomes || v.Outcomes.EffectiveMeasure() != MeasureLatency || ctx.OutcomeLatencies == nil {
+		return nil
+	}
+	return ctx.OutcomeLatencies(*v.Outcomes, ctx.Labels)
 }
 
 // weightedPick selects an enum value by weight using r in [0,1). Falls back to the first value
@@ -318,6 +431,10 @@ func (v ValueModel) Kind() string {
 		return KindLognormal
 	case v.Now != nil:
 		return KindNow
+	case v.Resource != nil:
+		return KindResource
+	case v.Outcomes != nil:
+		return KindOutcomes
 	}
 	return ""
 }
@@ -328,7 +445,7 @@ func (v ValueModel) setCount() int {
 	for _, set := range []bool{
 		v.Const != nil, v.ConstStr != nil, len(v.Enum) > 0, v.IntRange != nil,
 		v.FloatRange != nil, v.Normal != nil, v.Bool != nil, v.Shape != nil, v.Ref != "",
-		v.Lognormal != nil, v.Now != nil,
+		v.Lognormal != nil, v.Now != nil, v.Resource != nil, v.Outcomes != nil,
 	} {
 		if set {
 			n++
@@ -342,7 +459,7 @@ func (v ValueModel) setCount() int {
 func (v ValueModel) Validate() error {
 	switch n := v.setCount(); {
 	case n == 0:
-		return fmt.Errorf("value model: no model set (need exactly one of const|const_str|enum|int_range|float_range|normal|lognormal|bool|shape|now|ref)")
+		return fmt.Errorf("value model: no model set (need exactly one of const|const_str|enum|int_range|float_range|normal|lognormal|bool|shape|now|resource|outcomes|ref)")
 	case n > 1:
 		return fmt.Errorf("value model: %d models set, need exactly one", n)
 	}
@@ -406,6 +523,15 @@ func (v ValueModel) Validate() error {
 		if m := v.Now.StallMode; m != "" && strings.TrimSpace(m) != m {
 			return fmt.Errorf("now: stall_mode %q must be a nonblank incident mode name without surrounding whitespace", m)
 		}
+	case KindResource:
+		if strings.TrimSpace(v.Resource.Name) == "" {
+			return fmt.Errorf("resource: name must be non-blank")
+		}
+		if f := v.Resource.Field; !IsResourceGaugeField(f) && !IsResourceCounterField(f) {
+			return fmt.Errorf("resource: unknown field %q (want a gauge field demand_rps|capacity|utilization|in_use|waiting|wait_seconds|backlog|oldest_age_seconds|latency_factor|hold_seconds|served_rps|failed_share, or a counter field rejected|admitted|failed)", f)
+		}
+	case KindOutcomes:
+		return v.Outcomes.validate()
 	case KindRef:
 		if strings.TrimSpace(v.Ref) == "" {
 			return fmt.Errorf("ref: empty correlation field name")
@@ -420,6 +546,30 @@ func (v ValueModel) Validate() error {
 		}
 		if p < m {
 			return fmt.Errorf("lognormal: p95 %v must be >= median %v", p, m)
+		}
+	}
+	return nil
+}
+
+// validate enforces the outcomes model's own invariants; the instrument and label rules need the
+// owning metric (MetricSpec.Validate).
+func (o OutcomeValue) validate() error {
+	switch o.Measure {
+	case "", MeasureCount, MeasureShare, MeasureLatency:
+	default:
+		return fmt.Errorf("outcomes: measure %q invalid (want count|share|latency)", o.Measure)
+	}
+	switch {
+	case len(o.Status) == 0 && o.StatusLabel == "":
+		return fmt.Errorf("outcomes: need status or status_label")
+	case len(o.Status) > 0 && o.StatusLabel != "":
+		return fmt.Errorf("outcomes: set either status or status_label, not both")
+	case o.StatusLabel != "" && strings.TrimSpace(o.StatusLabel) != o.StatusLabel:
+		return fmt.Errorf("outcomes: status_label %q must not have surrounding whitespace", o.StatusLabel)
+	}
+	for i, st := range o.Status {
+		if !IsOutcomeStatus(st) {
+			return fmt.Errorf("outcomes: status[%d] %q invalid (want success|4xx|5xx or a three-digit HTTP status)", i, st)
 		}
 	}
 	return nil

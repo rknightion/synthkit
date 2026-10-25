@@ -259,14 +259,16 @@ Each node can declare custom metrics, log streams, and extra span attributes via
 | `bool` | `bool: {p_true: 0.1}` | Weighted boolean |
 | `shape` | `shape: {base: 100.0, mode: latency_storm}` | Legacy `base × load × incident multiplier`; optional metric-only `incident_value` selects an explicit endpoint instead, and `incident_absolute` keeps that endpoint off the load curve (see below) |
 | `now` | `now: {}` or `now: {stall_mode: error_spike}` | The tick time in Unix seconds (gauge metric values only), for a collector heartbeat. Plain `now: {}` advances every tick whether or not work succeeded. With `stall_mode`, the gauge holds its last reading while that incident mode is active on the service the metric belongs to and resumes at the tick time afterwards, so a last-success-age alert can fire; a stall already active on the first tick holds that tick's reading, and the hold is not persisted across a restart. Never the wall clock; `value_scale` is rejected on its labels |
+| `resource` | `resource: {name: db-pool, field: utilization}` | A field of a declared `resources:` entry's model state (metric values only). Gauge fields `demand_rps`, `capacity`, `utilization`, `in_use`, `waiting`, `wait_seconds`, `backlog`, `oldest_age_seconds`, `latency_factor`, `hold_seconds`, `served_rps`, `failed_share` need a gauge metric; counter fields `rejected`, `admitted`, `failed` (window sums since the last tick) need a counter metric. Reads 0 where the workload supplies no model |
+| `outcomes` | `outcomes: {status: [5xx], measure: share}` or `{status_label: code, measure: count}` | The node's hop outcomes in the metric window (metric values only). `status` lists `success`, `4xx`, `5xx` or exact three-digit statuses; alternatively `status_label` names an `enum` label of the same metric whose values are such statuses and select the status per series (set exactly one of the two). `measure` is `count` (default, counter metric), `share` (gauge metric) or `latency` (histogram metric, one observation per matching hop duration in seconds). Reads 0 where the workload supplies no outcomes |
 | `ref` | `ref: trace_id` | Pulls a correlation field by name |
 
 **Capability matrix** (enforced at load time):
 
 - **Metric labels** and **Loki stream labels**: only `const` / `const_str` / `enum`. These must enumerate a stable, total domain on every run.
-- **Metric values**: only numeric models — `const`, `int_range`, `float_range`, `normal`, `lognormal`, `bool`, `shape`, and `now` on gauges.
+- **Metric values**: only numeric models — `const`, `int_range`, `float_range`, `normal`, `lognormal`, `bool`, `shape`, and `now` on gauges, plus `resource` and `outcomes` under the instrument rules in the table above. A metric whose value is `resource` or `outcomes` rejects enum `rate_scale` and `value_scale` on its labels, since they would distort window counts.
 - Enum `rate_scale` / `value_scale` are admitted on **metric labels** only (see below); a log, stream-label or span enum carrying them is rejected.
-- **Log body fields** and **span attributes**: any model, including `ref`, except `shape.incident_value` (metric values only). High-cardinality correlation keys (`trace_id`, `portkey_trace_id`, `run_id`, etc.) ride here — never as labels or stream labels.
+- **Log body fields** and **span attributes**: any model, including `ref`, except `shape.incident_value`, `now`, `resource` and `outcomes` (metric values only). High-cardinality correlation keys (`trace_id`, `portkey_trace_id`, `run_id`, etc.) ride here — never as labels or stream labels.
 
 For a metric that is genuinely zero normally but nonzero during an incident, opt into a finite,
 explicit endpoint rather than fabricating a positive baseline:

@@ -37,6 +37,10 @@ func checkValue(vm ValueModel, pos position, where string) error {
 	if vm.Now != nil && pos != posMetricValue {
 		return fmt.Errorf("%s: now is metric value only", where)
 	}
+	// The causal models read model state or window outcomes, which only the metric lane supplies.
+	if (vm.Resource != nil || vm.Outcomes != nil) && pos != posMetricValue {
+		return fmt.Errorf("%s: %s is metric value only", where, vm.Kind())
+	}
 	// Per-value metric multipliers only mean something where an enum expands into metric series.
 	// MetricSpec.Validate checks them against the instrument; every other position rejects them
 	// rather than silently ignoring them.
@@ -69,9 +73,10 @@ func checkValue(vm ValueModel, pos position, where string) error {
 		// A metric magnitude must be numeric-producing — string models (const_str/enum/ref) can't be
 		// a metric value.
 		switch vm.Kind() {
-		case KindConst, KindIntRange, KindFloatRange, KindNormal, KindLognormal, KindBool, KindShape, KindNow:
+		case KindConst, KindIntRange, KindFloatRange, KindNormal, KindLognormal, KindBool, KindShape, KindNow,
+			KindResource, KindOutcomes:
 		default:
-			return fmt.Errorf("%s: metric value must be numeric (const|int_range|float_range|normal|lognormal|bool|shape|now), got %q", where, vm.Kind())
+			return fmt.Errorf("%s: metric value must be numeric (const|int_range|float_range|normal|lognormal|bool|shape|now|resource|outcomes), got %q", where, vm.Kind())
 		}
 	case posBody, posAttr:
 		// Any validated model is allowed here — including a high-card ref (the correlation glue:

@@ -187,6 +187,7 @@ func (m MetricSpec) Validate() error {
 	default:
 		return fmt.Errorf("metric %q: scope %q invalid (want blueprint|substrate)", m.Name, m.Scope)
 	}
+	derivedValue := m.Value.Resource != nil || m.Value.Outcomes != nil
 	for _, k := range sortedKeys(m.Labels) {
 		if strings.TrimSpace(k) == "" {
 			return fmt.Errorf("metric %q: empty label key", m.Name)
@@ -196,6 +197,10 @@ func (m MetricSpec) Validate() error {
 		}
 		for _, e := range m.Labels[k].Enum {
 			switch {
+			case e.RateScale != nil && derivedValue:
+				return fmt.Errorf("metric %q label %q value %q: rate_scale is not valid with a resource or outcomes value (it would distort the model's counts)", m.Name, k, e.Value)
+			case e.ValueScale != nil && derivedValue:
+				return fmt.Errorf("metric %q label %q value %q: value_scale is not valid with a resource or outcomes value (it would distort the model's readings)", m.Name, k, e.Value)
 			case e.RateScale != nil && m.Instrument == InstrumentGauge:
 				return fmt.Errorf("metric %q label %q value %q: rate_scale is not valid on a gauge (use value_scale)", m.Name, k, e.Value)
 			case e.RateScale != nil && m.CountOf != "":
@@ -209,6 +214,9 @@ func (m MetricSpec) Validate() error {
 	}
 	if m.Value.Now != nil && m.Instrument != InstrumentGauge {
 		return fmt.Errorf("metric %q: now is valid on a gauge value only", m.Name)
+	}
+	if err := m.validateCausalValue(); err != nil {
+		return err
 	}
 	if m.hasClock() {
 		switch {
@@ -254,6 +262,45 @@ func (m MetricSpec) Validate() error {
 		}
 	} else if len(m.Buckets) > 0 {
 		return fmt.Errorf("metric %q: buckets only valid for a histogram", m.Name)
+	}
+	return nil
+}
+
+// validateCausalValue enforces the capability matrix of the resource and outcomes values against
+// the metric's instrument and labels (causal design 7.3).
+func (m MetricSpec) validateCausalValue() error {
+	switch m.Value.Kind() {
+	case KindResource:
+		f := m.Value.Resource.Field
+		switch {
+		case m.Instrument == InstrumentHistogram:
+			return fmt.Errorf("metric %q: a resource value is not valid on a histogram (use a gauge field on a gauge or a counter field on a counter)", m.Name)
+		case IsResourceCounterField(f) && m.Instrument != InstrumentCounter:
+			return fmt.Errorf("metric %q: resource counter field %q is valid on a counter only", m.Name, f)
+		case IsResourceGaugeField(f) && m.Instrument != InstrumentGauge:
+			return fmt.Errorf("metric %q: resource gauge field %q is valid on a gauge only", m.Name, f)
+		}
+	case KindOutcomes:
+		o := m.Value.Outcomes
+		switch measure := o.EffectiveMeasure(); {
+		case measure == MeasureCount && m.Instrument != InstrumentCounter:
+			return fmt.Errorf("metric %q: outcomes measure count is valid on a counter only", m.Name)
+		case measure == MeasureShare && m.Instrument != InstrumentGauge:
+			return fmt.Errorf("metric %q: outcomes measure share is valid on a gauge only", m.Name)
+		case measure == MeasureLatency && m.Instrument != InstrumentHistogram:
+			return fmt.Errorf("metric %q: outcomes measure latency is valid on a histogram only", m.Name)
+		}
+		if o.StatusLabel != "" {
+			lbl, ok := m.Labels[o.StatusLabel]
+			if !ok || lbl.Kind() != KindEnum {
+				return fmt.Errorf("metric %q: outcomes status_label %q must name an enum label of the same metric", m.Name, o.StatusLabel)
+			}
+			for _, e := range lbl.Enum {
+				if !IsOutcomeStatus(e.Value) {
+					return fmt.Errorf("metric %q: outcomes status_label %q value %q is not a status (want success|4xx|5xx or a three-digit HTTP status)", m.Name, o.StatusLabel, e.Value)
+				}
+			}
+		}
 	}
 	return nil
 }
