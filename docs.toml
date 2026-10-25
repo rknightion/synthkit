@@ -46,6 +46,7 @@ Home = "index.md"
     { "Platform Automation Traces" = "ai-factory/automation.md" },
     { "Emission Switches" = "emission-switches.md" },
     { "Incidents & Scenarios" = "incidents.md" },
+    { "Fault Catalogue" = "fault-catalogue.md" },
     { "Example Blueprints" = "blueprint-examples.md" },
     { "Custom Blueprints" = "custom-blueprints.md" },
 ]

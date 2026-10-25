@@ -372,6 +372,181 @@ workloads:
       - { route: "GET /v1/ping", error_rate: 0.01, p95_ms: 80 }
 ```
 
+## Declaring causes
+
+A failure scenario is most useful when it names a cause. `error_spike` and `latency_storm` scale a
+number: they raise an error rate or stretch a latency and leave everything else as it was. A
+declared cause changes the state of something requests depend on (a connection pool, a function's
+concurrency limit, a queue's consumers, a slow database), and the latency, errors, retries and
+backlog follow from that state across every signal that reads it. Declare causes by default, and
+keep a rate-only mode for an effect that has no resource to name.
+
+### Resources and faults
+
+An environment opts in with `resources:`. Without it nothing changes: no model is built and the
+output is exactly what it was.
+
+| Kind | Models | Required fields besides `name` and `kind` |
+|---|---|---|
+| `pool` | Connections a service holds, such as a database pool. Waits, then rejects. | `size`, `hold_ms`, `acquire_timeout_ms`, `demand` |
+| `concurrency` | A function's concurrent-execution limit. Rejects at once. | `size`, `hold_ms`, `demand` |
+| `queue` | Consumers draining a backlog that grows and ages. | `size`, `hold_ms`, `demand` |
+| `quota` | A request-rate limit on a shared API. Rejects at once. | `limit_rps`, `demand` |
+| `dependency` | A downstream system with a baseline latency. | `latency_ms` (and `slow_factor`, default 4) |
+| `credential` | The certificate or token a dependency needs. | `of`, `credential_type` |
+| `rule` | A validation rule or a bad release that rejects a share of requests. | `reject_share` |
+
+Resource names are unique across the blueprint. A pool, concurrency limit or queue can be
+`held_across` a dependency: its effective hold is `hold_ms + latency_ms x (latency factor - 1)`, so a
+slow dependency stretches every unit of work held across it. `demand` is the load the resource
+sees; it must cover every request that passes through it, and the loader rejects an app whose traffic exceeds
+the demand declared for a resource it uses.
+
+Something has to meet a resource before a signal moves:
+
+- An `app` service node lists the resources a request meets on arrival in `uses`, and may set
+  `call_policies` (timeout, retries and backoff) on the calls it makes. A queue can drive an app's
+  request rate with `traffic.from_resource`, with a `worker: true` entry consuming it.
+- A Lambda function, an SQS queue, a Solace queue or a database instance binds to a resource with
+  its own `resource:` field and then takes its metrics from the resource's state.
+
+A fault is an ordinary failure mode on the `resource` axis, aimed at a resource by name and
+activated by `incidents:`, a scenario or the control plane. The [fault catalogue](fault-catalogue.md)
+lists the eight modes, what each acts on and a complete blueprint for each.
+
+### Worked example: a pool held across a slow database
+
+A generic intake service takes a connection from a pool for every request, and the pool's
+connections are spent on queries to a records database. The scenario makes the database slow and
+nothing else. This is the complete blueprint, and it is the same file the tests load as
+`e2e/fixtures/causal-example.yaml`.
+
+```yaml
+# causal-example: the worked example in the authoring guide's "Declaring causes" section.
+# A fixture, not a shipped blueprint: it sits outside blueprints/ so BLUEPRINT_NAMES=* never
+# deploys it, and its tests pin the figures the guide quotes.
+name: causal-example
+label: causal-example
+shape: business_hours_plateau
+timezone: UTC
+
+environments:
+  - name: prod
+    weight: 1.0
+    cloud:
+      provider: aws
+      account_id: "111122223333"
+      region: eu-west-1
+      vpc_id: vpc-causal-example
+    cluster:
+      type: eks
+      name: causal-example-prod
+      node_groups:
+        - { name: general, instance_type: m6i.large, desired: 3 }
+    resources:
+      # A service's database connection pool. One transaction holds a connection for 20 ms
+      # (a 15 ms query plus driver overhead). At the 60 rps business peak that offers
+      # 60 x 0.020 = 1.2 busy connections of 10 (utilization 0.12): comfortable.
+      - name: intake-db-pool
+        kind: pool
+        size: 10                     # service pools are typically 10 to 50 connections
+        hold_ms: 20
+        held_across: records-db      # the hold stretches with records-db's extra latency
+        acquire_timeout_ms: 3000     # a caller waits this long for a connection, then fails
+        demand: { off_peak_rps: 5, peak_rps: 60 }   # must cover the app's traffic below
+        error:
+          status: 503
+          type: SQLTransientConnectionException
+          message: "intake-db-pool: connection is not available, request timed out after 3000ms"
+      # The database the pool's connections are spent on. dependency_slow multiplies its
+      # latency by up to slow_factor (lock contention: 15 ms becomes 180 ms at intensity 1).
+      - { name: records-db, kind: dependency, latency_ms: 15, slow_factor: 12 }
+
+workloads:
+  - type: app
+    name: intake
+    runs_on: causal-example-prod
+    traffic: { off_peak_rps: 5, peak_rps: 60 }
+    services:
+      - name: intake-api
+        entry: true
+        uses: [intake-db-pool]       # every request takes a connection on arrival
+        calls: [records-db]
+      - { name: records-db, type: db, uses: [records-db] }   # the query's latency is the dependency's
+
+scenarios:
+  - name: records-db-lock-contention
+    title: Lock contention on the records database
+    summary: >
+      Queries slow from 15 ms to 180 ms, each connection is held 9 times longer, and the
+      intake pool runs out of connections at peak.
+    effects:
+      - { mode: dependency_slow, target: records-db }   # intensity defaults to 1
+
+incidents:
+  - { scenario: records-db-lock-contention, at: "10:30", for: 40m }
+```
+
+**The declaration.** `intake-db-pool` has 10 connections, and one transaction holds one for 20 ms
+(a 15 ms query plus driver overhead). At the 60 rps business peak that offers
+`60 x 0.020 = 1.2` busy connections of 10, a utilization of 0.12. `records-db` is the dependency the
+connections are spent on, with a 15 ms baseline. `held_across: records-db` couples the two: the
+pool's hold is its own `hold_ms` plus whatever the dependency adds. The `intake-api` node lists the
+pool in `uses`, and `records-db` is a database node with the dependency's latency.
+
+**The scenario.** `dependency_slow` on `records-db` at intensity 1 multiplies its latency by
+`slow_factor`: 15 ms becomes 180 ms. The pool is not declared faulty. Its hold becomes
+`20 + 15 x (12 - 1) = 185 ms`, so the same 60 rps now offers `60 x 0.185 = 11.1` connections to a
+pool of 10, a utilization of 1.11. The pool exhausts because the arithmetic says it must. The
+incident runs daily from 10:30 for 40 minutes, and the pool returns to 0.12 as soon as it ends.
+
+**What each signal shows.**
+
+| Signal | Healthy | During the incident |
+|---|---|---|
+| Pool state (`resource: {name: intake-db-pool, field: utilization}` in a custom metric) | 0.12, with 1.2 connections in use | 1.11, with all 10 in use and requests waiting |
+| Request outcome | Ordinary background errors only | About 10% of requests (`1 - 1 / 1.11`) fail at the entry as a 503 with outcome server error |
+| Request duration | Tens of milliseconds | Failures last the 3 s acquire timeout, and requests that get a connection wait between 1.5 s and 3 s for it |
+| `records-db` hop duration | About 15 ms | About 180 ms |
+| Spans | As requests are | Spans follow each request's status and duration, so failed requests and the waiting show in the trace |
+| Log status and outcome | 200 and success | 503 and server error on the failed requests |
+| Span metrics and service graph | Error share at the background rate | Error share and latency rise with the requests that produce them |
+
+Everything in the table is derived from one shared state. The same declaration, bound to a Lambda
+function, an SQS queue or a database instance, moves their metrics in the same window: the
+consumers read the state the application reads and never re-simulate it.
+
+**The cause on spans and logs.** The failing request carries the cause as well as the status: the
+resource's declared `error` block supplies the class and the message, and the failing hop reports
+them instead of a bare code. The declared values are yours to choose and the catalogue ships none.
+The attribute and log field names that carry them are fixed by the signal contracts in
+[signals/](https://github.com/rknightion/synthkit/tree/main/signals) once sourced, not by this
+guide.
+
+### Declare causes, not rates
+
+- **Name the resource first.** Ask what a real incident would break: a pool too small for its hold
+  time, a function with too little reserved concurrency, consumers that cannot keep up, a
+  dependency that gets slow. Declare that, then write a scenario that perturbs it. Do not reach for
+  an error rate or a latency multiplier to produce the symptom directly.
+- **Size resources with arithmetic.** Offered load is `rps x hold seconds`. A pool is healthy below
+  roughly 80% of its size, exhausts above 100%, and a dependency's slowdown stretches the hold. Put the
+  sum in a comment beside the declaration, as the example does.
+- **Keep rates plausible.** Every size, hold time, latency and rate carries its real-world basis in
+  a comment. A rate that no real deployment produces is fabricated data, and it looks legitimate.
+- **Never raise a shipped rate to force a signal.** A scenario that must fire inside one tick
+  belongs in a fixture under `e2e/fixtures/`, never in `blueprints/`.
+- **Aim at the cause.** A scenario's effect targets the resource that is at fault (`records-db`),
+  not the resource that shows the symptom (`intake-db-pool`).
+- **Retries amplify.** A caller that resends adds demand to the resource it hits, and a resource
+  that is already near its limit tips over sooner. Declare `call_policies` where the real client
+  resends, and size `demand` to include it.
+
+The model is an approximation: within a 5-second step rates are constant, pools, concurrency limits
+and quotas have no memory between steps, and only queues carry a backlog from one step to the next.
+Faults activated live are sampled at each master tick. DynamoDB, `web_service` and `ai_agent` do not
+bind to resources.
+
 ## LLM-assisted blueprint creation
 
 The `/create-blueprint` skill (see [tools.md](tools.md)) walks you through an interactive blueprint generation session in Claude Code: it asks about your estate, drafts the YAML, validates it, and explains what each section emits.
@@ -385,6 +560,7 @@ The `/create-blueprint` skill (see [tools.md](tools.md)) walks you through an in
 - **[Workloads](workloads.md)** — `web_service`, `app` and `ai_agent` workload config
 - **[Emission switches](emission-switches.md)** — which constructs each declaration gates
 - **[Incidents](incidents.md)** — scenarios, failure modes, scheduling, and live activation
+- **[Fault catalogue](fault-catalogue.md)** — the causal fault modes on declared resources, each with a loadable blueprint
 - **[Blueprint examples](blueprint-examples.md)** — annotated example blueprints from the catalog
 
 </div>

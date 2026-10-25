@@ -76,6 +76,41 @@ outcomes, follow the [canonical CloudWatch outcome contract](https://github.com/
 observations are sparse, so an empty completion window is not a zero-duration sample. Do not claim
 full pipeline/demo coverage or raise shipped rates to force a run; use a selected test fixture.
 
+## Declare causes, not rates
+
+When the blueprint models a failure, declare the cause and let the symptoms follow. A rate-only
+scenario (`error_spike`, `latency_storm` and similar) scales a number and leaves every other
+signal as it was; avoid it as the default way to model an incident. Use it only for an effect with
+no resource to name, and say so in a comment.
+
+1. Name what a real incident would break: a connection pool too small for its hold time, a
+   function's reserved concurrency, consumers that cannot keep up with a queue, a quota, a slow
+   dependency, an expired certificate or token, a validation rule or a bad release.
+2. Declare it under the environment's `resources:` and attach it where requests meet it: an `app`
+   service node's `uses`, or a `resource:` field on a Lambda function, SQS queue, Solace queue or
+   database. Read the `environments[].resources[]` rows of `BLUEPRINT-SCHEMA.md` for the exact
+   fields per kind.
+3. Write the scenario against the resource that is at fault, using one of the eight `resource`-axis
+   modes (`pool_exhausted`, `concurrency_reduced`, `quota_reduced`, `consumer_slowdown`,
+   `dependency_slow`, `dependency_unavailable`, `credential_expired`, `rule_regression`). Aim a
+   mode at the kind it acts on. Aim `dependency_slow` at the dependency, not at the pool that
+   holds connections across it: the exhaustion is emergent.
+4. Size the resource with arithmetic and put the sum in a comment: offered load is
+   `rps x hold seconds`, a pool is comfortable below about 80% of its size and exhausts above
+   100%, and a slow dependency stretches the hold. Every size, hold time, latency and rate carries
+   its real-world basis. Never raise a rate in `blueprints/` to make a signal appear; one-tick
+   forcing belongs in `e2e/fixtures/`.
+5. Verify through the loader and the dump (Procedure step 7), then confirm the incident moves the
+   state you expect: healthy before, the cause during, recovered after.
+
+Follow the [Declaring causes guide](https://github.com/rknightion/synthkit/blob/main/docs/blueprints.md#declaring-causes)
+for the worked example (a connection pool held across a slow database, loaded from
+`e2e/fixtures/causal-example.yaml`) and the
+[fault catalogue](https://github.com/rknightion/synthkit/blob/main/docs/fault-catalogue.md) for a
+loadable blueprint per mode. Copy their structure, not their rates. An error class and message
+are values you choose in a resource's `error` block; the catalogue ships none. Do not name an
+attribute or log field for the cause: the signal contracts fix those names once sourced.
+
 ## Procedure
 
 1. Give the blueprint a unique, stable `name` and `label`. `name` is the deterministic seed;
@@ -95,7 +130,10 @@ full pipeline/demo coverage or raise shipped rates to force a run; use a selecte
    systems. These are distinct schema sections; a kind in the wrong section is a load error.
    Use `for_each_env: true` only when the schema supports it and every selected environment has
    the required resolved resource.
-6. For multi-construct output, validate both the wiring and the intended inventory before
+6. For a failure scenario, declare the cause under `resources:` and aim the scenario at it, as
+   [Declare causes, not rates](#declare-causes-not-rates) describes. Do not model an incident with
+   a rate-only mode when a resource can be named.
+7. For multi-construct output, validate both the wiring and the intended inventory before
    declaring it done:
 
    ```bash
