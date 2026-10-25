@@ -57,6 +57,15 @@ type Queue struct {
 	// once they fall back. Receives follow arrivals, so idle consumers add no
 	// empty-receive polling. Without a shape engine the factor is 1.
 	Load string `yaml:"load"`
+	// Burst, when declared, concentrates the queue's arrivals into the on-fraction of each
+	// period instead of spreading them evenly, as an upstream batch pipeline delivers: the same
+	// mean volume (arrivals_per_second, scaled by load when that is business) arrives in the first
+	// duty x period of each period, offset by phase, and nothing arrives in the rest. Periods are
+	// aligned to the Unix epoch on the tick wall clock, so the on-window needs no state and a
+	// restart or a master pause resumes on the same schedule. Receives are unchanged, so a backlog
+	// forms during a burst while arrivals exceed receives_per_second and drains afterwards.
+	// Omitted (the default) leaves arrivals evenly spread. A queue bound to a resource rejects it.
+	Burst *Burst `yaml:"burst"`
 	// Enrichment selects only the P2 key vocabulary. All values are declared;
 	// omitted keys stay absent. P1/P3 tag alternatives cannot be union-filled.
 	Enrichment Enrichment `yaml:"enrichment"`
@@ -65,10 +74,84 @@ type Queue struct {
 	// NumberOfMessagesReceived and NumberOfMessagesDeleted are what the consumers served,
 	// ApproximateNumberOfMessagesVisible is the backlog and ApproximateAgeOfOldestMessage the
 	// oldest message's age. The resource owns arrival rate, consumer throughput and processing
-	// time, so arrivals_per_second, receives_per_second, processing_seconds, delay_seconds and
-	// load must be omitted, and the resource must not set max_depth (a standard queue is
+	// time, so arrivals_per_second, receives_per_second, processing_seconds, delay_seconds, load and
+	// burst must be omitted, and the resource must not set max_depth (a standard queue is
 	// unbounded). NotVisible, Delayed and EmptyReceives are not emitted for a bound queue.
 	Resource string `yaml:"resource"`
+}
+
+// Burst declares periodic batch arrivals. The on-window of period n is
+// [n x period + phase, n x period + phase + duty x period) from the Unix epoch.
+type Burst struct {
+	// Period is the repeat interval as a Go duration, 1s to 168h ("30m" gives two bursts an hour).
+	Period string `yaml:"period"`
+	// Duty is the on-fraction of each period, in (0,1]. Arrivals are concentrated into it, so
+	// the on-window rate is arrivals_per_second / duty; 1 is a continuous stream.
+	Duty float64 `yaml:"duty"`
+	// Phase offsets the start of the on-window within the period as a Go duration,
+	// 0 <= phase < period (default "": the burst starts on each epoch-aligned period boundary).
+	Phase string `yaml:"phase"`
+}
+
+const (
+	minBurstPeriod = time.Second
+	maxBurstPeriod = 168 * time.Hour
+)
+
+// burstWindow is a validated Burst on integer nanoseconds.
+type burstWindow struct{ period, on, phase int64 }
+
+// compile validates a declared burst against the queue's own arrival rate.
+func (b *Burst) compile(q Queue) (*burstWindow, error) {
+	period, err := time.ParseDuration(b.Period)
+	if err != nil {
+		return nil, fmt.Errorf("sqs %s: burst.period %q: %w", q.Name, b.Period, err)
+	}
+	if period < minBurstPeriod || period > maxBurstPeriod {
+		return nil, fmt.Errorf("sqs %s: burst.period must be %s..%s, got %s", q.Name, minBurstPeriod, maxBurstPeriod, period)
+	}
+	if math.IsNaN(b.Duty) || b.Duty <= 0 || b.Duty > 1 {
+		return nil, fmt.Errorf("sqs %s: burst.duty must be in (0,1], got %v", q.Name, b.Duty)
+	}
+	var phase time.Duration
+	if b.Phase != "" {
+		if phase, err = time.ParseDuration(b.Phase); err != nil {
+			return nil, fmt.Errorf("sqs %s: burst.phase %q: %w", q.Name, b.Phase, err)
+		}
+	}
+	if phase < 0 || phase >= period {
+		return nil, fmt.Errorf("sqs %s: burst.phase must be in [0,period), got %s", q.Name, phase)
+	}
+	if q.ArrivalsPerSecond <= 0 {
+		return nil, fmt.Errorf("sqs %s: burst needs a positive arrivals_per_second to concentrate", q.Name)
+	}
+	if q.ArrivalsPerSecond/b.Duty > 1e6 {
+		return nil, fmt.Errorf("sqs %s: burst on-window rate arrivals_per_second/duty must be at most 1000000", q.Name)
+	}
+	on := int64(math.Round(b.Duty * float64(period)))
+	if on < 1 {
+		on = 1
+	}
+	return &burstWindow{period: int64(period), on: on, phase: int64(phase)}, nil
+}
+
+// cumulativeOn is the total on-time from the epoch up to wall.
+func (b *burstWindow) cumulativeOn(wall time.Time) int64 {
+	x := wall.UnixNano() - b.phase
+	k := x / b.period
+	r := x % b.period
+	if r < 0 {
+		k--
+		r += b.period
+	}
+	return k*b.on + min(r, b.on)
+}
+
+// factor is the arrival multiplier for the one-second step ending at wall: the share of that
+// second inside the on-window, scaled by period/on so the mean over a period is unchanged.
+func (b *burstWindow) factor(wall time.Time) float64 {
+	overlap := b.cumulativeOn(wall) - b.cumulativeOn(wall.Add(-time.Second))
+	return float64(overlap) / float64(time.Second) * float64(b.period) / float64(b.on)
 }
 
 // Enrichment is optional collector metadata, never an AWS dimension.
@@ -107,6 +190,8 @@ type queueState struct {
 	// carries keep sub-message residuals of the model's fluid counts across windows.
 	res                    string
 	sentCarry, servedCarry float64
+	// burst is the compiled on-window of an unbound queue that declares one, else nil.
+	burst *burstWindow
 }
 
 type Construct struct {
@@ -176,6 +261,13 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 		if q.Load != "" && q.Load != loadConstant && q.Load != loadBusiness {
 			return nil, fmt.Errorf("sqs %s: load must be empty, %q or %q, got %q", q.Name, loadConstant, loadBusiness, q.Load)
 		}
+		var burst *burstWindow
+		if q.Burst != nil {
+			var err error
+			if burst, err = q.Burst.compile(q); err != nil {
+				return nil, err
+			}
+		}
 		if q.DelaySeconds < 0 || q.DelaySeconds > 900 || q.ProcessingSeconds < 0 || q.ProcessingSeconds > 43200 {
 			return nil, fmt.Errorf("sqs %s: delay_seconds must be 0..900, processing_seconds 0..43200", q.Name)
 		}
@@ -186,7 +278,7 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 				labels[k] = v
 			}
 		}
-		out.queues = append(out.queues, queueState{cfg: q, labels: labels, res: res})
+		out.queues = append(out.queues, queueState{cfg: q, labels: labels, res: res, burst: burst})
 	}
 	if len(boundBy) > 0 {
 		m, err := causal.Compile(c.set)
@@ -228,6 +320,7 @@ func (c *Config) bind(q Queue, fx *fixture.Set, boundBy map[string]string) (stri
 		{"processing_seconds", q.ProcessingSeconds != 0},
 		{"delay_seconds", q.DelaySeconds != 0},
 		{"load", q.Load != ""},
+		{"burst", q.Burst != nil},
 	} {
 		if f.set {
 			return "", fmt.Errorf("sqs %s: %s must be omitted on a queue bound to resource %q (the resource owns it)", q.Name, f.name, r.Name)
@@ -324,6 +417,11 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 			business := q.cfg.Load == loadBusiness
 			if business {
 				arrivalRate *= factors[s-1]
+			}
+			if q.burst != nil {
+				// The burst clock is the tick wall clock: the unpaused cohort clock plus every
+				// master-paused interval, like the business factor.
+				arrivalRate *= q.burst.factor(at.Add(c.pausedFor))
 			}
 			arrivals := whole(&q.arrival, arrivalRate)
 			if arrivals > 0 {

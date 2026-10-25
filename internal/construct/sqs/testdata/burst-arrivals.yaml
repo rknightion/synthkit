@@ -1,0 +1,24 @@
+# Test-only declaration, not a deployable blueprint. One unbound queue whose arrivals come in
+# periodic bursts, loaded through the real blueprint loader by internal/integration (a construct
+# directory may not import the loader).
+name: sqs-burst-arrivals
+label: sqs-burst-arrivals
+environments:
+  - name: prod
+    cloud:
+      provider: aws
+      account_id: "111122223333"
+      region: eu-west-1
+      vpc_id: vpc-fixture
+      cloudwatch: {albs: 0, s3_buckets: 0, nlb: false, ebs: false, nat_gateway: false, eks: false, firehose: false, private_link: false}
+      sqs:
+        queues:
+          - name: batch-queue
+            collector_name: declared-batch-collector
+            # A mean of 2 msg/s over each 30-minute period, delivered inside the first quarter of
+            # it (450 s at 8 msg/s) while consumers take at most 4 msg/s: a backlog of 1800 forms
+            # during the burst and drains in the following 450 s.
+            arrivals_per_second: 2
+            receives_per_second: 4
+            message_bytes: 1024
+            burst: {period: 30m, duty: 0.25}
