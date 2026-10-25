@@ -142,8 +142,10 @@ Each node in `services:` is a `ServiceNode`:
 | `type` | Span semantics. Valid values: `frontend` / `web` / `grpc` / `worker` / `job` / `stream` / `gateway` / `db` / `cache` / `llm` / `agent` / `tool` / `workflow` / `retrieval`. Unknown types fall back to a default. |
 | `runtime` | `go` / `jvm` / `node` / `python` — selects the catalog runtime profile. |
 | `entry` | `true` on exactly one node: the graph's request entry point. |
+| `worker` | `true` on the entry only: it consumes `traffic.from_resource`, its root span is CONSUMER, and each request records the queue's backlog wait. |
 | `replicas` | Pod count for the k8s substrate cascade (default 2). |
 | `calls` | Downstream node names (graph edges). |
+| `uses` | Declared `environments[].resources` a request meets on arrival at this node, in order; a name resolves as `<name>-<lower(env)>` first, then exactly. Needs `environments[].resources`. See [Causal requests](#causal-requests). |
 | `routes` | Request routes drawn per-request. On the entry node these populate `r.Route`; on a callee they name its SERVER span. |
 | `profiles` | Catalog profile template names applied to this node. |
 | `metrics` / `logs` / `spans` | Inline custom telemetry via the DSL (the escape hatch). |
@@ -257,6 +259,38 @@ An `agentic_flow` on a node adds a nested gen_ai span subtree inside that node's
 
 Set `omit_chat: true` when a connected `gateway` or `llm` node already models the LLM call so it is not double-counted.
 
+### Causal requests
+
+An `app` becomes causal when it declares `uses` on a service node, `call_policies`, `worker` or
+`traffic.from_resource`, against `environments[].resources`. Each request's outcome, status and
+timing then derive from resource state and active faults (the
+[resource axis](incidents.md#resource-axis-causal-resources)) instead of an independent draw, and
+every signal projects the same request facts. The field reference is the generated
+`BLUEPRINT-SCHEMA.md` (`services[].uses`, `services[].worker`, `traffic.from_resource`,
+`traffic.success_status`, `traffic.error_mix`).
+
+- **Traces.** A failing request's origin span is ERROR and carries the cause as its status
+  description, `error.type`, and the mapped HTTP status where one applies; retries are separate CLIENT
+  spans with `http.request.resend_count`; a `worker` entry's root span is CONSUMER. No `exception`
+  span event is emitted, because the pinned semantic conventions deprecate it. See
+  `signals/traces.md`, section `traces-app-causal`, for the status rules and sources.
+- **Logs.** In a request carrying a fault or a failure, each service logs from its own hop: the log
+  `ref` names listed in the Telemetry DSL section below. A service the request never reached logs nothing.
+- **Span metrics and service graph.** In a metric window that holds a faulted or failed request,
+  each row's latency cycles through the window's real span durations for that row and status, and
+  an edge's volume is scaled by the calls to its callee per sampled request, so retries count. A
+  `worker` entry's row is `SPAN_KIND_CONSUMER`, and a `traffic.from_resource` app's request volume
+  is the queue's served rate. Windows with no fault or failure, and workloads that declare no
+  resources, take the established path unchanged.
+- **Custom metrics.** The `resource` and `outcomes` value models read the same state and the node's
+  hop outcomes for the window.
+- **Unbound nodes stay as they were.** A service that names no resource keeps its legacy request
+  facts field for field, and a healthy causal request keeps the legacy spans and logs. The one
+  difference is a hop failure from `error_spike` or a declared `error_rate`, which in a causal
+  workload propagates by the mapped status and can be absorbed by a retry, and in any other
+  blueprint stays independent (see the
+  [service axis](incidents.md#service-axis-app-workload-per-node)).
+
 ### Telemetry DSL
 
 Each node can declare custom metrics, log streams, and extra span attributes via inline DSL specs. The DSL is the `profiles:` escape hatch — use catalog profiles first, inline specs for anything not covered.
@@ -277,6 +311,7 @@ Each node can declare custom metrics, log streams, and extra span attributes via
 | `now` | `now: {}` or `now: {stall_mode: error_spike}` | The tick time in Unix seconds (gauge metric values only), for a collector heartbeat. Plain `now: {}` advances every tick whether or not work succeeded. With `stall_mode`, the gauge holds its last reading while that incident mode is active on the service the metric belongs to and resumes at the tick time afterwards, so a last-success-age alert can fire; a stall already active on the first tick holds that tick's reading, and the hold is not persisted across a restart. Never the wall clock; `value_scale` is rejected on its labels |
 | `resource` | `resource: {name: db-pool, field: utilization}` | A field of a declared `resources:` entry's model state (metric values only). Gauge fields `demand_rps`, `capacity`, `utilization`, `in_use`, `waiting`, `wait_seconds`, `backlog`, `oldest_age_seconds`, `latency_factor`, `hold_seconds`, `served_rps`, `failed_share` need a gauge metric; counter fields `rejected`, `admitted`, `failed` (window sums since the last tick) need a counter metric. Reads 0 where the workload supplies no model |
 | `outcomes` | `outcomes: {status: [5xx], measure: share}` or `{status_label: code, measure: count}` | The node's hop outcomes in the metric window (metric values only). `status` lists `success`, `4xx`, `5xx` or exact three-digit statuses; alternatively `status_label` names an `enum` label of the same metric whose values are such statuses and select the status per series (set exactly one of the two). `measure` is `count` (default, counter metric), `share` (gauge metric) or `latency` (histogram metric, one observation per matching hop duration in seconds). Reads 0 where the workload supplies no outcomes |
+| `request_draw` | `request_draw: {key: order, format: "ORD-{digits:10}"}` or `{key: path, enum: [{value: /v1/orders, weight: 6}, {value: /v1/items, weight: 3}]}` | A value drawn once per request and shared by every log line of that request that names the same `key` (log body fields only), so a multi-line log bundle carries one fresh ID and one path instead of a fixed specimen. Set exactly one of `format` and `enum`. `format` is literal text with generated runs `{digits:N}`, `{hex:N}` (lower case) or `{upper:N}` (upper case letters and digits), N from 1 to 32 and at most 64 generated characters in all; literal braces are not supported. `enum` is a weighted categorical draw (weights are the share of requests; `rate_scale`, `value_scale` and `shape_profile` are rejected). The draw hashes the request's seed unit and mint instant, never the shape engine or the wall clock: it is deterministic for a given seed and clock, consumes no engine randomness, and an ID does not repeat across a restart. Repeat the same declaration on every line of the bundle; lines declaring a key differently draw different values. In a failing causal request every node's lines and every retried attempt share the one request's draw |
 | `ref` | `ref: trace_id` | Pulls a correlation field by name |
 
 **Capability matrix** (enforced at load time):
@@ -284,7 +319,13 @@ Each node can declare custom metrics, log streams, and extra span attributes via
 - **Metric labels** and **Loki stream labels**: only `const` / `const_str` / `enum`. These must enumerate a stable, total domain on every run.
 - **Metric values**: only numeric models — `const`, `int_range`, `float_range`, `normal`, `lognormal`, `bool`, `shape`, and `now` on gauges, plus `resource` and `outcomes` under the instrument rules in the table above. A metric whose value is `resource` or `outcomes` rejects enum `rate_scale` and `value_scale` on its labels, since they would distort window counts.
 - Enum `rate_scale` / `value_scale` are admitted on **metric labels** only (see below); a log, stream-label or span enum carrying them is rejected.
-- **Log body fields** and **span attributes**: any model, including `ref`, except `shape.incident_value`, `now`, `resource` and `outcomes` (metric values only). High-cardinality correlation keys (`trace_id`, `portkey_trace_id`, `run_id`, etc.) ride here — never as labels or stream labels.
+- **Log body fields** and **span attributes**: any model, including `ref`, except `shape.incident_value`, `now`, `resource` and `outcomes` (metric values only) and `request_draw` (log body fields only). High-cardinality correlation keys (`trace_id`, `portkey_trace_id`, `run_id`, etc.) ride here — never as labels or stream labels.
+  An app `ref` can also read `error_code` (the failed request's `error_mix` code). In a causal
+  request that carries a fault or a failure, each service's log lines use that service's own hop:
+  `span_id`, `status`, `outcome` and the stream `level` follow it, a retried callee logs once per
+  attempt at the attempt's end, and a service the request never reached logs nothing. Those lines
+  can also read `error_type`, `error_message`, `exception_type`, `fault_resource`, `fault_mode`,
+  `attempt` and `upstream` (the called service whose failure this service answered with).
 
 For a metric that is genuinely zero normally but nonzero during an incident, opt into a finite,
 explicit endpoint rather than fabricating a positive baseline:

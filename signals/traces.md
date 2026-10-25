@@ -56,6 +56,70 @@ app_automation:
   forbidden: [payloads, secrets, command_output, arbitrary_attributes]
 ```
 
+## App causal request spans [slug: traces-app-causal]
+
+An `app` workload that opts into causal resources (`uses`, `call_policies`, `worker`,
+`traffic.from_resource`) projects each request's derived hop facts. Healthy requests keep the
+legacy spans. Only failing spans gain attributes.
+
+Provenance: OpenTelemetry semantic-conventions v1.44.0:
+https://github.com/open-telemetry/semantic-conventions/blob/v1.44.0/docs/http/http-spans.md
+(status rules, `http.response.status_code`, `http.request.resend_count`, `error.type`)
+https://github.com/open-telemetry/semantic-conventions/blob/v1.44.0/docs/db/database-spans.md
+(`error.type` on a database client span)
+https://github.com/open-telemetry/semantic-conventions/blob/v1.44.0/docs/registry/attributes/error.md
+(`error.type`, fallback value `_OTHER`)
+https://github.com/open-telemetry/semantic-conventions/blob/v1.44.0/docs/messaging/messaging-spans.md
+(a processing span of a message consumer is `CONSUMER`)
+https://github.com/open-telemetry/semantic-conventions/blob/v1.44.0/docs/exceptions/exceptions-spans.md
+(document status Deprecated: "Use Semantic conventions for exceptions in logs instead")
+https://github.com/open-telemetry/semantic-conventions/blob/v1.44.0/docs/exceptions/exceptions-logs.md
+(`exception.type` on a log record).
+OpenTelemetry specification v1.61.0:
+https://github.com/open-telemetry/opentelemetry-specification/blob/v1.61.0/specification/trace/api.md
+(span status description only with `Error`; `CONSUMER` span kind).
+
+- SERVER span status is ERROR only for a 5xx response; a 4xx answer stays UNSET. CLIENT spans are
+  ERROR for 4xx, 5xx and transport failures (connect, credential, timeout). A worker entry's root
+  is a CONSUMER span; the HTTP rules do not apply to it, so any failed request sets ERROR.
+- `http.response.status_code` is stamped on failing HTTP service hops and a failing SERVER root,
+  never on gRPC hops; db/cache leaf CLIENT spans get `error.type` only.
+- `error.type` is set only on a span whose status is ERROR (a SERVER span answering 4xx or 429
+  stays UNSET with `http.response.status_code` and no `error.type`; the cause stays on the log).
+  It is the origin's own type at the origin span (callee SERVER span for server-side
+  faults; caller CLIENT span for transport failures and timeouts). Upstream spans carry the mapped
+  status as a string, or `timeout` / the transport type when no status was seen. A resource
+  failure with neither a status nor a declared type uses the well-known fallback `_OTHER`.
+- The origin span's status description is the fault message, set only when the span is ERROR (the
+  specification forbids a description on any other status). The semantic conventions advise
+  omitting a description the status code already implies; the message is kept because it names
+  the declared cause (a resource and its mode), which a status code cannot.
+- A request that fails only from the workload's baseline error rate (no declared fault) projects
+  exactly as a non-causal request.
+- Each resend is its own CLIENT span (and callee SERVER subtree) with
+  `http.request.resend_count` = 1, 2, ...; the first attempt omits it.
+- No `exception` span event is emitted (deprecated in the pinned conventions). The class rides
+  the error log's `exception_type` field instead ([logs.md](logs.md)), a blueprint-declared log
+  field whose name is the author's choice.
+
+```yaml signals
+app_causal:
+  v: ok
+  emitter: app workload (causal requests)
+  attributes:
+    - {name: http.response.status_code, type: int, present: failing-http-hops-only}
+    - {name: error.type, type: string, present: failed-operations-only}
+    - {name: http.request.resend_count, type: int, present: resends-only}
+  status:
+    server_5xx: STATUS_CODE_ERROR
+    server_4xx: STATUS_CODE_UNSET
+    client_4xx_5xx_transport_timeout: STATUS_CODE_ERROR
+    consumer_root_any_failure: STATUS_CODE_ERROR
+  span_kinds:
+    worker_entry_root: SPAN_KIND_CONSUMER
+  span_events: none
+```
+
 The `web_service` workload emits ONE connected trace per request modelling the real browser→backend→DB
 path. Hand-encoded multi-Resource `ResourceSpans` (I2); Tempo assembles by `trace_id`+`parent_span_id`
 across exports. See [`00-canon.md`](00-canon.md) for scoping `[slug: request-correlation]`, envelope keys
