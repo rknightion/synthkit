@@ -738,6 +738,7 @@
   "github.com/rknightion/synthkit/internal/workload/app.result.fault": "origin fault of a failure",
   "github.com/rknightion/synthkit/internal/workload/app.result.slow": "the largest slowing cause in the subtree",
   "github.com/rknightion/synthkit/internal/workload/app.result.slowBy": "ms it added",
+  "github.com/rknightion/synthkit/internal/workload/app.triggerBook.order": "oldest first from head",
   "github.com/rknightion/synthkit/internal/workload/webservice.BeylaObs.Context": "\"ebpf_only\" | \"coexist_sdk\" (default ebpf_only)",
   "github.com/rknightion/synthkit/internal/workload/webservice.BeylaObs.Features": "empty ⇒ beyla.DefaultFeatures(mode)",
   "github.com/rknightion/synthkit/internal/workload/webservice.BeylaObs.Mode": "\"kubernetes\" | \"standalone\" (default kubernetes)",
