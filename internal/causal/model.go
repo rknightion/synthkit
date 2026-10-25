@@ -4,6 +4,7 @@ package causal
 
 import (
 	"math"
+	"slices"
 	"sync"
 	"time"
 )
@@ -78,6 +79,8 @@ type compiled struct {
 	creds   []*compiled // credentials of the held-across dependency
 	from    *compiled   // demand.from upstream
 	loads   []Load      // retrying caller edges into this resource
+	gates   []*gate     // per load: its place in the caller's request tree; nil = Policy only
+	key     outcomeKey  // how a rejection here looks to the caller (flow evaluation)
 	ring    []rec
 	last    rec // most recent step's record (for references within one step)
 	backlog float64
@@ -137,11 +140,30 @@ func Compile(s Set) (*Model, error) {
 			}
 		}
 	}
+	for _, c := range decl {
+		c.key = c.failKey()
+	}
+	flows := map[*Flow]*cflow{}
 	for _, l := range s.Loads {
-		m.byName[l.Resource].loads = append(m.byName[l.Resource].loads, l)
+		c := m.byName[l.Resource]
+		var g *gate
+		if l.Flow != nil {
+			cf, ok := flows[l.Flow]
+			if !ok {
+				cf = compileFlow(l.Flow, m.byName)
+				flows[l.Flow] = cf
+			}
+			g = cf.gateFor(l.Flow, l.Node, l.Resource)
+		}
+		c.loads = append(c.loads, l)
+		c.gates = append(c.gates, g)
 	}
 	// Dependencies first, then credentials and rules (they read nothing), then capacity kinds in
-	// demand.from order (Validate rejects a cycle), declaration order breaking ties.
+	// demand.from order (Validate rejects a cycle), declaration order breaking ties. A capacity
+	// resource whose flow-derived demand reads another capacity resource's reject share follows
+	// it too, so a chain along a request path (quota, pool, rule, function, queue) is solved in
+	// one step; where request trees make that circular, the first waiting resource in declaration
+	// order goes next and reads the others' previous step.
 	for _, c := range decl {
 		if c.r.Kind == KindDependency {
 			m.order = append(m.order, c)
@@ -152,16 +174,56 @@ func Compile(s Set) (*Model, error) {
 			m.order = append(m.order, c)
 		}
 	}
+	reads := map[*compiled][]*compiled{}
+	for _, c := range decl {
+		if !c.r.Kind.Capacity() || c.from != nil {
+			continue
+		}
+		for _, g := range c.gates {
+			if g == nil {
+				continue
+			}
+			g.touched(func(u *compiled) {
+				if u != c && u.r.Kind.Capacity() && !slices.Contains(reads[c], u) {
+					reads[c] = append(reads[c], u)
+				}
+			})
+		}
+	}
 	placed := map[*compiled]bool{}
+	ready := func(c *compiled, strict bool) bool {
+		if !c.r.Kind.Capacity() || placed[c] || (c.from != nil && !placed[c.from]) {
+			return false
+		}
+		if strict {
+			for _, u := range reads[c] {
+				if !placed[u] {
+					return false
+				}
+			}
+		}
+		return true
+	}
 	for {
 		progressed := false
 		for _, c := range decl {
-			if !c.r.Kind.Capacity() || placed[c] || (c.from != nil && !placed[c.from]) {
-				continue
+			if ready(c, true) {
+				placed[c] = true
+				m.order = append(m.order, c)
+				progressed = true
 			}
-			placed[c] = true
-			m.order = append(m.order, c)
-			progressed = true
+		}
+		if progressed {
+			continue
+		}
+		// Circular reads: place the first resource whose demand.from upstream is placed.
+		for _, c := range decl {
+			if ready(c, false) {
+				placed[c] = true
+				m.order = append(m.order, c)
+				progressed = true
+				break
+			}
 		}
 		if !progressed {
 			break
@@ -323,13 +385,16 @@ func (c *compiled) rejectClass() (FailureClass, int) {
 // amplified is the effective demand for base demand d when arrivals rejected with share reject
 // are resent under the declared retrying edges: each edge's share of the demand arrives
 // sum_{k=0..retries} p^k times, p being reject when the policy retries this resource's class.
+// An edge placed in its caller's request tree (a flow gate) is further scaled by the share of
+// requests its upstream uses and calls admit (reach); a demand.from resource keeps the
+// Policy-only rule (its upstream already carries the path).
 func (c *compiled) amplified(d, reject float64) float64 {
 	if len(c.loads) == 0 {
 		return d
 	}
 	class, status := c.rejectClass()
 	rest, out := 1.0, 0.0
-	for _, l := range c.loads {
+	for i, l := range c.loads {
 		rest -= l.Share
 		p := 0.0
 		if l.Policy.Retryable(class, status) {
@@ -339,6 +404,9 @@ func (c *compiled) amplified(d, reject float64) float64 {
 		for range l.Policy.Retries + 1 {
 			attempts += pk
 			pk *= p
+		}
+		if g := c.gates[i]; g != nil && c.from == nil {
+			attempts *= g.reach(latestReject(c, reject))
 		}
 		out += l.Share * attempts
 	}

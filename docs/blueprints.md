@@ -400,7 +400,10 @@ Resource names are unique across the blueprint. A pool, concurrency limit or que
 `held_across` a dependency: its effective hold is `hold_ms + latency_ms x (latency factor - 1)`, so a
 slow dependency stretches every unit of work held across it. `demand` is the load the resource
 sees; it must cover every request that passes through it, and the loader rejects an app whose traffic exceeds
-the demand declared for a resource it uses.
+the demand declared for a resource it uses. An app's share of that demand follows the requests that
+actually reach the resource: a request rejected earlier on its path (by a quota, a pool, a rule, or a
+call that failed before this one) never arrives, so a bound Lambda function, queue or broker queue
+reports the calls that get through. With no fault on the path the declared demand is unchanged.
 
 Something has to meet a resource before a signal moves:
 

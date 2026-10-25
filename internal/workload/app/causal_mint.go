@@ -218,8 +218,23 @@ func bindCausal(cfg *Config, g *graph, env string, s causal.Set) (*causalPlan, e
 	}
 	peakSum, offSum := map[string]float64{}, map[string]float64{}
 	usesCapacity := false
-	for _, name := range order {
+	// flow is the request tree the model derives each used resource's arrivals from (design §3.3,
+	// SKT-0168.09.33): the spanning tree in the minter's DFS order, each node's resolved uses and
+	// the policy of the call into it, so a fault upstream on the path lowers what reaches a
+	// resource downstream exactly as the evaluator stops requests.
+	flow := &causal.Flow{Nodes: make([]causal.FlowNode, len(order))}
+	index := map[string]int{}
+	for i, name := range order {
+		index[name] = i
+	}
+	for i, name := range order {
 		n := g.byName[name]
+		fn := &flow.Nodes[i]
+		fn.Parent = -1
+		if i > 0 {
+			fn.Parent = index[parent[name]]
+			fn.Policy = g.byName[parent[name]].decl.CallPolicies[name]
+		}
 		cn := &causalNode{policies: n.decl.CallPolicies, leaf: n.kind.leaf, server: n.kind.serverSpan}
 		seen, lit := map[string]bool{}, map[string]bool{}
 		add := func(r causal.Resource) {
@@ -266,7 +281,7 @@ func bindCausal(cfg *Config, g *graph, env string, s causal.Set) (*causalPlan, e
 				offSum[r.Name] += off
 				share = peak / r.Demand.PeakRPS
 			}
-			p.loads = append(p.loads, causal.Load{Resource: r.Name, Share: share, Policy: pol})
+			p.loads = append(p.loads, causal.Load{Resource: r.Name, Share: share, Policy: pol, Flow: flow, Node: i})
 		}
 		if cn.durRes == "" && name == p.entry && p.worker {
 			cn.durRes = p.fromQueue // a consumer's processing time is the queue's hold
@@ -277,6 +292,7 @@ func bindCausal(cfg *Config, g *graph, env string, s causal.Set) (*causalPlan, e
 				cn.extraDeps = append(cn.extraDeps, u)
 			}
 		}
+		fn.Uses = cn.uses
 		p.nodes[name] = cn
 	}
 	names := make([]string, 0, len(peakSum))

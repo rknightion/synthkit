@@ -111,10 +111,19 @@ type Set struct {
 // arrives through callers using Policy, and each such arrival is resent when rejected with a
 // class the policy retries. The composition root collects loads from every LoadDeclarer before
 // injecting the Set, so every consumer compiles the same closed-loop demand.
+//
+// A load with a Flow also places the caller in its workload's request tree. The resource's
+// demand then follows what reaches it: Share of the declared demand is scaled by the share of
+// requests the tree's upstream uses and earlier calls admit, so an upstream rejection lowers it
+// and an unreachable node takes none; the resource's own rejections are still resent under
+// Policy. With nothing in the tree rejecting, the scale is exactly 1 and the demand is the
+// Policy-only one. A resource whose demand comes from another (demand.from) ignores the Flow.
 type Load struct {
 	Resource string
 	Share    float64 // in (0,1]; a resource's shares sum to at most 1
 	Policy   CallPolicy
+	Flow     *Flow // the caller's request tree; nil = Policy-only closed loop
+	Node     int   // the index in Flow.Nodes of the node using Resource
 }
 
 // LoadDeclarer is implemented by a workload Config whose declared call graph sends traffic

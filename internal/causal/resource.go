@@ -210,6 +210,14 @@ func validateLoads(loads []Load, byName map[string]Resource) error {
 		if err := l.Policy.Validate(); err != nil {
 			return fmt.Errorf("retry load on %q: %w", l.Resource, err)
 		}
+		if l.Flow != nil {
+			if err := validateFlow(l.Flow, byName); err != nil {
+				return fmt.Errorf("retry load on %q: %w", l.Resource, err)
+			}
+			if l.Node < 0 || l.Node >= len(l.Flow.Nodes) || !slices.Contains(l.Flow.Nodes[l.Node].Uses, l.Resource) {
+				return fmt.Errorf("retry load on %q: flow node %d does not use it", l.Resource, l.Node)
+			}
+		}
 		sum[l.Resource] += l.Share
 		if sum[l.Resource] > 1+1e-9 {
 			return fmt.Errorf("resource %q: callers' traffic shares sum to %v, more than its declared demand", l.Resource, sum[l.Resource])

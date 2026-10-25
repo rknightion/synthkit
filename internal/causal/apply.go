@@ -81,52 +81,54 @@ func (m *Model) Apply(name string, at time.Time, d Draw) Effect {
 	st := r.st
 	e.Kind = c.r.Kind
 	e.Mode = st.Mode
-	failed := func() bool { return st.RejectShare > 0 && d("fail") < st.RejectShare }
+	if st.RejectShare > 0 && d("fail") < st.RejectShare {
+		c.failArrival(&e)
+		if c.r.Kind == KindPool {
+			e.Wait = msDuration(c.r.AcquireTimeoutMS)
+		}
+		return e
+	}
 	switch c.r.Kind {
 	case KindPool:
-		T := msDuration(c.r.AcquireTimeoutMS)
-		if failed() {
-			c.fail(&e, 503)
-			e.Wait = T
-		} else if st.WaitMS > 0 {
-			e.Wait = min(msDuration(st.WaitMS*(0.5+d("wait"))), T)
+		if st.WaitMS > 0 {
+			e.Wait = min(msDuration(st.WaitMS*(0.5+d("wait"))), msDuration(c.r.AcquireTimeoutMS))
 			e.Message = c.slowMessage(e.Mode)
 		}
-	case KindConcurrency, KindQuota:
-		if failed() {
-			c.fail(&e, 429)
-		}
-	case KindQueue:
-		if failed() {
-			c.fail(&e, 503)
-		}
 	case KindDependency:
-		if failed() {
-			c.fail(&e, 0)
-			e.Class, e.Transport = ClassConnect, true
-			e.Mode = ModeDependencyUnavailable
-		} else if st.LatencyFactor > 1 {
+		if st.LatencyFactor > 1 {
 			e.LatencyFactor = st.LatencyFactor
 			e.Mode = ModeDependencySlow
 			e.Message = c.slowMessage(e.Mode)
 		}
-	case KindCredential:
-		if failed() {
-			status := 0
-			if c.r.CredentialType == CredentialToken {
-				status = 401
-			}
-			c.fail(&e, status)
-			// A certificate fails the caller's handshake; an expired token is refused by the
-			// callee's server, which answers 401.
-			e.Class, e.Transport = ClassCredential, c.r.CredentialType != CredentialToken
-		}
-	case KindRule:
-		if failed() {
-			c.fail(&e, 422)
-		}
 	}
 	return e
+}
+
+// failArrival fills a rejected arrival's effect for the resource's kind: the status, class,
+// transport flag and mode every caller sees. The flow model (failKey) reads the same fields, so
+// a derived demand resends exactly what the app's callers resend.
+func (c *compiled) failArrival(e *Effect) {
+	switch c.r.Kind {
+	case KindPool, KindQueue:
+		c.fail(e, 503)
+	case KindConcurrency, KindQuota:
+		c.fail(e, 429)
+	case KindDependency:
+		c.fail(e, 0)
+		e.Class, e.Transport = ClassConnect, true
+		e.Mode = ModeDependencyUnavailable
+	case KindCredential:
+		status := 0
+		if c.r.CredentialType == CredentialToken {
+			status = 401
+		}
+		c.fail(e, status)
+		// A certificate fails the caller's handshake; an expired token is refused by the
+		// callee's server, which answers 401.
+		e.Class, e.Transport = ClassCredential, c.r.CredentialType != CredentialToken
+	case KindRule:
+		c.fail(e, 422)
+	}
 }
 
 // ApplyConsumer resolves one message taken from the named queue by a consumer at at: the
