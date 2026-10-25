@@ -475,6 +475,35 @@ func (m *minter) drawOutcome(errRate float64, eng *shape.Engine) (ledger.Outcome
 	return outcomeOf(pick.Status), pick.Status, pick.errorCode(), u
 }
 
+// mixCode picks the error code of a failure answering status from the declared error_mix entries
+// of that status, weighted by weight, with u a uniform draw in [0, 1) the caller supplies (a causal
+// failure passes its request's hash draw, so no engine draw is taken). ok is false when no
+// error_mix is declared or none of its entries has the status.
+func (m *minter) mixCode(status int, u float64) (code string, ok bool) {
+	total := 0.0
+	var last ErrorOutcome
+	for _, e := range m.traffic.ErrorMix {
+		if e.Status == status {
+			total += e.Weight
+			last, ok = e, true
+		}
+	}
+	if !ok {
+		return "", false
+	}
+	cum := 0.0
+	for _, e := range m.traffic.ErrorMix {
+		if e.Status != status {
+			continue
+		}
+		cum += e.Weight
+		if u*total < cum {
+			return e.errorCode(), true
+		}
+	}
+	return last.errorCode(), true
+}
+
 // outcomeOf classifies an HTTP status into the request's outcome class.
 func outcomeOf(status int) ledger.Outcome {
 	switch {

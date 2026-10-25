@@ -314,7 +314,11 @@ every signal projects the same request facts. The field reference is the generat
   as a faulted request's are: each call starts after the caller's pre-call work and the previous
   call, and a caller's span covers its calls. A service a fault never reaches therefore keeps the
   same span durations on healthy and faulted requests. A request failed only by the entry's
-  baseline error draw keeps the legacy layout. The one difference is a hop failure from
+  baseline error draw keeps the legacy layout, except in a `traffic.from_resource` app (a bound
+  function's invocations), where that background failure is the entry's `error_rate` cause: it
+  takes the engine's timeline and its entry carries `error.type` (the status), the status message
+  `<service>: <error code>` and the matching log fields, as a causal failure does. The one
+  difference is a hop failure from
   `error_spike` or a declared `error_rate`, which in a causal
   workload propagates by the mapped status and can be absorbed by a retry, and in any other
   blueprint stays independent (see the
@@ -349,7 +353,10 @@ Each node can declare custom metrics, log streams, and extra span attributes via
 - **Metric values**: only numeric models — `const`, `int_range`, `float_range`, `normal`, `lognormal`, `bool`, `shape`, and `now` on gauges, plus `resource` and `outcomes` under the instrument rules in the table above. A metric whose value is `resource` or `outcomes` rejects enum `rate_scale` and `value_scale` on its labels, since they would distort window counts.
 - Enum `rate_scale` / `value_scale` are admitted on **metric labels** only (see below); a log, stream-label or span enum carrying them is rejected.
 - **Log body fields** and **span attributes**: any model, including `ref`, except `shape.incident_value`, `now`, `resource` and `outcomes` (metric values only) and `request_draw` (log body fields only). High-cardinality correlation keys (`trace_id`, `portkey_trace_id`, `run_id`, etc.) ride here — never as labels or stream labels.
-  An app `ref` can also read `error_code` (the failed request's `error_mix` code). In a causal
+  An app `ref` can also read `error_code` (the failed request's `error_mix` code; a causal failure
+  takes the code of the declared `error_mix` entry with its status, weighted when several match,
+  else the fault's error type). A log body `ref` the line's request does not set (an error field
+  on a healthy line) is omitted, never written as `""`. In a causal
   request that carries a fault or a failure, each service's log lines use that service's own hop:
   `span_id`, `status`, `outcome` and the stream `level` follow it, a retried callee logs once per
   attempt at the attempt's end, and a service the request never reached logs nothing. Those lines

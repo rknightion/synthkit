@@ -280,7 +280,10 @@ func TestCausalStories(t *testing.T) {
 	t.Run("healthy baseline", func(t *testing.T) {
 		r := healthy
 		for _, s := range r.spans {
-			if s.StatusMsg != "" {
+			// The only message without a declared fault is a bound worker's background error_rate
+			// failure on its own CONSUMER root, naming the service and the drawn code (SKT-0204).
+			background := s.Kind == otlp.KindConsumer && s.Status == otlp.StatusError && strings.HasPrefix(s.StatusMsg, s.service+": ")
+			if s.StatusMsg != "" && !background {
 				t.Fatalf("healthy window: span %s/%s carries a status message %q", s.service, s.Name, s.StatusMsg)
 			}
 		}

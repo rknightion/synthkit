@@ -401,12 +401,18 @@ func (w *Workload) projectLogs(ctx context.Context, world *core.World, batch []*
 				}
 				continue
 			}
-			body[bk] = evalAttr(vm, ctxEval)
+			v := evalAttr(vm, ctxEval)
 			// A gateway export line of a request that failed through its node reports that failure
 			// rather than the profile's independent draw (taken above, so later draws do not shift).
 			if failStatus != 0 && spec.Source == profiles.GatewayLogSource && bk == profiles.GatewayStatusField {
-				body[bk] = strconv.Itoa(failStatus)
+				v = strconv.Itoa(failStatus)
 			}
+			// A ref the line's request does not set (an error field on a healthy line, a model on
+			// a request without one) is an absent dimension: omitted, never written as "".
+			if vm.Kind() == telemetryspec.KindRef && v == "" {
+				continue
+			}
+			body[bk] = v
 		}
 		if stream != nil {
 			stream.Lines = append(stream.Lines, loki.Line{T: at, Body: jsonBody(body), Meta: meta})

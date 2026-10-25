@@ -407,6 +407,14 @@ func TestCausalStoryQueueConsumer(t *testing.T) {
 		t.Errorf("healthy validator hop mean %.1f ms, want about 350", got)
 	}
 	for _, r := range healthy {
+		// A bound consumer's baseline failure is its background error_rate cause (SKT-0204); a
+		// successful healthy request carries no fault.
+		if r.Outcome != ledger.OutcomeSuccess {
+			if r.Fault == nil || r.Fault.Mode != "error_rate" || r.Fault.Resource != "" {
+				t.Fatalf("background consumer failure carries %+v, want the error_rate cause", r.Fault)
+			}
+			continue
+		}
 		if r.Fault != nil {
 			t.Fatalf("healthy consumer request carries %+v", r.Fault)
 		}

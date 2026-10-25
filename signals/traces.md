@@ -111,7 +111,10 @@ https://github.com/open-telemetry/opentelemetry-specification/blob/v1.61.0/speci
   omitting a description the status code already implies; the message is kept because it names
   the declared cause (a resource and its mode), which a status code cannot.
 - A request that fails only from the workload's baseline error rate (no declared fault) projects
-  exactly as a non-causal request.
+  exactly as a non-causal request, except in a `traffic.from_resource` app (a bound function's
+  invocations, which has no non-causal twin): there the entry's background failure is its
+  `error_rate` cause, so its root follows the rules above with `error.type` the status as a string
+  and the status description `<service>: <error code>` (the drawn `error_mix` code).
 - Each resend is its own CLIENT span (and callee SERVER subtree) with
   `http.request.resend_count` = 1, 2, ...; the first attempt omits it.
 - No `exception` span event is emitted (deprecated in the pinned conventions). The class rides

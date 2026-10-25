@@ -535,6 +535,17 @@ func (p *causalPlan) overlay(m *minter, r *ledger.Request, now time.Time, eng *s
 	case !res.ok:
 		r.Outcome, r.StatusCode = outcomeOf(res.status), res.status
 		r.Fault, r.ErrorKind = res.fault, res.fault.ErrorType
+		if code, ok := m.mixCode(res.status, ev.draw("error_mix")); ok {
+			r.ErrorKind = code
+		}
+	case lo.draw < lo.base && p.fromQueue != "":
+		// A bound function's invocation (traffic drawn from a resource's served rate) failed by
+		// its own background error_rate: a causal failure with the error_rate cause, like a
+		// callee's error_rate hop, so it carries error.type, a status message and its log error
+		// fields. It has no legacy twin (from_resource needs resources), so the opted-healthy
+		// identity (D85) is not at stake. The message is the service and the drawn code.
+		ev.touched = true
+		r.Fault = &ledger.Fault{Mode: "error_rate", ErrorType: strconv.Itoa(r.StatusCode), Message: p.entry + ": " + r.ErrorKind}
 	case lo.draw < lo.base:
 		// The baseline draw failed the entry itself (its declared error_rate and error_mix).
 	case lo.draw < lo.entryRate:
