@@ -51,6 +51,26 @@ var FailureModes = []failuremode.Mode{
 	{Name: ModeRuleRegression, Axis: AxisResource, Help: "rule: share intensity x reject_share of arrivals fail validation"},
 }
 
+// modeKinds is the one resource kind each AxisResource mode acts on. A fault aimed at a resource
+// of any other kind moves nothing, so the blueprint loader rejects the pairing.
+var modeKinds = map[string]Kind{
+	ModePoolExhausted:         KindPool,
+	ModeConcurrencyReduced:    KindConcurrency,
+	ModeQuotaReduced:          KindQuota,
+	ModeConsumerSlowdown:      KindQueue,
+	ModeDependencySlow:        KindDependency,
+	ModeDependencyUnavailable: KindDependency,
+	ModeCredentialExpired:     KindCredential,
+	ModeRuleRegression:        KindRule,
+}
+
+// ModeKind returns the resource kind a mode of FailureModes acts on; ok is false for a mode
+// that is not a resource-axis mode.
+func ModeKind(mode string) (Kind, bool) {
+	k, ok := modeKinds[mode]
+	return k, ok
+}
+
 // Step is the grid step. Grid points are t_k = k x Step since the Unix epoch, independent of
 // which consumer advances the model or how often.
 const Step = 5 * time.Second

@@ -153,8 +153,8 @@ func TestResourcesLoadAsTargetsAndInject(t *testing.T) {
 	if _, err := causal.Compile(s); err != nil {
 		t.Fatalf("injected set does not compile: %v", err)
 	}
-	// resource:* covers the declared resources, not the alias; a base name is one scope that the
-	// model reads for every <base>-<env> resource.
+	// resource:* covers the declared resources of the mode's kind, not the alias; a base name is one
+	// scope that the model reads for every <base>-<env> resource.
 	var wildcard, alias, scenario []string
 	for _, inc := range r.Incidents {
 		switch {
@@ -166,7 +166,8 @@ func TestResourcesLoadAsTargetsAndInject(t *testing.T) {
 			scenario = append(scenario, inc[strings.LastIndex(inc, "@")+1:])
 		}
 	}
-	if !slices.Equal(wildcard, []string{"records-db", "orders-db-pool", "store-prod", "enrich-fn-concurrency", "store-dev"}) {
+	// pool_exhausted acts on pools alone, so the wildcard selects the one declared pool.
+	if !slices.Equal(wildcard, []string{"orders-db-pool"}) {
 		t.Fatalf("resource:* expanded to %v", wildcard)
 	}
 	if !slices.Equal(alias, []string{"store"}) || !slices.Equal(scenario, []string{"records-db"}) {
@@ -250,6 +251,118 @@ func TestShippedBlueprintsHaveNoResourceTargets(t *testing.T) {
 			if tg.Axis == causal.AxisResource {
 				t.Errorf("%s: unexpected resource target %q", f, tg.Name)
 			}
+		}
+	}
+}
+
+// kindMatrixBlueprint declares one resource of every kind.
+const kindMatrixBlueprint = `name: kind-matrix
+environments:
+  - name: prod
+    cloud: { provider: aws, account_id: "111122223333", region: eu-west-1, vpc_id: vpc-0abc }
+    resources:
+      - { name: dep-r, kind: dependency, latency_ms: 5 }
+      - { name: pool-r, kind: pool, size: 10, hold_ms: 20, acquire_timeout_ms: 1000, demand: { off_peak_rps: 1, peak_rps: 5 } }
+      - { name: conc-r, kind: concurrency, size: 10, hold_ms: 20, demand: { off_peak_rps: 1, peak_rps: 5 } }
+      - { name: queue-r, kind: queue, size: 2, hold_ms: 20, demand: { off_peak_rps: 1, peak_rps: 5 } }
+      - { name: quota-r, kind: quota, limit_rps: 10, demand: { off_peak_rps: 1, peak_rps: 5 } }
+      - { name: cred-r, kind: credential, of: dep-r, credential_type: token }
+      - { name: rule-r, kind: rule, reject_share: 0.5 }
+`
+
+// Every resource-axis mode loads against a resource of the kind it acts on and fails against
+// every other kind, for a scheduled incident and for a scenario effect alike.
+func TestResourceModeKindMatrix(t *testing.T) {
+	resources := map[string]causal.Kind{
+		"dep-r": causal.KindDependency, "pool-r": causal.KindPool, "conc-r": causal.KindConcurrency,
+		"queue-r": causal.KindQueue, "quota-r": causal.KindQuota, "cred-r": causal.KindCredential, "rule-r": causal.KindRule,
+	}
+	for _, m := range causal.FailureModes {
+		want, _ := causal.ModeKind(m.Name)
+		for target, kind := range resources {
+			for form, tail := range map[string]string{
+				"incident": "incidents:\n  - { kind: " + m.Name + ", target: " + target + ", at: \"10:00\", for: 10m }\n",
+				"scenario": "scenarios:\n  - { name: s, effects: [{ mode: " + m.Name + ", target: " + target + " }] }\n",
+			} {
+				_, err := loadCausal(t, kindMatrixBlueprint+tail)
+				if kind == want {
+					if err != nil {
+						t.Errorf("%s %s on %s %s: %v", form, m.Name, kind, target, err)
+					}
+					continue
+				}
+				for _, frag := range []string{
+					"effect \"" + m.Name + "\"", "target \"" + target + "\"", "resource \"" + target + "\" of kind \"" + string(kind) + "\"",
+					"accepted kind: " + string(want),
+				} {
+					if err == nil || !strings.Contains(err.Error(), frag) {
+						t.Errorf("%s %s on %s %s: want %q in %v", form, m.Name, kind, target, frag, err)
+					}
+				}
+			}
+		}
+	}
+}
+
+// A base name that expands to several environments' resources is checked against each; the
+// error names the one of the wrong kind.
+func TestResourceKindBaseNameChecksEachResource(t *testing.T) {
+	const bp = `name: alias-kinds
+environments:
+  - name: prod
+    cloud: { provider: aws, account_id: "111122223333", region: eu-west-1, vpc_id: vpc-0abc }
+    resources:
+      - { name: store-prod, kind: dependency, latency_ms: 4 }
+  - name: dev
+    cloud: { provider: aws, account_id: "444455556666", region: eu-west-1, vpc_id: vpc-0def }
+    resources:
+      - { name: store-dev, kind: %s }
+incidents:
+  - { kind: dependency_slow, target: store, at: "11:00", for: 10m }
+`
+	if _, err := loadCausal(t, strings.Replace(bp, "kind: %s", "kind: dependency, latency_ms: 4", 1)); err != nil {
+		t.Fatalf("same-kind alias: %v", err)
+	}
+	_, err := loadCausal(t, strings.Replace(bp, "kind: %s", "kind: rule, reject_share: 0.5", 1))
+	for _, frag := range []string{`effect "dependency_slow"`, `target "store"`, `resource "store-dev" of kind "rule"`, "accepted kind: dependency"} {
+		if err == nil || !strings.Contains(err.Error(), frag) {
+			t.Errorf("want %q in %v", frag, err)
+		}
+	}
+}
+
+// resource:* selects the declared resources of the mode's kind, and fails when there are none.
+func TestResourceWildcardSelectsMatchingKind(t *testing.T) {
+	expand := func(mode string) ([]string, error) {
+		r, err := loadCausal(t, kindMatrixBlueprint+"incidents:\n  - { kind: "+mode+", target: \"resource:*\", at: \"10:00\", for: 10m }\n")
+		if err != nil {
+			return nil, err
+		}
+		var scopes []string
+		for _, inc := range r.Incidents {
+			scopes = append(scopes, inc[strings.LastIndex(inc, "@")+1:])
+		}
+		return scopes, nil
+	}
+	want := map[string]string{
+		"pool_exhausted": "pool-r", "concurrency_reduced": "conc-r", "quota_reduced": "quota-r", "consumer_slowdown": "queue-r",
+		"dependency_slow": "dep-r", "dependency_unavailable": "dep-r", "credential_expired": "cred-r", "rule_regression": "rule-r",
+	}
+	for mode, name := range want {
+		got, err := expand(mode)
+		if err != nil || !slices.Equal(got, []string{name}) {
+			t.Errorf("%s on resource:* = %v, %v; want [%s]", mode, got, err, name)
+		}
+	}
+	// No resource of the kind: the wildcard would match nothing.
+	for _, tail := range []string{
+		"incidents:\n  - { kind: consumer_slowdown, target: \"resource:*\", at: \"10:00\", for: 10m }\n",
+		"scenarios:\n  - { name: s, effects: [{ mode: consumer_slowdown, target: \"resource:*\" }] }\n",
+	} {
+		bp := strings.Replace(kindMatrixBlueprint, "      - { name: queue-r, kind: queue, size: 2, hold_ms: 20, demand: { off_peak_rps: 1, peak_rps: 5 } }\n", "", 1)
+		_, err := loadCausal(t, bp+tail)
+		if err == nil || !strings.Contains(err.Error(), "matches no queue resource") {
+			t.Errorf("%q: got %v", tail, err)
 		}
 	}
 }

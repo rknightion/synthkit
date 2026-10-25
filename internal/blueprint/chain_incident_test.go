@@ -346,8 +346,12 @@ func TestChainCrossAxisNameResolvesByMode(t *testing.T) {
 			t.Errorf("incident %q not compiled; have:\n%s", want, joined)
 		}
 	}
-	if len(r.Warnings) != 0 {
-		t.Errorf("resolvable shared names are warned: %v", r.Warnings)
+	// The scenario is rate-only by design, so that warning is expected; any other warning would
+	// mean a resolvable shared name was flagged.
+	for _, w := range r.Warnings {
+		if !strings.Contains(w, "is rate-only") {
+			t.Errorf("resolvable shared names are warned: %s", w)
+		}
 	}
 }
 

@@ -81,33 +81,98 @@ func buildTargets(d *Decl) []Target {
 	return out
 }
 
+// resourceRef is one declared resource a resource-axis target name reaches.
+type resourceRef struct {
+	name string
+	kind causal.Kind
+}
+
 // resourceTargets enumerates the declared causal resources as `resource`-axis targets: every
 // resource name, then each environment base alias (a resource named `<base>-<lower(env)>` is
 // also reached by `<base>`, in every environment that declares one; see causal.EnvAlias). The
 // aliases set marks the alias-only names so an "resource:*" schedule expands to the declared
-// resources alone (an alias would only repeat them). Resource targets may share a name with a
-// target on another axis: an effect naming it resolves on the axis that declares its mode, as
-// construct-declared function and queue targets do.
-func resourceTargets(d *Decl) (targets []Target, aliases map[string]bool) {
+// resources alone (an alias would only repeat them). refs maps every target name to the
+// resources it reaches (itself, or every resource carrying the alias) so an effect's mode can
+// be checked against their kinds. Resource targets may share a name with a target on another
+// axis: an effect naming it resolves on the axis that declares its mode, as construct-declared
+// function and queue targets do.
+func resourceTargets(d *Decl) (targets []Target, aliases map[string]bool, refs map[string][]resourceRef) {
 	aliases = map[string]bool{}
+	refs = map[string][]resourceRef{}
 	declared := map[string]bool{}
 	for _, e := range d.Environments {
 		for _, r := range e.Resources {
 			declared[r.Name] = true
 			targets = append(targets, Target{Name: r.Name, Axis: causal.AxisResource})
+			refs[r.Name] = []resourceRef{{r.Name, r.Kind}}
 		}
 	}
 	for _, e := range d.Environments {
 		for _, r := range e.Resources {
 			base := causal.EnvAlias(r.Name, e.Name)
-			if base == "" || declared[base] || aliases[base] {
+			if base == "" || declared[base] {
+				continue
+			}
+			refs[base] = append(refs[base], resourceRef{r.Name, r.Kind})
+			if aliases[base] {
 				continue
 			}
 			aliases[base] = true
 			targets = append(targets, Target{Name: base, Axis: causal.AxisResource})
 		}
 	}
-	return targets, aliases
+	return targets, aliases, refs
+}
+
+// validateResourceKind rejects a resource-axis mode aimed at a resource of a kind it does not
+// act on (it would silently move nothing). A named target is checked against every resource it
+// reaches: a base name that expands to several environments' resources must reach only the
+// accepted kind in each. A "resource:*" target selects the declared resources of the
+// accepted kind alone (see expandEffectScopes), so it is valid when at least one exists and
+// rejected when none does (it would match nothing). Modes outside the resource vocabulary, and
+// names that resolve on another axis, are not checked.
+func validateResourceKind(e EffectDecl, axes map[string][]failuremode.Axis, refs map[string][]resourceRef) error {
+	want, ok := causal.ModeKind(e.Mode)
+	if !ok {
+		return nil
+	}
+	switch {
+	case e.Target == string(causal.AxisResource)+":*":
+		for name, rs := range refs {
+			if len(rs) == 1 && rs[0].name == name && rs[0].kind == want {
+				return nil
+			}
+		}
+		return fmt.Errorf("effect %q: target %q matches no %s resource; the mode acts only on %s resources (accepted kind: %s)", e.Mode, e.Target, want, want, want)
+	case !slices.Contains(axes[e.Target], causal.AxisResource):
+		return nil
+	}
+	for _, r := range refs[e.Target] {
+		if r.kind != want {
+			return fmt.Errorf("effect %q: target %q resolves to resource %q of kind %q; the mode acts only on %q resources (accepted kind: %s)", e.Mode, e.Target, r.name, r.kind, want, want)
+		}
+	}
+	return nil
+}
+
+// expandEffectScopes is expandScopes for a mode: a "resource:*" target of a resource-axis mode
+// expands to the declared resources of the kind the mode acts on, so the wildcard stays usable
+// across a blueprint that declares several kinds. Everything else expands as expandScopes does.
+func expandEffectScopes(mode, target string, targets []Target, refs map[string][]resourceRef) []string {
+	want, ok := causal.ModeKind(mode)
+	if !ok || target != string(causal.AxisResource)+":*" {
+		return expandScopes(target, targets)
+	}
+	var out []string
+	for _, t := range targets {
+		if t.Axis != causal.AxisResource {
+			continue
+		}
+		if rs := refs[t.Name]; len(rs) == 1 && rs[0].name == t.Name && rs[0].kind == want {
+			out = append(out, t.Name)
+		}
+	}
+	return out
 }
 
 // failureTargeter is implemented by a construct Config whose declaration owns failure targets

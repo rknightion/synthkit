@@ -1137,7 +1137,7 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 	}
 	// Causal resources (and their environment base aliases) are mode-resolved like construct-
 	// declared targets: a resource may share a name with a service node or another axis.
-	resTargets, resAliases := resourceTargets(d)
+	resTargets, resAliases, resRefs := resourceTargets(d)
 	r.Targets = append(r.Targets, resTargets...)
 	declared, targetWarns, skippedTargets := declaredConstructTargets(r.Constructs, r.Targets)
 	r.Targets = append(r.Targets, declared...)
@@ -1160,6 +1160,14 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 	axes := targetAxes(r.Targets)
 	vocab := vocabulary(reg)
 	multi := failuremode.MultiAxis(vocab)
+	// validateEffectFull adds the resource-kind check: a resource-axis mode must act on the kind
+	// of every resource its target reaches.
+	validateEffectFull := func(e EffectDecl) error {
+		if err := validateResolvedEffect(r, reg, e, axes, vocab, multi); err != nil {
+			return err
+		}
+		return validateResourceKind(e, axes, resRefs)
+	}
 
 	// Validate + resolve scenarios (must precede the incident loop: a scheduled incident may
 	// reference a scenario by name).
@@ -1173,13 +1181,17 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 		}
 		scNames[sc.Name] = true
 		for _, e := range sc.Effects {
-			if err := validateResolvedEffect(r, reg, e, axes, vocab, multi); err != nil {
+			if err := validateEffectFull(e); err != nil {
 				return nil, fmt.Errorf("blueprint %q scenario %q: %w", d.Name, sc.Name, err)
 			}
 			if w, ok := wildcardSkipWarning(fmt.Sprintf("scenario %q effect %q", sc.Name, e.Mode), e.Target, skippedTargets); ok {
 				log.Printf("WARN blueprint %q: %s", d.Name, w)
 				r.Warnings = append(r.Warnings, w)
 			}
+		}
+		if w, ok := rateOnlyWarning(fmt.Sprintf("scenario %q", sc.Name), false, sc.Effects, axes, vocab); ok {
+			log.Printf("WARN blueprint %q: %s", d.Name, w)
+			r.Warnings = append(r.Warnings, w)
 		}
 		title := sc.Title
 		if title == "" {
@@ -1206,17 +1218,25 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 			}
 			for _, e := range sc.Effects {
 				inten := scheduledIntensity(e.Intensity, e.intensitySet)
-				for _, scope := range expandScopes(e.Target, scheduleTargets) {
+				for _, scope := range expandEffectScopes(e.Mode, e.Target, scheduleTargets, resRefs) {
 					r.Incidents = append(r.Incidents, scheduleEntry(e.Mode, inc.At, inc.For, inten, scope, true))
 				}
 			}
 			continue
 		}
 		// single-mode incident: validate against the inventory + vocabulary, then compile.
-		if err := validateResolvedEffect(r, reg, EffectDecl{Mode: inc.Kind, Target: inc.Target, Intensity: inc.Intensity}, axes, vocab, multi); err != nil {
+		if err := validateEffectFull(EffectDecl{Mode: inc.Kind, Target: inc.Target, Intensity: inc.Intensity}); err != nil {
 			return nil, fmt.Errorf("blueprint %q incident %q: %w", d.Name, inc.Kind, err)
 		}
 		if w, ok := wildcardSkipWarning(fmt.Sprintf("incident %q", inc.Kind), inc.Target, skippedTargets); ok {
+			log.Printf("WARN blueprint %q: %s", d.Name, w)
+			r.Warnings = append(r.Warnings, w)
+		}
+		incWhere := fmt.Sprintf("incident %q", inc.Kind)
+		if inc.Target != "" {
+			incWhere = fmt.Sprintf("incident %q on %q", inc.Kind, inc.Target)
+		}
+		if w, ok := rateOnlyWarning(incWhere, true, []EffectDecl{{Mode: inc.Kind, Target: inc.Target}}, axes, vocab); ok {
 			log.Printf("WARN blueprint %q: %s", d.Name, w)
 			r.Warnings = append(r.Warnings, w)
 		}
@@ -1233,7 +1253,7 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 			}
 			timeTok = "every" + inc.Every
 		}
-		for _, scope := range expandScopes(inc.Target, scheduleTargets) {
+		for _, scope := range expandEffectScopes(inc.Kind, inc.Target, scheduleTargets, resRefs) {
 			r.Incidents = append(r.Incidents, scheduleEntry(inc.Kind, timeTok, inc.For, inc.Intensity, scope, inc.intensitySet))
 		}
 	}
