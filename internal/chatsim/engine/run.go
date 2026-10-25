@@ -5,6 +5,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"reflect"
 	"time"
 )
 
@@ -30,7 +31,8 @@ func setActive(ctx context.Context, act Activator, active bool) error {
 // intake and the kill switch never wait on the model. Posts are sent from the loop goroutine.
 //
 // act, which may be nil, switches the SynthKit scenario for fire and heal. A transport that
-// implements Notifier receives the operator's private notices.
+// implements Notifier receives the operator's private notices, and one that implements
+// Paneller keeps the operator's control panel current.
 func Run(ctx context.Context, m *Machine, clock Clock, in <-chan Event, dir Director, tr Transport, act Activator) error {
 	results := make(chan dirResult, 1)
 	scen := make(chan scenResult, 4)
@@ -40,16 +42,25 @@ func Run(ctx context.Context, m *Machine, clock Clock, in <-chan Event, dir Dire
 			m.j.Write(Entry{At: clock.Now(), Kind: "notify_error", Message: err.Error()})
 		}
 	}
-	// flush sends the last notices synchronously: the process exits once Run returns.
+	var panel *panelFeed
+	if p, ok := tr.(Paneller); ok {
+		panel = newPanelFeed(ctx, p, func(err error) {
+			m.j.Write(Entry{At: clock.Now(), Kind: "panel_error", Message: err.Error()})
+		})
+	}
+	// flush sends the last notices and the closing panel synchronously: the process exits
+	// once Run returns.
 	flush := func() {
-		if nt == nil {
-			return
-		}
 		fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
 		defer cancel()
 		for _, eff := range m.Poll(clock.Now()) {
-			if n, ok := eff.(Notify); ok {
+			if n, ok := eff.(Notify); ok && nt != nil {
 				send(fctx, n.Text)
+			}
+		}
+		if panel != nil {
+			if err := panel.final(fctx, m.Snapshot()); err != nil {
+				m.j.Write(Entry{At: clock.Now(), Kind: "panel_error", Message: err.Error()})
 			}
 		}
 	}
@@ -88,6 +99,9 @@ func Run(ctx context.Context, m *Machine, clock Clock, in <-chan Event, dir Dire
 		if m.Ended() {
 			flush()
 			return m.j.Err()
+		}
+		if panel != nil {
+			panel.offer(m.Snapshot())
 		}
 		var timer Timer
 		var timerC <-chan time.Time
@@ -130,9 +144,17 @@ type TimedEvent struct {
 // Simulate drives a machine on a fake clock against a recorded event log, calling the
 // director and the transport synchronously. It is fully deterministic for a deterministic
 // director, and never sleeps. It stops when the run ends, when nothing is left to do, or at
-// horizon after the clock's start.
+// horizon after the clock's start. A Paneller transport sees each changed snapshot.
 func Simulate(ctx context.Context, m *Machine, clock *FakeClock, events []TimedEvent, dir Director, tr Transport, act Activator, horizon time.Duration) error {
 	nt, _ := tr.(Notifier)
+	pn, _ := tr.(Paneller)
+	var shown Snapshot
+	panel := func() {
+		if s := m.Snapshot(); pn != nil && !reflect.DeepEqual(s, shown) {
+			shown = s
+			_ = pn.Panel(ctx, s)
+		}
+	}
 	base := clock.Now()
 	i := 0
 	for step := 0; step < 1_000_000; step++ {
@@ -167,6 +189,7 @@ func Simulate(ctx context.Context, m *Machine, clock *FakeClock, events []TimedE
 				}
 			}
 		}
+		panel()
 		if m.Ended() {
 			return nil
 		}

@@ -371,7 +371,7 @@ func liveMode(ctx context.Context, f *flags, stdin io.Reader, stdout, stderr io.
 	}
 	logf("run: %s armed on %q (+%s); journal %s; control DM, /chatsim or stdin: %s",
 		sc.Name, sc.Trigger.SynthkitScenario, sc.Trigger.Delay.Duration, jpath, engine.ControlHelp)
-	tr.Hello(ctx, fmt.Sprintf("Ready: %s. DM me start, fire, heal, status, or a stage direction. help lists everything.", sc.Name))
+	tr.Hello(ctx, fmt.Sprintf("Ready: %s. Use the pinned control panel, or DM me start, fire, heal, status, or a stage direction. help lists everything.", sc.Name))
 	err = engine.Run(ctx, m, engine.RealClock{}, events, dir, tr, act)
 	logf("run: ended (%s); %s", m.EndReason(), usageFn())
 	if cause := context.Cause(ctx); cause != nil && !errors.Is(cause, context.Canceled) {

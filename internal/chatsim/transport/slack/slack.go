@@ -58,6 +58,9 @@ type Transport struct {
 	tapM sync.Mutex
 	dmMu sync.Mutex
 	dm   string // the operator's DM channel with the app, opened on first use
+	// panelMu guards panelTS, the live control panel's message in the DM.
+	panelMu sync.Mutex
+	panelTS string
 }
 
 // New authenticates (auth.test) to learn our own bot id.
@@ -167,13 +170,7 @@ func (t *Transport) handle(ctx context.Context, sm *socketmode.Client, evt socke
 		for i := range evs {
 			if evs[i].Kind == engine.EvControl {
 				t.rememberDM(evs[i].ChannelID)
-				evs[i].Reply = func(text string) {
-					go func() {
-						if err := t.Notify(ctx, text); err != nil {
-							t.cfg.Logf("slack: control DM reply: %v", err)
-						}
-					}()
-				}
+				evs[i].Reply = t.dmReply(ctx)
 			}
 		}
 		t.emit(ctx, evs)
@@ -189,9 +186,16 @@ func (t *Transport) handle(ctx context.Context, sm *socketmode.Client, evt socke
 		t.tap("slash_command", map[string]string{"command": cmd.Command, "user_id": cmd.UserID, "channel_id": cmd.ChannelID, "text": cmd.Text})
 		t.slash(ctx, cmd)
 	case socketmode.EventTypeInteractive:
-		if evt.Request != nil {
-			_ = sm.Ack(*evt.Request)
+		if evt.Request == nil {
+			return nil
 		}
+		_ = sm.Ack(*evt.Request) // an empty ack also closes a submitted modal
+		cb, ok := evt.Data.(slack.InteractionCallback)
+		if !ok {
+			return nil
+		}
+		t.tap("interactive", evt.Request.Payload)
+		t.interact(ctx, cb)
 	}
 	return nil
 }
@@ -244,6 +248,17 @@ func (t *Transport) dmChannel(ctx context.Context) (string, error) {
 	}
 	t.dm = ch.ID
 	return t.dm, nil
+}
+
+// dmReply answers a control command in the control DM without blocking the caller.
+func (t *Transport) dmReply(ctx context.Context) func(string) {
+	return func(text string) {
+		go func() {
+			if err := t.Notify(ctx, text); err != nil {
+				t.cfg.Logf("slack: control DM reply: %v", err)
+			}
+		}()
+	}
 }
 
 // Notify implements engine.Notifier: a private line to the operator in the app's DM.

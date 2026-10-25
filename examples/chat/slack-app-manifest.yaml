@@ -33,6 +33,8 @@ oauth_config:
       - commands               # /chatsim
       - im:history             # message.im: the operator's control DM
       - im:write               # open the control DM for notices
+      - pins:read              # find and retire an earlier run's control panel
+      - pins:write             # pin the live control panel in the DM
       - users:read
 settings:
   event_subscriptions:
@@ -43,7 +45,7 @@ settings:
       - member_joined_channel
       - message.im
   interactivity:
-    is_enabled: false
+    is_enabled: true           # control-panel buttons; Socket Mode needs no request URL
   socket_mode_enabled: true
   org_deploy_enabled: false
   token_rotation_enabled: false

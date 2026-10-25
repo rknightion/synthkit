@@ -4,6 +4,8 @@ package engine_test
 
 import (
 	"context"
+	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -230,5 +232,67 @@ func TestParseDM(t *testing.T) {
 		if got := v + "|" + a; got != want {
 			t.Errorf("ParseDM(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+type panelCapture struct {
+	capture
+	panels []engine.Snapshot
+}
+
+func (c *panelCapture) Panel(_ context.Context, s engine.Snapshot) error {
+	c.panels = append(c.panels, s)
+	return nil
+}
+
+// TestPanelFollowsTheRun drives the run from panel verbs and checks each snapshot the panel
+// is shown: its state, the fired flag, who is where, the last notice and the end reason.
+func TestPanelFollowsTheRun(t *testing.T) {
+	m, clock, dir, c, _ := freestyle(t)
+	pc := &panelCapture{capture: *c}
+	ctl := func(at time.Duration, verb, args string) engine.TimedEvent {
+		return engine.TimedEvent{At: at, Event: engine.Event{Kind: engine.EvControl, Command: verb, Args: args}}
+	}
+	evs := []engine.TimedEvent{
+		ctl(0, "status", ""),
+		ctl(10*time.Second, "start", ""),
+		ctl(20*time.Second, "fire", ""),
+		ctl(30*time.Second, "pause", ""),
+		ctl(40*time.Second, "resume", ""),
+		ctl(50*time.Second, "summon", "jordan ops"),
+		ctl(90*time.Second, "stop", ""),
+	}
+	if err := engine.Simulate(context.Background(), m, clock, evs, dir, pc, &activator{}, 5*time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	if len(pc.panels) == 0 || pc.panels[0].State != engine.StateWaiting || pc.panels[0].RunID != "" {
+		t.Fatalf("the first panel must show a waiting run; got %+v", pc.panels)
+	}
+	seen := map[string]bool{}
+	var fired, jordan bool
+	for i, s := range pc.panels {
+		seen[s.State] = true
+		fired = fired || s.Fired
+		for _, p := range s.Personas {
+			jordan = jordan || (p.ID == "jordan" && slices.Contains(p.In, "ops"))
+		}
+		if i > 0 && reflect.DeepEqual(s, pc.panels[i-1]) {
+			t.Errorf("panel %d repeats an unchanged snapshot", i)
+		}
+	}
+	for _, want := range []string{engine.StateChatting, engine.StatePaused, engine.StateEnded} {
+		if !seen[want] {
+			t.Errorf("no panel showed %q; states seen %v", want, seen)
+		}
+	}
+	if !fired || !jordan {
+		t.Errorf("want a fired panel and one with jordan in ops; fired=%v jordan=%v", fired, jordan)
+	}
+	last := pc.panels[len(pc.panels)-1]
+	if last.State != engine.StateEnded || last.EndReason != "stopped by operator" || !strings.HasPrefix(last.LastNotice, "Run ended") {
+		t.Errorf("closing panel = %+v", last)
+	}
+	if last.SummonTo != "general" || last.StartedAt.IsZero() || last.MaxCalls == 0 {
+		t.Errorf("closing panel misses summon target, start time or budget: %+v", last)
 	}
 }

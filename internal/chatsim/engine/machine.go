@@ -171,6 +171,7 @@ type Machine struct {
 	startRe        *regexp.Regexp
 	fireRe         *regexp.Regexp
 	fired          bool
+	lastNotice     string
 	lastOperatorAt time.Time
 	lastActivity   time.Time
 	nudged         bool
@@ -252,6 +253,7 @@ func (m *Machine) log(now time.Time, kind string, detail any, format string, a .
 func (m *Machine) notify(now time.Time, format string, a ...any) {
 	msg := fmt.Sprintf(format, a...)
 	m.log(now, "notify", nil, "%s", msg)
+	m.lastNotice = msg
 	m.effects = append(m.effects, Notify{Text: msg})
 }
 

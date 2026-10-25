@@ -85,6 +85,20 @@ a director call fails, the LLM budget runs out, and the run ends. Set `control_d
 | `status`, `pause`, `resume`, `stop`, `skip <beat>`, `say <persona> <text>` | as on the kill switch |
 | anything else | a stage direction: a one-off beat for the personas it names (or anyone present), optionally pinned with `#channel` or `in <channel>`, and linted like any other line |
 
+### The control panel
+
+On startup the app posts a control panel in the DM and pins it, retiring (unpinning and
+emptying) any panel an earlier run left behind. It is edited in place, at most once every two
+seconds, so it always shows the run's state: waiting, armed, chatting, paused, winding down or
+ended; when it started; whether the failure is fired; open beats; who is in which channel; LLM
+calls against the budget; and the latest notice. Its buttons are the same control verbs and offer
+only what works now: Start chat, Fire failure, Heal, Pause or Resume, and Stop (which asks first).
+A dropdown summons anyone not yet in the summon channel, and Stage direction opens a text box.
+Only the bound operator's clicks count. Notices still arrive as ordinary DM messages below it, so
+the DM keeps the history and the panel the present. The panel needs the manifest's
+`interactivity` enabled and the `pins:read` and `pins:write` scopes; without the pin scopes it
+still works, unpinned.
+
 `trigger.start_phrase` and `trigger.fire_phrase` (regexps) do the same from the room: the
 operator's first message matching `start_phrase` in a static channel starts the chat, and the first
 matching `fire_phrase` after that fires the scenario. Each is optional.

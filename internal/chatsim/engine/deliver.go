@@ -368,18 +368,9 @@ func (m *Machine) summonCmd(now time.Time, args string, reply func(string, ...an
 		reply("chatsim: no persona %q", f[0])
 		return
 	}
-	logical := ""
+	logical := m.summonTarget()
 	if len(f) > 1 {
 		logical = strings.TrimPrefix(f[1], "#")
-	} else {
-		for _, id := range m.sc.ChannelIDs() {
-			if m.sc.Channels[id].Bind != nil && m.bound[id] != "" {
-				logical = id // the incident room once it exists
-			}
-		}
-		if logical == "" {
-			logical = m.defaultChannel(m.order[0])
-		}
 	}
 	if _, ok := m.sc.Channels[logical]; !ok || m.channelFor(logical) == "" {
 		reply("chatsim: channel %q is unknown or not bound yet", logical)
@@ -392,6 +383,21 @@ func (m *Machine) summonCmd(now time.Time, args string, reply func(string, ...an
 	m.arrive(now, pendingSummon{persona: pid, channel: logical, by: m.operatorFirstName(), due: now})
 	m.requestWake(now, "summoned "+pid)
 	reply("chatsim: %s is in %s", pid, logical)
+}
+
+// summonTarget is where a bare summon lands: the incident room once it exists, else the
+// first persona's usual channel.
+func (m *Machine) summonTarget() string {
+	logical := ""
+	for _, id := range m.sc.ChannelIDs() {
+		if m.sc.Channels[id].Bind != nil && m.bound[id] != "" {
+			logical = id
+		}
+	}
+	if logical == "" {
+		logical = m.defaultChannel(m.order[0])
+	}
+	return logical
 }
 
 // direct turns a stage direction into a one-off beat. Personas it names speak; with none
