@@ -212,6 +212,16 @@ Magnitudes are synthetic operator assumptions, not AWS behaviour curves.
 | `function_throttle_storm` | Demand above concurrency is throttled while admitted executions continue: `aws_lambda_throttles` gains `intensity` × executions per window. Invocations are unchanged. |
 | `function_duration_storm` | Every execution's duration (mean and declared bounds) is multiplied by up to 4× at full intensity, raising `aws_lambda_duration` and the modelled concurrency. |
 
+A function with `resource:` (bound to a `concurrency` resource under `environments[].resources`) is not
+a function-axis target: an effect naming it with a function-axis mode is an unknown-target load error.
+Its `aws_lambda_*` families follow the shared resource model instead, so the resource-axis modes reach
+it: `concurrency_reduced` on the resource (throttles, fewer invocations, concurrency capped at the
+reduced limit), `dependency_slow` on its held-across dependency (longer `aws_lambda_duration`, more
+concurrency, throttles once the limit is reached) and `dependency_unavailable` or `credential_expired`
+(`aws_lambda_errors` over `aws_lambda_invocations`). A bound function omits every arrival-rate and
+duration field; `reserved_concurrency` and `zero_valued_samples` still apply. Each family drains back
+to the baseline once the incident ends.
+
 ### queue axis (Solace)
 
 Every queue declared under `integrations.solace` is a target named by its queue name. Queue

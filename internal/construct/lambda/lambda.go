@@ -11,12 +11,15 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"strings"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/cw"
 	"github.com/rknightion/synthkit/internal/failuremode"
 	"github.com/rknightion/synthkit/internal/fixture"
+	"github.com/rknightion/synthkit/internal/shape"
 	"github.com/rknightion/synthkit/internal/state"
 )
 
@@ -32,7 +35,14 @@ type Config struct {
 	// unreserved functions. Must be an integer capacity count. Claimed concurrency
 	// = this allocation + modelled activity.
 	ReservedConcurrency float64 `yaml:"reserved_concurrency"`
+
+	// set is the blueprint's declared causal resources, injected by the resolver
+	// (causal.Consumer) only when the blueprint declares at least one.
+	set causal.Set `yaml:"-"`
 }
+
+// UseResources receives the declared causal resources (causal.Consumer).
+func (c *Config) UseResources(s causal.Set) { c.set = s }
 
 // Function is an unqualified AWS function name and an explicit synthetic value model.
 // Invocations includes completed execution attempts, including Errors, not Throttles.
@@ -102,6 +112,21 @@ type Function struct {
 	// emits neither. Omitted keeps the event-only observations, so default output is
 	// unchanged.
 	ZeroValuedSamples bool `yaml:"zero_valued_samples"`
+	// Resource binds the function to a declared `concurrency` resource of the blueprint's
+	// causal model (environments[].resources). The resource is then the function's whole
+	// declaration: Throttles are the window's rejected requests, Invocations the admitted
+	// ones, Errors the admitted executions that failed (held-across dependency
+	// unavailability and credential failures), ConcurrentExecutions the in-use concurrency
+	// and Duration the effective hold. They are read from the shared model, never
+	// re-simulated. A bound function omits every arrival-rate and duration field
+	// (invocations_per_min, async_received_per_min, async_dropped_fraction, async_age_ms,
+	// stream_batches_per_min, iterator_age_ms, throttles_per_min, duration_ms,
+	// duration_ms_min, duration_ms_max, duration_ms_idle, duration_load, error_fraction,
+	// load) and is not a target of the function-axis modes; incidents reach it through the
+	// resource-axis modes (concurrency_reduced, dependency_slow, dependency_unavailable,
+	// credential_expired). One resource binds at most one function. Omitted keeps the
+	// function-axis behaviour, so default output is unchanged.
+	Resource string `yaml:"resource"`
 }
 
 type functionState struct {
@@ -111,9 +136,13 @@ type functionState struct {
 	synchronousPerMin                                          float64
 	durMin, durMax                                             float64
 	business, durationBusiness                                 bool
+	// resource is the bound concurrency resource name ("" when unbound).
+	resource string
 }
 
 type construct struct {
+	// model is the compiled causal model; nil when no function is bound.
+	model           *causal.Model
 	functions       []functionState
 	account, region string
 	reserved        float64
@@ -150,14 +179,20 @@ var FailureModes = []failuremode.Mode{
 
 // Registration is consumed by the composition root, never a global registry.
 func Registration() core.ConstructReg {
-	return core.ConstructReg{Kind: "lambda", Doc: "FunctionName-only Lambda CloudWatch metrics (remote-write only)", Scope: core.ScopeBlueprint, NewConfig: func() any { return &Config{} }, Build: Build, FailureModes: FailureModes}
+	modes := append(append([]failuremode.Mode(nil), FailureModes...), causal.FailureModes...)
+	return core.ConstructReg{Kind: "lambda", Doc: "FunctionName-only Lambda CloudWatch metrics (remote-write only)", Scope: core.ScopeBlueprint, NewConfig: func() any { return &Config{} }, Build: Build, FailureModes: modes}
 }
 
 // FailureTargets reports each declared function name as a function-axis failure target. The
-// blueprint resolver duck-types it; this package does not import the blueprint package.
+// blueprint resolver duck-types it; this package does not import the blueprint package. A
+// function bound to a causal resource is omitted: its behaviour comes from the resource, so a
+// function-axis incident naming it is an unknown target at load instead of a silent no-op.
 func (c *Config) FailureTargets() []failuremode.Target {
 	out := make([]failuremode.Target, 0, len(c.Functions))
 	for _, f := range c.Functions {
+		if f.Resource != "" {
+			continue
+		}
 		out = append(out, failuremode.Target{Name: f.Name, Axis: failuremode.AxisFunction})
 	}
 	return out
@@ -205,6 +240,7 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 	}
 	c := &construct{account: fx.Cloud.AccountID, region: fx.Cloud.Region, reserved: cfg.ReservedConcurrency}
 	names := map[string]bool{}
+	bound := map[string]string{}
 	// AWS unqualified function names, not Resource/ARN/version aliases.
 	namePattern := regexp.MustCompile(`^[a-zA-Z0-9_-]{1,64}$`)
 	for _, f := range cfg.Functions {
@@ -212,6 +248,15 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 			return nil, fmt.Errorf("lambda: function %q must be a unique unqualified function name (1..64 letters/digits/_/-)", f.Name)
 		}
 		names[f.Name] = true
+		if f.Resource != "" {
+			res, err := validateBinding(cfg, f, fx, bound)
+			if err != nil {
+				return nil, err
+			}
+			bound[res] = f.Name
+			c.functions = append(c.functions, functionState{cfg: f, resource: res})
+			continue
+		}
 		for _, v := range []struct {
 			name       string
 			value, max float64
@@ -257,7 +302,63 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 		}
 		c.functions = append(c.functions, functionState{cfg: f, synchronousPerMin: synchronous, durMin: durMin, durMax: durMax, business: f.Load == "business", durationBusiness: f.Load == "business" || f.DurationLoad == "business"})
 	}
+	if len(bound) > 0 {
+		m, err := causal.Compile(cfg.set)
+		if err != nil {
+			return nil, fmt.Errorf("lambda: causal model: %w", err)
+		}
+		c.model = m
+	}
 	return c, nil
+}
+
+// forbiddenWhenBound names every arrival-rate and duration field a function bound to a
+// concurrency resource must omit: the resource's demand, size and hold are its whole
+// declaration, and a populated field would be silently ignored.
+func forbiddenWhenBound(f Function) []string {
+	var out []string
+	for _, v := range []struct {
+		name string
+		set  bool
+	}{
+		{"invocations_per_min", f.InvocationsPerMin != 0}, {"async_received_per_min", f.AsyncReceivedPerMin != 0},
+		{"async_dropped_fraction", f.AsyncDroppedFraction != 0}, {"async_age_ms", f.AsyncAgeMS != 0},
+		{"stream_batches_per_min", f.StreamBatchesPerMin != 0}, {"iterator_age_ms", f.IteratorAgeMS != 0},
+		{"throttles_per_min", f.ThrottlesPerMin != 0}, {"duration_ms", f.DurationMS != 0},
+		{"duration_ms_min", f.DurationMSMin != 0}, {"duration_ms_max", f.DurationMSMax != 0},
+		{"duration_ms_idle", f.DurationMSIdle != 0}, {"duration_load", f.DurationLoad != ""},
+		{"error_fraction", f.ErrorFraction != 0}, {"load", f.Load != ""},
+	} {
+		if v.set {
+			out = append(out, v.name)
+		}
+	}
+	return out
+}
+
+// validateBinding checks one bound function against the injected causal set.
+func validateBinding(cfg *Config, f Function, fx *fixture.Set, bound map[string]string) (string, error) {
+	if cfg.set.Empty() {
+		return "", fmt.Errorf("lambda: function %q resource %q: the blueprint declares no environments[].resources", f.Name, f.Resource)
+	}
+	env := ""
+	if fx.Env != nil {
+		env = fx.Env.Name
+	}
+	r, _, ok := cfg.set.Resolve(f.Resource, env)
+	if !ok {
+		return "", fmt.Errorf("lambda: function %q resource %q is not a declared resource", f.Name, f.Resource)
+	}
+	if r.Kind != causal.KindConcurrency {
+		return "", fmt.Errorf("lambda: function %q resource %q is a %s resource; want kind concurrency", f.Name, f.Resource, r.Kind)
+	}
+	if fields := forbiddenWhenBound(f); len(fields) > 0 {
+		return "", fmt.Errorf("lambda: function %q is bound to resource %q, which supplies its arrivals, throttles, errors and duration: omit %s", f.Name, f.Resource, strings.Join(fields, ", "))
+	}
+	if other, dup := bound[r.Name]; dup {
+		return "", fmt.Errorf("lambda: functions %q and %q bind the same resource %q; a concurrency resource binds one function", other, f.Name, r.Name)
+	}
+	return r.Name, nil
 }
 func bounded(v, max float64) bool              { return !math.IsNaN(v) && !math.IsInf(v, 0) && v >= 0 && v <= max }
 func (*construct) Kind() string                { return "lambda" }
@@ -288,6 +389,7 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	}
 	c.last = now
 	c.started = true
+	c.advance(now, w.Shape)
 	if w.Shape != nil && w.Shape.Paused() {
 		c.paused = true
 		return nil
@@ -296,54 +398,68 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		c.paused = false
 		return nil
 	}
+	// The observation window is (from, now]: the causal model's grid steps inside it supply a
+	// bound function's counts.
+	from := now.Add(-time.Duration(seconds * float64(time.Second)))
 	st := state.NewState()
 	active := 0.0
 	for i := range c.functions {
 		f := &c.functions[i]
 		cfg := f.cfg
 		labels := c.labels(cfg.Name)
-		// Constant load multiplies by exactly 1: default output is unchanged.
-		bf := 1.0
-		if f.business && w.Shape != nil {
-			bf = w.Shape.BusinessFactor(now)
-		}
-		received := take(&f.received, cfg.AsyncReceivedPerMin*bf*seconds/60)
-		dropped := take(&f.dropped, received*cfg.AsyncDroppedFraction)
-		invokedAsync := received - dropped
-		records := take(&f.records, cfg.StreamBatchesPerMin*bf*seconds/60)
-		// Sum actual constituent counts, not an independent total-rate carry: even
-		// short sparse windows cannot observe ages without the same executions.
-		n := invokedAsync + records + take(&f.synchronous, f.synchronousPerMin*bf*seconds/60)
-		fx := evalEffects(w, now, cfg.Name)
-		// Declared failures keep their own carry; a spike fails intensity of the remaining
-		// successes from a separate carry, so the healthy draw is unchanged by an incident
-		// and Errors never exceeds the executions it is a subset of.
-		errors := takeAtMost(&f.errors, n*cfg.ErrorFraction, n)
-		if fx.errorOn {
-			successes := n - errors
-			errors += takeAtMost(&f.spikeErrors, successes*fx.errorFraction, successes)
-		}
-		throttleDemand := cfg.ThrottlesPerMin * bf * seconds / 60
-		if fx.throttleOn {
-			throttleDemand += n * fx.extraThrottles
-		}
-		throttles := take(&f.throttles, throttleDemand)
-		duration, durMin, durMax := cfg.DurationMS, f.durMin, f.durMax
-		if cfg.DurationMSIdle > 0 && duration > 0 {
-			// The duration curve factor is independent of the arrival one: a scheduled
-			// function (duration_load: business, load constant) keeps its invocations.
+		var (
+			received, dropped, invokedAsync, records, n, errors, throttles float64
+			duration, durMin, durMax, concurrent                           float64
+		)
+		if f.resource != "" {
+			// Bound: the shared model's window supplies every quantity; nothing is simulated here.
+			bw := c.boundWindow(f, from, now)
+			n, errors, throttles, duration, concurrent = bw.invocations, bw.errors, bw.throttles, bw.durationMS, bw.concurrent
+			durMin, durMax = duration, duration
+		} else {
+			// Constant load multiplies by exactly 1: default output is unchanged.
 			bf := 1.0
-			if f.durationBusiness && w.Shape != nil {
+			if f.business && w.Shape != nil {
 				bf = w.Shape.BusinessFactor(now)
 			}
-			// Mean duration follows the curve between idle and duration_ms; the spread
-			// bounds keep their ratio to the mean so they still bracket it.
-			scaled := duration - (duration-cfg.DurationMSIdle)*(1-math.Min(bf, 1))
-			ratio := scaled / duration
-			duration, durMin, durMax = scaled, durMin*ratio, durMax*ratio
-		}
-		if fx.durationOn {
-			duration, durMin, durMax = duration*fx.durationFactor, durMin*fx.durationFactor, durMax*fx.durationFactor
+			received = take(&f.received, cfg.AsyncReceivedPerMin*bf*seconds/60)
+			dropped = take(&f.dropped, received*cfg.AsyncDroppedFraction)
+			invokedAsync = received - dropped
+			records = take(&f.records, cfg.StreamBatchesPerMin*bf*seconds/60)
+			// Sum actual constituent counts, not an independent total-rate carry: even
+			// short sparse windows cannot observe ages without the same executions.
+			n = invokedAsync + records + take(&f.synchronous, f.synchronousPerMin*bf*seconds/60)
+			fx := evalEffects(w, now, cfg.Name)
+			// Declared failures keep their own carry; a spike fails intensity of the remaining
+			// successes from a separate carry, so the healthy draw is unchanged by an incident
+			// and Errors never exceeds the executions it is a subset of.
+			errors = takeAtMost(&f.errors, n*cfg.ErrorFraction, n)
+			if fx.errorOn {
+				successes := n - errors
+				errors += takeAtMost(&f.spikeErrors, successes*fx.errorFraction, successes)
+			}
+			throttleDemand := cfg.ThrottlesPerMin * bf * seconds / 60
+			if fx.throttleOn {
+				throttleDemand += n * fx.extraThrottles
+			}
+			throttles = take(&f.throttles, throttleDemand)
+			duration, durMin, durMax = cfg.DurationMS, f.durMin, f.durMax
+			if cfg.DurationMSIdle > 0 && duration > 0 {
+				// The duration curve factor is independent of the arrival one: a scheduled
+				// function (duration_load: business, load constant) keeps its invocations.
+				bf := 1.0
+				if f.durationBusiness && w.Shape != nil {
+					bf = w.Shape.BusinessFactor(now)
+				}
+				// Mean duration follows the curve between idle and duration_ms; the spread
+				// bounds keep their ratio to the mean so they still bracket it.
+				scaled := duration - (duration-cfg.DurationMSIdle)*(1-math.Min(bf, 1))
+				ratio := scaled / duration
+				duration, durMin, durMax = scaled, durMin*ratio, durMax*ratio
+			}
+			if fx.durationOn {
+				duration, durMin, durMax = duration*fx.durationFactor, durMin*fx.durationFactor, durMax*fx.durationFactor
+			}
 		}
 		// Binary event populations consist of one observation of 1 per event. Failed
 		// executions alone contribute Errors; successful executions are not fake zeros.
@@ -358,7 +474,9 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 			cw.EmitStats(st, "aws_lambda_duration", labels, cw.StatSet{Sum: n * duration, Average: duration, Minimum: lo, Maximum: hi, SampleCount: n})
 			// Operator schedule: uniformly spaced executions, constant duration, all in the
 			// unreserved pool. This is a synthetic peak estimate, not an AWS transfer curve.
-			concurrent := math.Min(n, math.Ceil(n*duration/(seconds*1000)))
+			if f.resource == "" {
+				concurrent = math.Min(n, math.Ceil(n*duration/(seconds*1000)))
+			}
 			active += concurrent
 			cw.EmitStats(st, "aws_lambda_concurrent_executions", labels, cw.StatSet{Sum: concurrent, Average: concurrent, Minimum: concurrent, Maximum: concurrent, SampleCount: 1})
 		}
@@ -470,4 +588,88 @@ func (c *construct) labels(function string) map[string]string {
 		labels["dimension_FunctionName"] = function
 	}
 	return labels
+}
+
+// staticClock stands in for the shape engine when a tick has none (unit tests): no faults,
+// full business factor and volume.
+type staticClock struct{}
+
+func (staticClock) Eval(time.Time, string, string) (bool, float64) { return false, 0 }
+func (staticClock) Factor(time.Time, float64, bool) float64        { return 1 }
+func (staticClock) VolumeMultiplier() float64                      { return 1 }
+
+// AdvanceCausal advances the construct's model to now (causal.Advancer); the runner calls it on
+// every master tick so every consumer samples live faults at the same instants. A construct
+// with no bound function holds no model and ignores it.
+func (c *construct) AdvanceCausal(now time.Time, clk causal.Clock) {
+	if c.model != nil {
+		c.model.Advance(now, clk)
+	}
+}
+
+// advance brings the model to now before a Tick reads its window (idempotent after the runner's
+// AdvanceCausal).
+func (c *construct) advance(now time.Time, eng *shape.Engine) {
+	if c.model == nil {
+		return
+	}
+	if eng != nil {
+		c.model.Advance(now, eng)
+		return
+	}
+	c.model.Advance(now, staticClock{})
+}
+
+// boundCounts is one bound function's quantities for a window.
+type boundCounts struct {
+	invocations, errors, throttles, durationMS, concurrent float64
+}
+
+// boundWindow reads the bound function's resource over (from, to]. Whole-event counts come from
+// the fractional window volumes through the ordinary carries, so rates below one event per tick
+// still accrue, Errors never exceed Invocations, and a drained window reports nothing.
+func (c *construct) boundWindow(f *functionState, from, to time.Time) boundCounts {
+	var out boundCounts
+	win, ok := c.model.Window(f.resource, from, to)
+	if !ok {
+		return out
+	}
+	out.invocations = take(&f.synchronous, win.Admitted)
+	out.errors = takeAtMost(&f.errors, win.Failed, out.invocations)
+	out.throttles = take(&f.throttles, win.Rejected)
+	if out.invocations > 0 {
+		out.durationMS = c.meanHold(f.resource, from, to)
+		// ConcurrentExecutions is the peak in-use concurrency of the window, never more than
+		// the executions it counts.
+		out.concurrent = math.Min(out.invocations, math.Ceil(win.MaxInUse-1e-9))
+	}
+	return out
+}
+
+// meanHold is the effective hold of the window's grid steps, weighted by each step's admitted
+// rate: the mean per-execution duration. A window with no admitted work reads the newest state.
+func (c *construct) meanHold(resource string, from, to time.Time) float64 {
+	var weighted, weight float64
+	for k := floorGrid(from) + 1; k <= floorGrid(to); k++ {
+		st, ok := c.model.State(resource, time.Unix(0, k*int64(causal.Step)).UTC())
+		if !ok || st.At.UnixNano() != k*int64(causal.Step) {
+			continue
+		}
+		weighted += st.HoldMS * st.ServedRPS
+		weight += st.ServedRPS
+	}
+	if weight > 0 {
+		return weighted / weight
+	}
+	st, _ := c.model.State(resource, to)
+	return st.HoldMS
+}
+
+func floorGrid(t time.Time) int64 {
+	n, d := t.UnixNano(), int64(causal.Step)
+	q := n / d
+	if n%d != 0 && n < 0 {
+		q--
+	}
+	return q
 }
