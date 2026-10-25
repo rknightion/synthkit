@@ -119,7 +119,8 @@ func TestFlowDemandFollowsUpstreamAdmission(t *testing.T) {
 	}
 }
 
-// Story 2: throttles resent twice amplify the function's own demand (the v1 closed loop, kept),
+// Story 2: throttles resent twice amplify the function's own demand (the v1 closed loop, now
+// derived from the tree),
 // and only the calls that finally succeed reach the publisher: 60 x (1 - p^3).
 func TestFlowRetriesAmplifyAndGate(t *testing.T) {
 	got := storyStep(t, true, ModeConcurrencyReduced, "enrich-fn-concurrency", 0.7)
@@ -139,11 +140,14 @@ func TestFlowRetriesAmplifyAndGate(t *testing.T) {
 	}
 }
 
-// The tree gates and never resends: a failure deeper in the callee's subtree that a caller
-// retrying 5xx resends (the certificate's handshake failure reaching intake-api as enrich-fn's
-// 502) adds no arrivals at the function (design §3.3, v1), while the publisher behind the failed
-// call still gets nothing.
-func TestFlowSubtreeFailureNotResent(t *testing.T) {
+// A caller resends a failure from deeper in the callee's subtree (SKT-0195): with intake-api
+// retrying 5xx twice, the certificate's handshake failure reaches it as enrich-fn's 502 and every
+// request calls the function three times, so the function receives 180 rps, while the publisher
+// behind the failed call still gets nothing. Each failed execution ends at the handshake: a
+// tenth of its 900 ms hold, then a tenth of the partner's 120 ms latency (a credential failure is
+// never resent), so the 180 rps occupy 18.36 of the 80 executions and nothing throttles; held for
+// the full 900 ms they would have offered 162 and throttled half of them.
+func TestFlowSubtreeFailureResent(t *testing.T) {
 	s := storySet(true)
 	s.Loads[2].Flow.Nodes[2].Policy.RetryOn = []string{RetryThrottle, Retry5xx}
 	s.Loads[2].Policy = s.Loads[2].Flow.Nodes[2].Policy
@@ -152,8 +156,69 @@ func TestFlowSubtreeFailureNotResent(t *testing.T) {
 	m.Advance(t0, clk)
 	fn, _ := m.State("enrich-fn-concurrency", t0)
 	q, _ := m.State("validation-queue", t0)
-	if fn.Demand != 60 || q.Demand != 0 {
-		t.Fatalf("function demand %v (want 60), queue %v (want 0)", fn.Demand, q.Demand)
+	if math.Abs(fn.Demand-180) > 1e-9 || q.Demand != 0 {
+		t.Fatalf("function demand %v (want 180, three attempts per request), queue %v (want 0)", fn.Demand, q.Demand)
+	}
+	if fn.FailedShare != 1 || fn.RejectShare != 0 {
+		t.Fatalf("function failed %v (want 1), rejected %v (want 0: fast failures do not saturate it)", fn.FailedShare, fn.RejectShare)
+	}
+	if want := 180 * (PreWorkFraction*900 + PreWorkFraction*120) / 1000; math.Abs(fn.InUse-want) > 1e-9 || math.Abs(fn.Utilization-want/80) > 1e-12 {
+		t.Errorf("function in use %v, utilization %v; want %v executions of 102 ms", fn.InUse, fn.Utilization, want)
+	}
+	if fn.HoldMS != 900 {
+		t.Errorf("reported hold %v, want the 900 ms of work that completes", fn.HoldMS)
+	}
+}
+
+// A failed execution occupies its slot for the whole failing call into the held dependency
+// (CodeRabbit on SKT-0195): enrich-fn resends a refused connection to the partner once after
+// backoff_ms, so with the partner unavailable each execution lasts 90 ms of pre-work, two 12 ms
+// connect attempts and the 500 ms backoff, 614 ms; a credential failure is not resent and lasts
+// 102 ms.
+func TestFlowFailedHoldIncludesHeldCallResends(t *testing.T) {
+	for _, tc := range []struct {
+		name, mode, target string
+		holdMS             float64
+	}{
+		{"connect refused, resent after backoff", ModeDependencyUnavailable, "partner-api", 90 + 12 + 500 + 12},
+		{"handshake failed, not resent", ModeCredentialExpired, "partner-api-cert", 90 + 12},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := storySet(true)
+			s.Loads[2].Flow.Nodes[3].Policy.BackoffMS = 500
+			clk := newClock().on(tc.mode, tc.target, t0, t0.Add(Step), 1)
+			m := mustCompile(t, s)
+			m.Advance(t0, clk)
+			fn, _ := m.State("enrich-fn-concurrency", t0)
+			if want := 60 * tc.holdMS / 1000; fn.FailedShare != 1 || math.Abs(fn.InUse-want) > 1e-9 {
+				t.Errorf("function failed %v, in use %v; want 1 and %v (60 rps x %v ms)", fn.FailedShare, fn.InUse, want, tc.holdMS)
+			}
+		})
+	}
+}
+
+// A rule rejection mapped through CallerStatus is an ordinary status to every caller above the
+// rule's direct caller: the direct caller never resends it, the next caller up resends the 502 it
+// sees under a 5xx policy (docs/workloads.md, retry rules).
+func TestFlowMappedRuleRejectionResentAboveDirectCaller(t *testing.T) {
+	rule := &compiled{r: Resource{Name: "rule", Kind: KindRule, Error: &ErrorTemplate{Status: 500}}}
+	rule.key = rule.failKey()
+	byName := map[string]*compiled{"rule": rule}
+	retry5xx := CallPolicy{Retries: 2, RetryOn: []string{Retry5xx}}
+	f := &Flow{Nodes: []FlowNode{
+		{Parent: -1},
+		{Parent: 0, Policy: retry5xx},
+		{Parent: 1, Policy: retry5xx, Uses: []string{"rule"}},
+	}}
+	cf := compileFlow(f, byName)
+	fn := func(*compiled) float64 { return 0.5 }
+	// The direct caller (node 1) makes one attempt: half its calls fail with the rule's 500.
+	if got := cf.edge(2, fn).ok; got != 0.5 {
+		t.Errorf("direct caller's call succeeds %v, want 0.5 (a rule rejection is never resent by it)", got)
+	}
+	// The entry sees node 1's 502 and resends it twice: 0.5 x (1 + 0.5 + 0.25).
+	if got, want := cf.edge(1, fn).ok, 0.5*1.75; math.Abs(got-want) > 1e-12 {
+		t.Errorf("entry's call succeeds %v, want %v (the mapped 502 is resent)", got, want)
 	}
 }
 
@@ -174,26 +239,27 @@ func TestFlowArrivalsArithmetic(t *testing.T) {
 	cf := compileFlow(f, byName)
 	rej := map[*compiled]float64{q: 0.2, c: 0.5, r: 0.1}
 	fn := func(x *compiled) float64 { return rej[x] }
-	// c: the quota admits 0.8 (c's own 503 resends follow the load's Policy, not the tree).
-	if got, want := cf.gateFor(f, 1, "c").reach(fn), 0.8; math.Abs(got-want) > 1e-12 {
-		t.Errorf("reach at c = %v, want %v", got, want)
+	// Each evaluation of node 1 passes both uses with 0.5 x 0.9; the pool's 503 (share 0.5) is
+	// resent twice and the rule's 422 never is, so the quota's 0.8 call node 1 1.75 times.
+	attempts := 1 + 0.5 + 0.25
+	if got, want := cf.gateFor(f, 1, "c").arrivals(fn), 0.8*attempts; math.Abs(got-want) > 1e-12 {
+		t.Errorf("arrivals at c = %v, want %v", got, want)
 	}
 	// r: met after the pool admits.
-	if got, want := cf.gateFor(f, 1, "r").reach(fn), 0.8*0.5; math.Abs(got-want) > 1e-12 {
-		t.Errorf("reach at r = %v, want %v", got, want)
+	if got, want := cf.gateFor(f, 1, "r").arrivals(fn), 0.8*attempts*0.5; math.Abs(got-want) > 1e-12 {
+		t.Errorf("arrivals at r = %v, want %v", got, want)
 	}
-	// d: reached when the call into node 1 finally succeeds: each attempt passes both uses with
-	// 0.5 x 0.9, the pool's 503 is resent twice and the rule's 422 never is.
-	if got, want := cf.gateFor(f, 2, "d").reach(fn), 0.8*0.45*(1+0.5+0.25); math.Abs(got-want) > 1e-12 {
-		t.Errorf("reach at d = %v, want %v", got, want)
+	// d: reached when the call into node 1 finally succeeds.
+	if got, want := cf.gateFor(f, 2, "d").arrivals(fn), 0.8*0.45*attempts; math.Abs(got-want) > 1e-12 {
+		t.Errorf("arrivals at d = %v, want %v", got, want)
 	}
 	clear(rej)
 	for _, n := range []struct {
 		node int
 		res  string
 	}{{0, "q"}, {1, "c"}, {1, "r"}, {2, "d"}} {
-		if got := cf.gateFor(f, n.node, n.res).reach(fn); got != 1 {
-			t.Errorf("healthy reach at %s = %v, want exactly 1", n.res, got)
+		if got := cf.gateFor(f, n.node, n.res).arrivals(fn); got != 1 {
+			t.Errorf("healthy arrivals at %s = %v, want exactly 1", n.res, got)
 		}
 	}
 }

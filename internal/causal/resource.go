@@ -217,6 +217,9 @@ func validateLoads(loads []Load, byName map[string]Resource) error {
 			if l.Node < 0 || l.Node >= len(l.Flow.Nodes) || !slices.Contains(l.Flow.Nodes[l.Node].Uses, l.Resource) {
 				return fmt.Errorf("retry load on %q: flow node %d does not use it", l.Resource, l.Node)
 			}
+			if np := l.Flow.Nodes[l.Node].Policy; !samePolicy(np, l.Policy) {
+				return fmt.Errorf("retry load on %q: policy differs from flow node %d's call policy", l.Resource, l.Node)
+			}
 		}
 		sum[l.Resource] += l.Share
 		if sum[l.Resource] > 1+1e-9 {
@@ -224,6 +227,12 @@ func validateLoads(loads []Load, byName map[string]Resource) error {
 		}
 	}
 	return nil
+}
+
+// samePolicy reports whether two call policies resend the same way.
+func samePolicy(a, b CallPolicy) bool {
+	return a.TimeoutMS == b.TimeoutMS && a.Retries == b.Retries && a.BackoffMS == b.BackoffMS &&
+		a.PropagateThrottle == b.PropagateThrottle && slices.Equal(a.RetryOn, b.RetryOn)
 }
 
 func validateResource(r Resource, byName map[string]Resource) error {

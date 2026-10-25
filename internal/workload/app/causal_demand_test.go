@@ -30,8 +30,7 @@ func appArrivals(reqs []*ledger.Request) map[string]float64 {
 }
 
 // throttleOnlyIntake is intakeApp with the L11 stories' intake -> enrich-fn policy: throttles
-// resent, a 502 from the function not. The model resends only a resource's own rejections
-// (design §3.3), so this is the policy under which every count must agree.
+// resent, a 502 from the function not.
 var throttleOnlyIntake = strings.Replace(intakeApp, "retry_on: [throttle, 5xx]", "retry_on: [throttle]", 1)
 
 // A bound construct's volume follows the calls that reach its resource (SKT-0168.09.33). The
@@ -39,8 +38,19 @@ var throttleOnlyIntake = strings.Replace(intakeApp, "retry_on: [throttle, 5xx]",
 // the minute must equal what the app's requests deliver: under every story, an upstream rejection
 // or an unreachable node lowers the downstream resource's volume to the calls that get there
 // (story 1: the queue gets nothing while the publisher is unreachable). Healthy, it is the
-// declared demand.
+// declared demand. A caller's resends of a failure deeper in the callee's subtree count too
+// (SKT-0195): under intakeApp's 5xx policy, story 1's three enrich-fn attempts per request are
+// 10800 function arrivals a minute, not 3600.
 func TestCausalBoundVolumeFollowsAdmittedCalls(t *testing.T) {
+	for _, app := range []struct{ name, doc string }{
+		{"throttle only", throttleOnlyIntake},
+		{"throttle and 5xx", intakeApp},
+	} {
+		t.Run(app.name, func(t *testing.T) { boundVolumeStories(t, app.doc) })
+	}
+}
+
+func boundVolumeStories(t *testing.T, appDoc string) {
 	for _, tc := range []struct {
 		name string
 		eng  func() *shape.Engine
@@ -54,7 +64,7 @@ func TestCausalBoundVolumeFollowsAdmittedCalls(t *testing.T) {
 		{"story 5 quota", func() *shape.Engine { return incident(causal.ModeQuotaReduced, "intake-quota", 0.5) }, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			w := causalApps(t, causalResources, throttleOnlyIntake)[0]
+			w := causalApps(t, causalResources, appDoc)[0]
 			reqs := mintAt(w, tc.eng(), causalNow)
 			got := appArrivals(reqs)
 			model := w.m.causal.model

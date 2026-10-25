@@ -159,6 +159,30 @@ func TestFailedShareAndCredentials(t *testing.T) {
 	}
 }
 
+// Failed work holds only until it fails (SKT-0195): a pool connection or a function execution
+// whose call into the held dependency fails is released after PreWorkFraction x hold_ms and one
+// failed attempt of the call (a tenth of the dependency's latency; no request tree places the
+// call here, so it is not resent). A queue's processing time is unchanged (a failed message is
+// not a freed consumer) and the reported hold stays the hold of work that completes.
+func TestFailedWorkHoldsOnlyUntilItFails(t *testing.T) {
+	far := t0.Add(time.Hour)
+	unavailable := newClock().on(ModeDependencyUnavailable, db.Name, t0, far, 0.5)
+	// 60 rps x (0.5 x 20 + 0.5 x (2 + 1.5)) ms = 0.705 connections busy.
+	st := stateAfterOneStep(t, set(poolRes(60), db), unavailable, "orders-db-pool")
+	if !near(st.FailedShare, 0.5) || !near(st.InUse, 0.705) || !near(st.Utilization, 0.0705) || st.HoldMS != 20 {
+		t.Fatalf("pool with half its held work failing %+v", st)
+	}
+	fn := Resource{Name: "fn", Kind: KindConcurrency, Size: 20, HoldMS: 900, HeldAcross: db.Name, Demand: constant(10)}
+	// 10 rps x (0.5 x 900 + 0.5 x (90 + 1.5)) ms = 4.9575 executions.
+	if st := stateAfterOneStep(t, set(fn, db), unavailable, fn.Name); !near(st.InUse, 4.9575) || st.HoldMS != 900 {
+		t.Fatalf("function with half its held work failing %+v", st)
+	}
+	q := Resource{Name: "q", Kind: KindQueue, Size: 4, HoldMS: 400, HeldAcross: db.Name, Demand: constant(8)}
+	if st := stateAfterOneStep(t, set(q, db), unavailable, q.Name); !near(st.Capacity, 10) || !near(st.FailedShare, 0.5) {
+		t.Fatalf("queue service rate %+v, want 4 x 1000 / 400 = 10 msg/s whatever fails", st)
+	}
+}
+
 func TestApplyConsumer(t *testing.T) {
 	far := t0.Add(time.Hour)
 	q := Resource{Name: "validation-queue", Kind: KindQueue, Size: 4, HoldMS: 400, Demand: constant(2)}

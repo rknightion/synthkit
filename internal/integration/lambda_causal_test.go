@@ -155,7 +155,10 @@ func TestBoundLambdaFollowsResourceWindow(t *testing.T) {
 				t.Fatalf("minute %d under concurrency_reduced: %+v", i, g)
 			}
 		case i >= 26 && i <= 29: // half the calls to the held-across dependency fail
-			if !near(g.invocations, 600) || !near(g.errors, 300) || g.throttles != 0 || g.concurrent != 9 || g.duration != 900 {
+			// A failed execution ends at its failed call (SKT-0195): a tenth of the 900 ms hold,
+			// then a tenth of the partner's 120 ms latency, so 10 rps x (0.5 x 900 + 0.5 x 102) ms
+			// = 5.01 executions in use, a peak of 6.
+			if !near(g.invocations, 600) || !near(g.errors, 300) || g.throttles != 0 || g.concurrent != 6 || g.duration != 900 {
 				t.Fatalf("minute %d under dependency_unavailable: %+v", i, g)
 			}
 		case i >= 36 && i <= 39: // h = 900 + 120 x (4 - 1) = 1260 ms; 12.6 offered

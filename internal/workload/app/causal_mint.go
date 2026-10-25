@@ -28,8 +28,8 @@ const (
 	// preWorkFraction is the share of a service's base duration spent before its first
 	// downstream call, the same 10% the trace projection nests a child hop at. A request
 	// rejected before its work (a capacity rejection, a token refusal, a failed connect or
-	// handshake) also costs this share.
-	preWorkFraction = 0.1
+	// handshake) also costs this share; the model holds a failed unit of work for the same share.
+	preWorkFraction = causal.PreWorkFraction
 	// causalDurationSigma is drawDuration's lognormal spread, reused for durations drawn from a
 	// declared hold or latency (their mean).
 	causalDurationSigma = 0.5
@@ -485,6 +485,7 @@ type result struct {
 	base      float64 // the service's base duration (serve)
 	transport bool
 	timedOut  bool
+	ownRule   bool // the service's own rule rejected it; only its direct caller holds that back
 }
 
 func (res *result) noteSlow(f *ledger.Fault, by float64) {
@@ -678,6 +679,7 @@ func (ev *evaluator) serve(name, path string, hop, li int, start, legacyMS float
 		if e.Fail {
 			ev.touched = true
 			res.class, res.status, res.fault = e.Class, e.Status, faultOf(e)
+			res.ownRule = e.Kind == causal.KindRule
 			switch {
 			case e.Transport:
 				res.transport = true
@@ -766,8 +768,9 @@ func (ev *evaluator) edge(parentOut, li int, parentPath string, start float64, f
 		path := parentPath + ">" + target + "#" + strconv.Itoa(k)
 		a := ev.attempt(parentOut, li, k, path, t, fresh || k > 0, pol)
 		t += a.durMS
-		ruleFailure := a.fault != nil && a.fault.Kind == string(causal.KindRule)
-		if a.ok || ruleFailure || k >= pol.Retries || !pol.Retryable(a.class, a.status) {
+		// A rule rejection is never resent by the service that calls the rule's node; a caller
+		// further up sees only the mapped status and resends it like any other.
+		if a.ok || a.ownRule || k >= pol.Retries || !pol.Retryable(a.class, a.status) {
 			a.durMS = t - start
 			return a
 		}

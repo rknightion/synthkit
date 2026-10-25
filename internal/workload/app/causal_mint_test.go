@@ -352,6 +352,45 @@ services:
 	}
 }
 
+// Only the service that calls the rule's node holds a rule rejection back (docs/workloads.md,
+// retry rules): the next caller up sees the mapped 502 and resends it under its 5xx policy, and
+// each resend meets the rule once more at the direct caller.
+func TestCausalMappedRuleRejectionResentAboveDirectCaller(t *testing.T) {
+	res := causalResources + `- {name: bad-deploy, kind: rule, reject_share: 1, error: {status: 500}}
+`
+	app := `
+traffic: {off_peak_rps: 5, peak_rps: 60}
+services:
+  - name: front
+    entry: true
+    calls: [mid]
+    call_policies: {mid: {retries: 2, retry_on: [5xx]}}
+  - name: mid
+    calls: [back]
+    call_policies: {back: {retries: 3, retry_on: [5xx]}}
+  - {name: back, uses: [bad-deploy]}
+`
+	w := causalApps(t, res, app)[0]
+	reqs := mintAt(w, incident(causal.ModeRuleRegression, "bad-deploy", 1), causalNow)
+	if len(reqs) == 0 {
+		t.Fatal("no requests")
+	}
+	for _, r := range reqs {
+		mid, back := callsTo(r, "mid"), callsTo(r, "back")
+		if len(mid) != 3 || len(back) != 3 {
+			t.Fatalf("mid attempts %d, back attempts %d; want 3 each (front resends the mapped 502, mid never resends the rule)", len(mid), len(back))
+		}
+		for _, c := range mid {
+			if c.StatusCode != 502 {
+				t.Fatalf("mid attempt status %d, want 502", c.StatusCode)
+			}
+		}
+		if r.StatusCode != 502 || r.Fault == nil || r.Fault.Resource != "bad-deploy" {
+			t.Fatalf("request %d fault %+v, want 502 carrying the rule", r.StatusCode, r.Fault)
+		}
+	}
+}
+
 // Story 4: a slow external validator cuts the queue's service rate; the consumer app's rate is
 // the queue's served rate, its requests record the backlog wait, and its validator hop slows.
 func TestCausalStoryQueueConsumer(t *testing.T) {

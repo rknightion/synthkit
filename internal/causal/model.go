@@ -40,7 +40,9 @@ const (
 // held-across dependency's unavailability combined with its credentials' failures; for a
 // dependency, credential or rule it equals RejectShare. WaitMS is the mean acquisition wait
 // (pool) or a new message's queueing time (queue). HoldMS is the effective hold, execution or
-// processing time, hold_ms + latency_ms(held_across) x (LatencyFactor - 1). LatencyFactor is
+// processing time of work that completes, hold_ms + latency_ms(held_across) x (LatencyFactor -
+// 1); for pool and concurrency, Utilization, WaitMS and InUse use the mean occupancy, in which
+// the FailedShare holds only PreWorkFraction x hold_ms (see occupancy). LatencyFactor is
 // the dependency's latency multiplier, or for pool, concurrency and queue the held-across
 // dependency's (1 when none). InUse is busy connections, executions or consumers (quota:
 // admitted rps). Waiting is requests waiting (pool) or messages queued (queue). ServedRPS is the
@@ -75,12 +77,13 @@ type compiled struct {
 	alias   string
 	knee    float64
 	slow    float64
-	ref     *compiled   // held_across (pool, concurrency, queue) or of (credential)
-	creds   []*compiled // credentials of the held-across dependency
-	from    *compiled   // demand.from upstream
-	loads   []Load      // retrying caller edges into this resource
-	gates   []*gate     // per load: its place in the caller's request tree; nil = Policy only
-	key     outcomeKey  // how a rejection here looks to the caller (flow evaluation)
+	ref     *compiled     // held_across (pool, concurrency, queue) or of (credential)
+	creds   []*compiled   // credentials of the held-across dependency
+	from    *compiled     // demand.from upstream
+	loads   []Load        // retrying caller edges into this resource
+	gates   []*gate       // per load: its place in the caller's request tree; nil = Policy only
+	held    []*CallPolicy // per load: the holder's policy on its call into the held-across dependency; nil = unknown
+	key     outcomeKey    // how a rejection here looks to the caller (flow evaluation)
 	ring    []rec
 	last    rec // most recent step's record (for references within one step)
 	backlog float64
@@ -157,6 +160,7 @@ func Compile(s Set) (*Model, error) {
 		}
 		c.loads = append(c.loads, l)
 		c.gates = append(c.gates, g)
+		c.held = append(c.held, g.heldCall(c))
 	}
 	// Dependencies first, then credentials and rules (they read nothing), then capacity kinds in
 	// demand.from order (Validate rejects a cycle), declaration order breaking ties. A capacity
@@ -385,8 +389,10 @@ func (c *compiled) rejectClass() (FailureClass, int) {
 // amplified is the effective demand for base demand d when arrivals rejected with share reject
 // are resent under the declared retrying edges: each edge's share of the demand arrives
 // sum_{k=0..retries} p^k times, p being reject when the policy retries this resource's class.
-// An edge placed in its caller's request tree (a flow gate) is further scaled by the share of
-// requests its upstream uses and calls admit (reach); a demand.from resource keeps the
+// An edge placed in its caller's request tree (a flow gate) instead arrives as often as the tree
+// delivers it (gate.arrivals): gated by the share of requests its upstream uses and calls admit,
+// and resent with every attempt of a call above it that a failure in the callee's subtree
+// triggers, this resource's own rejections included. A demand.from resource keeps the
 // Policy-only rule (its upstream already carries the path).
 func (c *compiled) amplified(d, reject float64) float64 {
 	if len(c.loads) == 0 {
@@ -396,6 +402,10 @@ func (c *compiled) amplified(d, reject float64) float64 {
 	rest, out := 1.0, 0.0
 	for i, l := range c.loads {
 		rest -= l.Share
+		if g := c.gates[i]; g != nil && c.from == nil {
+			out += l.Share * g.arrivals(latestReject(c, reject))
+			continue
+		}
 		p := 0.0
 		if l.Policy.Retryable(class, status) {
 			p = reject
@@ -405,12 +415,76 @@ func (c *compiled) amplified(d, reject float64) float64 {
 			attempts += pk
 			pk *= p
 		}
-		if g := c.gates[i]; g != nil && c.from == nil {
-			attempts *= g.reach(latestReject(c, reject))
-		}
 		out += l.Share * attempts
 	}
 	return d * (math.Max(0, rest) + out)
+}
+
+// PreWorkFraction is the request layout's one timing share, owned here so the model and the app
+// workload's evaluator read the same value: a service's work before its first downstream call
+// is this share of its duration (the trace projection nests the first child hop there), and a
+// request rejected before its work (a capacity rejection, a refused connection, a failed TLS
+// handshake, a refused token) ends after this share of the callee's duration. The model holds a
+// failed unit of work for exactly the time the evaluator's failure timeline gives it (see
+// failedHold), so the occupancy it reports matches the failed executions the traces show.
+//
+// Basis: a refused connection returns within one network round trip (TCP RST) and a failed
+// certificate check after the handshake's one or two round trips, a small share of a call's full
+// latency: for the stories' 120 ms partner API, 12 ms is an internet-scale round trip. The
+// pre-call share is the trace layout every causal request already uses, not a new parameter.
+const PreWorkFraction = 0.1
+
+// occupancy is the mean time one admitted unit of work occupies a pool connection or a
+// concurrency slot: the effective hold h for work that completes, and for the failed share
+// (FailedShare: the held-across dependency unavailable or its credential failing) the failed
+// execution's elapsed time on the evaluator's failure timeline (failedHold). Each load's request
+// tree gives the holder's policy on the failing call; the loads are weighted by their declared
+// shares. Healthy (failed 0) it is exactly h.
+//
+// Like h, which does not include the holder's other calls, the failed hold leaves out calls the
+// holder makes before the dependency. The fast-failure hold is what keeps a caller's resends of
+// that failure plausible: three attempts of a call that fails in a tenth of its hold occupy less
+// than one healthy call did, so the resends do not saturate the limit they pass through. A queue
+// keeps the full hold (a consumer whose work fails returns the message for redelivery, which
+// the model does not represent, so a fast failure frees no throughput), and a quota has no hold:
+// every attempt, resends included, counts against its rate.
+func (c *compiled) occupancy(h, lf, failed float64) float64 {
+	if failed <= 0 || c.ref == nil {
+		return h
+	}
+	rest, sum, w := 1.0, 0.0, 0.0
+	for i, l := range c.loads {
+		rest -= l.Share
+		sum += l.Share * c.failedHold(c.held[i], lf, failed)
+		w += l.Share
+	}
+	if rest = math.Max(0, rest); rest > 0 || w == 0 {
+		sum += rest * c.failedHold(nil, lf, failed)
+		w += rest
+	}
+	return (1-failed)*h + failed*sum/w
+}
+
+// failedHold is the elapsed time of a unit of work that fails at its held-across dependency, as
+// the evaluator lays it out: the work before the call (PreWorkFraction x hold_ms; it never waits
+// on the dependency's extra latency), then each attempt of the call, which fails after
+// PreWorkFraction of the dependency's current latency (latency_ms x lf). A refused connection
+// (the dependency's share of the failures) is resent under pol when it retries connect, with
+// pol's backoffs (backoff_ms x 2^k) between attempts; a credential failure is never resent. pol
+// nil (no request tree places the call) is one attempt. Every term is a declared quantity (hold_ms,
+// latency_ms, the latency factor, retries, backoff_ms) or the layout share; none is tuned.
+func (c *compiled) failedHold(pol *CallPolicy, lf, failed float64) float64 {
+	per := PreWorkFraction * c.ref.r.LatencyMS * lf
+	span := per
+	if pol != nil && pol.Retryable(ClassConnect, 0) {
+		connect := clamp01(c.ref.last.st.RejectShare / failed)
+		resent := per
+		for k := range pol.Retries {
+			resent += pol.BackoffMS*math.Pow(2, float64(k)) + per
+		}
+		span = connect*resent + (1-connect)*per
+	}
+	return PreWorkFraction*c.r.HoldMS + span
 }
 
 // capResult is one capacity step's physics for an offered demand.
@@ -506,15 +580,16 @@ func (m *Model) step(k int64, clk Clock) {
 				lf, failed = c.refState()
 			}
 			h := c.hold(lf)
+			occ := c.occupancy(h, lf, failed)
 			d := base
-			res := c.capPhysics(d, h, i)
+			res := c.capPhysics(d, occ, i)
 			for n := 0; n < maxFixedPoint && len(c.loads) > 0; n++ {
 				next := c.amplified(base, res.reject)
 				if math.Abs(next-d) <= 1e-12*math.Max(1, next) {
 					break
 				}
 				d = next
-				res = c.capPhysics(d, h, i)
+				res = c.capPhysics(d, occ, i)
 			}
 			st.Demand, st.Capacity, st.Utilization = d, res.capacity, finiteUtil(res.rho)
 			st.RejectShare, st.WaitMS, st.LatencyFactor, st.InUse = res.reject, res.wait, lf, res.inUse

@@ -8,17 +8,22 @@ import (
 )
 
 // Flow is one workload's declared request tree, so the model can derive how much of a resource's
-// demand the workload's upstream path actually admits. Nodes are the services in the order the
+// demand the workload's requests actually deliver to it. Nodes are the services in the order the
 // workload walks them (depth-first pre-order of its spanning tree): Nodes[0] is the entry, every
 // caller precedes its callees, and a caller's callees appear in call order.
 //
 // A request meets a node's Uses in order and stops at the first rejection; it then calls the
 // node's callees one after another under each call's Policy and stops at the first call that
 // fails once its retries are spent. A callee's failure reaches its caller mapped by
-// CallerStatus; a rule rejection is never resent. Timeouts and the workload's own legacy error
-// draws are not modelled here, so a healthy tree (no resource rejecting) admits every request.
-// The tree only gates a resource's demand (reach); resends of the resource's own rejections
-// still follow the load's Policy alone.
+// CallerStatus. Only the service that calls the rule's node never resends a rule rejection; a
+// caller further up sees the mapped status and resends it like any other. Timeouts and the
+// workload's own legacy error draws are not modelled here, so a healthy tree (no resource
+// rejecting) delivers exactly one arrival per request to every resource it uses.
+//
+// Every attempt of a call re-runs the callee's whole subtree, so a resource receives one arrival
+// per evaluation of its node that gets past the node's earlier uses: a caller resending a
+// failure anywhere below it (the resource's own rejection, a later use, a deeper callee's
+// mapped failure) resends the arrival too (SKT-0195).
 type Flow struct {
 	Nodes []FlowNode
 }
@@ -165,7 +170,9 @@ func (cf *cflow) serve(n int, rej rejectFn) dist {
 		e := cf.edge(k, rej)
 		for _, f := range e.fails {
 			status, class := CallerStatus(cf.nodes[k].policy, f.key.class, f.key.status, n == 0)
-			out.add(outcomeKey{class: class, status: status, rule: f.key.rule}, out.ok*f.p)
+			// Mapped, a rule rejection is an ordinary status: only the direct caller (edge) knows
+			// it was a rule, so a caller further up resends it if its policy retries the status.
+			out.add(outcomeKey{class: class, status: status}, out.ok*f.p)
 		}
 		out.ok *= e.ok
 	}
@@ -178,18 +185,7 @@ func (cf *cflow) serve(n int, rej rejectFn) dist {
 func (cf *cflow) edge(k int, rej rejectFn) dist {
 	pol := cf.nodes[k].policy
 	a := cf.serve(k, rej)
-	r := 0.0
-	for _, f := range a.fails {
-		if !f.key.rule && pol.Retryable(f.key.class, f.key.status) {
-			r += f.p
-		}
-	}
-	attempts, rk, last := 0.0, 1.0, 1.0 // last ends as r^Retries, the share reaching the final attempt
-	for range pol.Retries + 1 {
-		last = rk
-		attempts += rk
-		rk *= r
-	}
+	attempts, last := retrySeries(pol, a)
 	out := dist{ok: a.ok * attempts}
 	for _, f := range a.fails {
 		if !f.key.rule && pol.Retryable(f.key.class, f.key.status) {
@@ -201,15 +197,39 @@ func (cf *cflow) edge(k int, rej rejectFn) dist {
 	return out
 }
 
-// reach is the share of entry requests whose first attempt meets the gated resource: every use of
-// every caller on the path admits it, every earlier call of those callers succeeds (retries
-// included), and the node's own earlier uses admit it. Exactly 1 when nothing on the tree rejects.
+// retrySeries is the expected number of attempts of a call whose single attempt has outcome a:
+// sum_{j<=Retries} r^j, r being the share failing with a status the policy resends (a rule
+// rejection from the callee's own uses never is). last is r^Retries, the share reaching the
+// final attempt.
+func retrySeries(pol CallPolicy, a dist) (attempts, last float64) {
+	r := 0.0
+	for _, f := range a.fails {
+		if !f.key.rule && pol.Retryable(f.key.class, f.key.status) {
+			r += f.p
+		}
+	}
+	rk := 1.0
+	last = 1.0
+	for range pol.Retries + 1 {
+		last = rk
+		attempts += rk
+		rk *= r
+	}
+	return attempts, last
+}
+
+// arrivals is the expected number of arrivals at the gated resource per entry request. Along the
+// path, each node is evaluated once per attempt of the call into it: an evaluation gets past
+// every use of the node and every earlier call of it (retries included) with their success
+// shares, and the call into the next node on the path is then attempted sum_{j<=Retries} r^j
+// times, r being the share of that node's evaluations failing anywhere in its subtree with a
+// status the caller resends. At the node itself the arrival needs the earlier uses to admit it.
+// Exactly 1 when nothing on the tree rejects.
 //
-// It gates; it does not resend. The resource's own rejections are resent under the load's Policy
-// (the closed loop of design §3.3, unchanged), and a failure elsewhere that a caller on the path
-// resends does not add arrivals here (v1: such a resend would need the hold of a failing call,
-// which the model does not shorten).
-func (g *gate) reach(rej rejectFn) float64 {
+// The resource's own rejections are among the failures the call into its node resends, so a
+// load with a Flow needs no separate Policy-only amplification: with nothing else failing,
+// arrivals is that closed loop (design §3.3) gated by the upstream path.
+func (g *gate) arrivals(rej rejectFn) float64 {
 	cf := g.flow
 	v := 1.0
 	for i, n := range g.path {
@@ -230,12 +250,19 @@ func (g *gate) reach(rej rejectFn) float64 {
 			}
 			v *= cf.edge(k, rej).ok
 		}
+		attempts, _ := retrySeries(cf.nodes[next].policy, cf.serve(next, rej))
+		v *= attempts
 	}
 	return v
 }
 
-// touched reports the resources whose reject share reach reads (the solved resource excluded by
-// the caller): the uses on the path and the subtrees of earlier calls.
+// touched reports the resources whose reject share gates the path to the resource (the solved
+// resource excluded by the caller): the uses on the path and the subtrees of earlier calls. The
+// solve order follows these reads. arrivals also reads the subtrees below the path for resends;
+// those are not ordered (a resource downstream reads this one to gate, so ordering both ways
+// would be circular): a downstream capacity resource's reject share is its latest record, this
+// step's when it is already solved, else the previous step's. Dependencies, credentials and rules
+// are always solved first.
 func (g *gate) touched(visit func(*compiled)) {
 	cf := g.flow
 	var subtree func(n int)
@@ -266,6 +293,21 @@ func (g *gate) touched(visit func(*compiled)) {
 			subtree(k)
 		}
 	}
+}
+
+// heldCall is the policy of the call the load's node makes into a node using c's held-across
+// dependency (the first such call), nil when the gate is nil or the node makes no such call.
+func (g *gate) heldCall(c *compiled) *CallPolicy {
+	if g == nil || c.ref == nil {
+		return nil
+	}
+	cf := g.flow
+	for _, k := range cf.nodes[g.path[len(g.path)-1]].kids {
+		if slices.Contains(cf.nodes[k].uses, c.ref) {
+			return &cf.nodes[k].policy
+		}
+	}
+	return nil
 }
 
 // failKey is the outcome key of this resource's rejection, exactly as Apply reports it.

@@ -403,7 +403,16 @@ sees; it must cover every request that passes through it, and the loader rejects
 the demand declared for a resource it uses. An app's share of that demand follows the requests that
 actually reach the resource: a request rejected earlier on its path (by a quota, a pool, a rule, or a
 call that failed before this one) never arrives, so a bound Lambda function, queue or broker queue
-reports the calls that get through. With no fault on the path the declared demand is unchanged.
+reports the calls that get through. Every attempt of a call re-runs the callee, so a caller that
+resends a failure from anywhere below it (a `retry_on: [5xx]` caller resending a function's 502 after
+the function's partner handshake failed) sends the resource one arrival per attempt. Work that fails
+at the dependency it is held across (unavailable, a failed handshake, a refused token) holds a pool
+connection or a concurrency slot only until it fails: a tenth of `hold_ms` of work before the call,
+then each attempt of that call (a tenth of the dependency's `latency_ms`, with the holder's
+`backoff_ms` between resends of a refused connection). Resends of a fast failure therefore do not
+saturate the limit they pass through. A queue keeps its full processing time for a failed message,
+and a quota has no hold: it counts every attempt. With no fault on the path the declared demand is
+unchanged.
 
 Something has to meet a resource before a signal moves:
 
