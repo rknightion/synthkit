@@ -20,7 +20,8 @@
 //
 // Model: each queue receives business-hours-shaped traffic and is drained by consumers at a bounded
 // rate; its depth integrates the difference, so a consumer stall shows as a growing spool. Queue
-// traffic rolls up into VPN and broker totals, so the families agree with one another.
+// traffic rolls up into VPN and broker totals, so the families agree with one another. A queue may
+// declare its own rate_scale and shape_profile; undeclared queues follow the blueprint curve.
 //
 // Signal contract: signals/solace.md [slug: solace-queue], [slug: solace-vpn], [slug: solace-system]
 package solace
@@ -183,7 +184,11 @@ type brokerTotals struct {
 // (opt-in) QueueRates families.
 func (c *Construct) stepQueue(w *core.World, now time.Time, bf, secs float64, b *resolvedBroker, v *resolvedVPN, q *resolvedQueue) qres {
 	key := b.name + "|" + v.name + "|" + q.name
-	load := bf * seriesVar(w, now, "queue|"+key)
+	qbf := bf
+	if q.load != nil && w != nil && w.Shape != nil {
+		qbf = q.load.business(now, w.Shape)
+	}
+	load := qbf * seriesVar(w, now, "queue|"+key)
 	consumeRate := q.consumeRate
 	if w != nil && w.Shape != nil {
 		if on, inten := w.Shape.Eval(now, ModePublishDrop, q.name); on {

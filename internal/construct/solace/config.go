@@ -4,10 +4,13 @@ package solace
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/rknightion/synthkit/internal/failuremode"
+	"github.com/rknightion/synthkit/internal/shape"
 )
 
 // Config is the construct's YAML config struct: the declared brokers, their message VPNs and
@@ -83,6 +86,91 @@ type QueueConfig struct {
 	// for a queue's max spool usage. Messages arriving once it is full are discarded and counted
 	// in solace_queue_msg_spool_usage_exceeded.
 	SpoolQuotaMB float64 `yaml:"spool_quota_mb"`
+	// RateScale multiplies this queue's publish rate, and the default drain rate derived from it
+	// (3x the publish rate); a declared consume_msgs_per_sec is not scaled. Default 1 (omitted
+	// leaves the queue exactly as before). It lets peer queues carry different volumes without
+	// restating each rate; 0 declares an idle queue.
+	RateScale *float64 `yaml:"rate_scale"`
+	// ShapeProfile gives this queue its own business-hours load curve in place of the blueprint's
+	// (a queue fed by an overnight batch peaks when the rest of the estate is idle). Omitted
+	// keeps the blueprint curve. Same keys and defaults as the application workload's
+	// shape_profile.
+	ShapeProfile *ShapeProfile `yaml:"shape_profile"`
+}
+
+// ShapeProfile parameterises one queue's diurnal load curve: a floor, a smoothstep ramp up to a
+// plateau, a ramp back down, and a weekend factor, read in a chosen timezone. Every field is
+// optional; an omitted field takes the blueprint-default curve value (shape.DefaultCurve).
+type ShapeProfile struct {
+	// Timezone is the IANA zone the hours are read in. Empty uses the blueprint timezone.
+	Timezone string `yaml:"timezone"`
+	// Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1.
+	Floor *float64 `yaml:"floor"`
+	// RampUpStartHour is the local hour the morning ramp starts. Default 6.
+	RampUpStartHour *float64 `yaml:"ramp_up_start_hour"`
+	// PlateauStartHour is the local hour full load is reached. Default 10.
+	PlateauStartHour *float64 `yaml:"plateau_start_hour"`
+	// PlateauEndHour is the local hour the evening ramp starts. Default 16.
+	PlateauEndHour *float64 `yaml:"plateau_end_hour"`
+	// RampDownEndHour is the local hour the floor is reached again. Default 20.
+	RampDownEndHour *float64 `yaml:"ramp_down_end_hour"`
+	// WeekendFactor multiplies Saturday and Sunday load (>= 0). Default 0.3.
+	WeekendFactor *float64 `yaml:"weekend_factor"`
+}
+
+// queueLoad is a resolved ShapeProfile: the curve and its location (nil reads the blueprint
+// engine's).
+type queueLoad struct {
+	curve shape.Curve
+	loc   *time.Location
+}
+
+func resolveShapeProfile(p *ShapeProfile) (*queueLoad, error) {
+	if p == nil {
+		return nil, nil
+	}
+	c := shape.DefaultCurve()
+	for _, f := range []struct {
+		src *float64
+		dst *float64
+	}{
+		{p.Floor, &c.Floor},
+		{p.RampUpStartHour, &c.RampUpStartHour},
+		{p.PlateauStartHour, &c.PlateauStartHour},
+		{p.PlateauEndHour, &c.PlateauEndHour},
+		{p.RampDownEndHour, &c.RampDownEndHour},
+	} {
+		if f.src != nil {
+			*f.dst = *f.src
+		}
+	}
+	if p.WeekendFactor != nil {
+		wf := *p.WeekendFactor
+		c.WeekendFactor = &wf
+	}
+	if err := c.Validate(); err != nil {
+		return nil, err
+	}
+	ql := &queueLoad{curve: c}
+	if p.Timezone != "" {
+		loc, err := time.LoadLocation(p.Timezone)
+		if err != nil {
+			return nil, fmt.Errorf("timezone %q: %w", p.Timezone, err)
+		}
+		ql.loc = loc
+	}
+	return ql, nil
+}
+
+// business is the substrate-style load (diurnal x business weekly x master volume) on this
+// queue's own curve, the counterpart of Engine.BusinessFactor.
+func (l *queueLoad) business(now time.Time, eng *shape.Engine) float64 {
+	loc := eng.Loc()
+	if l.loc != nil {
+		loc = l.loc
+	}
+	t := now.In(loc)
+	return l.curve.Diurnal(t) * l.curve.BusinessWeekly(t) * eng.VolumeMultiplier()
 }
 
 // Scrape-target names, exactly as the exporter spells them (internal/exporter/exporter.collect.go,
@@ -129,6 +217,7 @@ type resolvedQueue struct {
 	quotaBytes       float64
 	publishRemainder float64
 	consumeRemainder float64
+	load             *queueLoad // nil: the blueprint curve
 	// runtime state
 	depth  float64 // messages currently spooled
 	avgRx  float64 // smoothed msgs/s, for the *_avg rate gauges
@@ -268,6 +357,20 @@ func resolveQueue(qc QueueConfig) (*resolvedQueue, error) {
 		}
 		rq.publishRate = *qc.PublishMsgsPerSec
 	}
+	if qc.RateScale != nil {
+		if s := *qc.RateScale; math.IsNaN(s) || math.IsInf(s, 0) || s < 0 {
+			return nil, fmt.Errorf("solace: queue %q: rate_scale must be finite and >= 0", qc.Name)
+		}
+		rq.publishRate *= *qc.RateScale
+		if math.IsInf(rq.publishRate, 0) || math.IsInf(3*rq.publishRate, 0) {
+			return nil, fmt.Errorf("solace: queue %q: rate_scale %v makes the publish rate overflow", qc.Name, *qc.RateScale)
+		}
+	}
+	load, err := resolveShapeProfile(qc.ShapeProfile)
+	if err != nil {
+		return nil, fmt.Errorf("solace: queue %q: shape_profile: %w", qc.Name, err)
+	}
+	rq.load = load
 	rq.consumeRate = 3 * rq.publishRate
 	// A queue declared with no consumers drains nothing unless a drain rate is declared explicitly.
 	if qc.Consumers != nil && *qc.Consumers == 0 {
