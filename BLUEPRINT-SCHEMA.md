@@ -640,6 +640,7 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `environments[].databases[].observability.cloudwatch` | bool | yes | emit aws_rds_* CloudWatch family (default true) |
 | `environments[].databases[].observability.dbo11y` | bool |  | emit database_observability_* lane (default false) |
 | `environments[].databases[].observability.digests` | int |  | dbo11y query-catalogue size (default 40); ignored unless dbo11y |
+| `environments[].databases[].resource` | string |  | Resource binds the database's CloudWatch construct to a declared causal `dependency` or `pool` resource (environments[].resources), so its latency and connection families follow the shared model instead of the database-axis failure modes. Optional. A bound database is no longer a database-axis incident target (slow_query_storm, connection_saturation and the other database modes name an unknown target at load); the resource-axis modes move it. Needs the CloudWatch lane and a construct that supports binding; dbo11y must be off. |
 | `environments[].caches[]` | object |  |  |
 | `environments[].caches[].engine` | string |  | "redis" |
 | `environments[].caches[].version` | string |  |  |
@@ -1423,8 +1424,9 @@ Solace event-broker telemetry (solace_prometheus_exporter v1.21.0: per-queue and
 | `brokers[].vpns[].spool_quota_mb` | float |  | SpoolQuotaMB is the VPN message-spool quota in MB. Default: the sum of the queue quotas. |
 | `brokers[].vpns[].queues[]` | object |  | Queues is the queues in this VPN; at least one is required. |
 | `brokers[].vpns[].queues[].name` | string |  | Name is the queue name (the queue_name label); unique within the VPN. |
+| `brokers[].vpns[].queues[].resource` | string |  | Resource binds the queue to a causal `queue` resource declared under environments[].resources (opt-in). A bound queue's publishes, deletes, depth and discards follow the resource's model, so a consumer slowdown or a slow held-across dependency grows the spool and it drains after the fault. The consumer count is the resource's size and the depth limit is spool_quota_mb / avg_msg_bytes, so the resource declares no max_depth. publish_msgs_per_sec, consume_msgs_per_sec, rate_scale, shape_profile and the queue-axis failure modes are rejected on a bound queue, and one resource binds one queue. |
 | `brokers[].vpns[].queues[].publish_msgs_per_sec` | float | yes | PublishMsgsPerSec is the business-hours publish rate into the queue, scaled by the shape engine's business factor. Default 2: a master-data change feed is a low-volume stream (about 170k messages a day at this peak), not bulk transfer. 0 declares an idle queue. |
-| `brokers[].vpns[].queues[].consume_msgs_per_sec` | float | yes | ConsumeMsgsPerSec is the consumers' maximum drain rate. Default 3x PublishMsgsPerSec so a healthy queue keeps no backlog, or 0 when Consumers is 0; set it below the publish rate (0 stalls the consumers) to model a growing backlog. |
+| `brokers[].vpns[].queues[].consume_msgs_per_sec` | float | yes | ConsumeMsgsPerSec is the consumers' maximum drain rate. Default 3x PublishMsgsPerSec so a healthy queue keeps no backlog, or 0 when Consumers is 0; set it below the publish rate (0 stalls the consumers) to model a growing backlog. With a drain_schedule it is the rate while a window is open. |
 | `brokers[].vpns[].queues[].avg_msg_bytes` | int |  | AvgMsgBytes is the average message size. Default 2048 (a JSON master-data change record). |
 | `brokers[].vpns[].queues[].consumers` | int | yes | Consumers is the number of bound consumer flows (solace_queue_binds). Default 1. A queue with 0 consumers drains nothing unless ConsumeMsgsPerSec is declared. |
 | `brokers[].vpns[].queues[].subscriptions` | int | yes | Subscriptions is the queue's topic subscription count (solace_queue_subscriptions). Default 1. |
@@ -1438,6 +1440,10 @@ Solace event-broker telemetry (solace_prometheus_exporter v1.21.0: per-queue and
 | `brokers[].vpns[].queues[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
 | `brokers[].vpns[].queues[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
 | `brokers[].vpns[].queues[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Default 0.3. |
+| `brokers[].vpns[].queues[].drain_schedule` | object | yes | DrainSchedule makes the queue's consumers drain on a schedule instead of continuously (opt-in): a batch consumer that wakes at fixed times. Omitted leaves the queue exactly as before. Rejected on a queue bound to a causal resource, whose drain belongs to the model. |
+| `brokers[].vpns[].queues[].drain_schedule.period` | int |  | Period is the interval between window openings (> 0), for example 1h. |
+| `brokers[].vpns[].queues[].drain_schedule.window` | int |  | Window is how long each drain window stays open (> 0 and <= period). |
+| `brokers[].vpns[].queues[].drain_schedule.phase` | int |  | Phase offsets the window opening from the epoch-aligned period boundary, in [0, period). Default 0. |
 
 ## sqs config
 
@@ -1456,6 +1462,10 @@ AWS/SQS ordinary queue metrics (remote-write only)
 | `queues[].delay_seconds` | int |  |  |
 | `queues[].processing_seconds` | int |  |  |
 | `queues[].load` | string |  | Load selects how the queue's traffic follows the blueprint's business curve. Empty (the default) keeps arrivals_per_second and receives_per_second constant. "business" treats arrivals_per_second as the peak-plateau arrival rate and scales it each second by the shape engine's business factor (diurnal x weekly x volume). Consumers then take what is visible, one message per receive, but never faster than receives_per_second, which becomes the maximum consumer throughput: a backlog forms only while scaled arrivals exceed it and drains once they fall back. Receives follow arrivals, so idle consumers add no empty-receive polling. Without a shape engine the factor is 1. |
+| `queues[].burst` | object | yes | Burst, when declared, concentrates the queue's arrivals into the on-fraction of each period instead of spreading them evenly, as an upstream batch pipeline delivers: the same mean volume (arrivals_per_second, scaled by load when that is business) arrives in the first duty x period of each period, offset by phase, and nothing arrives in the rest. Periods are aligned to the Unix epoch on the tick wall clock, so the on-window needs no state and a restart or a master pause resumes on the same schedule. Receives are unchanged, so a backlog forms during a burst while arrivals exceed receives_per_second and drains afterwards. Omitted (the default) leaves arrivals evenly spread. A queue bound to a resource rejects it. |
+| `queues[].burst.period` | string |  | Period is the repeat interval as a Go duration, 1s to 168h ("30m" gives two bursts an hour). |
+| `queues[].burst.duty` | float |  | Duty is the on-fraction of each period, in (0,1]. Arrivals are concentrated into it, so the on-window rate is arrivals_per_second / duty; 1 is a continuous stream. |
+| `queues[].burst.phase` | string |  | Phase offsets the start of the on-window within the period as a Go duration, 0 <= phase < period (default "": the burst starts on each epoch-aligned period boundary). |
 | `queues[].enrichment` | object |  | Enrichment selects only the P2 key vocabulary. All values are declared; omitted keys stay absent. P1/P3 tag alternatives cannot be union-filled. |
 | `queues[].enrichment.asserts_env` | string |  |  |
 | `queues[].enrichment.asserts_site` | string |  |  |
@@ -1464,7 +1474,7 @@ AWS/SQS ordinary queue metrics (remote-write only)
 | `queues[].enrichment.owner` | string |  |  |
 | `queues[].enrichment.purpose` | string |  |  |
 | `queues[].enrichment.terraform` | string |  |  |
-| `queues[].resource` | string |  | Resource binds the queue to a declared `queue` resource (environments[].resources). A bound queue is driven by the causal model: NumberOfMessagesSent is the window's arrivals, NumberOfMessagesReceived and NumberOfMessagesDeleted are what the consumers served, ApproximateNumberOfMessagesVisible is the backlog and ApproximateAgeOfOldestMessage the oldest message's age. The resource owns arrival rate, consumer throughput and processing time, so arrivals_per_second, receives_per_second, processing_seconds, delay_seconds and load must be omitted, and the resource must not set max_depth (a standard queue is unbounded). NotVisible, Delayed and EmptyReceives are not emitted for a bound queue. |
+| `queues[].resource` | string |  | Resource binds the queue to a declared `queue` resource (environments[].resources). A bound queue is driven by the causal model: NumberOfMessagesSent is the window's arrivals, NumberOfMessagesReceived and NumberOfMessagesDeleted are what the consumers served, ApproximateNumberOfMessagesVisible is the backlog and ApproximateAgeOfOldestMessage the oldest message's age. The resource owns arrival rate, consumer throughput and processing time, so arrivals_per_second, receives_per_second, processing_seconds, delay_seconds, load and burst must be omitted, and the resource must not set max_depth (a standard queue is unbounded). NotVisible, Delayed and EmptyReceives are not emitted for a bound queue. |
 
 ## synthetic_monitoring config
 
@@ -1815,11 +1825,20 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
 | `services[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
 | `services[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the blueprint defaults: 0.3 for metrics, 0.2 (production) or 0.02 (non-production) for request volume. |
+| `services[].uses[]` | string |  | Uses names the declared environments[].resources a request meets on arrival at this service, in order (resolved as "<name>-<lower(env)>" first, then the exact name). A capacity resource (pool, concurrency, quota) or a rule applies at this service; a dependency (and every credential of it, applied after it) applies to the call into this service, so the entry may not use one. A service bound to a pool or concurrency resource takes its duration from the resource's effective hold, one bound to a dependency from its latency; a queue here is the producer side (an enqueue that fails only when the queue is full). Requires resources. |
+| `services[].call_policies` | map[string]CallPolicy |  | CallPolicies is this service's per-callee client policy, keyed by names in calls: timeout_ms (0 = none), retries (0..3), backoff_ms (doubled per resend), retry_on (5xx, throttle, timeout, connect) and propagate_throttle (pass a callee 429 on as 429, not 503). Rule and credential failures are never resent. Requires resources. |
+| `services[].worker` | bool |  | Worker marks the entry as a message consumer of traffic.from_resource: its root span is a CONSUMER span and each request records the queue's backlog wait. Entry only. |
 | `traffic` | object |  | Traffic shapes the entry node's invocation volume (the correlated narrative sample). |
 | `traffic.shape` | string |  | shape profile name (informational) |
 | `traffic.off_peak_rps` | float |  | trough rate (default 5) |
 | `traffic.peak_rps` | float |  | plateau rate (default 50) |
 | `traffic.request_latency_p95_ms` | float |  | RequestLatencyP95Ms is the entry request's base end-to-end latency p95 (lognormal; the per-hop budget + agentflow span windows derive from it). Default 0 ⇒ 200ms (plain HTTP). LLM/agentic apps should set this to seconds (e.g. 9000) so http_server_request_duration + the in-process invoke_workflow/agent/chat span latencies reflect real LLM-wait time, not HTTP speed. |
+| `traffic.from_resource` | string |  | FromResource names a declared queue resource whose served (processed) rate is this app's request rate, replacing off_peak_rps and peak_rps (which are then ignored); the entry is typically a worker. Requires resources. |
+| `traffic.success_status` | int |  | SuccessStatus is the HTTP status of a successful entry request, 200 to 299. Omitted is 200. |
+| `traffic.error_mix[]` | object |  | ErrorMix is the weighted set of statuses and codes a failed entry request draws from. Omitted keeps 50% 500 upstream_5xx, 30% 400 bad_request and 20% 429 rate_limited. |
+| `traffic.error_mix[].status` | int |  | Status is the HTTP status of the failed request, 400 to 599 (429 is a throttle). |
+| `traffic.error_mix[].code` | string |  | Code is the error code recorded on the request (log detail); empty records the status. |
+| `traffic.error_mix[].weight` | float |  | Weight is this entry's relative share of failed requests, > 0. |
 | `otel` | object | yes | OTel enables the native OTLP metrics lane for inline service-node DSL instruments. Absent (nil) or Metrics=false leaves the established promrw path unchanged. Catalog profiles remain on promrw; they are not re-spelled into the native envelope. |
 | `otel.metrics` | bool |  |  |
 | `models[]` | object |  | Models is the set of valid (model, provider) routings this app's requests draw from. The minter picks ONE pair per request and stamps it into the correlation, so the gen_ai spans + gateway export logs of every gen_ai-composed node carry the REAL model AND provider (the names-are-law value behind the gen_ai_client / gateway_export_log profiles). Pairing them (vs two independent lists) prevents impossible combinations like a Claude model on the Azure-OpenAI provider. Empty ⇒ a non-AI app. These feed body/attr FIELDS only (never labels), so the per-request draw does not affect the -dump inventory (I32). Values are blueprint-declared (customer model lists stay out of the catalog). |
