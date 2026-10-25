@@ -14,10 +14,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/cw"
 	"github.com/rknightion/synthkit/internal/failuremode"
 	"github.com/rknightion/synthkit/internal/fixture"
+	"github.com/rknightion/synthkit/internal/shape"
 	"github.com/rknightion/synthkit/internal/state"
 )
 
@@ -26,7 +28,16 @@ import (
 type Config struct {
 	Account Account `yaml:"account"`
 	Tables  []Table `yaml:"tables"`
+	// set is the blueprint's declared causal resources, injected by the resolver
+	// (causal.Consumer) only when the blueprint declares at least one. Only an operation with
+	// Resource set reads it.
+	set causal.Set `yaml:"-"`
 }
+
+var _ causal.Consumer = (*Config)(nil)
+
+// UseResources receives the declared causal resources (causal.Consumer).
+func (c *Config) UseResources(s causal.Set) { c.set = s }
 
 // Account quotas are operator assumptions in capacity units/second (Count).
 // All four must be explicit and positive; these are not service-default claims.
@@ -101,7 +112,38 @@ type Operation struct {
 	// WriteThrottleEvents (PutItem) on TableName; unthrottled requests add no zero
 	// samples. Follows the operation's load.
 	ThrottledRequestsPerSecond float64 `yaml:"throttled_requests_per_second"`
+	// Resource binds the operation to a declared `quota` resource of the blueprint's causal
+	// model (environments[].resources), counted in QuotaUnit. The quota is then the operation's
+	// whole arrival declaration: its admitted volume is the successful requests (consuming
+	// capacity and observing latency) and its rejected volume the throttled requests
+	// (ThrottledRequests, and ReadThrottleEvents for GetItem or WriteThrottleEvents for PutItem),
+	// read from the shared model, never re-simulated. A bound operation omits
+	// requests_per_second, throttled_requests_per_second and load; read_units or write_units,
+	// latency and the latency bounds keep their meaning. Admitted only for GetItem and PutItem,
+	// the operations whose throttle families a lab capture observed. One resource binds at most
+	// one operation. A table whose GetItem and PutItem operations are all bound is not a
+	// table-axis target: quota_reduced on the resource throttles it instead. Omitted keeps the
+	// declared-rate behaviour, so default output is unchanged.
+	Resource string `yaml:"resource"`
+	// QuotaUnit is the unit the bound quota's demand and limit_rps count, per second: requests,
+	// read_units (GetItem) or write_units (PutItem). Required with resource and only with it.
+	// Capacity units convert to requests by the operation's own read_units or write_units per
+	// request, the AWS provisioned-capacity rule
+	// (https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/provisioned-capacity-mode.html):
+	// one RCU is one strongly consistent read per second, or two eventually consistent reads,
+	// of an item up to 4 KB, and one WCU is one write per second of an item up to 1 KB, item
+	// sizes rounding up to the next unit. A quota in units is the table capacity the operation
+	// draws on, so its limit_rps (with the table's other declared demand) must fit the
+	// provisioned capacity.
+	QuotaUnit string `yaml:"quota_unit"`
 }
+
+// Quota units of a bound operation.
+const (
+	unitRequests   = "requests"
+	unitReadUnits  = "read_units"
+	unitWriteUnits = "write_units"
+)
 
 // Stream explicitly declares the Streams identity and successful GetRecords
 // polling model. Zero returned records is a valid successful empty poll.
@@ -129,6 +171,10 @@ type tableState struct {
 	// stormThrottles carries the fractions of incident-driven throttles per operation,
 	// separate from the declared baseline so an incident never changes the healthy draw.
 	stormThrottles []float64
+	// resource is each operation's resolved bound quota name ("" when unbound), and unitsPer
+	// the quota units one request of it counts (1 for requests).
+	resource []string
+	unitsPer []float64
 }
 
 const (
@@ -144,6 +190,8 @@ const (
 func validLoad(v string) bool { return v == "" || v == loadConstant || v == loadBusiness }
 
 type construct struct {
+	// model is the compiled causal model; nil when no operation is bound.
+	model   *causal.Model
 	account Account
 	cloud   fixture.Cloud
 	tables  []tableState
@@ -170,14 +218,29 @@ var FailureModes = []failuremode.Mode{
 }
 
 func Registration() core.ConstructReg {
-	return core.ConstructReg{Kind: "dynamodb", Doc: "Explicit provisioned DynamoDB tables (remote-write only)", Scope: core.ScopeBlueprint, NewConfig: func() any { return &Config{} }, Build: Build, FailureModes: FailureModes}
+	modes := append(append([]failuremode.Mode(nil), FailureModes...), causal.FailureModes...)
+	return core.ConstructReg{Kind: "dynamodb", Doc: "Explicit provisioned DynamoDB tables (remote-write only)", Scope: core.ScopeBlueprint, NewConfig: func() any { return &Config{} }, Build: Build, FailureModes: modes}
 }
 
 // FailureTargets reports each declared table name as a table-axis failure target. The blueprint
-// resolver duck-types it; this package does not import the blueprint package.
+// resolver duck-types it; this package does not import the blueprint package. A table with a
+// bound operation and no unbound GetItem or PutItem is omitted: its throttles come from its
+// quotas, so a table-axis incident naming it is an unknown target at load instead of a silent
+// no-op. A table with no bound operation is always a target.
 func (c *Config) FailureTargets() []failuremode.Target {
 	out := make([]failuremode.Target, 0, len(c.Tables))
 	for _, t := range c.Tables {
+		bound, storm := false, false
+		for _, o := range t.Operations {
+			if o.Resource != "" {
+				bound = true
+			} else if o.Name == "GetItem" || o.Name == "PutItem" {
+				storm = true
+			}
+		}
+		if bound && !storm {
+			continue
+		}
 		out = append(out, failuremode.Target{Name: t.Name, Axis: AxisTable})
 	}
 	return out
@@ -217,6 +280,7 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 	}
 	c := &construct{account: cfg.Account, cloud: *fx.Cloud}
 	names, collectors := map[string]bool{}, map[string]bool{}
+	bound := map[string]string{}
 	var totalR, totalW float64
 	for _, t := range cfg.Tables {
 		if !identity(t.Name) || !identity(t.CollectorName) || t.CollectorName == "global" || names[t.Name] || collectors[t.CollectorName] {
@@ -238,7 +302,8 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 		}
 		seen := map[string]bool{}
 		var demandR, demandW float64
-		for _, o := range t.Operations {
+		resources, unitsPer := make([]string, len(t.Operations)), make([]float64, len(t.Operations))
+		for j, o := range t.Operations {
 			if seen[o.Name] {
 				return nil, fmt.Errorf("dynamodb: duplicate operation %q", o.Name)
 			}
@@ -282,6 +347,22 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 			if (o.LatencyMinMS == 0) != (o.LatencyMaxMS == 0) || (o.LatencyMinMS != 0 && (o.LatencyMinMS > o.LatencyMS || o.LatencyMS > o.LatencyMaxMS)) {
 				return nil, fmt.Errorf("dynamodb: latency_min_ms and latency_max_ms must be declared together with latency_min_ms <= latency_ms <= latency_max_ms")
 			}
+			if o.Resource != "" {
+				res, limit, per, err := validateBinding(cfg, t.Name, o, fx, bound)
+				if err != nil {
+					return nil, err
+				}
+				bound[res] = t.Name + "/" + o.Name
+				resources[j], unitsPer[j] = res, per
+				// The quota admits at most limit_rps of its unit; the capacity that draws on
+				// the table is that many requests' units.
+				demandR += limit / per * o.ReadUnits
+				demandW += limit / per * o.WriteUnits
+				continue
+			}
+			if o.QuotaUnit != "" {
+				return nil, fmt.Errorf("dynamodb: table %q operation %s: quota_unit requires resource", t.Name, o.Name)
+			}
 			demandR += o.RequestsPerSecond * o.ReadUnits
 			demandW += o.RequestsPerSecond * o.WriteUnits
 		}
@@ -321,7 +402,7 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 			t.Stream = &s
 		}
 		t.Operations = append([]Operation(nil), t.Operations...)
-		ts := tableState{table: t, carry: make([]float64, len(t.Operations)), throttles: make([]float64, len(t.Operations)), stormThrottles: make([]float64, len(t.Operations)), business: make([]bool, len(t.Operations)), replBusiness: t.Load == loadBusiness}
+		ts := tableState{table: t, carry: make([]float64, len(t.Operations)), throttles: make([]float64, len(t.Operations)), stormThrottles: make([]float64, len(t.Operations)), business: make([]bool, len(t.Operations)), replBusiness: t.Load == loadBusiness, resource: resources, unitsPer: unitsPer}
 		for j, o := range t.Operations {
 			ts.business[j] = o.Load == loadBusiness || (o.Load == "" && t.Load == loadBusiness)
 		}
@@ -332,7 +413,74 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 	if totalR > cfg.Account.MaxReads || totalW > cfg.Account.MaxWrites {
 		return nil, fmt.Errorf("dynamodb: total provisioned capacity exceeds account quota")
 	}
+	if len(bound) > 0 {
+		m, err := causal.Compile(cfg.set)
+		if err != nil {
+			return nil, fmt.Errorf("dynamodb: causal model: %w", err)
+		}
+		c.model = m
+	}
 	return c, nil
+}
+
+// validateBinding checks one bound operation against the injected causal set and returns the
+// resolved quota name, its limit_rps and the quota units one request of the operation counts.
+func validateBinding(cfg *Config, table string, o Operation, fx *fixture.Set, bound map[string]string) (string, float64, float64, error) {
+	where := fmt.Sprintf("dynamodb: table %q operation %s resource %q", table, o.Name, o.Resource)
+	if o.Name != "GetItem" && o.Name != "PutItem" {
+		return "", 0, 0, fmt.Errorf("%s: resource binding is admitted only for GetItem and PutItem", where)
+	}
+	var omit []string
+	for _, v := range []struct {
+		name string
+		set  bool
+	}{
+		{"requests_per_second", o.RequestsPerSecond != 0},
+		{"throttled_requests_per_second", o.ThrottledRequestsPerSecond != 0},
+		{"load", o.Load != ""},
+	} {
+		if v.set {
+			omit = append(omit, v.name)
+		}
+	}
+	if len(omit) > 0 {
+		return "", 0, 0, fmt.Errorf("%s: the quota supplies its requests, throttles and load: omit %s", where, strings.Join(omit, ", "))
+	}
+	var per float64
+	switch o.QuotaUnit {
+	case unitRequests:
+		per = 1
+	case unitReadUnits:
+		if o.Name != "GetItem" {
+			return "", 0, 0, fmt.Errorf("%s: quota_unit read_units is admitted only for GetItem", where)
+		}
+		per = o.ReadUnits
+	case unitWriteUnits:
+		if o.Name != "PutItem" {
+			return "", 0, 0, fmt.Errorf("%s: quota_unit write_units is admitted only for PutItem", where)
+		}
+		per = o.WriteUnits
+	default:
+		return "", 0, 0, fmt.Errorf("%s: quota_unit %q must be requests, read_units or write_units", where, o.QuotaUnit)
+	}
+	if cfg.set.Empty() {
+		return "", 0, 0, fmt.Errorf("%s: the blueprint declares no environments[].resources", where)
+	}
+	env := ""
+	if fx.Env != nil {
+		env = fx.Env.Name
+	}
+	r, _, ok := cfg.set.Resolve(o.Resource, env)
+	if !ok {
+		return "", 0, 0, fmt.Errorf("%s is not a declared resource", where)
+	}
+	if r.Kind != causal.KindQuota {
+		return "", 0, 0, fmt.Errorf("%s is a %s resource; want kind quota", where, r.Kind)
+	}
+	if other, dup := bound[r.Name]; dup {
+		return "", 0, 0, fmt.Errorf("dynamodb: operations %s and %s/%s bind the same resource %q; a quota binds one operation", other, table, o.Name, r.Name)
+	}
+	return r.Name, r.LimitRPS, per, nil
 }
 func number(v float64) bool                    { return !math.IsNaN(v) && !math.IsInf(v, 0) && v >= 0 && v <= 1e9 }
 func identity(v string) bool                   { return strings.TrimSpace(v) != "" && strings.TrimSpace(v) == v }
@@ -400,6 +548,7 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	if w == nil || w.Metrics == nil {
 		return fmt.Errorf("dynamodb: metric writer required")
 	}
+	c.advance(now, w.Shape)
 	// The runner still calls paused constructs. Suppress the entire batch,
 	// including capacity/account stocks, and never accrue pause-time traffic.
 	// Retain only fractions earned during previously observed active windows.
@@ -429,6 +578,9 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	// A new state per reporting window withholds sparse families rather than
 	// accidentally retaining the prior window's observations in state.Collect.
 	st := state.NewState()
+	// The observation window is (from, now]: the causal model's grid steps inside it supply a
+	// bound operation's counts.
+	from := now.Add(-time.Duration(seconds * float64(time.Second)))
 	var provisionR, provisionW, maxR, maxW float64
 	for i := range c.tables {
 		ts := &c.tables[i]
@@ -438,17 +590,24 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		var readSum, writeSum, readPeak, writePeak, readMin, writeMin, readThrottled, writeThrottled float64
 		storm := stormIntensity(w, now, t.Name)
 		for j, o := range t.Operations {
-			rate, throttleRate := o.RequestsPerSecond, o.ThrottledRequestsPerSecond
-			if ts.business[j] {
-				f := loadFactor(w, now, "dynamodb|"+t.Name+"|"+o.Name)
-				rate *= f
-				throttleRate *= f
-			}
-			n := take(rate, seconds, &ts.carry[j])
-			// Rejected requests: no capacity consumed and no successful-request series.
-			throttled := take(throttleRate, seconds, &ts.throttles[j])
-			if storm > 0 && (o.Name == "GetItem" || o.Name == "PutItem") {
-				throttled += take(n*storm, 1, &ts.stormThrottles[j])
+			var n, throttled float64
+			if res := ts.resource[j]; res != "" {
+				// Bound: the quota's admitted and rejected volumes over the window, in its unit,
+				// converted to whole requests through the ordinary carries.
+				n, throttled = c.boundWindow(ts, j, res, from, now)
+			} else {
+				rate, throttleRate := o.RequestsPerSecond, o.ThrottledRequestsPerSecond
+				if ts.business[j] {
+					f := loadFactor(w, now, "dynamodb|"+t.Name+"|"+o.Name)
+					rate *= f
+					throttleRate *= f
+				}
+				n = take(rate, seconds, &ts.carry[j])
+				// Rejected requests: no capacity consumed and no successful-request series.
+				throttled = take(throttleRate, seconds, &ts.throttles[j])
+				if storm > 0 && (o.Name == "GetItem" || o.Name == "PutItem") {
+					throttled += take(n*storm, 1, &ts.stormThrottles[j])
+				}
 			}
 			if throttled > 0 {
 				op := c.labels(t.CollectorName)
@@ -548,4 +707,48 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	cw.EmitStats(st, "aws_dynamodb_max_provisioned_table_write_capacity_utilization", l, cw.StatSet{Sum: mw, Average: mw, Maximum: mw, Minimum: mw, SampleCount: 1})
 	c.last = now
 	return w.Metrics.Write(ctx, st.Collect(now))
+}
+
+// staticClock stands in for the shape engine when a tick has none (unit tests): no faults, full
+// business factor and volume.
+type staticClock struct{}
+
+func (staticClock) Eval(time.Time, string, string) (bool, float64) { return false, 0 }
+func (staticClock) Factor(time.Time, float64, bool) float64        { return 1 }
+func (staticClock) VolumeMultiplier() float64                      { return 1 }
+
+var _ causal.Advancer = (*construct)(nil)
+
+// AdvanceCausal advances the construct's model to now (causal.Advancer); the runner calls it on
+// every master tick so every consumer samples live faults at the same instants. A construct with
+// no bound operation holds no model and ignores it.
+func (c *construct) AdvanceCausal(now time.Time, clk causal.Clock) {
+	if c.model != nil {
+		c.model.Advance(now, clk)
+	}
+}
+
+// advance brings the model to now before a Tick reads its window (idempotent after the runner's
+// AdvanceCausal).
+func (c *construct) advance(now time.Time, eng *shape.Engine) {
+	if c.model == nil {
+		return
+	}
+	if eng != nil {
+		c.model.Advance(now, eng)
+		return
+	}
+	c.model.Advance(now, staticClock{})
+}
+
+// boundWindow reads operation j's quota over (from, to] and returns its successful and throttled
+// requests. The quota counts its unit; dividing by the units one request counts gives requests,
+// and the operation's carries keep fractions so rates below one request per window still accrue.
+func (c *construct) boundWindow(ts *tableState, j int, resource string, from, to time.Time) (n, throttled float64) {
+	win, ok := c.model.Window(resource, from, to)
+	if !ok {
+		return 0, 0
+	}
+	per := ts.unitsPer[j]
+	return take(win.Admitted/per, 1, &ts.carry[j]), take(win.Rejected/per, 1, &ts.throttles[j])
 }

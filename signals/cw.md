@@ -218,7 +218,10 @@ replication fractions survive cadence jitter and long observation gaps; new accr
 floating-point floor can delay a request at a decimal exact boundary. No overload, on-demand or
 cross-service join is claimed. An operation's opt-in `throttled_requests_per_second` (GetItem or
 PutItem only) additionally emits the three throttle bases described under
-the throttle capture section [slug: cw-throttle-capture].
+the throttle capture section [slug: cw-throttle-capture]. A GetItem or PutItem bound to a causal
+`quota` resource (`resource` with `quota_unit`) emits the same bases from the quota's rejected
+volume instead, and its successful requests from the quota's admitted volume; capacity-unit quotas
+convert to requests by the operation's declared units per request.
 
 ```yaml signals
 family: aws_dynamodb
@@ -800,7 +803,8 @@ Minimum = Maximum = Average = 1: **no zero-valued samples** for unthrottled requ
 `Query`, `Scan` and `ExecuteStatement` were not captured and are not admitted. For single-item
 requests (no batch, no secondary index) each throttled request is one `ThrottledRequests` and one
 `ReadThrottleEvents` (GetItem) or `WriteThrottleEvents` (PutItem) event; batch and index-fan-out
-divergence documented by AWS is not modelled. Opt-in `throttled_requests_per_second` emits exactly
+divergence documented by AWS is not modelled. Opt-in `throttled_requests_per_second`, or a bound
+quota's rejected volume, emits exactly
 this and consumes no capacity and no successful-request latency.
 
 ```yaml signals opt-in

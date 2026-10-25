@@ -3,10 +3,12 @@ package dynamodb
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/failuremode"
 	"github.com/rknightion/synthkit/internal/shape"
@@ -162,8 +164,9 @@ func TestTableAxisDeclaration(t *testing.T) {
 	if len(targets) != 2 || targets[0] != (failuremode.Target{Name: "orders", Axis: wireAxis}) || targets[1] != (failuremode.Target{Name: "audit", Axis: wireAxis}) {
 		t.Fatalf("targets %v", targets)
 	}
+	// The table-axis mode, then the resource vocabulary every causal consumer registers (SKT-0185).
 	modes := Registration().FailureModes
-	if len(modes) != 1 || modes[0].Name != wireMode || modes[0].Axis != wireAxis || modes[0].Help == "" {
+	if len(modes) != 1+len(causal.FailureModes) || modes[0].Name != wireMode || modes[0].Axis != wireAxis || modes[0].Help == "" || !reflect.DeepEqual(modes[1:], causal.FailureModes) {
 		t.Fatalf("modes %v", modes)
 	}
 }

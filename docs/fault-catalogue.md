@@ -307,6 +307,7 @@ A resource on its own is a declaration. Something has to meet it before a signal
 | `app` workload | A service node lists `uses: [name, ...]`. Capacity resources and rules attach to the node a request arrives at; dependencies and credentials attach to a node something calls. |
 | Lambda function | `cloud.lambda.functions[].resource` names a `concurrency` resource. |
 | SQS queue | `cloud.sqs.queues[].resource` names a `queue` resource. |
+| DynamoDB GetItem or PutItem | `cloud.dynamodb.tables[].operations[].resource` names a `quota` resource, and `quota_unit` says what it counts: `requests`, `read_units` (GetItem) or `write_units` (PutItem). |
 | Solace queue | `integrations.solace.brokers[].vpns[].queues[].resource` names a `queue` resource. |
 | RDS or DocumentDB instance | `databases[].resource` names a `dependency` or `pool` resource. |
 

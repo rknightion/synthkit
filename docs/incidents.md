@@ -307,7 +307,8 @@ are rejected on it. The resource-axis modes reach it instead (see the next secti
 
 Every table declared under an environment's `cloud.dynamodb.tables` is a target named by its
 `name` (the TableName, not `collector_name`). One table name declared in several environments is
-one target.
+one target. A table whose GetItem and PutItem operations are all bound to quota resources is not a
+target (see [Bound constructs](#bound-constructs)), and the storm never adds to a bound operation.
 
 | Mode | Effect |
 |---|---|
@@ -399,6 +400,7 @@ declarations are unchanged.
 | `lambda` | `functions[].resource` (`concurrency`) | Not a function-axis target: an effect naming it with a function-axis mode is an unknown-target load error | `aws_lambda_*` (see the function axis above) |
 | `sqs` | `queues[].resource` (`queue` without `max_depth`) | None: SQS registers no legacy mode. `arrivals_per_second`, `receives_per_second`, `processing_seconds`, `delay_seconds`, `load` and `burst` must be omitted | `aws_sqs_number_of_messages_sent` (arrivals), `aws_sqs_number_of_messages_received` and `aws_sqs_number_of_messages_deleted` (served), `aws_sqs_approximate_number_of_messages_visible` (backlog) and `aws_sqs_approximate_age_of_oldest_message`. `consumer_slowdown`, or `dependency_slow` on the held-across dependency, grows the backlog and age, which drain after the incident |
 | `solace` | `queues[].resource` (`queue`) | Not a queue-axis target (unknown-target load error); `publish_msgs_per_sec`, `consume_msgs_per_sec`, `rate_scale`, `shape_profile`, `drain_schedule` and a `max_depth` on the resource are rejected | Publish and consume rates, queue depth, spool usage and spool-full discards (`solace_queue_msg_spool_usage_exceeded`) |
+| `dynamodb` | `tables[].operations[].resource` (`quota`, counted in `quota_unit`: `requests`, `read_units` or `write_units`), GetItem and PutItem only | A table whose GetItem and PutItem operations are all bound is not a table-axis target (unknown-target load error); `table_throttle_storm` never adds to a bound operation. `requests_per_second`, `throttled_requests_per_second` and `load` must be omitted | The quota's admitted volume is the operation's successful requests (`aws_dynamodb_successful_request_latency`, consumed capacity) and its rejected volume the throttled requests (`aws_dynamodb_throttled_requests`, and `aws_dynamodb_read_throttle_events` or `aws_dynamodb_write_throttle_events`), each divided by the operation's `read_units` or `write_units` when the quota counts capacity units. `quota_reduced` throttles them |
 | `rds` and `docdb` databases | `databases[].resource` (`dependency` or `pool`) | Not a database-axis target (unknown-target load error); cannot combine with `observability.dbo11y` | Read and write latency, and a pool's connections (see the database axis above) |
 | `agentcore` | `runtimes[].resource` (`concurrency`) | `agentcore_throttle` is scoped to the environment, so a bound runtime ignores it rather than rejecting it, and it keeps driving the deployment-wide `runtime/global` series | The runtime's own `invocations`, `throttles`, `system_errors`, `total_errors` and `latency` series, named by the runtime ARN |
 
