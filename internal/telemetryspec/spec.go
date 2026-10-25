@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/rknightion/synthkit/internal/highcard"
+	"github.com/rknightion/synthkit/internal/shape"
 	"gopkg.in/yaml.v3"
 )
 
@@ -72,6 +73,27 @@ type MetricSpec struct {
 	// the histogram's _count tracks the counter. Histogram only; its label domains must equal the
 	// counter's, and its labels may not declare rate_scale (the counter owns the rate).
 	CountOf string `yaml:"count_of"`
+	// ShapeProfile gives every series of this metric its own business clock and curve, laid over
+	// the node's inherited profile field by field (an enum value's shape_profile lays over this
+	// in turn). It moves only a `shape` value, so any other value model rejects it; stock_of and
+	// count_of read the counter's series and take none of their own. Omitted keeps the node's
+	// load profile and the output unchanged.
+	ShapeProfile *shape.Profile `yaml:"shape_profile"`
+}
+
+// hasClock reports whether the metric or any of its enum label values declares a shape_profile.
+func (m MetricSpec) hasClock() bool {
+	if m.ShapeProfile != nil {
+		return true
+	}
+	for _, vm := range m.Labels {
+		for _, e := range vm.Enum {
+			if e.ShapeProfile != nil {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // MaxObservationsPerTick bounds the histogram observations one series makes in one metric tick
@@ -176,6 +198,8 @@ func (m MetricSpec) Validate() error {
 				return fmt.Errorf("metric %q label %q value %q: rate_scale is not valid on a gauge (use value_scale)", m.Name, k, e.Value)
 			case e.RateScale != nil && m.CountOf != "":
 				return fmt.Errorf("metric %q label %q value %q: rate_scale is not valid with count_of (the counter owns the rate)", m.Name, k, e.Value)
+			case e.ValueScale != nil && m.Value.Now != nil:
+				return fmt.Errorf("metric %q label %q value %q: value_scale is not valid on a now gauge (it would scale the timestamp)", m.Name, k, e.Value)
 			case e.ValueScale != nil && m.Instrument == InstrumentCounter:
 				return fmt.Errorf("metric %q label %q value %q: value_scale is not valid on a counter (use rate_scale)", m.Name, k, e.Value)
 			}
@@ -183,6 +207,14 @@ func (m MetricSpec) Validate() error {
 	}
 	if m.Value.Now != nil && m.Instrument != InstrumentGauge {
 		return fmt.Errorf("metric %q: now is valid on a gauge value only", m.Name)
+	}
+	if m.hasClock() {
+		switch {
+		case m.StockOf != nil || m.CountOf != "":
+			return fmt.Errorf("metric %q: shape_profile is not valid with stock_of or count_of (the counter's series own the clock)", m.Name)
+		case m.Value.Kind() != KindShape:
+			return fmt.Errorf("metric %q: shape_profile needs a shape value (only a shape value reads the business clock)", m.Name)
+		}
 	}
 	if m.StockOf != nil {
 		if err := m.validateStock(); err != nil {

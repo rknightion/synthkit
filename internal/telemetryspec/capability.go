@@ -45,6 +45,9 @@ func checkValue(vm ValueModel, pos position, where string) error {
 			if e.Scaled() {
 				return fmt.Errorf("%s: enum rate_scale/value_scale is valid on metric labels only", where)
 			}
+			if e.ShapeProfile != nil {
+				return fmt.Errorf("%s: enum shape_profile is valid on metric labels only", where)
+			}
 		}
 	}
 	switch pos {

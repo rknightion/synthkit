@@ -258,7 +258,7 @@ Each node can declare custom metrics, log streams, and extra span attributes via
 | `lognormal` | `lognormal: {median: 120, p95: 3600}` | Right-skewed positive draw with the given median and 95th percentile (see below) |
 | `bool` | `bool: {p_true: 0.1}` | Weighted boolean |
 | `shape` | `shape: {base: 100.0, mode: latency_storm}` | Legacy `base × load × incident multiplier`; optional metric-only `incident_value` selects an explicit endpoint instead, and `incident_absolute` keeps that endpoint off the load curve (see below) |
-| `now` | `now: {}` | The tick time in Unix seconds (gauge metric values only), for a last-success or heartbeat timestamp; never the wall clock |
+| `now` | `now: {}` | The tick time in Unix seconds (gauge metric values only), for a collector heartbeat; it advances every tick whether or not work succeeded, so it is not a last-success timestamp. Never the wall clock; `value_scale` is rejected on its labels |
 | `ref` | `ref: trace_id` | Pulls a correlation field by name |
 
 **Capability matrix** (enforced at load time):
@@ -497,7 +497,11 @@ It drives the entry request volume (and so traces, logs and span metrics) and ev
 of the workload. A service may declare its own `shape_profile` with the same fields: each field it
 sets replaces the workload's, the rest are inherited from the workload's (then the defaults). It
 applies to that service's metrics and profiling, and, on the entry, to request volume and span
-metrics. This lets one workload model services in different timezones without adding a label. Hours must satisfy `0 <= ramp_up_start <= plateau_start <= plateau_end <=
+metrics. This lets one workload model services in different timezones without adding a label. A custom metric, or one enum value of a metric label, may also declare `shape_profile`
+(for example `{value: apac, weight: 1, shape_profile: {timezone: Asia/Singapore}}`), merged field by
+field over workload, then service, then metric, then enum value; only that series follows the
+override clock and the label set is unchanged. It needs a `shape` value and is rejected with
+`stock_of` or `count_of` and on log or span enums. Hours must satisfy `0 <= ramp_up_start <= plateau_start <= plateau_end <=
 ramp_down_end <= 24`; an unknown timezone fails the build. `floor: 0` or `weekend_factor: 0` is
 a real zero load: `shape` values read exactly 0 then (as when paused), instead of the legacy
 evaluator's zero-means-full-load fallback, and request volume falls to `off_peak_rps`. The master volume, pause, environment

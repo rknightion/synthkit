@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/shape"
+	"github.com/rknightion/synthkit/internal/telemetryspec"
 )
 
 // loadProfile is a resolved shape_profile: the parameterised curve plus its location (nil
@@ -87,17 +89,123 @@ func mergeProfiles(base, over *ShapeProfile) *ShapeProfile {
 // over the workload's, the workload's, or nil (the blueprint curve).
 func resolveNodeLoads(g *graph, workload *ShapeProfile, wl *loadProfile) error {
 	for _, n := range g.nodes {
+		eff := mergeProfiles(workload, n.decl.ShapeProfile)
 		if n.decl.ShapeProfile == nil {
 			n.load = wl
-			continue
+		} else {
+			lp, err := resolveLoadProfile(eff)
+			if err != nil {
+				return fmt.Errorf("app service %q: %w", n.decl.Name, err)
+			}
+			n.load = lp
 		}
-		lp, err := resolveLoadProfile(mergeProfiles(workload, n.decl.ShapeProfile))
-		if err != nil {
+		if err := resolveSeriesLoads(n, eff); err != nil {
 			return fmt.Errorf("app service %q: %w", n.decl.Name, err)
 		}
-		n.load = lp
 	}
 	return nil
+}
+
+// resolveSeriesLoads gives every series that declares its own clock its load profile: the node's
+// effective profile (eff, nil for the blueprint curve), overlaid by the metric's shape_profile,
+// overlaid by each chosen enum value's, so a timezone-only declaration keeps the node's curve
+// and an undeclared node reads the Engine's default curve in the declared zone. Series that
+// declare nothing keep nil and follow the node.
+func resolveSeriesLoads(n *node, eff *ShapeProfile) error {
+	for i, spec := range n.metrics {
+		combos := scaledLabelCombos(spec.Labels)
+		var loads []*loadProfile
+		if spec.ShapeProfile != nil || hasComboClocks(combos) {
+			metricProfile := mergeProfiles(eff, shapeProfileOf(spec.ShapeProfile))
+			var metricLoad *loadProfile
+			if spec.ShapeProfile != nil {
+				lp, err := resolveLoadProfile(metricProfile)
+				if err != nil {
+					return fmt.Errorf("metric %q: %w", spec.Name, err)
+				}
+				metricLoad = lp
+			}
+			loads = make([]*loadProfile, len(combos))
+			for ci, combo := range combos {
+				if len(combo.clocks) == 0 {
+					loads[ci] = metricLoad
+					continue
+				}
+				p := metricProfile
+				for _, c := range combo.clocks {
+					p = mergeProfiles(p, shapeProfileOf(c))
+				}
+				lp, err := resolveLoadProfile(p)
+				if err != nil {
+					return fmt.Errorf("metric %q %v: %w", spec.Name, combo.labels, err)
+				}
+				loads[ci] = lp
+			}
+		}
+		if loads == nil {
+			continue
+		}
+		if n.seriesLoads == nil {
+			n.seriesLoads = make([][]*loadProfile, len(n.metrics))
+		}
+		n.seriesLoads[i] = loads
+	}
+	return nil
+}
+
+func hasComboClocks(combos []labelCombo) bool {
+	for _, c := range combos {
+		if len(c.clocks) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// shapeProfileOf reads a declared shape.Profile as the workload's ShapeProfile (the two share
+// their fields, so the conversion fails to compile if they drift apart).
+func shapeProfileOf(p *shape.Profile) *ShapeProfile {
+	if p == nil {
+		return nil
+	}
+	sp := ShapeProfile(*p)
+	return &sp
+}
+
+// seriesShape re-reads the shape load for the label combinations of one metric that declare
+// their own clock. It carries the tick time, the incident amplification the node-level load
+// already carries, and the metric's pre-resolved per-combination profiles. A nil *seriesShape
+// leaves every series on the node's load.
+type seriesShape struct {
+	now   time.Time
+	eng   *shape.Engine
+	amp   float64
+	loads []*loadProfile
+}
+
+// seriesShape returns the per-series load reader for node n's metric i, or nil when none of its
+// series declares a clock (the common case, which then does no extra work).
+func (w *Workload) seriesShape(now time.Time, world *core.World, id nodeIdentity, n *node, i int, spec telemetryspec.MetricSpec) *seriesShape {
+	if i >= len(n.seriesLoads) || n.seriesLoads[i] == nil {
+		return nil
+	}
+	amp := 1.0
+	if spec.Value.Kind() == telemetryspec.KindShape && spec.Value.Shape != nil &&
+		spec.Value.Shape.Mode != "" && spec.Value.Shape.IncidentValue == nil {
+		amp = world.Shape.FailFactor(now, spec.Value.Shape.Mode, id.service, incidentAmplification)
+	}
+	return &seriesShape{now: now, eng: world.Shape, amp: amp, loads: n.seriesLoads[i]}
+}
+
+// ctx returns base with the shape load of combination ci's own clock, or base unchanged when
+// that combination follows the node.
+func (s *seriesShape) ctx(base telemetryspec.EvalCtx, ci int) telemetryspec.EvalCtx {
+	if s == nil || ci >= len(s.loads) || s.loads[ci] == nil {
+		return base
+	}
+	base.ShapeVal = s.loads[ci].business(s.now, s.eng) * s.amp
+	base.ExactLoad = true
+	return base
 }
 
 func (lp *loadProfile) local(now time.Time, eng *shape.Engine) time.Time {

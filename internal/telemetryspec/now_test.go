@@ -58,3 +58,13 @@ func TestNowModelGaugeOnly(t *testing.T) {
 		t.Fatalf("gauge: %v", err)
 	}
 }
+
+// value_scale would multiply the timestamp, so it is rejected on a now gauge's labels.
+func TestNowModelRejectsValueScale(t *testing.T) {
+	two := 2.0
+	m := MetricSpec{Name: "x", Source: "s", Instrument: InstrumentGauge, Value: ValueModel{Now: &NowModel{}},
+		Labels: map[string]ValueModel{"k": {Enum: []EnumEntry{{Value: "a", Weight: 1, ValueScale: &two}}}}}
+	if err := m.Validate(); err == nil || !strings.Contains(err.Error(), "now gauge") {
+		t.Fatalf("want now-gauge value_scale rejection, got %v", err)
+	}
+}

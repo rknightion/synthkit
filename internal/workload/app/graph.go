@@ -116,6 +116,10 @@ type node struct {
 	dbIdentity map[string]any
 	// load is the node's effective shape_profile (nil: the blueprint Engine curve).
 	load *loadProfile
+	// seriesLoads parallels metrics: for a spec declaring a shape_profile on itself or on an enum
+	// value, one entry per label combination (scaledLabelCombos order) holding that series' own
+	// load profile, nil where it follows the node. A nil slice means no series of the spec has one.
+	seriesLoads [][]*loadProfile
 }
 
 // graph is the validated service graph: nodes in declaration order + a name index + the entry node.

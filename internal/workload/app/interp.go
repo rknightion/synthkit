@@ -4,11 +4,13 @@ package app
 
 import (
 	"encoding/json"
+	"slices"
 	"sort"
 	"strconv"
 
 	"github.com/rknightion/synthkit/internal/ledger"
 	"github.com/rknightion/synthkit/internal/semconv"
+	"github.com/rknightion/synthkit/internal/shape"
 	"github.com/rknightion/synthkit/internal/state"
 	"github.com/rknightion/synthkit/internal/telemetryspec"
 )
@@ -177,7 +179,7 @@ func reqRefs(r *ledger.Request, call *ledger.Call) map[string]string {
 // combination every run — determinism §3.4), and dispatches by instrument (gauge=Set,
 // counter=Add-delta accumulates I3, histogram=Observe with the declared buckets + le-style).
 func (w *Workload) observeMetric(st *state.State, id nodeIdentity, spec telemetryspec.MetricSpec, ctx telemetryspec.EvalCtx) {
-	w.observeMetricStates(st, nil, id, spec, ctx, nil)
+	w.observeMetricStates(st, nil, id, spec, ctx, nil, nil)
 }
 
 // observeMetricStates evaluates a metric value once and writes it to the promrw state plus an
@@ -189,14 +191,16 @@ func (w *Workload) observeMetric(st *state.State, id nodeIdentity, spec telemetr
 // Enum rate_scale/value_scale multiply per label combination (default 1 keeps the legacy draw
 // sequence and output). A histogram with a scaled rate observes a carry-rounded number of values
 // per tick, each its own draw. incs, when non-nil, records each counter's per-combination
-// increment for the node's derived specs (stock_of/count_of), which this function skips.
-func (w *Workload) observeMetricStates(st, native *state.State, id nodeIdentity, spec telemetryspec.MetricSpec, ctx telemetryspec.EvalCtx, incs map[string]float64) {
+// increment for the node's derived specs (stock_of/count_of), which this function skips. sh,
+// when non-nil, re-reads the shape load for the label combinations that declare their own clock.
+func (w *Workload) observeMetricStates(st, native *state.State, id nodeIdentity, spec telemetryspec.MetricSpec, ctx telemetryspec.EvalCtx, incs map[string]float64, sh *seriesShape) {
 	if isDerived(spec) {
 		return
 	}
 	base := id.metricBaseLabels()
-	for _, combo := range scaledLabelCombos(spec.Labels) {
+	for ci, combo := range scaledLabelCombos(spec.Labels) {
 		labels := mergeLabels(base, combo.labels)
+		ctx := sh.ctx(ctx, ci)
 		if spec.Instrument == telemetryspec.InstrumentHistogram {
 			n := 1
 			if combo.rate != 1 {
@@ -286,6 +290,9 @@ type labelCombo struct {
 	labels map[string]string
 	rate   float64
 	value  float64
+	// clocks are the shape_profile overrides of the chosen enum values, in sorted label-key
+	// order (a later label's field wins). Empty when no chosen value declares one.
+	clocks []*shape.Profile
 }
 
 // labelCombos returns every label-value-map combination for a metric's labels: const/const_str → a
@@ -310,6 +317,7 @@ func scaledLabelCombos(labels map[string]telemetryspec.ValueModel) []labelCombo 
 		type choice struct {
 			val         string
 			rate, value float64
+			clock       *shape.Profile
 		}
 		var vals []choice
 		switch vm.Kind() {
@@ -322,6 +330,7 @@ func scaledLabelCombos(labels map[string]telemetryspec.ValueModel) []labelCombo 
 				if e.ValueScale != nil {
 					c.value = *e.ValueScale
 				}
+				c.clock = e.ShapeProfile
 				vals = append(vals, c)
 			}
 		case telemetryspec.KindConstStr:
@@ -341,7 +350,11 @@ func scaledLabelCombos(labels map[string]telemetryspec.ValueModel) []labelCombo 
 					nc[kk] = vv
 				}
 				nc[k] = v.val
-				next = append(next, labelCombo{labels: nc, rate: c.rate * v.rate, value: c.value * v.value})
+				clocks := c.clocks
+				if v.clock != nil {
+					clocks = append(slices.Clone(c.clocks), v.clock)
+				}
+				next = append(next, labelCombo{labels: nc, rate: c.rate * v.rate, value: c.value * v.value, clocks: clocks})
 			}
 		}
 		combos = next

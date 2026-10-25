@@ -4,7 +4,7 @@
 // declarative vocabulary a blueprint uses to describe ANY service's realistic, correlated
 // telemetry (metrics/logs/spans → profiles). It is a peer to internal/cw and internal/genai
 // — a MECHANIC lib, not strictly stdlib-only: it imports the high-card leaf (internal/highcard)
-// for the capability matrix and is meant to be driven by the workload layer (which supplies the
+// for the capability matrix, the shape leaf (internal/shape) for the declarative business profile, and is meant to be driven by the workload layer (which supplies the
 // shape reading + correlation refs at eval time). It never imports the OTel SDK; metrics emit via
 // promrw final names and spans via the hand-encoded OTLP seam (unchanged hard rule).
 //
@@ -18,6 +18,8 @@ import (
 	"math"
 	"strings"
 	"time"
+
+	"github.com/rknightion/synthkit/internal/shape"
 )
 
 // Value-model kind discriminators (the YAML keys), returned by ValueModel.Kind.
@@ -79,6 +81,11 @@ type EnumEntry struct {
 	Weight     float64  `yaml:"weight"`
 	RateScale  *float64 `yaml:"rate_scale"`
 	ValueScale *float64 `yaml:"value_scale"`
+	// ShapeProfile gives this value's series its own business clock and curve, laid field by
+	// field over the metric's and the node's profile (METRIC labels only; the metric's value must
+	// be a `shape`). The label value is unchanged, so the series set is identical. Omitted means
+	// the series follows the inherited profile.
+	ShapeProfile *shape.Profile `yaml:"shape_profile"`
 }
 
 // Scaled reports whether the entry declares either per-value metric multiplier.

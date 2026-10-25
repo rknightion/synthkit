@@ -46,7 +46,7 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 			// Consume this node's value draws in declaration order so disabling one producer does
 			// not shift the generated samples of enabled services later in the same tick.
 			for _, spec := range n.metrics {
-				w.observeMetricStates(nil, nil, id, spec, w.metricCtx(now, world, id, n, spec), incs)
+				w.observeMetricStates(nil, nil, id, spec, w.metricCtx(now, world, id, n, spec), incs, nil)
 			}
 			if derived {
 				for _, spec := range n.metrics {
@@ -70,7 +70,7 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 				continue
 			}
 			metricCtx := w.metricCtx(now, world, id, n, spec)
-			w.observeMetricStates(w.st, native, id, spec, metricCtx, incs)
+			w.observeMetricStates(w.st, native, id, spec, metricCtx, incs, w.seriesShape(now, world, id, n, i, spec))
 		}
 		// Derived specs read this tick's counter increments, so they run after the node's
 		// ordinary specs; they consume draws only when declared (count_of observations).
