@@ -3,9 +3,11 @@ id: SKT-0215
 title: >-
   Represent handled data-quality rejection spans as UNSET with a rejection
   marker
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop59-root'
 created_date: '2026-10-25T19:30:00Z'
+updated_date: '2026-10-25T20:38:00Z'
 labels:
   - causal
 dependencies: []
@@ -30,3 +32,9 @@ Handled data-quality rejections currently produce ERROR consumer spans despite s
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Source a valid handled-rejection marker and freeze the smallest existing emitter/author-owned seam without inventing a catalogue wire name; then implement UNSET only for handled business outcomes, preserve true execution errors, and prove via real Build/Mint/Project with warning logs and function metrics.
+<!-- SECTION:PLAN:END -->
