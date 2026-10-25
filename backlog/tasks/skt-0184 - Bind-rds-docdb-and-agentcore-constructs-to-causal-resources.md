@@ -1,9 +1,11 @@
 ---
 id: SKT-0184
 title: Bind rds, docdb and agentcore constructs to causal resources
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop58-root'
 created_date: '2026-10-25T02:46:00Z'
+updated_date: '2026-10-25T06:05:00Z'
 labels: []
 dependencies:
   - SKT-0168.09.15

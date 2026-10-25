@@ -1,9 +1,11 @@
 ---
 id: SKT-0183
 title: Tighten unslashed archtest allowlist prefixes
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop58-root'
 created_date: '2026-10-25T02:43:00Z'
+updated_date: '2026-10-25T06:05:00Z'
 labels: []
 dependencies: []
 priority: medium
