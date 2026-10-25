@@ -58,6 +58,9 @@ func buildTargets(d *Decl) []Target {
 	}
 	for _, e := range d.Environments {
 		for _, db := range e.Databases {
+			if db.Resource != "" {
+				continue // bound to a causal resource: the resource-axis modes move it, not the database axis
+			}
 			out = append(out, Target{Name: db.Name, Axis: failuremode.AxisDatabase})
 		}
 		for _, c := range e.Caches {

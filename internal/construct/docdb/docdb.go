@@ -6,7 +6,8 @@
 // Scope:    core.ScopeBlueprint
 // Signals:  []core.SignalClass{core.Metrics}
 // Interval: 60s
-// Config:   empty struct (no YAML config knobs; the DB fixture carries identity)
+// Config:   no YAML knobs; the DB fixture carries identity (see "Causal binding" for the
+// resolver-filled databases[].resource)
 //
 // Build requires:
 //   - fx.DB    non-nil (name = cluster identifier, engine = "docdb")
@@ -21,6 +22,17 @@
 //	All five stat suffixes emitted per base.
 //
 // Dimensions: dimension_DBClusterIdentifier, dimension_Role ∈ {WRITER,READER}.
+//
+// Causal binding (opt-in, SKT-0184): a database entry that names a declared `dependency` or
+// `pool` resource (databases[].resource) is driven by the shared causal model instead of the
+// legacy database failure modes. ReadLatency and WriteLatency are scaled by the resource's
+// latency factor (the dependency's, or for a pool the dependency it is held across), averaged
+// over the model's grid steps inside the tick window; DatabaseConnections follows the pool's
+// mean in-use connections when bound to a pool and keeps its baseline when bound to a
+// dependency. No other family reads the model and no name is added. dependency_unavailable and
+// credential_expired have no sourced DocumentDB metric, so they move nothing here. A bound
+// cluster ignores the legacy AxisDatabase modes (the loader rejects scheduling them against
+// it), so one cause moves it. An unbound cluster runs the legacy path byte for byte.
 package docdb
 
 import (
@@ -28,14 +40,32 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/cw"
 	"github.com/rknightion/synthkit/internal/fixture"
+	"github.com/rknightion/synthkit/internal/shape"
 	"github.com/rknightion/synthkit/internal/state"
 )
 
-// Config carries no YAML knobs — the DB fixture (engine=docdb) carries identity.
-type Config struct{}
+// Config carries no YAML knobs - the DB fixture (engine=docdb) carries identity. The unexported
+// fields are filled by the resolver (BindResource, UseResources), never decoded.
+type Config struct {
+	// resource is the causal resource this cluster is bound to ("" = unbound, the legacy path).
+	resource string
+	// set is the blueprint's declared causal resources (causal.Consumer), injected only when the
+	// blueprint declares at least one.
+	set causal.Set
+}
+
+// BindResource records the causal resource the database entry names (databases[].resource). The
+// blueprint resolver duck-types it, so the blueprint package imports no construct.
+func (c *Config) BindResource(name string) { c.resource = name }
+
+// UseResources receives the declared causal resources (causal.Consumer).
+func (c *Config) UseResources(s causal.Set) { c.set = s }
+
+var _ causal.Consumer = (*Config)(nil)
 
 // Construct is the per-instance DocDB renderer. Not exported; callers use Build.
 type Construct struct {
@@ -43,10 +73,18 @@ type Construct struct {
 	cloud *fixture.Cloud
 	env   *fixture.Env
 	st    *state.State
+
+	// model is the compiled causal model; nil when the cluster is unbound.
+	model    *causal.Model
+	resource string // resolved name of the bound resource
+	pool     bool   // the bound resource is a pool, so connections follow its in-use count
 }
 
-// Compile-time interface check.
-var _ core.Construct = (*Construct)(nil)
+// Compile-time interface checks.
+var (
+	_ core.Construct  = (*Construct)(nil)
+	_ causal.Advancer = (*Construct)(nil)
+)
 
 // Build validates fixtures and returns a ready core.Construct instance.
 func Build(cfgAny any, fx *fixture.Set) (core.Construct, error) {
@@ -56,7 +94,97 @@ func Build(cfgAny any, fx *fixture.Set) (core.Construct, error) {
 	if fx.DB == nil {
 		return nil, fmt.Errorf("docdb: Build requires a non-nil fixture.DB")
 	}
-	return &Construct{db: fx.DB, cloud: fx.Cloud, env: fx.Env, st: state.NewState()}, nil
+	c := &Construct{db: fx.DB, cloud: fx.Cloud, env: fx.Env, st: state.NewState()}
+	if cfg, ok := cfgAny.(*Config); ok && cfg != nil && cfg.resource != "" {
+		r, err := resolveBinding(cfg, fx)
+		if err != nil {
+			return nil, err
+		}
+		m, err := causal.Compile(cfg.set)
+		if err != nil {
+			return nil, fmt.Errorf("docdb: causal model: %w", err)
+		}
+		c.model, c.resource, c.pool = m, r.Name, r.Kind == causal.KindPool
+	}
+	return c, nil
+}
+
+// resolveBinding checks one bound cluster against the injected causal set and returns the
+// resource it resolved. The resource is resolved the db_instance way: "<name>-<lower(env)>"
+// first, then the exact name; the model is addressed by the resolved resource's own name.
+func resolveBinding(cfg *Config, fx *fixture.Set) (causal.Resource, error) {
+	if cfg.set.Empty() {
+		return causal.Resource{}, fmt.Errorf("docdb: database %q resource %q: the blueprint declares no environments[].resources", fx.DB.Name, cfg.resource)
+	}
+	env := ""
+	if fx.Env != nil {
+		env = fx.Env.Name
+	}
+	r, _, ok := cfg.set.Resolve(cfg.resource, env)
+	if !ok {
+		return causal.Resource{}, fmt.Errorf("docdb: database %q resource %q is not a declared resource", fx.DB.Name, cfg.resource)
+	}
+	if r.Kind != causal.KindDependency && r.Kind != causal.KindPool {
+		return causal.Resource{}, fmt.Errorf("docdb: database %q resource %q is a %s resource; want kind dependency or pool", fx.DB.Name, cfg.resource, r.Kind)
+	}
+	return r, nil
+}
+
+// AdvanceCausal implements causal.Advancer: the composition root advances the model on every
+// master tick so bound consumers sample live faults at the same instants.
+func (c *Construct) AdvanceCausal(now time.Time, clk causal.Clock) {
+	if c.model != nil {
+		c.model.Advance(now, clk)
+	}
+}
+
+// staticClock is the model's clock when no shape engine is present: no fault, full business.
+type staticClock struct{}
+
+func (staticClock) Eval(time.Time, string, string) (bool, float64) { return false, 0 }
+func (staticClock) Factor(time.Time, float64, bool) float64        { return 1 }
+func (staticClock) VolumeMultiplier() float64                      { return 1 }
+
+// advance brings the model to now before a Tick reads it (idempotent after AdvanceCausal).
+func (c *Construct) advance(now time.Time, eng *shape.Engine) {
+	if eng != nil {
+		c.model.Advance(now, eng)
+		return
+	}
+	c.model.Advance(now, staticClock{})
+}
+
+// boundWindow is the bound resource's mean latency factor and mean in-use connections over the
+// model's grid steps inside the tick window (now - Interval, now]. haveConns reports that a
+// pool supplied the connection count. A window holding no step (a model that has not reached
+// it) reads as the baseline: factor 1 and no connection override.
+func (c *Construct) boundWindow(now time.Time) (lf, conns float64, haveConns bool) {
+	lf = 1
+	from := now.Add(-c.Interval())
+	var sumLF, sumInUse float64
+	var steps int
+	for k := floorGrid(from) + 1; k <= floorGrid(now); k++ {
+		st, ok := c.model.State(c.resource, time.Unix(0, k*int64(causal.Step)).UTC())
+		if !ok || st.At.UnixNano() != k*int64(causal.Step) {
+			continue
+		}
+		steps++
+		sumLF += st.LatencyFactor
+		sumInUse += st.InUse
+	}
+	if steps == 0 {
+		return lf, 0, false
+	}
+	return sumLF / float64(steps), sumInUse / float64(steps), c.pool
+}
+
+func floorGrid(t time.Time) int64 {
+	n, d := t.UnixNano(), int64(causal.Step)
+	q := n / d
+	if n%d != 0 && n < 0 {
+		q--
+	}
+	return q
 }
 
 func (c *Construct) Kind() string { return "docdb" }
@@ -74,9 +202,23 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	bf := w.Shape.BusinessFactor(now)
 
 	// Failure-mode amplifiers (AxisDatabase, scoped to db.Name — the SAME scope key any
-	// future dbo11y construct would use for coherent incident propagation).
-	connMult := w.Shape.FailFactor(now, "connection_saturation", c.db.Name, 3.0)
-	latMult := w.Shape.FailFactor(now, "slow_query_storm", c.db.Name, 4.0)
+	// future dbo11y construct would use for coherent incident propagation). A bound cluster
+	// reads the shared causal model instead: the latency factor scales the latency families and
+	// a pool's in-use count is the connection count, so it is moved by one cause alone.
+	connMult, latMult := 1.0, 1.0
+	var poolConns float64
+	var havePool bool
+	if c.model != nil {
+		c.advance(now, w.Shape)
+		latMult, poolConns, havePool = c.boundWindow(now)
+	} else {
+		connMult = w.Shape.FailFactor(now, "connection_saturation", c.db.Name, 3.0)
+		latMult = w.Shape.FailFactor(now, "slow_query_storm", c.db.Name, 4.0)
+	}
+	connections := (20 + 80*bf) * connMult
+	if havePool {
+		connections = poolConns
+	}
 
 	for _, role := range []string{"WRITER", "READER"} {
 		lbls := c.baseLabels(map[string]string{
@@ -85,7 +227,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		})
 		// Base names sourced VERBATIM from signals/cw.md [slug: cw-docdb].
 		setGauge(c.st, "aws_docdb_cpuutilization", lbls, 18+12*bf)
-		setGauge(c.st, "aws_docdb_database_connections", lbls, (20+80*bf)*connMult)
+		setGauge(c.st, "aws_docdb_database_connections", lbls, connections)
 		setGauge(c.st, "aws_docdb_freeable_memory", lbls, 8e9-2e9*bf)
 		setGauge(c.st, "aws_docdb_buffer_cache_hit_ratio", lbls, 99-2*bf)
 		setGauge(c.st, "aws_docdb_read_latency", lbls, (0.001+0.003*bf)*latMult)  // seconds

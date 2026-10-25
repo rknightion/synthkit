@@ -47,6 +47,16 @@
 //
 // Connection/IOPS values scale with w.Shape.Factor(now, env.Weight, env.NonProd).
 //
+// Causal binding (opt-in, SKT-0184): a database entry that names a declared `dependency` or
+// `pool` resource (databases[].resource) is driven by the shared causal model instead of the
+// legacy database failure modes. ReadLatency and WriteLatency are scaled by the resource's
+// latency factor (the dependency's, or for a pool the dependency it is held across), averaged
+// over the grid steps of the tick window; DatabaseConnections follows the pool's mean in-use
+// connections when bound to a pool and keeps its baseline when bound to a dependency. No other
+// family reads the model, and no name is added. A bound instance ignores the legacy AxisDatabase
+// modes (the loader rejects scheduling them against it), so one cause moves it. An unbound
+// instance runs the code path below byte for byte.
+//
 // DB failure modes (AxisDatabase, scoped to db.Name — see failuremodes.go) modulate the matching
 // CW families when the control plane fires an incident: connection_saturation→connections/cpu,
 // lock_contention→disk_queue_depth, slow_query_storm→read/write latency. The scope key matches the
@@ -63,6 +73,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/cw"
 	"github.com/rknightion/synthkit/internal/fixture"
@@ -71,10 +82,26 @@ import (
 	"github.com/rknightion/synthkit/internal/state"
 )
 
-// Config is empty — the DB fixture carries all identity and the blueprint topology
+// Config has no YAML knobs - the DB fixture carries all identity and the blueprint topology
 // resolver owns instance config. This satisfies the ConstructReg.NewConfig contract
-// (a pointer to a zero-value struct decodes cleanly from an absent YAML node).
-type Config struct{}
+// (a pointer to a zero-value struct decodes cleanly from an absent YAML node). The unexported
+// fields are filled by the resolver (BindResource, UseResources), never decoded.
+type Config struct {
+	// resource is the causal resource this instance is bound to ("" = unbound, the legacy path).
+	resource string
+	// set is the blueprint's declared causal resources (causal.Consumer), injected only when the
+	// blueprint declares at least one.
+	set causal.Set
+}
+
+// BindResource records the causal resource the database entry names (databases[].resource). The
+// blueprint resolver duck-types it, so the blueprint package imports no construct.
+func (c *Config) BindResource(name string) { c.resource = name }
+
+// UseResources receives the declared causal resources (causal.Consumer).
+func (c *Config) UseResources(s causal.Set) { c.set = s }
+
+var _ causal.Consumer = (*Config)(nil)
 
 // Construct is the per-instance RDS renderer. Not exported; callers use Build.
 type Construct struct {
@@ -82,10 +109,18 @@ type Construct struct {
 	cloud *fixture.Cloud
 	env   *fixture.Env
 	st    *state.State
+
+	// model is the compiled causal model; nil when the instance is unbound.
+	model    *causal.Model
+	resource string
+	pool     bool // the bound resource is a pool, so connections follow its in-use count
 }
 
-// Compile-time interface check.
-var _ core.Construct = (*Construct)(nil)
+// Compile-time interface checks.
+var (
+	_ core.Construct  = (*Construct)(nil)
+	_ causal.Advancer = (*Construct)(nil)
+)
 
 // Build validates fixtures and returns a ready core.Construct instance.
 // Returns an error if fx.DB or fx.Cloud is nil.
@@ -96,12 +131,45 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 	if fx.Cloud == nil {
 		return nil, fmt.Errorf("rds: Build requires a non-nil fixture.Cloud")
 	}
-	return &Construct{
+	c := &Construct{
 		db:    fx.DB,
 		cloud: fx.Cloud,
 		env:   fx.Env,
 		st:    state.NewState(),
-	}, nil
+	}
+	if rc, ok := cfg.(*Config); ok && rc != nil && rc.resource != "" {
+		r, err := resolveBinding(rc, fx)
+		if err != nil {
+			return nil, err
+		}
+		m, err := causal.Compile(rc.set)
+		if err != nil {
+			return nil, fmt.Errorf("rds: causal model: %w", err)
+		}
+		c.model, c.resource, c.pool = m, r.Name, r.Kind == causal.KindPool
+	}
+	return c, nil
+}
+
+// resolveBinding checks one bound instance against the injected causal set and returns the
+// resource it resolved. The resource is resolved the db_instance way: "<name>-<lower(env)>"
+// first, then the exact name; the model is addressed by the resolved resource's own name.
+func resolveBinding(cfg *Config, fx *fixture.Set) (causal.Resource, error) {
+	if cfg.set.Empty() {
+		return causal.Resource{}, fmt.Errorf("rds: database %q resource %q: the blueprint declares no environments[].resources", fx.DB.Name, cfg.resource)
+	}
+	env := ""
+	if fx.Env != nil {
+		env = fx.Env.Name
+	}
+	r, _, ok := cfg.set.Resolve(cfg.resource, env)
+	if !ok {
+		return causal.Resource{}, fmt.Errorf("rds: database %q resource %q is not a declared resource", fx.DB.Name, cfg.resource)
+	}
+	if r.Kind != causal.KindDependency && r.Kind != causal.KindPool {
+		return causal.Resource{}, fmt.Errorf("rds: database %q resource %q is a %s resource; want kind dependency or pool", fx.DB.Name, cfg.resource, r.Kind)
+	}
+	return r, nil
 }
 
 func (c *Construct) Kind() string { return "rds" }
@@ -130,14 +198,22 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 func (c *Construct) render(now time.Time, eng *shape.Engine) []promrw.Series {
 	factor := eng.Factor(now, weightOf(c.env), nonProdOf(c.env))
 
+	// A bound instance reads the shared causal model: the latency factor scales the latency
+	// families, and a pool's in-use count is the connection count. Its legacy failure-mode
+	// factors stay 1 (the model is the cause), so it is moved by one cause alone.
+	bound := c.boundWindow(now, eng)
+
 	// Failure-mode amplifiers (AxisDatabase, scoped to db.Name — the SAME scope key the dbo11y
 	// construct uses, so one fired DB incident moves both the CloudWatch and the dbo11y lane
 	// coherently). Each returns 1.0 when its mode is inactive, so emission is byte-identical to
 	// baseline unless the control plane fires the incident. These modulate EXISTING signals/cw.md [slug: cw-rds]
 	// CW metrics — no names invented.
-	connFactor := eng.FailFactor(now, "connection_saturation", c.db.Name, 5)
-	lockFactor := eng.FailFactor(now, "lock_contention", c.db.Name, 5)
-	slowFactor := eng.FailFactor(now, "slow_query_storm", c.db.Name, 4)
+	connFactor, lockFactor, slowFactor := 1.0, 1.0, 1.0
+	if c.model == nil {
+		connFactor = eng.FailFactor(now, "connection_saturation", c.db.Name, 5)
+		lockFactor = eng.FailFactor(now, "lock_contention", c.db.Name, 5)
+		slowFactor = eng.FailFactor(now, "slow_query_storm", c.db.Name, 4)
+	}
 
 	dims := map[string]string{
 		"dimension_DBInstanceIdentifier": c.db.Name,
@@ -153,6 +229,9 @@ func (c *Construct) render(now time.Time, eng *shape.Engine) []promrw.Series {
 
 	connections := 15.0*factor*connFactor + eng.NormFloat64()*2
 	connections = clamp(connections, 1, 1e9)
+	if bound.pool {
+		connections = bound.inUse // the pool is the connection count; the draw above keeps the noise stream aligned
+	}
 	setGauge(c.st, "aws_rds_database_connections", lbls, connections)
 
 	freeableMemBytes := (4.0 - factor*2) * 1024 * 1024 * 1024
@@ -169,9 +248,9 @@ func (c *Construct) render(now time.Time, eng *shape.Engine) []promrw.Series {
 	setGauge(c.st, "aws_rds_write_iops", lbls, writeIOPS)
 
 	// slow_query_storm stretches the latency right-tail.
-	readLatMs := 0.8*slowFactor + eng.NormFloat64()*0.3
+	readLatMs := 0.8*slowFactor*bound.latency + eng.NormFloat64()*0.3
 	readLatMs = clamp(readLatMs, 0.1, 1e9)
-	writeLatMs := 0.5*slowFactor + eng.NormFloat64()*0.2
+	writeLatMs := 0.5*slowFactor*bound.latency + eng.NormFloat64()*0.2
 	writeLatMs = clamp(writeLatMs, 0.1, 1e9)
 	setGauge(c.st, "aws_rds_read_latency", lbls, readLatMs/1000)   // seconds
 	setGauge(c.st, "aws_rds_write_latency", lbls, writeLatMs/1000) // seconds
@@ -210,6 +289,65 @@ func (c *Construct) render(now time.Time, eng *shape.Engine) []promrw.Series {
 	c.st.Set("aws_rds_info", infoLbls, 1)
 
 	return c.st.Collect(now)
+}
+
+// staticClock is the causal clock of a tick with no shape engine: no faults, constant load.
+type staticClock struct{}
+
+func (staticClock) Eval(time.Time, string, string) (bool, float64) { return false, 0 }
+func (staticClock) Factor(time.Time, float64, bool) float64        { return 1 }
+func (staticClock) VolumeMultiplier() float64                      { return 1 }
+
+// AdvanceCausal advances the construct's model to now (causal.Advancer); the runner calls it on
+// every master tick so every consumer samples live faults at the same instants. An unbound
+// instance holds no model and ignores it.
+func (c *Construct) AdvanceCausal(now time.Time, clk causal.Clock) {
+	if c.model != nil {
+		c.model.Advance(now, clk)
+	}
+}
+
+// boundReading is what the causal model contributes to one tick.
+type boundReading struct {
+	latency float64 // mean latency factor over the window's grid steps; 1 when unbound
+	inUse   float64 // mean in-use pool connections over the window
+	pool    bool    // inUse replaces the baseline connection count
+}
+
+// boundWindow reads the bound resource over the trailing tick window (now-Interval, now]. An
+// unbound instance, or a window the model holds no step for, reads as the unbound baseline.
+func (c *Construct) boundWindow(now time.Time, eng *shape.Engine) boundReading {
+	out := boundReading{latency: 1}
+	if c.model == nil {
+		return out
+	}
+	if eng != nil {
+		c.model.Advance(now, eng)
+	} else {
+		c.model.Advance(now, staticClock{})
+	}
+	from := now.Add(-c.Interval())
+	win, ok := c.model.Window(c.resource, from, now)
+	if !ok || win.Steps == 0 {
+		return out
+	}
+	var sum float64
+	var n int
+	for at := from.Truncate(causal.Step).Add(causal.Step); !at.After(now); at = at.Add(causal.Step) {
+		st, ok := c.model.State(c.resource, at)
+		if !ok || !st.At.Equal(at) {
+			continue
+		}
+		sum += st.LatencyFactor
+		n++
+	}
+	if n > 0 {
+		out.latency = sum / float64(n)
+	}
+	if c.pool {
+		out.inUse, out.pool = win.MeanInUse, true
+	}
+	return out
 }
 
 // baseLabels builds the full CloudWatch label set for one series.

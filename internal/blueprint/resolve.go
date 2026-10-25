@@ -907,9 +907,21 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 				if err != nil {
 					return nil, err
 				}
+				if dbDecl.Resource != "" {
+					b, ok := ci.Config.(resourceBinder)
+					if !ok {
+						return nil, fmt.Errorf("blueprint %q: database %q: engine %q does not support resource binding", d.Name, dbDecl.Name, dbDecl.Engine)
+					}
+					b.BindResource(dbDecl.Resource)
+				}
 				r.Constructs = append(r.Constructs, *ci)
+			} else if dbDecl.Resource != "" {
+				return nil, fmt.Errorf("blueprint %q: database %q: resource %q needs the cloudwatch lane (observability.cloudwatch is false)", d.Name, dbDecl.Name, dbDecl.Resource)
 			}
 			if dbDecl.Observability.dbo11yEnabled() {
+				if dbDecl.Resource != "" {
+					return nil, fmt.Errorf("blueprint %q: database %q: resource %q cannot combine with dbo11y, which still reads the database-axis modes", d.Name, dbDecl.Name, dbDecl.Resource)
+				}
 				kind := KindDbo11yPostgres
 				if dbDecl.Engine == "mysql" {
 					kind = KindDbo11yMySQL
@@ -1771,6 +1783,10 @@ func toFixtureHost(hd HostDecl) (*fixture.Host, error) {
 		Kernel:    hd.Kernel,
 	}, nil
 }
+
+// resourceBinder is implemented by a database construct Config that can be bound to a causal
+// resource (databases[].resource). Duck-typed: the blueprint package imports no construct.
+type resourceBinder interface{ BindResource(name string) }
 
 // emptyConfigInstance instantiates a topology kind (empty config; fixtures carry
 // everything), validating the kind is registered.
