@@ -3,9 +3,11 @@ id: SKT-0208
 title: >-
   Let several unreserved Lambda functions share one account-level causal
   concurrency pool
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop59-root'
 created_date: '2026-10-25T15:15:00Z'
+updated_date: '2026-10-25T22:00:00Z'
 labels:
   - causal
 dependencies: []
@@ -30,3 +32,9 @@ Owner ruling Q04 (loop58): a bound function's reserved concurrency stays one res
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Choose the smallest generic shared-concurrency grouping seam over heterogeneous per-function resources, preserve unbound behavior and scope identity, implement the Lambda account projection from joint group windows, and prove borrowing, enforcement, rejection/resends and account isolation through public loading.
+<!-- SECTION:PLAN:END -->
