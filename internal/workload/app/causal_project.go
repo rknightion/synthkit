@@ -545,6 +545,9 @@ func causalRefs(refs map[string]string, v hopView) {
 func (w *Workload) projectCausalLogs(r *ledger.Request, line func(n *node, level string, t time.Time, ctx telemetryspec.EvalCtx, failStatus int)) {
 	completedAt := w.renderStart(r).Add(max(r.Duration, time.Millisecond))
 	views := w.hopViews(r)
+	// overlay always attaches a Fault when the entry's failure is causal. An
+	// independent baseline failure can coexist with slowed or recovered calls.
+	baseline := r.Outcome != ledger.OutcomeSuccess && r.Fault == nil
 	for _, n := range w.graph.nodes {
 		if len(n.logs) == 0 {
 			continue
@@ -554,7 +557,15 @@ func (w *Workload) projectCausalLogs(r *ledger.Request, line func(n *node, level
 				continue
 			}
 			refs := reqRefs(r, nil)
-			causalRefs(refs, v)
+			level := logLevel(outcomeOf(v.status))
+			// A slowed sibling does not own this node's baseline failure logs.
+			// Keep their request-level error/warning facts unless this node's own
+			// path carries a cause. Layout and causal logs on the slowed path stand.
+			if baseline && v.fault == nil && !v.failed {
+				level = logLevel(r.Outcome)
+			} else {
+				causalRefs(refs, v)
+			}
 			if !n.decl.tracesEnabled() {
 				delete(refs, "span_id")
 			}
@@ -567,7 +578,7 @@ func (w *Workload) projectCausalLogs(r *ledger.Request, line func(n *node, level
 			if v.failed && v.status >= 400 {
 				failStatus = v.status
 			}
-			line(n, logLevel(outcomeOf(v.status)), t, telemetryspec.EvalCtx{Ref: refs, Rand: rnd, Norm: norm, Draw: requestDraw(r)}, failStatus)
+			line(n, level, t, telemetryspec.EvalCtx{Ref: refs, Rand: rnd, Norm: norm, Draw: requestDraw(r)}, failStatus)
 		}
 	}
 }
