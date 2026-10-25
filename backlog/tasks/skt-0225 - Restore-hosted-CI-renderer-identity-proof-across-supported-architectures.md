@@ -1,10 +1,10 @@
 ---
 id: SKT-0225
 title: Restore hosted CI renderer identity proof across supported architectures
-status: In Progress
-assignee:
-  - '@loop59-root'
+status: Parked
+assignee: []
 created_date: '2026-10-25T22:08:00Z'
+updated_date: '2026-10-25T22:18:00Z'
 labels:
   - ci
 dependencies: []
@@ -20,7 +20,7 @@ Hosted amd64 coverage fails the newly added complete unbound PostgreSQL/MySQL di
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Both supported architectures prove candidate unbound output against independently captured pre-change renderer controls with no masking, skipped fields or weakened tolerance
+- [x] #1 Both supported architectures prove candidate unbound output against independently captured pre-change renderer controls with no masking, skipped fields or weakened tolerance
 - [ ] #2 The exact repair tree receives its required gate/review and green hosted CI; the Helm installation failure is separately evidenced and appropriately fixed or classified
 <!-- AC:END -->
 
@@ -36,3 +36,9 @@ Hosted amd64 coverage fails the newly added complete unbound PostgreSQL/MySQL di
 <!-- SECTION:PLAN:BEGIN -->
 Inspect saved failed CI and current tests; capture old renderer controls on arm64 and executed amd64; repair only demonstrably incorrect proof assumptions, stop if actual unbound behavior changed. Diagnose tool installation read-only; no workflow/provider authority changes without root scope. Return candidate before landing.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner closeout: uncommitted two-test-file patch SHA256 73a021956dce3c268f908bb33ad0a1b894ff06a8bc44b5eb26bcb96af3d64ffc retained. Actual pre-change/candidate full captures byte-identical within arm64 and executed amd64; both full package suites pass. No masking/tolerance/production change. Root CodeRabbit/full gate/native hosted green unrun; no repair push. Helm installed; following kubeconform curl reset before chart validation. Resume exact repair review/gate, explicit fix-forward landing decision, then exact-SHA hosted CI.
+<!-- SECTION:NOTES:END -->

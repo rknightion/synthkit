@@ -1,9 +1,10 @@
 ---
 id: SKT-0212
 title: Declare a per-resource failed-call hold instead of a shared pre-work constant
-status: To Do
+status: Parked
 assignee: []
 created_date: '2026-10-25T19:30:00Z'
+updated_date: '2026-10-25T22:18:00Z'
 labels:
   - causal
 dependencies: []
@@ -28,3 +29,9 @@ A shared layout pre-work share currently supplies a failed-call hold without a p
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner closeout: Per-resource failed-call hold unimplemented; resume after resend timing seam integration.
+<!-- SECTION:NOTES:END -->

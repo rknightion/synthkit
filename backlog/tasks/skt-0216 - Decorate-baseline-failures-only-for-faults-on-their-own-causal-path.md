@@ -1,9 +1,10 @@
 ---
 id: SKT-0216
 title: Decorate baseline failures only for faults on their own causal path
-status: To Do
+status: Parked
 assignee: []
 created_date: '2026-10-25T19:30:00Z'
+updated_date: '2026-10-25T22:18:00Z'
 labels:
   - causal
 dependencies: []
@@ -28,3 +29,9 @@ Baseline failures touched by any slowdown are decorated globally, suppressing th
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner closeout: Own-path fault decoration held for causal/app composition.
+<!-- SECTION:NOTES:END -->

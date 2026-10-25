@@ -4,7 +4,7 @@ title: Diagnose intermittent HA renewal-loss observation timeout under loaded ga
 status: Parked
 assignee: []
 created_date: '2026-10-21T15:25:00Z'
-updated_date: '2026-10-25T10:02:00Z'
+updated_date: '2026-10-25T22:18:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -55,4 +55,6 @@ loop58 evidence (SKT-0186 lane): gate-1 ran at load ~50 on 32 cores during loop5
 loop58: TestFleetUnregisterOwnedHAAuthorityInterruptionAndRecovery failed once in a loaded gate-2 just check (slot 12, 'interruption consumed intent'); passes -race -count=5 isolated on candidate and base.
 
 loop58: runner TestHAActualFaro5000WholeWrite failed once in a loaded gate-2 just check (f1 lane), passed 100/100 isolated.
+
+Owner closeout: No new measurement: scout lacked native wait helper; no fallback. Preserve existing timeout defect and bounds; resume bounded actual-context native measurement.
 <!-- SECTION:NOTES:END -->

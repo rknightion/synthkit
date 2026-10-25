@@ -3,11 +3,10 @@ id: SKT-0208
 title: >-
   Let several unreserved Lambda functions share one account-level causal
   concurrency pool
-status: In Progress
-assignee:
-  - '@loop59-root'
+status: Parked
+assignee: []
 created_date: '2026-10-25T15:15:00Z'
-updated_date: '2026-10-25T22:00:00Z'
+updated_date: '2026-10-25T22:18:00Z'
 labels:
   - causal
 dependencies: []
@@ -38,3 +37,9 @@ Owner ruling Q04 (loop58): a bound function's reserved concurrency stays one res
 <!-- SECTION:PLAN:BEGIN -->
 Choose the smallest generic shared-concurrency grouping seam over heterogeneous per-function resources, preserve unbound behavior and scope identity, implement the Lambda account projection from joint group windows, and prove borrowing, enforcement, rejection/resends and account isolation through public loading.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner closeout: Shared concurrency-pool implementation held behind unlanded causal model; resume after composition and cost admission.
+<!-- SECTION:NOTES:END -->

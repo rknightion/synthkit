@@ -1,9 +1,10 @@
 ---
 id: SKT-0217
 title: Evaluate retrieval rejection after the store call completes
-status: To Do
+status: Parked
 assignee: []
 created_date: '2026-10-25T19:30:00Z'
+updated_date: '2026-10-25T22:18:00Z'
 labels:
   - causal
 dependencies: []
@@ -28,3 +29,9 @@ A retrieval rule currently rejects at arrival, making rejected calls finish befo
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner closeout: Post-store retrieval rejection held for elapsed-time/app seam.
+<!-- SECTION:NOTES:END -->

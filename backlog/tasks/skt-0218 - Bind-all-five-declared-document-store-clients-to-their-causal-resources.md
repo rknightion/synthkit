@@ -1,9 +1,10 @@
 ---
 id: SKT-0218
 title: Bind all five declared document-store clients to their causal resources
-status: To Do
+status: Parked
 assignee: []
 created_date: '2026-10-25T19:30:00Z'
+updated_date: '2026-10-25T22:18:00Z'
 labels:
   - causal
 dependencies: []
@@ -28,3 +29,9 @@ Only one of the reference application document-store clients is currently causal
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner closeout: Five-client document-store binding held for sourced reference migration.
+<!-- SECTION:NOTES:END -->

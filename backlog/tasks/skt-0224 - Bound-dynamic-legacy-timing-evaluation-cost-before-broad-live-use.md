@@ -1,9 +1,10 @@
 ---
 id: SKT-0224
 title: Bound dynamic legacy timing evaluation cost before broad live use
-status: To Do
+status: Parked
 assignee: []
 created_date: '2026-10-25T22:00:00Z'
+updated_date: '2026-10-25T22:18:00Z'
 labels:
   - causal
   - performance
@@ -29,3 +30,9 @@ A novel-input two-legacy-sibling gate measured 6.29 seconds and13.93GB cumulativ
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner closeout: Runtime-cost blocker remains: observed 6.29s per gate and 13.93GB allocation churn. Optimization unattempted; resume exact cold/catch-up/dynamic profiling before broad live use.
+<!-- SECTION:NOTES:END -->

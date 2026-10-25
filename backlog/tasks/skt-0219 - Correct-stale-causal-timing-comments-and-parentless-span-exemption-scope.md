@@ -1,11 +1,10 @@
 ---
 id: SKT-0219
 title: Correct stale causal timing comments and parentless-span exemption scope
-status: In Progress
-assignee:
-  - '@loop59-root'
+status: Parked
+assignee: []
 created_date: '2026-10-25T19:30:00Z'
-updated_date: '2026-10-25T20:12:00Z'
+updated_date: '2026-10-25T22:18:00Z'
 labels:
   - causal
 dependencies: []
@@ -36,3 +35,9 @@ The parked landing review identified a stale timing test comment, a root exempti
 <!-- SECTION:PLAN:BEGIN -->
 Apply the accepted engine-only restored baseline; locate the stale timing comment and parentless-span exemption from retained review, tighten intended-root recognition without weakening nesting checks, and remove the public operational comment only as a separate hunk for the held migration.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner closeout: Accepted strict intended-root test candidate unlanded. Resume causal stack without loosening bounds; archived reference-blueprint comment remains separate.
+<!-- SECTION:NOTES:END -->

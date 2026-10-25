@@ -1,10 +1,10 @@
 ---
 id: SKT-0182
 title: Adopt causal incidents across the shipped blueprints
-status: To Do
+status: Parked
 assignee: []
 created_date: '2026-10-25T02:12:00Z'
-updated_date: '2026-10-25T15:16:00Z'
+updated_date: '2026-10-25T22:18:00Z'
 labels: []
 dependencies:
   - SKT-0168.09.15
@@ -35,4 +35,6 @@ SKT-0168.09.15 adds an opt-in model where request latency and errors come from r
 
 <!-- SECTION:NOTES:BEGIN -->
 loop58 closeout (2026-10-25): parked unlanded; see /Users/rob/repos/synthkit/codex/closeout-2026-10-25-loop58.md. Acme migration rebased to d61cf24e (commit in /Users/rob/repos/synthkit/codex/loop58/archive/land13-d4a51b34..3c664fc6.mbox); owner held it for realism: source database call times and reject_share (realism lane partial diff in codex/loop58/archive/worktrees/loop58-real); also needs SKT-0211 (amd64 digest) first.
+
+Owner closeout: Owner realism decision open: exact application latency/overhead/deadline/affected-input shares lack matched evidence. Recommend labelled assumptions anchored to sourced ranges; alternative matched captures. No migration.
 <!-- SECTION:NOTES:END -->

@@ -4,10 +4,9 @@ title: >-
   Classify and repair the Fleet HA fixture initial Lease timeout without
   weakening proof
 status: Parked
-assignee:
-  - '@loop-root'
+assignee: []
 created_date: 2026-10-11 22:10
-updated_date: '2026-10-25T00:26:00Z'
+updated_date: '2026-10-25T22:18:00Z'
 labels: []
 dependencies: []
 priority: high
@@ -61,4 +60,6 @@ Closeout defect park retained: no new initial-Lease measurement ran because the 
 Fresh bounded remote race measurement ran ten iterations of the unchanged Fleet restart/teardown test: twenty scenario passes, zero failures/skips/race warnings. No initial-request latency attribution, reproduction, repair or isolation-benefit claim; retain Parked and the original request/lifecycle bounds.
 
 loop57 closeout: parked/open, see codex/closeout-2026-10-24-loop57.md.
+
+Owner closeout: No new initial-Lease attribution; unchanged bounds and diagnostic park retained.
 <!-- SECTION:NOTES:END -->

@@ -2,10 +2,9 @@
 id: SKT-0223
 title: Classify unchanged custody forecast race failure in composed telemetry gate
 status: Parked
-assignee:
-  - '@loop59-root'
+assignee: []
 created_date: '2026-10-25T20:26:00Z'
-updated_date: '2026-10-25T20:57:00Z'
+updated_date: '2026-10-25T22:18:00Z'
 labels:
   - causal
 dependencies: []
@@ -41,4 +40,6 @@ Read the exact composed failure and compare source/dependency closure; run at mo
 
 <!-- SECTION:NOTES:BEGIN -->
 Bounded diagnosis complete, attribution unresolved: five whole-parent race iterations pass on each exact base/candidate,513.478s/513.325s; same160 source/dependency entries across original green/red and both diagnostic trees. No custody-corrupt reproduction, repair, demonstrated base failure or clearance of the red composed gate. Resume on same-context evidence identifying the nested operation/state/scheduling failure; do not substitute further unchanged green samples. Later genuinely distinct candidates need their own full exact gates and CI, with original red still disclosed.
+
+Owner closeout: Five whole-parent race passes per base/candidate with identical dependency closure do not explain original composed custody corruption. Not repaired or a proven flake. Resume actual same-context nested-operation/state/scheduling attribution; no unchanged green sampling.
 <!-- SECTION:NOTES:END -->

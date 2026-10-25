@@ -1,9 +1,10 @@
 ---
 id: SKT-0214
 title: Let causally bound function duration follow a declared load curve
-status: To Do
+status: Parked
 assignee: []
 created_date: '2026-10-25T19:30:00Z'
+updated_date: '2026-10-25T22:18:00Z'
 labels:
   - causal
 dependencies: []
@@ -28,3 +29,9 @@ Bound functions currently retain flat duration overnight. The causal model needs
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner closeout: Bound-function load-curve implementation held for causal/Lambda seam.
+<!-- SECTION:NOTES:END -->

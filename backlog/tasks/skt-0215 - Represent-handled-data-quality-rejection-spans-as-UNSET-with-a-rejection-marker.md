@@ -3,11 +3,10 @@ id: SKT-0215
 title: >-
   Represent handled data-quality rejection spans as UNSET with a rejection
   marker
-status: In Progress
-assignee:
-  - '@loop59-root'
+status: Parked
+assignee: []
 created_date: '2026-10-25T19:30:00Z'
-updated_date: '2026-10-25T20:38:00Z'
+updated_date: '2026-10-25T22:18:00Z'
 labels:
   - causal
 dependencies: []
@@ -38,3 +37,9 @@ Handled data-quality rejections currently produce ERROR consumer spans despite s
 <!-- SECTION:PLAN:BEGIN -->
 Source a valid handled-rejection marker and freeze the smallest existing emitter/author-owned seam without inventing a catalogue wire name; then implement UNSET only for handled business outcomes, preserve true execution errors, and prove via real Build/Mint/Project with warning logs and function metrics.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Owner closeout: Accepted handled-rejection repair and independent delta PASS unlanded. Resume final causal stack; preserve operation-local origin, nested-parent errors and application-owned marker.
+<!-- SECTION:NOTES:END -->
