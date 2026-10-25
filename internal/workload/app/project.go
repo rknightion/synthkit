@@ -5,6 +5,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/rknightion/synthkit/internal/sink/loki"
 	"github.com/rknightion/synthkit/internal/sink/otlp"
 	"github.com/rknightion/synthkit/internal/telemetryspec"
+	"github.com/rknightion/synthkit/internal/telemetryspec/profiles"
 )
 
 // ProjectBatch is the trace/log/RUM lane: handed EXACTLY this instance's freshly minted batch,
@@ -342,8 +344,9 @@ func (w *Workload) projectLogs(ctx context.Context, world *core.World, batch []*
 	type key struct{ node, source, level string }
 	streams := map[key]*loki.Stream{}
 	var order []key
-	// emit evaluates one log spec into its (node, source, level) stream.
-	emit := func(n *node, spec telemetryspec.LogSpec, level string, at time.Time, ctxEval telemetryspec.EvalCtx) {
+	// emit evaluates one log spec into its (node, source, level) stream. failStatus is the node's
+	// own failing status on a causal request that failed through it (0 = the node did not fail).
+	emit := func(n *node, spec telemetryspec.LogSpec, level string, at time.Time, ctxEval telemetryspec.EvalCtx, failStatus int) {
 		var stream *loki.Stream
 		if n.decl.logsEnabled() {
 			k := key{n.decl.Name, spec.Source, level}
@@ -365,6 +368,11 @@ func (w *Workload) projectLogs(ctx context.Context, world *core.World, batch []*
 				continue
 			}
 			body[bk] = evalAttr(vm, ctxEval)
+			// A gateway export line of a request that failed through its node reports that failure
+			// rather than the profile's independent draw (taken above, so later draws do not shift).
+			if failStatus != 0 && spec.Source == profiles.GatewayLogSource && bk == profiles.GatewayStatusField {
+				body[bk] = strconv.Itoa(failStatus)
+			}
 		}
 		if stream != nil {
 			stream.Lines = append(stream.Lines, loki.Line{T: at, Body: jsonBody(body), Meta: meta})
@@ -382,9 +390,9 @@ func (w *Workload) projectLogs(ctx context.Context, world *core.World, batch []*
 		completedAt := r.RenderStart().Add(dur)
 		level := logLevel(r.Outcome)
 		if causalFailing(r) {
-			w.projectCausalLogs(r, func(n *node, level string, t time.Time, ctxEval telemetryspec.EvalCtx) {
+			w.projectCausalLogs(r, func(n *node, level string, t time.Time, ctxEval telemetryspec.EvalCtx, failStatus int) {
 				for _, spec := range n.logs {
-					emit(n, spec, level, t, ctxEval)
+					emit(n, spec, level, t, ctxEval, failStatus)
 				}
 			})
 			continue
@@ -399,7 +407,7 @@ func (w *Workload) projectLogs(ctx context.Context, world *core.World, batch []*
 			}
 			ctxEval := telemetryspec.EvalCtx{Ref: refs, Rand: world.Shape.Float64, Norm: world.Shape.NormFloat64, Draw: requestDraw(r)}
 			for _, spec := range n.logs {
-				emit(n, spec, level, completedAt, ctxEval)
+				emit(n, spec, level, completedAt, ctxEval, 0)
 			}
 		}
 	}

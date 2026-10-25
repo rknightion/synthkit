@@ -18,6 +18,14 @@ package profiles
 
 import "github.com/rknightion/synthkit/internal/telemetryspec"
 
+// GatewayLogSource and GatewayStatusField name the export log's stream source and its status body
+// field. The app workload overrides that one field with a failed hop's own status on a causal
+// request that failed through the node (SKT-0190); every other draw is untouched.
+const (
+	GatewayLogSource   = "portkey"
+	GatewayStatusField = "response_status_code"
+)
+
 // gwStr is a file-local helper that returns a *string.
 func gwStr(s string) *string { return &s }
 
@@ -28,7 +36,7 @@ func init() {
 			{
 				// source=portkey — the Portkey export log; stream labels are low-card only (I14).
 				// signals/portkey.md [slug: portkey-logs]: stream labels {env, context, service_name, level, source}.
-				Source: "portkey",
+				Source: GatewayLogSource,
 				// Stream labels (env/service_name/cluster/namespace/job/source/level) are auto-stamped
 				// by the app workload from the node identity + request outcome — not author-declared.
 				Body: map[string]telemetryspec.ValueModel{
@@ -72,9 +80,11 @@ func init() {
 					// Output ≈ 1/3–1/5 of input tokens.
 					"res_units": {IntRange: &telemetryspec.IntRange{Min: 20, Max: 800}},
 
-					// response_status_code: HTTP status from the upstream LLM provider.
+					// response_status_code: HTTP status from the upstream LLM provider. On a causal
+					// request that failed through the node the app workload stamps the node's own
+					// failing status here instead of this draw (the draw is still taken).
 					// signals/portkey.md [slug: portkey-logs]: "response_status_code" body field.
-					"response_status_code": {Enum: []telemetryspec.EnumEntry{
+					GatewayStatusField: {Enum: []telemetryspec.EnumEntry{
 						{Value: "200", Weight: 0.90},
 						{Value: "429", Weight: 0.07},
 						{Value: "500", Weight: 0.03},

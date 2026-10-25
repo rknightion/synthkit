@@ -474,7 +474,9 @@ func causalRefs(refs map[string]string, v hopView) {
 // writes its lines from its own hop facts, once per attempt that reached it, at that attempt's end.
 // Unreached nodes log nothing. A line's DSL values draw from the request's hash unit, like a resend
 // span's (design §4.1), so how many attempts a fault produced never shifts the engine's later draws.
-func (w *Workload) projectCausalLogs(r *ledger.Request, line func(n *node, level string, t time.Time, ctx telemetryspec.EvalCtx)) {
+// line receives the node's own failing status when its answer failed (0 otherwise), for the
+// gateway export log's status field.
+func (w *Workload) projectCausalLogs(r *ledger.Request, line func(n *node, level string, t time.Time, ctx telemetryspec.EvalCtx, failStatus int)) {
 	completedAt := r.RenderStart().Add(max(r.Duration, time.Millisecond))
 	views := w.hopViews(r)
 	for _, n := range w.graph.nodes {
@@ -495,7 +497,11 @@ func (w *Workload) projectCausalLogs(r *ledger.Request, line func(n *node, level
 				t = v.end
 			}
 			rnd, norm := unitRand(r.TraceID + "\x00log\x00" + n.decl.Name + "\x00" + v.spanID)
-			line(n, logLevel(outcomeOf(v.status)), t, telemetryspec.EvalCtx{Ref: refs, Rand: rnd, Norm: norm, Draw: requestDraw(r)})
+			failStatus := 0
+			if v.failed && v.status >= 400 {
+				failStatus = v.status
+			}
+			line(n, logLevel(outcomeOf(v.status)), t, telemetryspec.EvalCtx{Ref: refs, Rand: rnd, Norm: norm, Draw: requestDraw(r)}, failStatus)
 		}
 	}
 }

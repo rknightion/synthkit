@@ -122,6 +122,11 @@ body fields (✅): `trace_id`, `created_at`, `is_success`, **`ai_model`** (⚠ n
 `config`, `prompt_slug` (+ `prompt_version` Ⓐ), `mode`, `metadata{correlation_id, use_case}`;
 retry/fallback keys Ⓐ `retry_count`, `fallback` (export keys undocumented, SK-38). Content-free.
 
+`response_status_code` is a weighted 200/429/500 draw on a request that did not fail through the
+emitting node. On a causal request whose answer failed at that node (a declared cause, design §5.2), the
+app workload stamps the node's own failing status instead (a rule's 500, a propagated 502), once per
+attempt that reached it; the draw is still taken, so no later value shifts.
+
 ## Derived (recording-rule, Spec 4 — NOT emitted by synthkit) [slug: portkey-derived]
 
 `llm_retries_total` and `llm_fallbacks_total` have **no source metric** — they are derived from the
