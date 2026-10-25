@@ -368,6 +368,60 @@ func TestCausalProjectWorkerConsumerAndServedVolume(t *testing.T) {
 	}
 }
 
+// A worker entry's CONSUMER root is named for the messaging operation and destination
+// (semantic-conventions v1.44.0 messaging-spans.md "Span name": `{messaging.operation.name}
+// {destination}`), the destination being the bound queue resource. Every other root keeps the
+// route, and the derived span-metric span_name tracks the emitted root name.
+func TestCausalProjectWorkerRootNamedForQueueOperation(t *testing.T) {
+	ws := causalApps(t, causalResources, intakeApp, validatorApp)
+	intake, worker := ws[0], ws[1]
+
+	wreqs := mintAt(worker, shape.New("UTC", nil), causalNow)
+	if len(wreqs) == 0 {
+		t.Fatal("no consumer requests")
+	}
+	wp := project(t, worker, shape.New("UTC", nil), wreqs)
+	for _, r := range wreqs {
+		root := wp.spans[r.SpanID]
+		if root.Kind != otlp.KindConsumer || root.Name != "process validation-queue" {
+			t.Fatalf("worker root %q (%v), want CONSUMER %q (route was %q)", root.Name, root.Kind, "process validation-queue", r.Route)
+		}
+	}
+
+	ireqs := mintAt(intake, shape.New("UTC", nil), causalNow)
+	if len(ireqs) == 0 {
+		t.Fatal("no intake requests")
+	}
+	ip := project(t, intake, shape.New("UTC", nil), ireqs)
+	for _, r := range ireqs {
+		if root := ip.spans[r.SpanID]; root.Name != r.Route || strings.HasPrefix(root.Name, "process ") {
+			t.Fatalf("non-worker root %q, want the route %q", root.Name, r.Route)
+		}
+	}
+
+	mc := &coretest.MetricCapture{}
+	world := coretest.World(mc, nil, nil)
+	led := ledger.New(shape.New("UTC", nil), 0, 0)
+	led.AddMinter(worker.Minter())
+	led.Mint(causalNow)
+	world.Ledger = led
+	if err := worker.Tick(context.Background(), causalNow, world); err != nil {
+		t.Fatalf("Tick: %v", err)
+	}
+	var rows int
+	for _, s := range mc.Find("traces_spanmetrics_calls_total") {
+		if s.Labels["service_name"] == "validation-worker" && s.Labels["span_kind"] == spanKindConsumer {
+			rows++
+			if s.Labels["span_name"] != "process validation-queue" {
+				t.Fatalf("worker entry span_name %q, want %q", s.Labels["span_name"], "process validation-queue")
+			}
+		}
+	}
+	if rows == 0 {
+		t.Fatal("no worker entry span-metric rows")
+	}
+}
+
 // A healthy causal request (no fault, nothing touched) projects exactly as the same request
 // marked legacy: spans and logs are byte-identical (design §4.6 M6).
 func TestCausalProjectHealthyIdentity(t *testing.T) {

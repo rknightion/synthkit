@@ -120,6 +120,31 @@ func (w *Workload) entryRootKind() otlp.SpanKind {
 	return w.graph.entry.kind.rootKind
 }
 
+// consumerOperation is the messaging.operation.name of a worker entry's root span: the entry
+// processes the messages it is handed, the "process" operation of semantic-conventions v1.44.0
+// messaging-spans.md (Process span, example operation names `process`; CONSUMER kind).
+const consumerOperation = "process"
+
+// entryRootName is the entry root span's default name for request route. A worker entry (a
+// message consumer of traffic.from_resource) names its CONSUMER root `{messaging.operation.name}
+// {destination}` per messaging-spans.md Span name, with the bound queue resource as the
+// destination (the declared route is a request path, not a queue name). Every other entry keeps
+// the route. A declared span name_template of the root's kind still overrides it (nodeSpan).
+func (w *Workload) entryRootName(route string) string {
+	if q := w.workerQueue(); q != "" {
+		return consumerOperation + " " + q
+	}
+	return route
+}
+
+// workerQueue is the queue a worker entry consumes ("" when the entry is not a bound worker).
+func (w *Workload) workerQueue() string {
+	if !w.graph.entry.decl.Worker || w.m == nil || w.m.causal == nil {
+		return ""
+	}
+	return w.m.causal.fromQueue
+}
+
 func (w *Workload) successStatus() int {
 	if s := w.cfg.Traffic.SuccessStatus; s != 0 {
 		return s

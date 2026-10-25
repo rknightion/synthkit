@@ -408,9 +408,13 @@ func (w *Workload) spanMetricVolume(now time.Time, world *core.World) int {
 
 // spanNamesFor returns the span names a node's own spans actually carry, so the derived
 // span_name dimension matches the projected trace stream (project.go serverSpanName /
-// minter.drawRoute). A routed node names its span per route; an unrouted callee falls back to its
+// minter.drawRoute). A bound worker entry names its CONSUMER root for the queue operation
+// (entryRootName); a routed node names its span per route; an unrouted callee falls back to its
 // node name; an unrouted entry falls back to the minter's default route.
 func (w *Workload) spanNamesFor(n *node) []string {
+	if n == w.graph.entry && w.workerQueue() != "" {
+		return []string{w.entryRootName("")} // a worker entry's CONSUMER root: "process <queue>"
+	}
 	if len(n.decl.Routes) > 0 {
 		return n.decl.Routes
 	}

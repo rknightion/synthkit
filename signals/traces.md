@@ -79,6 +79,18 @@ OpenTelemetry specification v1.61.0:
 https://github.com/open-telemetry/opentelemetry-specification/blob/v1.61.0/specification/trace/api.md
 (span status description only with `Error`; `CONSUMER` span kind).
 
+- A worker entry's CONSUMER root is named `{messaging.operation.name} {destination}` per the pinned
+  messaging Span name rule (messaging-spans.md "Span name": operation name, a space, then the
+  destination; "Process span" example operation name `process`). The operation is `process`
+  (the entry handles the messages it is handed). The destination is the bound queue resource
+  (`traffic.from_resource`), a declared low-cardinality name known to be neither temporary nor
+  anonymous, so `process <queue resource>` (for example `process validation-queue`). The declared
+  route is a request path (`GET /`), not a queue name, so it is not the destination. A span
+  `name_template` of the root's kind still overrides the default. Only a `worker: true` entry is
+  renamed; every other root, callee span and non-causal request keeps its route or node name. The
+  derived span-metric `span_name` for that entry row is the same string. No `messaging.*`
+  attribute is stamped (`messaging.system` has no sourced value for a queue resource; PENDING in
+  [cantfind.md](../cantfind.md) SK-134).
 - HTTP SERVER span status is ERROR only for a 5xx response; a 4xx answer stays UNSET. A gRPC
   SERVER span follows the pinned gRPC rule instead: ERROR only for UNKNOWN, DEADLINE_EXCEEDED,
   UNIMPLEMENTED, INTERNAL, UNAVAILABLE and DATA_LOSS (here the 5xx class and a call that timed

@@ -76,7 +76,7 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 		entryContext := ""
 		if entry.decl.tracesEnabled() && !entry.kind.leaf {
 			er := get(entry)
-			eName, eAttrs, eChildren := w.nodeSpan(entry, rootKind, r.SpanID, r.Route, r, nil, base, base.Add(dur), world)
+			eName, eAttrs, eChildren := w.nodeSpan(entry, rootKind, r.SpanID, w.entryRootName(r.Route), r, nil, base, base.Add(dur), world)
 			root := otlp.Span{
 				Name:    eName,
 				TraceID: r.TraceID, SpanID: r.SpanID, ParentID: "",
@@ -102,7 +102,7 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 		} else if !entry.decl.tracesEnabled() && !entry.kind.leaf {
 			// Hidden spans still evaluate their declared values so disabling this node does not shift
 			// the deterministic draws used by later nodes' projections.
-			w.nodeSpan(entry, rootKind, r.SpanID, r.Route, r, nil, base, base.Add(dur), world)
+			w.nodeSpan(entry, rootKind, r.SpanID, w.entryRootName(r.Route), r, nil, base, base.Add(dur), world)
 		}
 
 		// Each hop NESTS within its caller's span window (children start shortly after the parent
