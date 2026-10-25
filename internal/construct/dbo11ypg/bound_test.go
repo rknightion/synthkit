@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -264,8 +265,21 @@ func TestUnboundFullOutputCompatibility(t *testing.T) {
 	sort.Strings(rows)
 	b, _ := json.Marshal(rows)
 	got := fmt.Sprintf("%x", sha256.Sum256(b))
-	const want = "b88be60121e15b52ab2521d4d8f621feda2d12ac8d257d85fc900aaad3da50aa"
+	// These are pre-binding controls from d4a51b34ebb839895c435b46dd14df9c350db7c1,
+	// not snapshots of the bound implementation. Executing this same complete fixture
+	// on Linux/arm64 and Linux/amd64 with Go 1.27.3 proved byte-identical old/new
+	// output within each architecture. The old renderer already has last-bit metric
+	// differences across architectures; do not normalize them or accept either digest.
+	var want string
+	switch runtime.GOARCH {
+	case "arm64":
+		want = "b88be60121e15b52ab2521d4d8f621feda2d12ac8d257d85fc900aaad3da50aa"
+	case "amd64":
+		want = "3a61146fbe400b836c5efab8e57204e0bea922f300ab2e66229cbe5189e9fe7e"
+	default:
+		t.Fatalf("no pre-binding full-output control for %s/%s", runtime.GOOS, runtime.GOARCH)
+	}
 	if got != want {
-		t.Fatalf("full unbound digest %s want %s", got, want)
+		t.Fatalf("full unbound digest on %s/%s: %s want %s", runtime.GOOS, runtime.GOARCH, got, want)
 	}
 }

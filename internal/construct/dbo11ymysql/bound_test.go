@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"runtime"
 	"sort"
 	"testing"
 	"time"
@@ -88,9 +89,22 @@ func TestMySQLUnboundExactOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := fmt.Sprintf("%x", sha256.Sum256(data))
-	const want = "8b5b2fc10b17711a8eead1162269e9ce9fa11176da3073805692599cbcd84f07"
+	// These are pre-binding controls from d4a51b34ebb839895c435b46dd14df9c350db7c1,
+	// not snapshots of the bound implementation. Executing this same complete fixture
+	// on Linux/arm64 and Linux/amd64 with Go 1.27.3 proved byte-identical old/new
+	// output within each architecture. The old renderer already has last-bit metric
+	// differences across architectures; do not normalize them or accept either digest.
+	var want string
+	switch runtime.GOARCH {
+	case "arm64":
+		want = "8b5b2fc10b17711a8eead1162269e9ce9fa11176da3073805692599cbcd84f07"
+	case "amd64":
+		want = "c33935553b38883abf27a517d7c82595218a3ccc9e8f327867dd78df76cb9560"
+	default:
+		t.Fatalf("no pre-binding full-output control for %s/%s", runtime.GOOS, runtime.GOARCH)
+	}
 	if got != want {
-		t.Fatalf("complete unbound output digest = %s, want %s", got, want)
+		t.Fatalf("complete unbound output digest on %s/%s = %s, want %s", runtime.GOOS, runtime.GOARCH, got, want)
 	}
 }
 
