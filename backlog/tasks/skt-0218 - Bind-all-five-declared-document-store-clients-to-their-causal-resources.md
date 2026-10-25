@@ -1,10 +1,10 @@
 ---
 id: SKT-0218
 title: Bind all five declared document-store clients to their causal resources
-status: Parked
+status: In Progress
 assignee: []
 created_date: '2026-10-25T19:30:00Z'
-updated_date: '2026-10-25T22:18:00Z'
+updated_date: '2026-10-25T23:33:00Z'
 labels:
   - causal
 dependencies: []
@@ -29,6 +29,12 @@ Only one of the reference application document-store clients is currently causal
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Single reference-blueprint owner binds all five declared document-store clients to matching causal resources with sourced, labelled timing assumptions and per-client healthy/fault isolation proof.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 

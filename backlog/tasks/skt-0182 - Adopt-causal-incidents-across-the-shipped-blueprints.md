@@ -1,10 +1,10 @@
 ---
 id: SKT-0182
 title: Adopt causal incidents across the shipped blueprints
-status: Parked
+status: In Progress
 assignee: []
 created_date: '2026-10-25T02:12:00Z'
-updated_date: '2026-10-25T22:18:00Z'
+updated_date: '2026-10-25T23:33:00Z'
 labels: []
 dependencies:
   - SKT-0168.09.15
@@ -30,6 +30,12 @@ SKT-0168.09.15 adds an opt-in model where request latency and errors come from r
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Owner approved labelled reference-workload assumptions anchored to published latency ranges, with explicit query mix, deadlines and affected input groups. Compose the reference family on repaired causal source, preserve ordinary rates and both database lanes, reconcile bound legacy incidents, prove actual loaded healthy/onset/recovery output and retain unsupported-family reasons. Parent completion still requires the broader shipped-family ledger.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
