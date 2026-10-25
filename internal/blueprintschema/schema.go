@@ -284,6 +284,10 @@ func typeName(t reflect.Type) string {
 	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
+	// time.Duration is an int64 kind but blueprints write it as a Go duration string ("1h").
+	if t.PkgPath() == "time" && t.Name() == "Duration" {
+		return "duration"
+	}
 	switch t.Kind() {
 	case reflect.String:
 		return "string"
