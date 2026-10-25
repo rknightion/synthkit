@@ -21,7 +21,16 @@
 // Model: each queue receives business-hours-shaped traffic and is drained by consumers at a bounded
 // rate; its depth integrates the difference, so a consumer stall shows as a growing spool. Queue
 // traffic rolls up into VPN and broker totals, so the families agree with one another. A queue may
-// declare its own rate_scale and shape_profile; undeclared queues follow the blueprint curve.
+// declare its own rate_scale and shape_profile; undeclared queues follow the blueprint curve. A
+// queue may also declare a drain_schedule (period, window, phase): its consumers then run only
+// inside each epoch-aligned window, so the depth is a sawtooth that rises between windows and
+// falls to near zero inside them.
+//
+// Causal binding (opt-in): a queue that names a causal `queue` resource (environments[].resources,
+// internal/causal) takes its flows from that resource's model window instead: publishes are the
+// admitted arrivals, deletes the served messages, depth the backlog, spool usage the backlog times
+// avg_msg_bytes within spool_quota_mb, and spool-usage discards the arrivals the full spool
+// rejected. The construct invents no names for it; unbound queues keep the model above unchanged.
 //
 // Signal contract: signals/solace.md [slug: solace-queue], [slug: solace-vpn], [slug: solace-system]
 package solace
@@ -34,6 +43,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/fixture"
 	"github.com/rknightion/synthkit/internal/state"
@@ -55,14 +65,21 @@ type Construct struct {
 	order   []string
 	brokers []*resolvedBroker
 
+	// model is the causal model of the bound queues' resources; nil when no queue is bound.
+	model *causal.Model
+
 	mu     sync.Mutex
 	st     *state.State
 	last   time.Time
+	from   time.Time          // start of the window being rendered: (from, last]
 	levels map[string]float64 // last level written through counterLevel, per series
 }
 
-// Compile-time interface check.
-var _ core.Construct = (*Construct)(nil)
+// Compile-time interface checks.
+var (
+	_ core.Construct  = (*Construct)(nil)
+	_ causal.Advancer = (*Construct)(nil)
+)
 
 // Build validates cfg and returns a ready core.Construct. A broker's identity is declared, not
 // shared with another construct, so fx carries nothing this construct uses, except that a
@@ -80,7 +97,52 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Construct{job: job, targets: targets, order: order, brokers: brokers, st: state.NewState(), levels: map[string]float64{}}, nil
+	con := &Construct{job: job, targets: targets, order: order, brokers: brokers, st: state.NewState(), levels: map[string]float64{}}
+	if set, bound := boundSet(c.causal, brokers); bound {
+		if con.model, err = causal.Compile(set); err != nil {
+			return nil, fmt.Errorf("solace: %w", err)
+		}
+	}
+	return con, nil
+}
+
+// boundSet is the declared set with each bound resource's depth limit set to what its queue's
+// spool quota holds (spool_quota_mb / avg_msg_bytes), so the model rejects exactly the arrivals
+// the spool discards. The caller's set is not modified. bound reports whether a queue is bound.
+func boundSet(base causal.Set, brokers []*resolvedBroker) (set causal.Set, bound bool) {
+	depth := map[string]float64{}
+	for _, b := range brokers {
+		for _, v := range b.vpns {
+			for _, q := range v.queues {
+				if q.resource != "" {
+					depth[q.resource] = q.maxDepth()
+				}
+			}
+		}
+	}
+	if len(depth) == 0 {
+		return base, false
+	}
+	set.Loads = base.Loads
+	for _, d := range base.Envs {
+		d.Resources = append([]causal.Resource(nil), d.Resources...)
+		for i := range d.Resources {
+			if n, ok := depth[d.Resources[i].Name]; ok {
+				d.Resources[i].MaxDepth = n
+			}
+		}
+		set.Envs = append(set.Envs, d)
+	}
+	return set, true
+}
+
+// AdvanceCausal advances the bound queues' model to now (causal.Advancer). The runner calls it
+// every master tick, so this construct reads the same live faults as every other consumer of the
+// blueprint's resources. A construct with no bound queue has nothing to advance.
+func (c *Construct) AdvanceCausal(now time.Time, clk causal.Clock) {
+	if c.model != nil {
+		c.model.Advance(now, clk)
+	}
 }
 
 func (c *Construct) Kind() string                { return Kind }
@@ -97,6 +159,10 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		dt = now.Sub(c.last)
 	}
 	c.last = now
+	c.from = now.Add(-dt)
+	if c.model != nil && w != nil && w.Shape != nil {
+		c.model.Advance(now, w.Shape) // idempotent after the runner's AdvanceCausal
+	}
 	c.render(now, dt, w)
 	if w != nil && w.Metrics != nil {
 		return w.Metrics.Write(ctx, c.st.Collect(now))
@@ -183,6 +249,46 @@ type brokerTotals struct {
 // stepQueue advances one queue by one window and emits its QueueDetails, QueueStats and
 // (opt-in) QueueRates families.
 func (c *Construct) stepQueue(w *core.World, now time.Time, bf, secs float64, b *resolvedBroker, v *resolvedVPN, q *resolvedQueue) qres {
+	var r qres
+	if q.resource != "" {
+		r = c.stepBoundQueue(now, q)
+	} else {
+		r = c.stepLegacyQueue(w, now, bf, secs, b, v, q)
+	}
+	c.emitQueue(b, v, q, r, secs)
+	return r
+}
+
+// stepBoundQueue reads one bound queue's flows from its resource's model window over (from, now].
+// Whole messages are emitted; each flow's fraction carries to the next window.
+func (c *Construct) stepBoundQueue(now time.Time, q *resolvedQueue) qres {
+	win, ok := c.model.Window(q.resource, c.from, now)
+	var rx, tx, exceeded float64
+	if ok && win.Steps > 0 {
+		rx = wholeMessages(&q.rxRemainder, win.Admitted)
+		tx = wholeMessages(&q.txRemainder, win.Served)
+		exceeded = wholeMessages(&q.exceededRemainder, win.Rejected)
+		q.depth = math.Min(math.Round(win.BacklogEnd), q.maxDepth())
+	}
+	return qres{
+		rx: rx, tx: tx, exceeded: exceeded,
+		rxBytes: rx * q.msgBytes, txBytes: tx * q.msgBytes,
+		depth: q.depth, depthBytes: q.depth * q.msgBytes,
+		consumers: q.consumers, subscription: q.subscriptions,
+	}
+}
+
+// wholeMessages adds v to the carried fraction and returns the whole messages, leaving the
+// fraction in carry. A tiny tolerance keeps float noise (9.999999999999998) from costing a message.
+func wholeMessages(carry *float64, v float64) float64 {
+	work := *carry + v
+	n := math.Floor(work + 1e-9)
+	*carry = math.Max(work-n, 0)
+	return n
+}
+
+// stepLegacyQueue advances one unbound queue by one window from its declared rates.
+func (c *Construct) stepLegacyQueue(w *core.World, now time.Time, bf, secs float64, b *resolvedBroker, v *resolvedVPN, q *resolvedQueue) qres {
 	key := b.name + "|" + v.name + "|" + q.name
 	qbf := bf
 	if q.load != nil && w != nil && w.Shape != nil {
@@ -213,7 +319,12 @@ func (c *Construct) stepQueue(w *core.World, now time.Time, bf, secs float64, b 
 	// idle-time catch-up burst. Consumption is not business/volume shaped: existing
 	// backlog continues draining when publishers pause.
 	avail := q.depth + rx
-	consumeWork := q.consumeRemainder + consumeRate*secs
+	drainSecs := secs
+	if q.drain != nil {
+		// A scheduled consumer works only while a drain window is open within this tick.
+		drainSecs = q.drain.open(c.from, now).Seconds()
+	}
+	consumeWork := q.consumeRemainder + consumeRate*drainSecs
 	capacity := math.Floor(consumeWork)
 	tx := math.Min(avail, capacity)
 	q.depth = avail - tx
@@ -222,13 +333,17 @@ func (c *Construct) stepQueue(w *core.World, now time.Time, bf, secs float64, b 
 		q.consumeRemainder = consumeWork - capacity
 	}
 
-	r := qres{
+	return qres{
 		rx: rx, tx: tx, exceeded: exceeded,
 		rxBytes: rx * q.msgBytes, txBytes: tx * q.msgBytes,
 		depth: q.depth, depthBytes: q.depth * q.msgBytes,
 		consumers: q.consumers, subscription: q.subscriptions,
 	}
+}
 
+// emitQueue emits one queue's QueueDetails, QueueStats and (opt-in) QueueRates families from the
+// window's result, identically for a bound and an unbound queue.
+func (c *Construct) emitQueue(b *resolvedBroker, v *resolvedVPN, q *resolvedQueue, r qres, secs float64) {
 	lbl := c.labels(b, map[string]string{"vpn_name": v.name, "queue_name": q.name})
 
 	if c.targets[targetQueueDetails] {
@@ -279,7 +394,6 @@ func (c *Construct) stepQueue(w *core.World, now time.Time, bf, secs float64, b 
 		c.st.Set("solace_queue_rx_byte_rate_avg", lbl, q.avgRx*q.msgBytes)
 		c.st.Set("solace_queue_tx_byte_rate_avg", lbl, q.avgTx*q.msgBytes)
 	}
-	return r
 }
 
 // renderVPN emits the Vpn, VpnStats and VpnSpool families for one message VPN.

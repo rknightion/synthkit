@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/failuremode"
 	"github.com/rknightion/synthkit/internal/shape"
 )
@@ -27,7 +28,18 @@ type Config struct {
 	Targets []string `yaml:"targets"`
 	// Brokers is the declared event brokers; at least one is required.
 	Brokers []BrokerConfig `yaml:"brokers"`
+
+	// causal is the blueprint's declared request resources, injected by the resolver
+	// (UseResources); empty when the blueprint declares none.
+	causal causal.Set `yaml:"-"`
 }
+
+// UseResources receives the blueprint's declared causal resources (causal.Consumer). The
+// resolver calls it after strict decode and before Build, only when the blueprint declares
+// resources.
+func (c *Config) UseResources(s causal.Set) { c.causal = s }
+
+var _ causal.Consumer = (*Config)(nil)
 
 // BrokerConfig declares one event broker as seen through one exporter scrape.
 type BrokerConfig struct {
@@ -66,13 +78,21 @@ type VPNConfig struct {
 type QueueConfig struct {
 	// Name is the queue name (the queue_name label); unique within the VPN.
 	Name string `yaml:"name"`
+	// Resource binds the queue to a causal `queue` resource declared under
+	// environments[].resources (opt-in). A bound queue's publishes, deletes, depth and discards
+	// follow the resource's model, so a consumer slowdown or a slow held-across dependency grows
+	// the spool and it drains after the fault. The consumer count is the resource's size and the
+	// depth limit is spool_quota_mb / avg_msg_bytes, so the resource declares no max_depth.
+	// publish_msgs_per_sec, consume_msgs_per_sec, rate_scale, shape_profile and the queue-axis
+	// failure modes are rejected on a bound queue, and one resource binds one queue.
+	Resource string `yaml:"resource"`
 	// PublishMsgsPerSec is the business-hours publish rate into the queue, scaled by the shape
 	// engine's business factor. Default 2: a master-data change feed is a low-volume stream
 	// (about 170k messages a day at this peak), not bulk transfer. 0 declares an idle queue.
 	PublishMsgsPerSec *float64 `yaml:"publish_msgs_per_sec"`
 	// ConsumeMsgsPerSec is the consumers' maximum drain rate. Default 3x PublishMsgsPerSec so a
 	// healthy queue keeps no backlog, or 0 when Consumers is 0; set it below the publish rate (0 stalls the consumers)
-	// to model a growing backlog.
+	// to model a growing backlog. With a drain_schedule it is the rate while a window is open.
 	ConsumeMsgsPerSec *float64 `yaml:"consume_msgs_per_sec"`
 	// AvgMsgBytes is the average message size. Default 2048 (a JSON master-data change record).
 	AvgMsgBytes int `yaml:"avg_msg_bytes"`
@@ -96,6 +116,47 @@ type QueueConfig struct {
 	// keeps the blueprint curve. Same keys and defaults as the application workload's
 	// shape_profile.
 	ShapeProfile *ShapeProfile `yaml:"shape_profile"`
+	// DrainSchedule makes the queue's consumers drain on a schedule instead of continuously
+	// (opt-in): a batch consumer that wakes at fixed times. Omitted leaves the queue exactly as
+	// before. Rejected on a queue bound to a causal resource, whose drain belongs to the model.
+	DrainSchedule *DrainSchedule `yaml:"drain_schedule"`
+}
+
+// DrainSchedule declares when a queue's consumers run. Consumption happens only inside each
+// drain window, at the queue's drain capacity (consume_msgs_per_sec, default 3x the publish
+// rate); between windows the consumers are idle and the spool grows with the arrivals, so the
+// depth is a sawtooth. Windows are aligned to the Unix epoch, not to the start of the run, so a
+// restart does not move them: window k opens at k*period + phase and stays open for window.
+// Size the drain capacity so a window can clear its period's arrivals (capacity x window at
+// least publish rate x period), or the backlog carries into the next period.
+type DrainSchedule struct {
+	// Period is the interval between window openings (> 0), for example 1h.
+	Period time.Duration `yaml:"period"`
+	// Window is how long each drain window stays open (> 0 and <= period).
+	Window time.Duration `yaml:"window"`
+	// Phase offsets the window opening from the epoch-aligned period boundary, in [0, period).
+	// Default 0.
+	Phase time.Duration `yaml:"phase"`
+}
+
+// open reports how much of (from, to] falls inside a drain window.
+func (d *DrainSchedule) open(from, to time.Time) time.Duration {
+	return d.openUntil(to) - d.openUntil(from)
+}
+
+// openUntil is the cumulative time the windows have been open since the epoch, at t.
+func (d *DrainSchedule) openUntil(t time.Time) time.Duration {
+	// Nanosecond arithmetic on the Unix timeline; a tick is never far enough from the epoch to
+	// overflow int64 nanoseconds (until 2262).
+	ns := t.UnixNano() - int64(d.Phase)
+	p := int64(d.Period)
+	k := ns / p
+	rem := ns % p
+	if rem < 0 {
+		k--
+		rem += p
+	}
+	return time.Duration(k)*d.Window + min(time.Duration(rem), d.Window)
 }
 
 // ShapeProfile parameterises one queue's diurnal load curve: a floor, a smoothstep ramp up to a
@@ -217,7 +278,11 @@ type resolvedQueue struct {
 	quotaBytes       float64
 	publishRemainder float64
 	consumeRemainder float64
-	load             *queueLoad // nil: the blueprint curve
+	load             *queueLoad     // nil: the blueprint curve
+	resource         string         // bound causal queue resource; empty: the legacy model
+	drain            *DrainSchedule // nil: consumers run continuously
+	// bound-queue whole-message carries (admitted, rejected, served fractions)
+	rxRemainder, exceededRemainder, txRemainder float64
 	// runtime state
 	depth  float64 // messages currently spooled
 	avgRx  float64 // smoothed msgs/s, for the *_avg rate gauges
@@ -271,6 +336,7 @@ func resolve(c *Config) (job string, targets map[string]bool, order []string, br
 	}
 	names := map[string]bool{}
 	instances := map[string]bool{}
+	bound := map[string]string{} // causal resource -> the queue bound to it
 	for bi, bc := range c.Brokers {
 		if bc.Name == "" {
 			return "", nil, nil, nil, fmt.Errorf("solace: brokers[%d].name is required", bi)
@@ -330,9 +396,15 @@ func resolve(c *Config) (job string, targets map[string]bool, order []string, br
 					return "", nil, nil, nil, fmt.Errorf("solace: vpn %q: duplicate queue %q", vc.Name, qc.Name)
 				}
 				queueNames[qc.Name] = true
-				rq, qerr := resolveQueue(qc)
+				rq, qerr := resolveQueue(qc, c.causal)
 				if qerr != nil {
 					return "", nil, nil, nil, qerr
+				}
+				if rq.resource != "" {
+					if prev, dup := bound[rq.resource]; dup {
+						return "", nil, nil, nil, fmt.Errorf("solace: queue %q: resource %q is already bound to %s; one resource drives exactly one queue", qc.Name, rq.resource, prev)
+					}
+					bound[rq.resource] = fmt.Sprintf("broker %q vpn %q queue %q", bc.Name, vc.Name, qc.Name)
 				}
 				quotaSum += rq.quotaBytes
 				rv.queues = append(rv.queues, rq)
@@ -348,7 +420,10 @@ func resolve(c *Config) (job string, targets map[string]bool, order []string, br
 	return job, targets, order, brokers, nil
 }
 
-func resolveQueue(qc QueueConfig) (*resolvedQueue, error) {
+func resolveQueue(qc QueueConfig, set causal.Set) (*resolvedQueue, error) {
+	if qc.Resource != "" {
+		return resolveBoundQueue(qc, set)
+	}
 	rq := &resolvedQueue{name: qc.Name, publishRate: defaultPublishRate, msgBytes: defaultMsgBytes,
 		consumers: 1, subscriptions: 1}
 	if qc.PublishMsgsPerSec != nil {
@@ -371,6 +446,19 @@ func resolveQueue(qc QueueConfig) (*resolvedQueue, error) {
 		return nil, fmt.Errorf("solace: queue %q: shape_profile: %w", qc.Name, err)
 	}
 	rq.load = load
+	if d := qc.DrainSchedule; d != nil {
+		if d.Period <= 0 || d.Window <= 0 {
+			return nil, fmt.Errorf("solace: queue %q: drain_schedule period and window must be > 0", qc.Name)
+		}
+		if d.Window > d.Period {
+			return nil, fmt.Errorf("solace: queue %q: drain_schedule window %v exceeds its period %v", qc.Name, d.Window, d.Period)
+		}
+		if d.Phase < 0 || d.Phase >= d.Period {
+			return nil, fmt.Errorf("solace: queue %q: drain_schedule phase %v must be in [0, period %v)", qc.Name, d.Phase, d.Period)
+		}
+		cp := *d
+		rq.drain = &cp
+	}
 	rq.consumeRate = 3 * rq.publishRate
 	// A queue declared with no consumers drains nothing unless a drain rate is declared explicitly.
 	if qc.Consumers != nil && *qc.Consumers == 0 {
@@ -411,6 +499,70 @@ func resolveQueue(qc QueueConfig) (*resolvedQueue, error) {
 	return rq, nil
 }
 
+// resolveBoundQueue validates a queue bound to a causal queue resource. Every rate the model
+// owns is rejected rather than ignored: a second declaration of the same quantity would silently
+// disagree with the resource.
+func resolveBoundQueue(qc QueueConfig, set causal.Set) (*resolvedQueue, error) {
+	res, _, ok := set.Lookup(qc.Resource)
+	if !ok {
+		return nil, fmt.Errorf("solace: queue %q: resource %q is not declared (declare it under environments[].resources)", qc.Name, qc.Resource)
+	}
+	if res.Kind != causal.KindQueue {
+		return nil, fmt.Errorf("solace: queue %q: resource %q is kind %q, want %q", qc.Name, qc.Resource, res.Kind, causal.KindQueue)
+	}
+	for _, f := range []struct {
+		name string
+		set  bool
+		why  string
+	}{
+		{"publish_msgs_per_sec", qc.PublishMsgsPerSec != nil, "the resource's demand is the publish rate"},
+		{"consume_msgs_per_sec", qc.ConsumeMsgsPerSec != nil, "the resource's size and hold_ms set the drain rate"},
+		{"rate_scale", qc.RateScale != nil, "the resource's demand is the publish rate"},
+		{"shape_profile", qc.ShapeProfile != nil, "the resource's demand carries the load curve"},
+		{"drain_schedule", qc.DrainSchedule != nil, "the resource's size and hold_ms set when and how fast it drains"},
+	} {
+		if f.set {
+			return nil, fmt.Errorf("solace: queue %q: %s cannot be set on a queue bound to resource %q (%s)", qc.Name, f.name, qc.Resource, f.why)
+		}
+	}
+	if res.MaxDepth != 0 {
+		return nil, fmt.Errorf("solace: queue %q: resource %q declares max_depth; a Solace-bound queue's depth limit is its spool_quota_mb / avg_msg_bytes", qc.Name, qc.Resource)
+	}
+	rq := &resolvedQueue{name: qc.Name, msgBytes: defaultMsgBytes, consumers: res.Size, subscriptions: 1, resource: qc.Resource}
+	if qc.Consumers != nil {
+		if *qc.Consumers != res.Size {
+			return nil, fmt.Errorf("solace: queue %q: consumers %d disagrees with resource %q size %d (the resource's size is the consumer count; omit consumers)", qc.Name, *qc.Consumers, qc.Resource, res.Size)
+		}
+	}
+	if qc.AvgMsgBytes < 0 {
+		return nil, fmt.Errorf("solace: queue %q: avg_msg_bytes must be >= 0", qc.Name)
+	}
+	if qc.AvgMsgBytes > 0 {
+		rq.msgBytes = float64(qc.AvgMsgBytes)
+	}
+	if qc.Subscriptions != nil {
+		if *qc.Subscriptions < 0 {
+			return nil, fmt.Errorf("solace: queue %q: subscriptions must be >= 0", qc.Name)
+		}
+		rq.subscriptions = *qc.Subscriptions
+	}
+	if qc.SpoolQuotaMB < 0 {
+		return nil, fmt.Errorf("solace: queue %q: spool_quota_mb must be >= 0", qc.Name)
+	}
+	quotaMB := qc.SpoolQuotaMB
+	if quotaMB == 0 {
+		quotaMB = defaultQueueQuotaMB
+	}
+	rq.quotaBytes = quotaMB * mib
+	if rq.maxDepth() < 1 {
+		return nil, fmt.Errorf("solace: queue %q: spool_quota_mb %v holds less than one avg_msg_bytes (%v) message", qc.Name, quotaMB, rq.msgBytes)
+	}
+	return rq, nil
+}
+
+// maxDepth is the most messages the spool quota holds at the average message size.
+func (q *resolvedQueue) maxDepth() float64 { return math.Floor(q.quotaBytes / q.msgBytes) }
+
 func contains(list []string, s string) bool {
 	for _, v := range list {
 		if v == s {
@@ -443,16 +595,19 @@ func (c *Config) IdentityClaims() [][2]string {
 	return claims
 }
 
-// FailureTargets reports each distinct declared queue name as a queue-axis failure target, in
-// declaration order. Queue names are unique only within a VPN, so one target name addresses
-// every queue that carries it. Duck-typed by the blueprint resolver.
+// FailureTargets reports each distinct declared unbound queue name as a queue-axis failure
+// target, in declaration order. Queue names are unique only within a VPN, so one target name
+// addresses every unbound queue that carries it. A queue bound to a causal resource is not a
+// queue-axis target: its depth and rates belong to the model, so the legacy queue modes cannot
+// address it (an incident naming only a bound queue fails to load); the resource is the target.
+// Duck-typed by the blueprint resolver.
 func (c *Config) FailureTargets() []failuremode.Target {
 	var out []failuremode.Target
 	seen := map[string]bool{}
 	for _, b := range c.Brokers {
 		for _, v := range b.VPNs {
 			for _, q := range v.Queues {
-				if q.Name == "" || seen[q.Name] {
+				if q.Name == "" || q.Resource != "" || seen[q.Name] {
 					continue
 				}
 				seen[q.Name] = true

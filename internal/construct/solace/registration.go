@@ -3,6 +3,7 @@
 package solace
 
 import (
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/failuremode"
 )
@@ -35,7 +36,9 @@ func Registration() core.ConstructReg {
 		Group:     core.GroupIntegration,
 		NewConfig: func() any { return &Config{} },
 		Build:     Build,
-		// Declared queues (Config.FailureTargets).
-		FailureModes: FailureModes,
+		// Declared unbound queues (Config.FailureTargets) take the queue-axis modes; a queue bound
+		// to a causal resource is driven by the resource-axis vocabulary every causal consumer
+		// registers.
+		FailureModes: append(append([]failuremode.Mode(nil), FailureModes...), causal.FailureModes...),
 	}
 }
