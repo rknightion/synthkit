@@ -121,7 +121,12 @@ attribute or log field for the cause: the signal contracts fix those names once 
 3. Select emission switches only for lanes the scenario needs. For example,
    `databases[].observability.cloudwatch` and `.dbo11y` independently fan the same declared
    database into its supported construct lanes. A switch gates emission; it does not change the
-   declaration's identity.
+   declaration's identity. PostgreSQL/MySQL may combine dbo11y with a database `resource:` binding
+   to a dependency/pool, but the CloudWatch lane remains required. Follow
+   [database bindings](https://github.com/rknightion/synthkit/blob/main/docs/blueprints.md#the-emission-switch):
+   compare same-minute pool connections and duration/counter increments across both lanes, including
+   recovery and an unbound sibling. Do not infer server Lock/IO causes or SQL errors from acquisition
+   pressure, or schedule database-axis modes on a bound DB. DocumentDB/Neptune dbo11y is unsupported.
 4. Add workloads under `workloads:`. Set `type`, unique workload `name`, and `runs_on` to the
    exact declared cluster name. Add `calls[].db` / `calls[].cache` only with exact names from the
    same resolved environment. The loader rejects unknown references; do not work around that by

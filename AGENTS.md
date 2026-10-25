@@ -81,6 +81,13 @@ absence never establishes noncommit or recovery attribution; recovery never repl
 mutation, and cleanup retains unsupported/unknown-use dependencies honestly. The engine adds no
 CLI, blueprint wiring or runtime admission.
 
+## Database causal bindings
+
+PostgreSQL/MySQL database `resource:` bindings may emit both CloudWatch and dbo11y; CloudWatch
+remains required. Preserve same-minute pool connection agreement, synthetic duration-only wait
+projection and unbound isolation. The [canonical dbo11y contract](signals/dbo11y.md#causal-database-bindings)
+owns these limits; [bound incidents](docs/incidents.md#bound-constructs) owns admission and legacy-mode exclusion.
+
 ## Declared pipeline mechanic
 
 `internal/pipelinerun` is the sanctioned shared deterministic run-window seam for Glue/MWAA,

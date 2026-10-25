@@ -267,6 +267,20 @@ engine's RNG; per-arrival draws hash the minter's seed unit (`UnitDraw`). No `re
 model, no injection and unchanged output. The request facts it produces live in the additive
 `ledger.Request.Causal/Fault` and `ledger.Call` causal fields, all zero on the legacy path.
 
+Database `resource:` binding uses the existing config `BindResource`, `Consumer` and
+`BindingDeclarer` seams plus built `Advancer`, without changing the runner scheduler. The resolver
+binds both CloudWatch and optional PostgreSQL/MySQL dbo11y configs to the same declaration; the
+CloudWatch lane remains required and DocumentDB/Neptune dbo11y remains unsupported. Each adapter
+reads `(now-60s, now]`: pool `MeanInUse` supplies connection counts in both lanes, while dependency-only
+bindings retain baseline connections. Mean `LatencyFactor` drives cloud latency and dbo11y
+statement-seconds increments plus existing synthetic query/wait durations. Metrics and logs share
+one reading per dbo11y tick. This amplitude-only synthetic model does not establish server Lock/IO
+attribution, SQL errors, MySQL running threads or a new server connection limit. Bound databases are
+not database-axis schedule targets and ignore legacy modes even if injected directly; unbound
+siblings remain unchanged. Counter totals remain cumulative through recovery. No new wire labels,
+metadata or telemetry names are introduced; the [dbo11y contract](signals/dbo11y.md#causal-database-bindings)
+owns the projection details.
+
 ### Registry
 
 Explicit instance built in the composition root's catalog wiring file (single owner). **No global

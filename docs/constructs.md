@@ -157,6 +157,17 @@ Substrate-scoped. Shares `fixture.DB` identity with the corresponding CloudWatch
 | `dbo11y_postgres` | Grafana Database Observability for PostgreSQL — query digests, connection pool, replication. | [dbo11y](signal-areas.md) | `databases[].observability.dbo11y: true` |
 | `dbo11y_mysql` | Grafana Database Observability for MySQL. | [dbo11y](signal-areas.md) | `databases[].observability.dbo11y: true` |
 
+Both accept the database declaration's optional `resource:` binding to a `dependency` or `pool`,
+with the CloudWatch lane still required. Independently compiled causal models use the same master
+clock; no shared mutable construct state or special scheduler is involved. The trailing-minute mean
+latency scales statement-seconds increments and existing synthetic query/wait durations in both
+metric and log output. Pool mean busy connections match the CloudWatch connection reading;
+dependency-only bindings keep baseline connections. This does not attribute acquisition wait to a
+server Lock/IO category or invent SQL errors. MySQL running threads and server maximum connections
+remain baseline. Bound instances ignore legacy database-axis modes; unbound output is unchanged.
+See [database bindings](blueprints.md#the-emission-switch) and
+[bound incidents](incidents.md#bound-constructs). DocumentDB/Neptune dbo11y remains unsupported.
+
 ## CSP: Azure and GCP
 
 Both are substrate-scoped. Sub-families are gated by `sub_signals: [...]` in the integration declaration (empty/omitted = all emit).

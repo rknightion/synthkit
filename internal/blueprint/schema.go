@@ -336,12 +336,14 @@ type DatabaseDecl struct {
 	Name          string             `yaml:"name"`
 	InstanceClass string             `yaml:"instance_class"` // e.g. "db.t3.medium"; empty → resolver default
 	Observability *ObservabilityDecl `yaml:"observability"`  // nil = CloudWatch only (the defaults)
-	// Resource binds the database's CloudWatch construct to a declared causal `dependency` or
-	// `pool` resource (environments[].resources), so its latency and connection families follow
+	// Resource binds the database's CloudWatch and optional PostgreSQL/MySQL dbo11y constructs
+	// to a declared causal `dependency` or `pool` resource (environments[].resources), so they follow
 	// the shared model instead of the database-axis failure modes. Optional. A bound database is
 	// no longer a database-axis incident target (slow_query_storm, connection_saturation and the
 	// other database modes name an unknown target at load); the resource-axis modes move it.
-	// Needs the CloudWatch lane and a construct that supports binding; dbo11y must be off.
+	// Needs the CloudWatch lane and constructs that support binding. DocumentDB/Neptune dbo11y
+	// remains unsupported. Pool connections use the trailing-minute mean busy count; dbo11y
+	// query and existing synthetic wait durations scale with mean latency, without cause attribution.
 	Resource string `yaml:"resource"`
 }
 

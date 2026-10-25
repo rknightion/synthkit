@@ -311,8 +311,18 @@ latency factor (the dependency's, or for a pool the dependency it is held across
 database's `DatabaseConnections` follows the pool's busy connections (a `docdb` cluster reports them
 on its `WRITER` row only, so summing roles counts them once). The legacy `database`-axis
 incident modes no longer target a bound database; `dependency_slow` and `pool_exhausted` do. The
-binding needs the CloudWatch lane, cannot combine with `observability.dbo11y`, and is checked when
-the construct is built.
+binding still needs the CloudWatch lane and is checked when the constructs are built.
+
+For PostgreSQL and MySQL, `observability.dbo11y: true` may accompany that binding. Both lanes
+independently read the same trailing minute: pool connections agree (`pg_stat_database_numbackends`
+or `mysql_global_status_threads_connected` versus CloudWatch `DatabaseConnections`), and mean latency
+scales dbo11y statement-seconds increments and query/sample/wait durations. Dependency-only bindings
+retain baseline connection counts. Recovery restores duration and counter **increments**, not the
+already accumulated totals. This is a coherent synthetic duration response, not a mapping from pool
+acquisition wait to server Lock/IO events or SQL errors; existing wait categories and error baselines
+remain unchanged. Directly injected legacy database modes are ignored by bound instances, not added
+to the resource response. Unbound siblings keep their legacy behavior. DocumentDB and Neptune still
+do not support dbo11y.
 
 See [emission-switches.md](emission-switches.md) for the full list of gates.
 

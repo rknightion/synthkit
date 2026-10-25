@@ -152,10 +152,20 @@ A database with `resource:` (bound to a `dependency` or `pool` under `environmen
 a database-axis target: an effect naming it with a database-axis mode is an unknown-target load error.
 Its `aws_rds_*` latency and connection families follow the shared resource model instead, so the
 resource-axis modes reach it: `dependency_slow` on the dependency (or on the dependency the pool is
-held across) multiplies `aws_rds_read_latency` and `aws_rds_write_latency` by the dependency's latency
-factor, and on a pool-bound database `aws_rds_database_connections` follows the pool's busy
-connections (they rise as the hold stretches, and `pool_exhausted` caps them at the reduced size).
-Every other family keeps its baseline, and each family returns to the baseline once the incident ends.
+held across) scales the latency component of `aws_rds_read_latency` and `aws_rds_write_latency` by
+the trailing-minute mean latency factor, and on a pool-bound database
+`aws_rds_database_connections` follows mean busy connections over that same minute (they rise as the
+hold stretches, and `pool_exhausted` caps them at the reduced size; capacity loss may reduce the count).
+Other CloudWatch families keep their baseline; recovery is visible as the fault leaves the minute window.
+
+With PostgreSQL/MySQL `observability.dbo11y: true`, the same binding also drives dbo11y: pool mean
+busy connections match CloudWatch, and mean latency scales statement-seconds increments and existing
+synthetic query/wait durations in metrics and logs. Recovery restores increments, never accumulated
+counter totals. Dependency-only binding retains baseline connections. Acquisition pressure is not
+server Lock/IO attribution or a SQL error code; existing synthetic wait categories and SQL-error
+baselines remain unchanged. Bound instances ignore all directly injected legacy database modes;
+unbound siblings still respond to them. The CloudWatch lane remains required, and
+DocumentDB/Neptune dbo11y is still unsupported.
 `dependency_unavailable` and `credential_expired` move nothing on a bound database, because no sourced
 CloudWatch metric records them. A bound DocumentDB cluster (`engine: docdb`) behaves the same way:
 `aws_docdb_read_latency` and `aws_docdb_write_latency` follow the latency factor, and
@@ -401,7 +411,7 @@ declarations are unchanged.
 | `sqs` | `queues[].resource` (`queue` without `max_depth`) | None: SQS registers no legacy mode. `arrivals_per_second`, `receives_per_second`, `processing_seconds`, `delay_seconds`, `load` and `burst` must be omitted | `aws_sqs_number_of_messages_sent` (arrivals), `aws_sqs_number_of_messages_received` and `aws_sqs_number_of_messages_deleted` (served), `aws_sqs_approximate_number_of_messages_visible` (backlog) and `aws_sqs_approximate_age_of_oldest_message`. `consumer_slowdown`, or `dependency_slow` on the held-across dependency, grows the backlog and age, which drain after the incident |
 | `solace` | `queues[].resource` (`queue`) | Not a queue-axis target (unknown-target load error); `publish_msgs_per_sec`, `consume_msgs_per_sec`, `rate_scale`, `shape_profile`, `drain_schedule` and a `max_depth` on the resource are rejected | Publish and consume rates, queue depth, spool usage and spool-full discards (`solace_queue_msg_spool_usage_exceeded`) |
 | `dynamodb` | `tables[].operations[].resource` (`quota`, counted in `quota_unit`: `requests`, `read_units` or `write_units`), GetItem and PutItem only | A table whose GetItem and PutItem operations are all bound is not a table-axis target (unknown-target load error); `table_throttle_storm` never adds to a bound operation. `requests_per_second`, `throttled_requests_per_second` and `load` must be omitted | The quota's admitted volume is the operation's successful requests (`aws_dynamodb_successful_request_latency`, consumed capacity) and its rejected volume the throttled requests (`aws_dynamodb_throttled_requests`, and `aws_dynamodb_read_throttle_events` or `aws_dynamodb_write_throttle_events`), each divided by the operation's `read_units` or `write_units` when the quota counts capacity units. `quota_reduced` throttles them |
-| `rds` and `docdb` databases | `databases[].resource` (`dependency` or `pool`) | Not a database-axis target (unknown-target load error); cannot combine with `observability.dbo11y` | Read and write latency, and a pool's connections (see the database axis above) |
+| `rds`, optional PostgreSQL/MySQL `dbo11y`, and `docdb` databases | `databases[].resource` (`dependency` or `pool`), CloudWatch required | Not a database-axis target (unknown-target load error); direct legacy injection ignored. DocumentDB/Neptune dbo11y unsupported | Cloud read/write latency and pool mean connections; dbo11y statement-seconds increments and synthetic query/wait durations, without Lock/IO or SQL-error attribution (see the database axis above) |
 | `agentcore` | `runtimes[].resource` (`concurrency`) | `agentcore_throttle` is scoped to the environment, so a bound runtime ignores it rather than rejecting it, and it keeps driving the deployment-wide `runtime/global` series | The runtime's own `invocations`, `throttles`, `system_errors`, `total_errors` and `latency` series, named by the runtime ARN |
 
 Counts agree across consumers, not only shares: a bound Lambda function's invocations plus throttles
