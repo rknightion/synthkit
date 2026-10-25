@@ -71,7 +71,9 @@ func (x *Exchange) Publish(m Message) {
 		return
 	}
 	if len(x.msgs) >= MaxPendingMessages {
-		x.msgs = append(x.msgs[:0], x.msgs[len(x.msgs)-MaxPendingMessages+1:]...)
+		// Reslice rather than copy: append reallocates only when capacity runs out, so a
+		// sustained full backlog costs amortised O(1) per publish.
+		x.msgs = x.msgs[len(x.msgs)-MaxPendingMessages+1:]
 	}
 	x.msgs = append(x.msgs, m)
 }
