@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/rknightion/synthkit/internal/control"
@@ -91,5 +92,158 @@ func TestObserveRejectsNonFiniteQueryValues(t *testing.T) {
 	_, err := observe(context.Background(), queryServer.Client(), config{promURL: queryServer.URL}, failuremode.Assertion{Mode: "latency_storm", QueryAPI: "prometheus", Query: "vector(0)"}, "", "")
 	if err == nil {
 		t.Fatal("non-finite query value was accepted")
+	}
+}
+
+// resourceFixture is a stand-in control plane and query API for one resource-axis mode. While the
+// scenario is active, the carrying series reads active; otherwise it reads baseline. A fixture with
+// effect false never moves anything, which is the "mode is not active" case.
+type resourceFixture struct {
+	t        *testing.T
+	effect   bool
+	sticky   bool // the carrying series stays elevated after deactivation
+	activate int
+	active   bool
+	queries  []string
+}
+
+func (f *resourceFixture) servers() (controlURL, promURL string, closeFn func()) {
+	controlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/control/scenarios/activate":
+			f.active = true
+			f.activate++
+		case "/control/scenarios/deactivate":
+			f.active = false
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{})
+	}))
+	promServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		f.queries = append(f.queries, r.URL.Query().Get("query"))
+		elevated := f.effect && (f.active || f.sticky && f.activate > 0)
+		value := "1"
+		if elevated {
+			value = "5"
+		}
+		series := func(labels map[string]string, v string) map[string]any {
+			return map[string]any{"metric": labels, "value": []any{0, v}}
+		}
+		result := []any{
+			series(map[string]string{"service": "steady"}, "2"),
+			series(map[string]string{"service": "carrier"}, value),
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": map[string]any{"result": result}})
+	}))
+	return controlServer.URL, promServer.URL, func() { controlServer.Close(); promServer.Close() }
+}
+
+func runResourceMode(t *testing.T, mode string, f *resourceFixture) disposition {
+	t.Helper()
+	f.t = t
+	controlURL, promURL, closeFn := f.servers()
+	defer closeFn()
+	sc := control.ScenarioInfo{Blueprint: "bp", Name: "causal", Effects: []control.EffectInfo{{Mode: mode, Target: "declared-resource-name", Intensity: 0.7}}}
+	return exercise(context.Background(), &http.Client{}, config{controlURL: controlURL, promURL: promURL, minChange: 0.2}, sc)
+}
+
+var resourceAxisModes = []string{
+	"pool_exhausted", "concurrency_reduced", "quota_reduced", "consumer_slowdown",
+	"dependency_slow", "dependency_unavailable", "credential_expired", "rule_regression",
+}
+
+func TestResourceAxisModesPassWhenActiveAndFailWhenNot(t *testing.T) {
+	for _, mode := range resourceAxisModes {
+		t.Run(mode, func(t *testing.T) {
+			if _, ok := failuremode.AssertionFor([]string{mode}); !ok {
+				t.Fatalf("no covering assertion for %s", mode)
+			}
+			active := &resourceFixture{effect: true}
+			if d := runResourceMode(t, mode, active); d.Verdict != "pass" || d.Mode != mode || d.Baseline == nil || d.Active == nil || d.Cleared == nil {
+				t.Fatalf("active fixture disposition = %+v, want a pass for %s with baseline, active and cleared values", d, mode)
+			}
+			for _, q := range active.queries {
+				if strings.Contains(q, "{{") {
+					t.Fatalf("query still holds a placeholder: %q", q)
+				}
+				if strings.Contains(q, "traces_") && !strings.Contains(q, `blueprint="bp"`) {
+					t.Fatalf("blueprint-scoped query is not scoped to the scenario's blueprint: %q", q)
+				}
+			}
+			inert := &resourceFixture{effect: false}
+			if d := runResourceMode(t, mode, inert); d.Verdict != "fail" || !strings.Contains(d.Detail, "did not increase") && !strings.Contains(d.Detail, "no series increase") {
+				t.Fatalf("inert fixture disposition = %+v, want a movement failure for %s", d, mode)
+			}
+		})
+	}
+}
+
+func TestResourceAxisModesFailWhenDeactivationDoesNotClear(t *testing.T) {
+	for _, mode := range resourceAxisModes {
+		t.Run(mode, func(t *testing.T) {
+			d := runResourceMode(t, mode, &resourceFixture{effect: true, sticky: true})
+			if d.Verdict != "fail" || !strings.Contains(d.Detail, "deactivation did not return") {
+				t.Fatalf("sticky fixture disposition = %+v, want a clearance failure for %s", d, mode)
+			}
+		})
+	}
+}
+
+// An unrelated series moving is not the mode's effect: the per-series assertions need a series
+// present on both sides to move by the threshold, not any change in the result set.
+func TestAnySeriesIgnoresASeriesThatOnlyAppears(t *testing.T) {
+	var polls int
+	controlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{})
+	}))
+	defer controlServer.Close()
+	promServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		polls++
+		result := []any{map[string]any{"metric": map[string]string{"service": "steady"}, "value": []any{0, "2"}}}
+		if polls > 1 {
+			result = append(result, map[string]any{"metric": map[string]string{"service": "newcomer"}, "value": []any{0, "9"}})
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": map[string]any{"result": result}})
+	}))
+	defer promServer.Close()
+	sc := control.ScenarioInfo{Blueprint: "bp", Name: "causal", Effects: []control.EffectInfo{{Mode: "dependency_slow", Target: "r"}}}
+	d := exercise(context.Background(), &http.Client{}, config{controlURL: controlServer.URL, promURL: promServer.URL, minChange: 0.2}, sc)
+	if d.Verdict != "fail" {
+		t.Fatalf("disposition = %+v, want a failure: only a newly appearing series differed", d)
+	}
+}
+
+func TestSeriesKeyIgnoresNameAndOrdersLabels(t *testing.T) {
+	got := seriesKey(map[string]string{"service": "a", "__name__": "m", "env": "x"})
+	if want := "env=x,service=a"; got != want {
+		t.Fatalf("seriesKey = %q, want %q", got, want)
+	}
+}
+
+// A moved series that stops being reported after deactivation has not stayed elevated, but the
+// report must not invent a cleared value for it.
+func TestAnySeriesDoesNotInventAClearedValue(t *testing.T) {
+	var polls int
+	controlServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{})
+	}))
+	defer controlServer.Close()
+	promServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		polls++
+		var result []any
+		switch polls {
+		case 1:
+			result = []any{map[string]any{"metric": map[string]string{"service": "carrier"}, "value": []any{0, "1"}}}
+		case 2:
+			result = []any{map[string]any{"metric": map[string]string{"service": "carrier"}, "value": []any{0, "5"}}}
+		default:
+			result = []any{map[string]any{"metric": map[string]string{"service": "other"}, "value": []any{0, "1"}}}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": map[string]any{"result": result}})
+	}))
+	defer promServer.Close()
+	sc := control.ScenarioInfo{Blueprint: "bp", Name: "causal", Effects: []control.EffectInfo{{Mode: "dependency_slow", Target: "r"}}}
+	d := exercise(context.Background(), &http.Client{}, config{controlURL: controlServer.URL, promURL: promServer.URL, minChange: 0.2}, sc)
+	if d.Verdict != "pass" || d.Cleared != nil {
+		t.Fatalf("disposition = %+v, want a pass with no cleared value", d)
 	}
 }

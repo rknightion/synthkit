@@ -3,6 +3,9 @@
 package failuremode
 
 import (
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -71,6 +74,144 @@ func TestSlowQueryStormCoversDocumentDBAndRDS(t *testing.T) {
 	for _, want := range []string{"aws_docdb_read_latency_average", "aws_rds_read_latency_average"} {
 		if !strings.Contains(got.Query, want) {
 			t.Fatalf("slow_query_storm query = %q, missing %s", got.Query, want)
+		}
+	}
+}
+
+// resourceAxisModes is the causal fault vocabulary on axis resource (design 3.2).
+var resourceAxisModes = []string{
+	"pool_exhausted", "concurrency_reduced", "quota_reduced", "consumer_slowdown",
+	"dependency_slow", "dependency_unavailable", "credential_expired", "rule_regression",
+}
+
+func TestEveryResourceAxisModeHasAnAssertion(t *testing.T) {
+	for _, mode := range resourceAxisModes {
+		a, ok := AssertionFor([]string{mode})
+		if !ok {
+			t.Errorf("resource-axis mode %q has no covering assertion", mode)
+			continue
+		}
+		if a.Mode != mode || a.Direction != DirectionIncrease {
+			t.Errorf("%s assertion = %+v, want its own increase assertion", mode, a)
+		}
+		if strings.Contains(a.Query, "{{target}}") || strings.Contains(a.Query, "{{sibling}}") {
+			t.Errorf("%s query = %q: a resource target names a declared resource, never a series label", mode, a.Query)
+		}
+		if a.SiblingQuery != "" {
+			t.Errorf("%s declares a sibling query, but resource faults are not environment-scoped", mode)
+		}
+	}
+}
+
+// Span-metric and service-graph families are blueprint-scoped, so their assertions read only the
+// scenario's own blueprint; CloudWatch and broker families are substrate-scoped and carry no
+// blueprint label to filter on.
+func TestBlueprintScopedResourceQueriesAreScopedToTheScenarioBlueprint(t *testing.T) {
+	for _, mode := range resourceAxisModes {
+		a, _ := AssertionFor([]string{mode})
+		scoped := strings.Contains(a.Query, "traces_")
+		has := strings.Contains(a.Query, `blueprint="{{blueprint}}"`) || strings.Contains(a.Query, `client_blueprint="{{blueprint}}"`)
+		if scoped && !has {
+			t.Errorf("%s reads a blueprint-scoped family without a blueprint selector: %q", mode, a.Query)
+		}
+		if !scoped && strings.Contains(a.Query, "{{blueprint}}") {
+			t.Errorf("%s filters a substrate-scoped family by blueprint: %q", mode, a.Query)
+		}
+		if strings.Count(a.Query, "traces_") != strings.Count(a.Query, "{{blueprint}}") {
+			t.Errorf("%s has a traces_ selector without its own blueprint scope: %q", mode, a.Query)
+		}
+	}
+}
+
+// Each assertion observes the signal family its mode moves (design 3.2 and 5).
+func TestResourceAxisAssertionsObserveTheirSignalFamily(t *testing.T) {
+	want := map[string][]string{
+		"dependency_slow":        {"traces_spanmetrics_latency", `span_kind="SPAN_KIND_SERVER"`, "histogram_avg"},
+		"pool_exhausted":         {"traces_spanmetrics_latency", `span_kind="SPAN_KIND_SERVER"`, "histogram_avg"},
+		"rule_regression":        {"traces_spanmetrics_calls_total", `SPAN_KIND_SERVER|SPAN_KIND_CLIENT`, `status_code="STATUS_CODE_ERROR"`, "/ sum("},
+		"dependency_unavailable": {"traces_spanmetrics_calls_total", `span_kind="SPAN_KIND_CLIENT"`, `status_code="STATUS_CODE_ERROR"`},
+		"credential_expired":     {"traces_spanmetrics_calls_total", `span_kind="SPAN_KIND_CLIENT"`, `status_code="STATUS_CODE_ERROR"`},
+		"quota_reduced":          {"traces_service_graph_request_failed_total", `{blueprint="{{blueprint}}"}`, `{client_blueprint="{{blueprint}}"}`},
+		"concurrency_reduced":    {"aws_lambda_throttles_sum"},
+		"consumer_slowdown":      {"aws_sqs_approximate_age_of_oldest_message_maximum", "solace_queue_spool_usage_msgs"},
+	}
+	for mode, parts := range want {
+		a, ok := AssertionFor([]string{mode})
+		if !ok {
+			t.Errorf("%s has no assertion", mode)
+			continue
+		}
+		for _, part := range parts {
+			if !strings.Contains(a.Query, part) {
+				t.Errorf("%s query = %q, missing %q", mode, a.Query, part)
+			}
+		}
+	}
+	// Latency is judged per series: a stack-wide mean would dilute one slowed node below the threshold.
+	for _, mode := range []string{"dependency_slow", "pool_exhausted", "consumer_slowdown"} {
+		if a, _ := AssertionFor([]string{mode}); !a.AnySeries {
+			t.Errorf("%s must be judged per series", mode)
+		}
+	}
+	for _, mode := range []string{"rule_regression", "concurrency_reduced", "quota_reduced", "dependency_unavailable", "credential_expired"} {
+		if a, _ := AssertionFor([]string{mode}); a.AnySeries {
+			t.Errorf("%s is a stack-wide aggregate and must not be judged per series", mode)
+		}
+	}
+}
+
+// A migrated scenario that mixes a legacy and a resource effect keeps selecting the observation
+// the legacy effects selected.
+func TestResourceAssertionPrioritiesKeepLegacySelection(t *testing.T) {
+	cases := []struct {
+		modes []string
+		want  string
+	}{
+		{[]string{"cpu_hotspot", "memory_leak", "dependency_slow", "rule_regression", "pod_crashloop"}, "pod_crashloop"},
+		{[]string{"rule_regression", "dependency_slow"}, "rule_regression"},
+		{[]string{"error_spike", "latency_storm"}, "error_spike"},
+	}
+	for _, tc := range cases {
+		got, ok := AssertionFor(tc.modes)
+		if !ok || got.Mode != tc.want {
+			t.Errorf("AssertionFor(%v) = %q, want %q", tc.modes, got.Mode, tc.want)
+		}
+	}
+}
+
+// Every metric a resource-mode query reads is a documented family: names come from signals/, never
+// from the query author.
+func TestResourceAxisQueriesReadOnlyDocumentedSeries(t *testing.T) {
+	files, err := filepath.Glob("../../signals/*.md")
+	if err != nil || len(files) == 0 {
+		t.Fatalf("signals catalogue not found: %v", err)
+	}
+	var doc strings.Builder
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		doc.Write(b)
+	}
+	names := regexp.MustCompile(`\b(?:aws|traces|solace)_[a-z0-9_]+`)
+	stats := []string{"_sum", "_average", "_maximum", "_minimum", "_sample_count"}
+	for _, mode := range resourceAxisModes {
+		a, _ := AssertionFor([]string{mode})
+		found := names.FindAllString(a.Query, -1)
+		if len(found) == 0 {
+			t.Errorf("%s query %q reads no metric family", mode, a.Query)
+		}
+		for _, name := range found {
+			documented := strings.Contains(doc.String(), name)
+			for _, suffix := range stats {
+				if strings.HasSuffix(name, suffix) && strings.Contains(doc.String(), strings.TrimSuffix(name, suffix)) {
+					documented = true
+				}
+			}
+			if !documented {
+				t.Errorf("%s query reads %s, which signals/ does not document", mode, name)
+			}
 		}
 	}
 }

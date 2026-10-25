@@ -16,7 +16,16 @@ const (
 
 // Assertion is one sourced, queryable observation for a failure mode. Query is
 // an instant PromQL or LogQL metric query. The {{target}} placeholder is replaced
-// with the declared effect target; callers must escape it for their query API.
+// with the declared effect target and {{blueprint}} with the scenario's blueprint
+// (a blueprint-scoped family carries that label; a substrate-scoped one does not);
+// callers must escape both for their query API.
+//
+// AnySeries marks an observation whose carrying series cannot be named from the effect target. A
+// resource-axis target is a declared resource, not a service, function or queue label, and the
+// blueprint (not the harness) binds the resource to its consumers. The query is then evaluated as
+// an instant vector with the {{target}} placeholder unused: the assertion passes when at least one
+// series present both before and during the activation moves in Direction, and every series that
+// moved returns near its baseline after deactivation.
 //
 // SiblingQuery is optional. When set, it proves that an environment-scoped
 // effect moved only its target by evaluating the same observation for a supplied
@@ -27,6 +36,7 @@ type Assertion struct {
 	QueryAPI     string
 	Query        string
 	SiblingQuery string
+	AnySeries    bool
 	Direction    Direction
 	Source       string
 	Priority     int
@@ -47,7 +57,27 @@ var assertions = []Assertion{
 	{Mode: "eval_quality_degraded", QueryAPI: "prometheus", Query: "avg(langsmith_eval_faithfulness_ratio{env=\"{{target}}\"})", SiblingQuery: "avg(langsmith_eval_faithfulness_ratio{env=\"{{sibling}}\"})", Direction: DirectionDecrease, Source: "signals/langsmith.md [slug: langsmith-eval]", Priority: 100},
 	{Mode: "portkey_scrape_degraded", QueryAPI: "prometheus", Query: "avg(portkey_api_error_rate{env=\"{{target}}\"})", SiblingQuery: "avg(portkey_api_error_rate{env=\"{{sibling}}\"})", Direction: DirectionIncrease, Source: "signals/portkey.md [slug: portkey-analytics]", Priority: 100},
 	{Mode: "web_vitals_degraded", QueryAPI: "loki", Query: "avg(avg_over_time({kind=\"measurement\"} |= \"type=web-vitals\" | logfmt | app_name=\"{{target}}\" | unwrap value_lcp [75s]))", Direction: DirectionIncrease, Source: "signals/logs.md [slug: logs-faro-rum]", Priority: 100},
+	// Causal resource-axis modes (internal/causal; design 3.2 and 5). Their effect targets are
+	// declared resource names, so none of these queries uses {{target}}: each observes the signal
+	// family the mode moves across the whole stack (see Assertion.AnySeries for per-series ones).
+	// Priorities mirror the legacy modes a migrated scenario replaces (latency_storm 70,
+	// error_spike 80), so a scenario that mixes legacy and resource effects selects as before.
+	{Mode: "dependency_slow", QueryAPI: "prometheus", Query: serverLatencyByService, AnySeries: true, Direction: DirectionIncrease, Source: "signals/apm.md [slug: apm-latency]; a slow dependency stretches the hop of every node that calls it", Priority: 70},
+	{Mode: "pool_exhausted", QueryAPI: "prometheus", Query: serverLatencyByService, AnySeries: true, Direction: DirectionIncrease, Source: "signals/apm.md [slug: apm-latency]; acquire waits stretch the hop of every node that uses the pool", Priority: 70},
+	{Mode: "rule_regression", QueryAPI: "prometheus", Query: "(sum(rate(traces_spanmetrics_calls_total{blueprint=\"{{blueprint}}\",span_kind=~\"SPAN_KIND_SERVER|SPAN_KIND_CLIENT\",status_code=\"STATUS_CODE_ERROR\"}[2m])) or vector(0)) / sum(rate(traces_spanmetrics_calls_total{blueprint=\"{{blueprint}}\",span_kind=~\"SPAN_KIND_SERVER|SPAN_KIND_CLIENT\"}[2m]))", Direction: DirectionIncrease, Source: "signals/apm.md [slug: apm-calls]; a rule with a 5xx error override fails SERVER spans, the default 4xx rejection fails the caller's CLIENT span (a 4xx SERVER span stays UNSET, so a rule met at an entry node with no caller is not visible in span metrics)", Priority: 80},
+	{Mode: "dependency_unavailable", QueryAPI: "prometheus", Query: clientErrorRate, Direction: DirectionIncrease, Source: "signals/apm.md [slug: apm-calls]; a connect failure is a transport failure on the caller's CLIENT span", Priority: 80},
+	{Mode: "credential_expired", QueryAPI: "prometheus", Query: clientErrorRate, Direction: DirectionIncrease, Source: "signals/apm.md [slug: apm-calls]; a handshake or 401 failure fails the caller's CLIENT span", Priority: 80},
+	{Mode: "quota_reduced", QueryAPI: "prometheus", Query: "sum(rate(traces_service_graph_request_failed_total{blueprint=\"{{blueprint}}\"}[2m]) or rate(traces_service_graph_request_failed_total{client_blueprint=\"{{blueprint}}\"}[2m])) or vector(0)", Direction: DirectionIncrease, Source: "signals/apm.md [slug: apm-service-graph]; a 429 answer fails the caller's edge; the scoped writer stamps a bare blueprint label on synthkit-emitted edges and a generator-derived edge carries client_blueprint, so both are read", Priority: 80},
+	{Mode: "concurrency_reduced", QueryAPI: "prometheus", Query: "sum(aws_lambda_throttles_sum) or vector(0)", Direction: DirectionIncrease, Source: "signals/cw.md (aws_lambda_throttles); a reduced concurrency limit raises the bound function's Throttles", Priority: 90},
+	{Mode: "consumer_slowdown", QueryAPI: "prometheus", Query: "aws_sqs_approximate_age_of_oldest_message_maximum or solace_queue_spool_usage_msgs", AnySeries: true, Direction: DirectionIncrease, Source: "signals/cw.md (aws_sqs_approximate_age_of_oldest_message) and signals/solace.md (solace_queue_spool_usage_msgs); a slower consumer ages and deepens the bound queue", Priority: 90},
 }
+
+const (
+	// serverLatencyByService is the per-series mean SERVER span latency. The 0.05/s floor (about six
+	// observations in the two-minute window) keeps a nearly idle series from passing on noise.
+	serverLatencyByService = "histogram_avg(rate(traces_spanmetrics_latency{blueprint=\"{{blueprint}}\",span_kind=\"SPAN_KIND_SERVER\"}[2m])) and histogram_count(rate(traces_spanmetrics_latency{blueprint=\"{{blueprint}}\",span_kind=\"SPAN_KIND_SERVER\"}[2m])) > 0.05"
+	clientErrorRate        = "sum(rate(traces_spanmetrics_calls_total{blueprint=\"{{blueprint}}\",span_kind=\"SPAN_KIND_CLIENT\",status_code=\"STATUS_CODE_ERROR\"}[2m])) or vector(0)"
+)
 
 // Assertions returns a copy so callers cannot mutate the catalogue.
 func Assertions() []Assertion { return append([]Assertion(nil), assertions...) }

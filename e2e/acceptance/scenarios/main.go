@@ -131,12 +131,17 @@ func exercise(ctx context.Context, c *http.Client, cfg config, sc control.Scenar
 		}
 		return d
 	}
+	a.Query = strings.ReplaceAll(a.Query, "{{blueprint}}", queryLabelValue(sc.Blueprint))
+	a.SiblingQuery = strings.ReplaceAll(a.SiblingQuery, "{{blueprint}}", queryLabelValue(sc.Blueprint))
 	d := disposition{ID: id, Mode: a.Mode, Source: a.Source, Verdict: "fail"}
 	if a.SiblingQuery != "" && cfg.siblingEnv == "" {
 		d.Detail = "environment-scoped assertion requires -sibling-env"
 		return d
 	}
 	target := targets[a.Mode]
+	if a.AnySeries {
+		return exerciseAnySeries(ctx, c, cfg, a, id, target, d)
+	}
 	baseline, err := observe(ctx, c, cfg, a, target, "")
 	if err != nil {
 		d.Detail = "baseline observation: " + err.Error()
@@ -211,6 +216,94 @@ func exercise(ctx context.Context, c *http.Client, cfg config, sc control.Scenar
 	return d
 }
 
+// exerciseAnySeries proves an effect whose carrying series the target does not name (a causal
+// resource, bound to its consumers by the blueprint). It passes when a series present both before
+// and during the activation moves in the assertion's direction by at least cfg.minChange, and every
+// series that moved returns near its baseline after deactivation. A series that exists in only one
+// of the two snapshots is not compared: appearing or vanishing is not movement of a known series.
+func exerciseAnySeries(ctx context.Context, c *http.Client, cfg config, a failuremode.Assertion, id, target string, d disposition) disposition {
+	baseline, err := observeSeries(ctx, c, cfg, a, target, "")
+	if err != nil {
+		d.Detail = "baseline observation: " + err.Error()
+		return d
+	}
+	if err := mutate(ctx, c, cfg, "/control/scenarios/activate", id); err != nil {
+		d.Detail = "activate: " + err.Error()
+		return d
+	}
+	deactivated := false
+	defer func() {
+		if !deactivated {
+			_ = mutate(context.Background(), c, cfg, "/control/scenarios/deactivate", id)
+		}
+	}()
+	if err := wait(ctx, cfg.settle); err != nil {
+		d.Detail = err.Error()
+		return d
+	}
+	active, err := observeSeries(ctx, c, cfg, a, target, "")
+	if err != nil {
+		d.Detail = "active observation: " + err.Error()
+		return d
+	}
+	var movedKeys []string
+	for key, was := range baseline {
+		if now, ok := active[key]; ok && moved(a.Direction, was, now, cfg.minChange) {
+			movedKeys = append(movedKeys, key)
+		}
+	}
+	if len(movedKeys) == 0 {
+		d.Detail = fmt.Sprintf("no series %s by %.0f%% from its baseline across %d baseline and %d active series", a.Direction, cfg.minChange*100, len(baseline), len(active))
+		return d
+	}
+	sort.Strings(movedKeys)
+	best := movedKeys[0]
+	for _, key := range movedKeys[1:] {
+		if relativeChange(baseline[key], active[key]) > relativeChange(baseline[best], active[best]) {
+			best = key
+		}
+	}
+	d.Baseline, d.Active = ptr(baseline[best]), ptr(active[best])
+	if err := mutate(ctx, c, cfg, "/control/scenarios/deactivate", id); err != nil {
+		d.Detail = "deactivate: " + err.Error()
+		return d
+	}
+	deactivated = true
+	if err := wait(ctx, cfg.settle); err != nil {
+		d.Detail = err.Error()
+		return d
+	}
+	cleared, err := observeSeries(ctx, c, cfg, a, target, "")
+	if err != nil {
+		d.Detail = "cleared observation: " + err.Error()
+		return d
+	}
+	for _, key := range movedKeys {
+		got, ok := cleared[key]
+		if !ok {
+			continue // a series that stopped being reported has not stayed elevated
+		}
+		if !near(baseline[key], got, cfg.minChange) {
+			d.Detail = fmt.Sprintf("deactivation did not return series {%s} near baseline: baseline %.6g, cleared %.6g", key, baseline[key], got)
+			d.Cleared = ptr(got)
+			return d
+		}
+	}
+	if got, ok := cleared[best]; ok {
+		d.Cleared = ptr(got) // never report a cleared value the query did not return
+	}
+	d.Verdict = "pass"
+	d.Detail = fmt.Sprintf("%d of %d series moved while active and every moved series returned near baseline after deactivation", len(movedKeys), len(baseline))
+	return d
+}
+
+func ptr(v float64) *float64 { return &v }
+
+// relativeChange orders moved series; a zero baseline ranks by the absolute value reached.
+func relativeChange(baseline, active float64) float64 {
+	return math.Abs(active-baseline) / math.Max(math.Abs(baseline), 1)
+}
+
 func getSchema(ctx context.Context, c *http.Client, cfg config) (control.Schema, error) {
 	var schema control.Schema
 	if err := requestJSON(ctx, c, cfg.controlURL+"/control/schema", cfg.controlToken, "", "", http.MethodGet, nil, &schema); err != nil {
@@ -225,6 +318,20 @@ func mutate(ctx context.Context, c *http.Client, cfg config, path, id string) er
 }
 
 func observe(ctx context.Context, c *http.Client, cfg config, a failuremode.Assertion, target, sibling string) (float64, error) {
+	series, err := observeSeries(ctx, c, cfg, a, target, sibling)
+	if err != nil {
+		return 0, err
+	}
+	var sum float64
+	for _, v := range series {
+		sum += v
+	}
+	return sum, nil
+}
+
+// observeSeries runs the assertion's instant query and returns one finite value per result
+// series, keyed by its sorted label set ("" for a label-less aggregate).
+func observeSeries(ctx context.Context, c *http.Client, cfg config, a failuremode.Assertion, target, sibling string) (map[string]float64, error) {
 	query := a.Query
 	if sibling != "" {
 		query = a.SiblingQuery
@@ -236,44 +343,60 @@ func observe(ctx context.Context, c *http.Client, cfg config, a failuremode.Asse
 		base, user, token = cfg.lokiURL, cfg.lokiUser, cfg.lokiToken
 	}
 	if base == "" {
-		return 0, fmt.Errorf("%s query URL is required for %s", a.QueryAPI, a.Mode)
+		return nil, fmt.Errorf("%s query URL is required for %s", a.QueryAPI, a.Mode)
 	}
 	u, err := url.Parse(strings.TrimRight(base, "/") + "/api/v1/query")
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	q := u.Query()
 	q.Set("query", query)
 	u.RawQuery = q.Encode()
 	var out queryResponse
 	if err := requestJSON(ctx, c, u.String(), "", user, token, http.MethodGet, nil, &out); err != nil {
-		return 0, err
+		return nil, err
 	}
 	if out.Status != "success" {
-		return 0, fmt.Errorf("query status %q: %s", out.Status, out.Error)
+		return nil, fmt.Errorf("query status %q: %s", out.Status, out.Error)
 	}
 	if len(out.Data.Result) == 0 {
-		return 0, errors.New("query returned no series")
+		return nil, errors.New("query returned no series")
 	}
-	var sum float64
+	series := make(map[string]float64, len(out.Data.Result))
 	for _, result := range out.Data.Result {
 		if len(result.Value) != 2 {
-			return 0, errors.New("query result is not an instant vector")
+			return nil, errors.New("query result is not an instant vector")
 		}
 		text, ok := result.Value[1].(string)
 		if !ok {
-			return 0, errors.New("query value is not a string")
+			return nil, errors.New("query value is not a string")
 		}
 		v, err := strconv.ParseFloat(text, 64)
 		if err != nil {
-			return 0, fmt.Errorf("parse query value %q: %w", text, err)
+			return nil, fmt.Errorf("parse query value %q: %w", text, err)
 		}
 		if math.IsNaN(v) || math.IsInf(v, 0) {
-			return 0, fmt.Errorf("query value is non-finite: %q", text)
+			return nil, fmt.Errorf("query value is non-finite: %q", text)
 		}
-		sum += v
+		series[seriesKey(result.Metric)] += v
 	}
-	return sum, nil
+	return series, nil
+}
+
+// seriesKey is a stable identity for one result series.
+func seriesKey(metric map[string]string) string {
+	keys := make([]string, 0, len(metric))
+	for k := range metric {
+		if k != "__name__" {
+			keys = append(keys, k)
+		}
+	}
+	sort.Strings(keys)
+	parts := make([]string, len(keys))
+	for i, k := range keys {
+		parts[i] = k + "=" + metric[k]
+	}
+	return strings.Join(parts, ",")
 }
 
 type queryResponse struct {
@@ -281,7 +404,8 @@ type queryResponse struct {
 	Error  string `json:"error"`
 	Data   struct {
 		Result []struct {
-			Value []any `json:"value"`
+			Metric map[string]string `json:"metric"`
+			Value  []any             `json:"value"`
 		} `json:"result"`
 	} `json:"data"`
 }
