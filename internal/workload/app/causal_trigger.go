@@ -4,6 +4,7 @@ package app
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/ledger"
@@ -47,36 +48,53 @@ import (
 // span metrics are driven by each workload's own requests, so the joined pair's spans are counted
 // once each under their own services, exactly as when they were two traces.
 
-// maxTrackedTriggers bounds the worker requests whose trigger context is waiting for projection.
+// maxTrackedTriggers bounds the worker requests of earlier mints whose trigger context is still
+// held. The requests of the mint in progress are never evicted: one mint can join more requests than
+// the bound (up to causal.MaxPendingMessages, a queue's whole backlog), and each of them still
+// projects before the next mint, so the book holds at most the larger of the bound and one mint's
+// joined requests.
 const maxTrackedTriggers = 16384
 
 // trigger is the message creation context a joined worker request continues.
 type trigger struct{ trace, span string }
 
+// trackedTrigger is one joined worker request in the book and the mint (the minter's tick count
+// when it joined) that made it.
+type trackedTrigger struct {
+	r   *ledger.Request
+	gen uint64
+}
+
 // triggerBook remembers the trigger of each joined worker request from mint to projection (the
 // request carries no field for it), bounded so a workload whose traces are never projected does
-// not grow it.
+// not grow it. Eviction is oldest first and draws nothing, so it is deterministic.
 type triggerBook struct {
 	mu    sync.Mutex
 	by    map[*ledger.Request]trigger
-	order []*ledger.Request
+	order []trackedTrigger // oldest first from head
+	head  int
 }
 
-func (b *triggerBook) put(r *ledger.Request, t trigger) {
+// put records r's trigger for the mint gen. Past the bound it evicts the oldest entries of earlier
+// mints, never one of gen's own.
+func (b *triggerBook) put(gen uint64, r *ledger.Request, t trigger) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.by == nil {
 		b.by = map[*ledger.Request]trigger{}
 	}
-	if len(b.order) >= maxTrackedTriggers {
-		drop := len(b.order) - maxTrackedTriggers + 1
-		for _, old := range b.order[:drop] {
-			delete(b.by, old)
-		}
-		b.order = append(b.order[:0], b.order[drop:]...)
+	for len(b.order)-b.head >= maxTrackedTriggers && b.order[b.head].gen < gen {
+		delete(b.by, b.order[b.head].r)
+		b.order[b.head] = trackedTrigger{}
+		b.head++
+	}
+	if b.head > 0 && b.head >= len(b.order)/2 {
+		// Compact once half the slice is evicted: amortised O(1) per put.
+		b.order = append(b.order[:0], b.order[b.head:]...)
+		b.head = 0
 	}
 	b.by[r] = t
-	b.order = append(b.order, r)
+	b.order = append(b.order, trackedTrigger{r: r, gen: gen})
 }
 
 func (b *triggerBook) get(r *ledger.Request) (trigger, bool) {
@@ -117,7 +135,8 @@ func (p *causalPlan) exchange(m *minter, r *ledger.Request) {
 	if p.consumes != nil {
 		if msg, ok := p.consumes.Take(r.Start.Add(-r.Duration)); ok {
 			r.TraceID = msg.Trace
-			p.triggers.put(r, trigger{trace: msg.Trace, span: msg.Span})
+			// The minter's tick count names the mint in progress (Mint advances it first).
+			p.triggers.put(atomic.LoadUint64(&m.tick), r, trigger{trace: msg.Trace, span: msg.Span})
 		}
 	}
 	if len(p.publishes) == 0 {

@@ -283,3 +283,124 @@ func TestWorkerParentIsAnEmittedSpan(t *testing.T) {
 		})
 	}
 }
+
+// bulkResources, bulkProducerApp and bulkWorkerApp are one busy queue: a producer publishing about
+// 400 messages a second (24,000 a 60 s tick) and a worker that keeps up with them, so one tick's
+// worker batch joins more requests than maxTrackedTriggers.
+const bulkResources = `
+- {name: bulk-queue, kind: queue, size: 2000, hold_ms: 100, demand: {off_peak_rps: 400, peak_rps: 400}}
+`
+
+const bulkProducerApp = `
+traffic: {off_peak_rps: 400, peak_rps: 400}
+services:
+  - {name: bulk-api, entry: true, calls: [bulk-publisher]}
+  - {name: bulk-publisher, uses: [bulk-queue]}
+`
+
+const bulkWorkerApp = `
+traffic: {from_resource: bulk-queue}
+services:
+  - {name: bulk-worker, entry: true, worker: true}
+`
+
+// A worker tick that joins more requests than maxTrackedTriggers keeps every joined request's
+// trigger: each request that took a message (it carries the producer's trace id) projects a root
+// parented to and linked to the span that published it, never a second root inside the producer
+// trace. Across further ticks the book stays bounded by the larger of the bound and one tick's
+// joins.
+func TestWorkerJoiningMoreThanTheTriggerBoundKeepsEveryTrigger(t *testing.T) {
+	ws := causalApps(t, bulkResources, bulkProducerApp, bulkWorkerApp)
+	producer, worker := ws[0], ws[1]
+	eng := shape.New("UTC", nil)
+	publisher := map[string]string{} // producer trace -> the span that published its message
+	largest := 0
+	for k := range 4 {
+		now := causalNow.Add(time.Duration(k) * time.Minute)
+		// The worker mints first (a blueprint may declare it before its producer), so it takes the
+		// whole previous tick's messages before this tick's publishes press on the pending bound.
+		producer.AdvanceCausal(now, eng)
+		worker.AdvanceCausal(now, eng)
+		taken := worker.m.Mint(now, 60, eng)
+		made := producer.m.Mint(now, 60, eng)
+		joined := 0
+		if k == 1 {
+			wp := project(t, worker, eng, taken)
+			for _, r := range taken {
+				span, ok := publisher[r.TraceID]
+				if !ok {
+					continue
+				}
+				joined++
+				root := wp.spans[r.SpanID]
+				if root.TraceID != r.TraceID || root.ParentID != span || len(root.Links) != 1 || root.Links[0].TraceID != r.TraceID || root.Links[0].SpanID != span {
+					t.Fatalf("joined worker request %d of %d: root trace %s parent %q links %+v, want parent and link %s in %s",
+						joined, len(taken), root.TraceID, root.ParentID, root.Links, span, r.TraceID)
+				}
+			}
+			if joined <= maxTrackedTriggers {
+				t.Fatalf("%d worker requests joined in one tick; the test needs more than %d", joined, maxTrackedTriggers)
+			}
+		} else {
+			for _, r := range taken {
+				if _, ok := worker.triggerOf(r); ok {
+					joined++
+				}
+			}
+		}
+		largest = max(largest, joined)
+		for _, r := range made {
+			for i, c := range r.Calls {
+				if c.Target == "bulk-publisher" && !c.Failed {
+					if span := producer.m.hopContext(r, i); span != "" {
+						publisher[r.TraceID] = span
+					}
+				}
+			}
+		}
+		b := &worker.m.causal.triggers
+		b.mu.Lock()
+		held := len(b.by)
+		b.mu.Unlock()
+		if limit := max(maxTrackedTriggers, joined); held > limit {
+			t.Fatalf("tick %d: the trigger book holds %d entries, more than %d", k, held, limit)
+		}
+	}
+	if largest <= maxTrackedTriggers {
+		t.Fatalf("at most %d worker requests joined in a tick; the test needs more than %d", largest, maxTrackedTriggers)
+	}
+}
+
+// Past the bound the book still evicts earlier mints' entries oldest first, as before, but never an
+// entry of the mint in progress.
+func TestTriggerBookEvictsOnlyEarlierMints(t *testing.T) {
+	var b triggerBook
+	first := make([]*ledger.Request, maxTrackedTriggers)
+	for i := range first {
+		first[i] = &ledger.Request{}
+		b.put(1, first[i], trigger{span: fmt.Sprint(i)})
+	}
+	const later = 10
+	for range later {
+		b.put(2, &ledger.Request{}, trigger{})
+	}
+	for i, r := range first {
+		if _, ok := b.get(r); ok != (i >= later) {
+			t.Fatalf("entry %d of the first mint held=%v after %d later puts", i, ok, later)
+		}
+	}
+	// One mint larger than the bound keeps every entry and evicts every earlier one.
+	big := make([]*ledger.Request, maxTrackedTriggers+later)
+	for i := range big {
+		big[i] = &ledger.Request{}
+		b.put(3, big[i], trigger{span: fmt.Sprint(i)})
+	}
+	for i, r := range big {
+		if tr, ok := b.get(r); !ok || tr.span != fmt.Sprint(i) {
+			t.Fatalf("entry %d of the large mint was evicted", i)
+		}
+	}
+	if len(b.by) != len(big) || len(b.order)-b.head != len(big) {
+		t.Fatalf("book holds %d entries (%d ordered), want %d", len(b.by), len(b.order)-b.head, len(big))
+	}
+}
