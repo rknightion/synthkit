@@ -1,0 +1,30 @@
+---
+id: SKT-0183
+title: Tighten unslashed archtest allowlist prefixes
+status: To Do
+assignee: []
+created_date: '2026-10-25T02:43:00Z'
+labels: []
+dependencies: []
+priority: medium
+ordinal: 375000
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+TestCatalogImportIsolation matches allowedPrefixes by string prefix; eight entries lack a trailing slash, so a package path that merely shares a prefix with an allowed entry passes with no allowlist change. Make those entries exact-match or slash-terminated without changing which current packages pass.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 A package whose path only shares a prefix with an allowed entry is rejected, proven red then green
+- [ ] #2 Every current catalog package still passes
+<!-- AC:END -->
+
+## Definition of Done
+<!-- DOD:BEGIN -->
+- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [ ] #3 just dump — inventory diffed against signals/
+<!-- DOD:END -->
