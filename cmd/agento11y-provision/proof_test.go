@@ -82,12 +82,24 @@ type commandProcess struct {
 	cancel   context.CancelFunc
 	done     chan error
 	out, err bytes.Buffer
+	// Test-side diagnostics only: they change no bound, call or assertion.
+	verb           string
+	started, ended time.Time
+	bound          error
 }
+
+// commandBound is the external bound every proof subprocess runs under.
+const commandBound = 5 * time.Second
 
 func (f *commandFixture) start(args ...string) *commandProcess {
 	f.t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), commandBound)
 	pr := &commandProcess{cmd: exec.CommandContext(ctx, proofBinary, args...), cancel: cancel, done: make(chan error, 1)}
+	// The bound runs from here, so the margin includes process start.
+	pr.started = time.Now()
+	if len(args) > 0 {
+		pr.verb = args[0]
+	}
 	pr.cmd.Env = append(os.Environ(), "SSL_CERT_FILE="+f.ca, "SSL_CERT_DIR="+filepath.Dir(f.ca))
 	pr.cmd.Stdout = &pr.out
 	pr.cmd.Stderr = &pr.err
@@ -95,7 +107,11 @@ func (f *commandFixture) start(args ...string) *commandProcess {
 		cancel()
 		f.t.Fatal(e)
 	}
-	go func() { pr.done <- pr.cmd.Wait() }()
+	go func() {
+		e := pr.cmd.Wait()
+		pr.ended, pr.bound = time.Now(), ctx.Err()
+		pr.done <- e
+	}()
 	return pr
 }
 func (f *commandFixture) finish(pr *commandProcess, want int) {
@@ -110,8 +126,14 @@ func (f *commandFixture) finish(pr *commandProcess, want int) {
 			f.t.Fatal(e)
 		}
 	}
+	elapsed := pr.ended.Sub(pr.started)
+	f.t.Logf("command-margin test=%s verb=%s bound=%s elapsed=%s margin=%.3f", f.t.Name(), pr.verb, commandBound, elapsed.Round(time.Millisecond), float64(commandBound-elapsed)/float64(commandBound))
 	if code != want {
-		f.t.Fatalf("command exit=%d want=%d stdout=%s stderr=%s", code, want, &pr.out, &pr.err)
+		ended := ""
+		if errors.Is(pr.bound, context.DeadlineExceeded) {
+			ended = fmt.Sprintf(" (ended by its %s external bound after %s, not the behaviour under test)", commandBound, elapsed.Round(time.Millisecond))
+		}
+		f.t.Fatalf("command %s exit=%d want=%d%s stdout=%s stderr=%s", pr.verb, code, want, ended, &pr.out, &pr.err)
 	}
 	combined := pr.out.String() + pr.err.String()
 	for _, secret := range []string{f.dir, f.server.URL, "fixture-bearer-canary", "fictional-tenant", "Planner"} {
