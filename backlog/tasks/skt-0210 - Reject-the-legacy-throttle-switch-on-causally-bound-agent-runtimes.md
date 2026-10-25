@@ -1,9 +1,11 @@
 ---
 id: SKT-0210
 title: Reject the legacy throttle switch on causally bound agent runtimes
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop59-root'
 created_date: '2026-10-25T15:15:00Z'
+updated_date: '2026-10-25T19:31:00Z'
 labels:
   - causal
 dependencies: []
@@ -28,3 +30,9 @@ Owner ruling Q10 (loop58): a bound agent runtime silently ignores the region-sco
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Add loader rejection for legacy throttle targeting a causally bound agent runtime, retain unbound and deployment-global behavior, and prove via public blueprint load plus scoped gates.
+<!-- SECTION:PLAN:END -->
