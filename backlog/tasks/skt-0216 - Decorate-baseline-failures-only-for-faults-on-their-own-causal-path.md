@@ -1,10 +1,10 @@
 ---
 id: SKT-0216
 title: Decorate baseline failures only for faults on their own causal path
-status: Parked
+status: In Progress
 assignee: []
 created_date: '2026-10-25T19:30:00Z'
-updated_date: '2026-10-25T22:18:00Z'
+updated_date: '2026-10-25T23:10:00Z'
 labels:
   - causal
 dependencies: []
@@ -29,6 +29,12 @@ Baseline failures touched by any slowdown are decorated globally, suppressing th
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Implement own-path baseline-fault decoration on the immutable composed causal source snapshot; public-boundary red/green must retain unrelated baseline error/warning streams and related-path causal timing. No shared engine/schema or rate change. Candidate waits final foundation repair and composed landing.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
