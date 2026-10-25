@@ -1,0 +1,30 @@
+---
+id: SKT-0218
+title: Bind all five declared document-store clients to their causal resources
+status: To Do
+assignee: []
+created_date: '2026-10-25T19:30:00Z'
+labels:
+  - causal
+dependencies: []
+ordinal: 422000
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+Only one of the reference application document-store clients is currently causally bound, leaving most client calls disconnected from resource faults.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 All five declared document-store clients in the reference application have explicit matching causal resource bindings
+- [ ] #2 Healthy and faulted public-entrypoint checks retain correct per-client isolation and plausible sourced call timing
+<!-- AC:END -->
+
+## Definition of Done
+<!-- DOD:BEGIN -->
+- [ ] #1 just check (fmt-check, lint, gen-check, env-check, docs-check, test, race, hygiene, ui-check, compose-check, helm-test, lab-check, signal-fidelity)
+- [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
+- [ ] #3 just dump — inventory diffed against signals/
+<!-- DOD:END -->
