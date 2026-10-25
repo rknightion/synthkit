@@ -109,7 +109,7 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 		// starts, not after it ends — a correct waterfall for chains deeper than one hop, review M1).
 		// r.Calls is DFS pre-order, so a parent hop's start is always recorded before its children.
 		reqEnd := base.Add(dur)
-		startOf := map[string]time.Time{r.SpanID: base}
+		wins := hopWindows(r, base, reqEnd, layout)
 		hopContexts := make([]string, len(r.Calls))
 		for i := range r.Calls {
 			call := r.Calls[i]
@@ -118,39 +118,15 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 				continue
 			}
 			caller := entry
-			callerSpanID := r.SpanID
 			callerContext := entryContext
 			if call.ParentHopIndex >= 0 && call.ParentHopIndex < len(r.Calls) {
 				p := r.Calls[call.ParentHopIndex]
 				if pn := w.graph.byName[p.Target]; pn != nil {
 					caller = pn
-					callerSpanID = p.PeerSpanID
 					callerContext = hopContexts[call.ParentHopIndex]
 				}
 			}
-			parentStart := startOf[callerSpanID]
-			if parentStart.IsZero() {
-				parentStart = base
-			}
-			hopStart := parentStart.Add(time.Duration(float64(reqEnd.Sub(parentStart)) * 0.1))
-			cd := call.Duration
-			if cd < time.Millisecond {
-				cd = time.Millisecond
-			}
-			end := hopStart.Add(cd)
-			if end.After(reqEnd) {
-				end = reqEnd
-			}
-			serverEnd := end
-			if layout {
-				// The causal timeline places each attempt by its offset; a timed-out call's
-				// server span keeps its own duration (clipped at the request end).
-				hopStart, end, serverEnd = causalHopWindow(base, reqEnd, call)
-			}
-			startOf[call.SpanID] = hopStart
-			if call.PeerSpanID != "" {
-				startOf[call.PeerSpanID] = hopStart
-			}
+			hopStart, end, serverEnd, innerEnd := wins[i].start, wins[i].end, wins[i].serverEnd, wins[i].innerEnd
 			// CLIENT span in the CALLER's resource (the caller's outbound view — universal correlation
 			// attrs; for a db/cache leaf with a resolved db_instance the stable-semconv DB identity
 			// (db.system.name / db.namespace / server.address) decorates THIS span — the caller's
@@ -182,7 +158,7 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 			if callee.kind.serverSpan && call.PeerSpanID != "" {
 				if callee.decl.tracesEnabled() {
 					sr := get(callee)
-					sName, sAttrs, sChildren := w.nodeSpan(callee, otlp.KindServer, call.PeerSpanID, serverSpanName(callee, call), r, &r.Calls[i], hopStart, serverEnd, world)
+					sName, sAttrs, sChildren := w.nodeSpan(callee, otlp.KindServer, call.PeerSpanID, serverSpanName(callee, call), r, &r.Calls[i], hopStart, innerEnd, world)
 					server := otlp.Span{
 						Name:    sName,
 						TraceID: r.TraceID, SpanID: call.PeerSpanID, ParentID: calleeContext,
@@ -197,11 +173,11 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 					calleeContext = call.PeerSpanID
 					// In-process agentic flow on this CALLEE node (parent = its SERVER span; hop window).
 					if callee.agenticFlow != nil {
-						sr.Spans = append(sr.Spans, emitAgentFlow(callee.agenticFlow, r, call.PeerSpanID, hopStart, serverEnd)...)
+						sr.Spans = append(sr.Spans, emitAgentFlow(callee.agenticFlow, r, call.PeerSpanID, hopStart, innerEnd)...)
 					}
 				} else {
 					// Keep the established draw sequence for later projections while suppressing this node's spans.
-					w.nodeSpan(callee, otlp.KindServer, call.PeerSpanID, serverSpanName(callee, call), r, &r.Calls[i], hopStart, serverEnd, world)
+					w.nodeSpan(callee, otlp.KindServer, call.PeerSpanID, serverSpanName(callee, call), r, &r.Calls[i], hopStart, innerEnd, world)
 				}
 			}
 			hopContexts[i] = calleeContext
@@ -218,6 +194,58 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 		return nil
 	}
 	return world.Traces.Write(ctx, resources)
+}
+
+// hopWindow is one hop's placement on the request timeline: the caller's CLIENT span runs
+// [start, end), the callee's SERVER span [start, serverEnd). innerEnd is the end of the window the
+// hop was drawn with, which the callee's in-process spans (declared spans, agentic flow) use.
+type hopWindow struct {
+	start, end, serverEnd, innerEnd time.Time
+}
+
+// hopWindows places every hop of r. Each hop is drawn on the legacy nesting (a short lead into the
+// caller's window, then its own duration, clipped at the request end) or, on the causal timeline,
+// at its Offset. The hop durations are drawn independently, so a nested hop can outlast the hop
+// that calls it; a blocking call cannot, so on the legacy nesting an outlasted caller's spans are
+// widened (end only, never the start) to cover the call. The request end bounds every hop, so the
+// root already covers them all. Only ends of hops that overrun their caller move; the in-process
+// windows and every start keep their drawn values.
+func hopWindows(r *ledger.Request, base, reqEnd time.Time, layout bool) []hopWindow {
+	wins := make([]hopWindow, len(r.Calls))
+	startOf := make([]time.Time, len(r.Calls))
+	for i, call := range r.Calls {
+		parentStart := base
+		if p := call.ParentHopIndex; p >= 0 && p < len(r.Calls) && !startOf[p].IsZero() {
+			parentStart = startOf[p]
+		}
+		hopStart := parentStart.Add(time.Duration(float64(reqEnd.Sub(parentStart)) * 0.1))
+		cd := max(call.Duration, time.Millisecond)
+		end := hopStart.Add(cd)
+		if end.After(reqEnd) {
+			end = reqEnd
+		}
+		serverEnd := end
+		if layout {
+			// The causal timeline places each attempt by its offset; a timed-out call's
+			// server span keeps its own duration (clipped at the request end).
+			hopStart, end, serverEnd = causalHopWindow(base, reqEnd, call)
+		}
+		startOf[i] = hopStart
+		wins[i] = hopWindow{start: hopStart, end: end, serverEnd: serverEnd, innerEnd: serverEnd}
+	}
+	if layout {
+		return wins
+	}
+	// DFS pre-order: every child follows its parent, so one backward pass settles each hop's end
+	// before its caller reads it.
+	for i := len(r.Calls) - 1; i >= 0; i-- {
+		p := r.Calls[i].ParentHopIndex
+		if p < 0 || p >= len(r.Calls) || !wins[i].end.After(wins[p].end) {
+			continue
+		}
+		wins[p].end, wins[p].serverEnd = wins[i].end, wins[i].end
+	}
+	return wins
 }
 
 // universalAttrs is the correlation attr set stamped on every app span (stampCorrelation parity).
