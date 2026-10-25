@@ -152,6 +152,22 @@ Each node in `services:` is a `ServiceNode`:
 | `agentic_flow` | In-process LangGraph orchestration — emits `invoke_workflow` → `invoke_agent` → `execute_tool*` → `chat` span subtree inside this node's SERVER span. |
 | `pages` | RUM navigation inventory (frontend entry nodes only). Page-views are RUM-only: they model session navigation around the traced action and emit no backend trace. |
 
+### Call policies and retry semantics
+
+With declared `environments[].resources`, a service's `call_policies` give a per-callee client
+policy keyed by names in its `calls`: `timeout_ms` (0 = none), `retries` (0 to 3), `backoff_ms`
+(doubled per resend), `retry_on` (`5xx`, `throttle`, `timeout`, `connect`) and `propagate_throttle`.
+`timeout_ms` and `backoff_ms` are each at most 600000 (ten minutes); a larger value is rejected at
+load. The retry rules:
+
+- The service that calls the target never resends a rule rejection or a credential failure.
+- An upstream caller that only sees the mapped status may. An unabsorbed credential failure reaches
+  the next caller up as a 502, which a `retry_on: [5xx]` policy there resends; each resend meets the
+  same credential failure once more at the direct caller.
+- A rule rejection slower than the caller's `timeout_ms` reaches the caller as a timeout (a client
+  that times out cannot know the cause), so `retry_on: [timeout]` resends it. With no timeout, or a
+  timeout longer than the rejection, the same rejection is made once.
+
 ### Service graph example
 
 ```yaml

@@ -1650,6 +1650,13 @@ Namespace `AWS/DocDB`. Dimensions: `dimension_DBClusterIdentifier`, `dimension_R
 
 ⚠ `ReadLatency`/`WriteLatency` units documented ambiguously; treat as seconds (same as RDS). `_sum` never `rate()`.
 
+A cluster bound to a declared causal `dependency` or `pool` resource (`databases[].resource`) scales
+`aws_docdb_read_latency` and `aws_docdb_write_latency` by the resource's latency factor (mean over the
+5 s model steps of the 60 s window). When bound to a pool, `aws_docdb_database_connections` takes the
+pool's mean in-use connections on the `WRITER` row only; the `READER` row keeps its baseline, so summing
+the roles counts the pool's connections once (the construct declares no role weights to split them by).
+It emits no new family or label, and every other family is unchanged.
+
 ```yaml signals
 family: aws_docdb
 scope: blueprint

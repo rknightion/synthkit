@@ -172,6 +172,16 @@ Every other family keeps its baseline, and each family returns to the baseline o
 | `portkey_scrape_degraded` | Portkey analytics scrape degrades — API error_rate and 4xx/5xx share climb, latency rises, poller falls behind. |
 | `eval_quality_degraded` | LangSmith eval quality regresses — faithfulness/completeness/relevance and retrieval scores drop while retry/fallback/HITL rates and error/pending run-outcomes climb. |
 
+An AgentCore runtime listed under `cloud.agentcore.runtimes` with a `resource:` (a `concurrency`
+resource under `environments[].resources`) emits its own `aws_bedrock_agentcore_*` invocation-class
+series, named by the runtime ARN, from the shared resource model, and ignores `agentcore_throttle`:
+that mode is scoped to the environment, not to a runtime, so it cannot be a load error for one bound
+runtime, and it keeps amplifying the deployment-wide `.../runtime/global` series. The resource-axis
+modes reach the bound runtime instead: `concurrency_reduced` on the resource (`throttles` rise,
+`invocations` fall), `dependency_slow` on its held-across dependency (`latency` rises, then
+`throttles` once the limit is reached) and `dependency_unavailable` or `credential_expired`
+(`system_errors` and `total_errors`). Each family drains back to the baseline when the incident ends.
+
 ### network axis
 
 | Mode | Effect |

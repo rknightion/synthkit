@@ -192,7 +192,7 @@ reflects the registered Config types; the loader and Build enforce semantic cons
 | `databases[].version` | string | yes | Engine version string. |
 | `databases[].name` | string | yes | Instance name. Must be globally unique across all enabled blueprints. |
 | `databases[].instance_class` | string | no | e.g. `"db.t3.medium"`. Empty ⇒ resolver default. |
-| `databases[].resource` | string | no | Name of a declared `dependency` or `pool` resource (`environments[].resources`) that drives the database's CloudWatch lane: read and write latency scale with the resource's latency factor and, for a pool, `DatabaseConnections` follows its in-use connections. A bound database takes no legacy `database`-axis mode, needs the CloudWatch lane and cannot combine with `observability.dbo11y`. Supported for `postgres` and `mysql`. |
+| `databases[].resource` | string | no | Name of a declared `dependency` or `pool` resource (`environments[].resources`) that drives the database's CloudWatch lane: read and write latency scale with the resource's latency factor and, for a pool, `DatabaseConnections` follows its in-use connections. A bound database takes no legacy `database`-axis mode, needs the CloudWatch lane and cannot combine with `observability.dbo11y`. Supported for `postgres`, `mysql` and `docdb`; a pool-bound `docdb` cluster reports the pool's in-use connections on its `WRITER` row only. |
 | `databases[].observability` | object | no | Emission switch. Nil ⇒ CloudWatch only. |
 | `databases[].observability.cloudwatch` | bool | no | Emit `aws_rds_*` CloudWatch family. Default `true`. |
 | `databases[].observability.dbo11y` | bool | no | Emit `database_observability_*` lane. Default `false`. |
@@ -522,6 +522,7 @@ Add-ons are listed under `cluster.addons[]`. Most have no configurable fields; o
 |---|---|---|
 | `agents[]` | string | Agent logical names for resource-usage dimensions. Default: `["planner","retriever"]`. |
 | `sub_signals[]` | string | Families to emit. Valid: `runtime`, `resource_usage`, `usage_logs`. Empty ⇒ `runtime` + `resource_usage` + app logs. `usage_logs` is opt-in. |
+| `runtimes[]` | object | Binds an agent's runtime to a causal resource: `{agent, resource}`. `agent` names an entry of `agents`; `resource` names a `concurrency` resource under `environments[].resources` (one runtime per resource). The runtime then emits its own `invocations`, `throttles`, `system_errors`, `total_errors` and `latency` series, named by the runtime ARN, from the resource model. Needs the `runtime` family. Absent ⇒ unchanged output. |
 
 ### aoss config
 
