@@ -117,6 +117,9 @@ for the worked example (a connection pool held across a slow database, loaded fr
 loadable blueprint per mode. Copy their structure, not their rates. An error class and message
 are values you choose in a resource's `error` block; the catalogue ships none. Do not name an
 attribute or log field for the cause: the signal contracts fix those names once sourced.
+For request/response function trace joins, follow the
+[canonical synchronous invocation contract](https://github.com/rknightion/synthkit/blob/main/docs/workloads.md#synchronously-invoked-functions-run-inside-the-call)
+alongside the [causal request guide](https://github.com/rknightion/synthkit/blob/main/docs/workloads.md#causal-requests).
 
 ## Procedure
 
