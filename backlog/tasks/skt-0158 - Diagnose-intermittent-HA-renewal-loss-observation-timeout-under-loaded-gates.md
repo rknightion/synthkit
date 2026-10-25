@@ -1,10 +1,10 @@
 ---
 id: SKT-0158
 title: Diagnose intermittent HA renewal-loss observation timeout under loaded gates
-status: Parked
+status: In Progress
 assignee: []
 created_date: '2026-10-21T15:25:00Z'
-updated_date: '2026-10-25T22:18:00Z'
+updated_date: '2026-10-25T22:31:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -30,6 +30,12 @@ The Go 1.27.3 dependency/security candidate hit TestHACoordinatorRenewalLossSupp
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Loop60: bounded focused native measurement with load context; retain existing proof bounds.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 

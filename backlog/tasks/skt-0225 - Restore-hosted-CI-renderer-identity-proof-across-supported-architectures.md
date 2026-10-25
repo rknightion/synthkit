@@ -1,10 +1,10 @@
 ---
 id: SKT-0225
 title: Restore hosted CI renderer identity proof across supported architectures
-status: Parked
+status: In Progress
 assignee: []
 created_date: '2026-10-25T22:08:00Z'
-updated_date: '2026-10-25T22:18:00Z'
+updated_date: '2026-10-25T22:31:00Z'
 labels:
   - ci
 dependencies: []
@@ -35,6 +35,8 @@ Hosted amd64 coverage fails the newly added complete unbound PostgreSQL/MySQL di
 
 <!-- SECTION:PLAN:BEGIN -->
 Inspect saved failed CI and current tests; capture old renderer controls on arm64 and executed amd64; repair only demonstrably incorrect proof assumptions, stop if actual unbound behavior changed. Diagnose tool installation read-only; no workflow/provider authority changes without root scope. Return candidate before landing.
+
+Loop60: validate retained architecture-control repair, root review/gate and fix-forward first; require exact hosted green before another landing.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes

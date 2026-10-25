@@ -1,10 +1,10 @@
 ---
 id: SKT-0210
 title: Reject the legacy throttle switch on causally bound agent runtimes
-status: Parked
+status: In Progress
 assignee: []
 created_date: '2026-10-25T15:15:00Z'
-updated_date: '2026-10-25T22:18:00Z'
+updated_date: '2026-10-25T22:31:00Z'
 labels:
   - causal
 dependencies: []
@@ -34,6 +34,8 @@ Owner ruling Q10 (loop58): a bound agent runtime silently ignores the region-sco
 
 <!-- SECTION:PLAN:BEGIN -->
 Add loader rejection for legacy throttle targeting a causally bound agent runtime, retain unbound and deployment-global behavior, and prove via public blueprint load plus scoped gates.
+
+Loop60: complete selected AgentCore bound/unbound public CLI inventory and sourced conformance, with existing source unchanged.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes

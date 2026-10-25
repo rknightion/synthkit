@@ -1,10 +1,10 @@
 ---
 id: SKT-0223
 title: Classify unchanged custody forecast race failure in composed telemetry gate
-status: Parked
+status: In Progress
 assignee: []
 created_date: '2026-10-25T20:26:00Z'
-updated_date: '2026-10-25T22:18:00Z'
+updated_date: '2026-10-25T22:31:00Z'
 labels:
   - causal
 dependencies: []
@@ -34,6 +34,8 @@ A composed telemetry gate failed TestTeardownForecastAdmittedConstructionsTearDo
 
 <!-- SECTION:PLAN:BEGIN -->
 Read the exact composed failure and compare source/dependency closure; run at most five unchanged focused race iterations on each base and adapter candidate through gaterun, retaining exact tree/run/load evidence. No custody source/test edits, no bound changes, no unchanged full-gate rerun, and no attribution from isolated green alone.
+
+Loop60: attribute original nested-operation/state/scheduling context; no unchanged resampling clears original red.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes

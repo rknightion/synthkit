@@ -1,10 +1,10 @@
 ---
 id: SKT-0224
 title: Bound dynamic legacy timing evaluation cost before broad live use
-status: Parked
+status: In Progress
 assignee: []
 created_date: '2026-10-25T22:00:00Z'
-updated_date: '2026-10-25T22:18:00Z'
+updated_date: '2026-10-25T22:31:00Z'
 labels:
   - causal
   - performance
@@ -30,6 +30,12 @@ A novel-input two-legacy-sibling gate measured 6.29 seconds and13.93GB cumulativ
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Loop60: map hot paths first, then optimize and measure cold/catch-up/changing inputs on accepted composed stack within model tick budget; no numerical or sampler relaxation.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 

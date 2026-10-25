@@ -1,10 +1,10 @@
 ---
 id: SKT-0211
 title: Make causal span timestamps identical on amd64 and arm64
-status: Parked
+status: In Progress
 assignee: []
 created_date: '2026-10-25T15:15:00Z'
-updated_date: '2026-10-25T22:18:00Z'
+updated_date: '2026-10-25T22:31:00Z'
 labels:
   - causal
 dependencies: []
@@ -34,6 +34,8 @@ Landing-13 review C1 (codex/loop58/rv13 notes in DECISIONS D190): the Go compile
 
 <!-- SECTION:PLAN:BEGIN -->
 Restore the accepted archived landing stack in an isolated candidate; reproduce architecture-dependent causal timestamps, prevent fused multiply-add at digest-sensitive arithmetic, and retain arm64 plus amd64 digest evidence. Root composes, reviews and gates before landing.
+
+Loop60: senior composes only charter-listed accepted engine/app/Lambda/AgentCore stack over current main without replacing landed database files.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
