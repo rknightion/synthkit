@@ -27,9 +27,10 @@
 // `pool` resource (databases[].resource) is driven by the shared causal model instead of the
 // legacy database failure modes. ReadLatency and WriteLatency are scaled by the resource's
 // latency factor (the dependency's, or for a pool the dependency it is held across), averaged
-// over the model's grid steps inside the tick window; DatabaseConnections follows the pool's
-// mean in-use connections when bound to a pool and keeps its baseline when bound to a
-// dependency. No other family reads the model and no name is added. dependency_unavailable and
+// over the model's grid steps inside the tick window; the WRITER row of DatabaseConnections
+// follows the pool's mean in-use connections when bound to a pool; the READER row and a
+// dependency-bound cluster keep the baseline, so the pool's connections are counted once. No
+// other family reads the model and no name is added. dependency_unavailable and
 // credential_expired have no sourced DocumentDB metric, so they move nothing here. A bound
 // cluster ignores the legacy AxisDatabase modes (the loader rejects scheduling them against
 // it), so one cause moves it. An unbound cluster runs the legacy path byte for byte.
@@ -204,7 +205,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	// Failure-mode amplifiers (AxisDatabase, scoped to db.Name — the SAME scope key any
 	// future dbo11y construct would use for coherent incident propagation). A bound cluster
 	// reads the shared causal model instead: the latency factor scales the latency families and
-	// a pool's in-use count is the connection count, so it is moved by one cause alone.
+	// a pool's in-use count is the writer's connection count, so it is moved by one cause alone.
 	connMult, latMult := 1.0, 1.0
 	var poolConns float64
 	var havePool bool
@@ -215,10 +216,11 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		connMult = w.Shape.FailFactor(now, "connection_saturation", c.db.Name, 3.0)
 		latMult = w.Shape.FailFactor(now, "slow_query_storm", c.db.Name, 4.0)
 	}
-	connections := (20 + 80*bf) * connMult
-	if havePool {
-		connections = poolConns
-	}
+	// connections is the baseline every role reports. A pool's in-use count is the connections
+	// the service's pool holds, which are the cluster's writer connections; it is reported on the
+	// WRITER row alone so summing the roles counts them once. The construct declares no role
+	// weights, so the READER row keeps its baseline rather than inventing a split.
+	baseConns := (20 + 80*bf) * connMult
 
 	for _, role := range []string{"WRITER", "READER"} {
 		lbls := c.baseLabels(map[string]string{
@@ -227,6 +229,10 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		})
 		// Base names sourced VERBATIM from signals/cw.md [slug: cw-docdb].
 		setGauge(c.st, "aws_docdb_cpuutilization", lbls, 18+12*bf)
+		connections := baseConns
+		if havePool && role == "WRITER" {
+			connections = poolConns
+		}
 		setGauge(c.st, "aws_docdb_database_connections", lbls, connections)
 		setGauge(c.st, "aws_docdb_freeable_memory", lbls, 8e9-2e9*bf)
 		setGauge(c.st, "aws_docdb_buffer_cache_hit_ratio", lbls, 99-2*bf)
