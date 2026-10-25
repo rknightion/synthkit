@@ -465,8 +465,7 @@ func (e *Engine) NormFloat64() float64 {
 // is fail-closed: a value-scoped setting never matches an un-scoped read; an un-scoped
 // setting matches every caller.
 func (e *Engine) Eval(now time.Time, mode string, callerScope string) (bool, float64) {
-	var active bool
-	var inten float64
+	active, inten := e.EvalScheduled(now, mode, callerScope)
 	if e.Live != nil {
 		for _, lf := range e.Live(mode) {
 			if lf.Enabled && scopeMatch(lf.Scope, callerScope) {
@@ -477,6 +476,15 @@ func (e *Engine) Eval(now time.Time, mode string, callerScope string) (bool, flo
 			}
 		}
 	}
+	return active, inten
+}
+
+// EvalScheduled is Eval over the scheduled incident windows alone: it ignores the Live hook, so
+// its answer is a pure function of now, mode and callerScope. A consumer that replays history
+// (internal/causal's warm start) uses it for instants older than the live state can speak for.
+func (e *Engine) EvalScheduled(now time.Time, mode string, callerScope string) (bool, float64) {
+	var active bool
+	var inten float64
 	for _, w := range e.incidents {
 		if w.kind != mode || !scopeMatch(w.scope, callerScope) {
 			continue

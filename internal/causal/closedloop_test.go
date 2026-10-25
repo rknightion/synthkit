@@ -210,3 +210,24 @@ func TestValidateDemandFromAndLoads(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// The demand.from cycle error names the same resource on every run: the smallest name on the
+// cycle, not whichever resource a map iteration reached first (a tail feeding the cycle is not
+// on it and is never named).
+func TestDemandFromCycleErrorDeterministic(t *testing.T) {
+	capq := func(name, from string) Resource {
+		return Resource{Name: name, Kind: KindQuota, LimitRPS: 10, Demand: &Demand{From: from}}
+	}
+	// 0tail -> c -> a -> b -> c: the cycle is a, b, c; "0tail" sorts before all of them, so the walk
+	// starts off the cycle and first repeats at c, yet the error must name a.
+	s := set(capq("0tail", "c"), capq("c", "a"), capq("a", "b"), capq("b", "c"))
+	first := Validate(s)
+	if first == nil || !strings.Contains(first.Error(), `resource "a": demand.from cycle`) {
+		t.Fatalf("got %v, want the smallest cycle member a named", first)
+	}
+	for range 200 {
+		if err := Validate(s); err == nil || err.Error() != first.Error() {
+			t.Fatalf("error changed between runs: %v vs %v", err, first)
+		}
+	}
+}

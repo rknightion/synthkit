@@ -17,6 +17,12 @@ const (
 	Horizon      = 24 * time.Hour
 	horizonSteps = int64(Horizon / Step)
 	stepSec      = float64(Step / time.Second)
+	// liveSteps is the final stretch of a warm start that sees live faults: the retained history,
+	// the span a State or Window can report. A live fault at restart has an unknown start, and
+	// integrating it over the whole Horizon would invent up to a day of backlog (a 0.5
+	// consumer_slowdown on a queue fed 8 msg/s and serving 10 gave 259k messages and a 9 h
+	// oldest age on the first tick); bounded to the ring it can build at most 15 minutes of it.
+	liveSteps = ringSteps
 	// maxFixedPoint bounds the per-step retry-demand iteration (it converges monotonically).
 	maxFixedPoint = 64
 )
@@ -183,18 +189,29 @@ func gridTime(k int64) time.Time { return time.Unix(0, k*int64(Step)).UTC() }
 // state at a time depends only on the scheduled inputs over the preceding Horizon, not on when a
 // consumer started. Live faults are read through the Clock at call time, so steps integrated in
 // one call share the live state of that call: the composition root advances every consumer once
-// per master tick (Advancer) so all consumers sample live inputs at the same instants.
+// per master tick (Advancer) so all consumers sample live inputs at the same instants. A live
+// fault says nothing about when it began, so a warm start applies it only to the final
+// liveSteps (the retained history) and reads scheduled windows alone before that, when the Clock
+// is a ScheduledClock; without one every step reads Eval, live state included.
 func (m *Model) Advance(now time.Time, c Clock) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	k := gridIndex(now)
+	hist := c // the Clock for steps before the live stretch of a warm start
 	if !m.started || k-m.last > horizonSteps {
 		m.started = true
 		m.last = k - horizonSteps - 1
 		m.reset(m.last)
+		if sc, ok := c.(ScheduledClock); ok {
+			hist = scheduledView{Clock: c, sc: sc}
+		}
 	}
 	for j := m.last + 1; j <= k; j++ {
-		m.step(j, c)
+		if j <= k-liveSteps {
+			m.step(j, hist)
+		} else {
+			m.step(j, c)
+		}
 	}
 	if k > m.last {
 		m.last = k

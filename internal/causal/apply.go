@@ -26,8 +26,11 @@ func UnitDraw(seedUnit string) Draw {
 }
 
 // Scope returns a Draw whose purposes are prefixed with prefix + "/". Consumers scope a request's
-// draw to `<node>/<resource>/<attempt>` before calling Apply, which asks for the leaf purposes
-// "fail" and "wait".
+// draw to the full hop path with every ancestor attempt index, then the resource,
+// `<entry>#<a0>><node>#<a1>>...><node>#<ak>/<resource>` (design v2 section 4.1, ruling M5), before
+// calling Apply, which asks for the leaf purposes "fail" and "wait". The path must carry every
+// ancestor's attempt, not only the node's own, so two hops reaching the same resource through
+// different parents or retries never share a draw.
 func (d Draw) Scope(prefix string) Draw {
 	return func(purpose string) float64 { return d(prefix + "/" + purpose) }
 }

@@ -78,7 +78,9 @@ type Declaration struct {
 }
 
 // Set is every environment's declarations of one blueprint plus the retrying caller edges into
-// its resources. Resource names are unique blueprint-wide (Validate enforces it).
+// its resources. Resource names are unique blueprint-wide (Validate enforces it). The composition
+// root hands one Set to every consumer, so a Set, its slices and the pointers inside its resources are
+// read-only: Compile reads it without modifying it and no consumer may mutate it.
 type Set struct {
 	Envs  []Declaration
 	Loads []Load
@@ -160,7 +162,8 @@ func (s Set) CredentialsOf(dependency string) []Resource {
 
 // Consumer is implemented by a construct or workload Config that reads the declared resources.
 // The blueprint resolver calls UseResources once, after strict decode and before Build, and
-// only when the blueprint declares at least one resource.
+// only when the blueprint declares at least one resource. The Set is shared with every other
+// consumer of the blueprint and is read-only: keep it or compile it, never modify it or its slices.
 type Consumer interface{ UseResources(Set) }
 
 // Clock is the shape-engine surface the model reads. *shape.Engine satisfies it. The model never
@@ -169,4 +172,23 @@ type Clock interface {
 	Eval(now time.Time, mode, scope string) (bool, float64)
 	Factor(now time.Time, weight float64, nonProd bool) float64
 	VolumeMultiplier() float64
+}
+
+// scheduledView is a Clock whose Eval reads scheduled windows alone and whose other methods
+// are the underlying Clock's.
+type scheduledView struct {
+	Clock
+	sc ScheduledClock
+}
+
+func (v scheduledView) Eval(now time.Time, mode, scope string) (bool, float64) {
+	return v.sc.EvalScheduled(now, mode, scope)
+}
+
+// ScheduledClock is optionally implemented by a Clock that can answer Eval from its scheduled
+// incident windows alone, without live control-plane state. Warm start uses it for the part of
+// the Horizon older than the retained history, so a live fault active at restart is applied to
+// the final stretch only. *shape.Engine satisfies it. A Clock without it keeps the plain Eval.
+type ScheduledClock interface {
+	EvalScheduled(now time.Time, mode, scope string) (bool, float64)
 }

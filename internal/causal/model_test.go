@@ -462,3 +462,67 @@ func TestEvalReadsPerStep(t *testing.T) {
 		t.Fatal("Apply read the clock")
 	}
 }
+
+// A window over a model that was never advanced has no history: it is empty and Truncated, as
+// documented, not a clean empty window.
+func TestWindowUnadvancedIsTruncated(t *testing.T) {
+	m := mustCompile(t, set(Resource{Name: "intake-quota", Kind: KindQuota, LimitRPS: 80, Demand: constant(60)}))
+	w, ok := m.Window("intake-quota", at(0), at(12))
+	if !ok || w.Steps != 0 || !w.Truncated {
+		t.Fatalf("un-advanced window %+v ok=%v, want empty and Truncated", w, ok)
+	}
+	// An empty or inverted interval stays a clean empty window.
+	if w, ok := m.Window("intake-quota", at(12), at(12)); !ok || w.Truncated {
+		t.Fatalf("empty interval %+v ok=%v", w, ok)
+	}
+}
+
+// A warm start applies a live fault to the final stretch only. A live consumer_slowdown 0.5 on a
+// queue fed 8 msg/s and served 10 msg/s used to integrate over the whole Horizon: 3 msg/s x 24 h
+// = 259k messages on the first tick, oldest age 9 h. It builds at most the retained history's
+// worth (15 minutes), and a scheduled window earlier in the Horizon still counts exactly.
+func TestWarmStartLiveFaultFinalStretchOnly(t *testing.T) {
+	q := Resource{Name: "jobs-queue", Kind: KindQueue, Size: 5, HoldMS: 500, Demand: constant(8)} // 10 msg/s
+	live := func() *fakeClock {
+		c := newClock()
+		c.live = map[string]float64{ModeConsumerSlowdown + "\x00jobs-queue": 0.5}
+		return c
+	}
+	maxLive := 3.0 * float64(liveSteps) * stepSec // deficit 3 msg/s over the live stretch
+
+	m := mustCompile(t, set(q))
+	m.Advance(t0, live())
+	st, _ := m.State("jobs-queue", t0)
+	if st.Backlog < maxLive-1 || st.Backlog > maxLive+1 {
+		t.Errorf("live backlog %.0f, want %.0f (the final stretch only)", st.Backlog, maxLive)
+	}
+	if want := float64(liveSteps) * stepSec; st.OldestAgeSec > want+1 {
+		t.Errorf("oldest age %.0f s exceeds the live stretch %.0f s", st.OldestAgeSec, want)
+	}
+
+	// A scheduled stall (service rate 0) from 3 h to 2 h before now still counts exactly under the
+	// same live fault: 720 steps x 8 msg/s x 5 s = 28800 queued, drained at 2 msg/s (10 per step) over
+	// the 1261 steps from 2 h before now up to the live stretch, then 3 msg/s of the live deficit for
+	// 180 steps (2700).
+	c := live().on(ModeConsumerSlowdown, "jobs-queue", t0.Add(-3*time.Hour), t0.Add(-2*time.Hour), 1)
+	m = mustCompile(t, set(q))
+	m.Advance(t0, c)
+	st, _ = m.State("jobs-queue", t0)
+	if want := 28800.0 - 1261*10 + maxLive; math.Abs(st.Backlog-want) > 1 {
+		t.Errorf("backlog %.0f with a scheduled stall, want %.0f", st.Backlog, want)
+	}
+}
+
+// A Clock that cannot separate scheduled windows from live state keeps the plain Eval for every
+// step (live state included), as before.
+func TestWarmStartWithoutScheduledClock(t *testing.T) {
+	q := Resource{Name: "jobs-queue", Kind: KindQueue, Size: 5, HoldMS: 500, Demand: constant(8)}
+	c := newClock()
+	c.live = map[string]float64{ModeConsumerSlowdown + "\x00jobs-queue": 0.5}
+	m := mustCompile(t, set(q))
+	m.Advance(t0, struct{ Clock }{c}) // hides EvalScheduled
+	st, _ := m.State("jobs-queue", t0)
+	if want := 3.0 * stepSec * float64(horizonSteps+1); math.Abs(st.Backlog-want) > 1 {
+		t.Errorf("backlog %.0f, want %.0f (live over the whole Horizon)", st.Backlog, want)
+	}
+}

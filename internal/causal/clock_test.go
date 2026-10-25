@@ -33,11 +33,17 @@ func (c *fakeClock) on(mode, scope string, from, to time.Time, i float64) *fakeC
 }
 
 func (c *fakeClock) Eval(now time.Time, mode, scope string) (bool, float64) {
+	active, inten := c.EvalScheduled(now, mode, scope)
+	if v, ok := c.live[mode+"\x00"+scope]; ok {
+		active, inten = true, max(inten, v)
+	}
+	return active, inten
+}
+
+// EvalScheduled reads the fixed windows alone, as shape.Engine.EvalScheduled does.
+func (c *fakeClock) EvalScheduled(now time.Time, mode, scope string) (bool, float64) {
 	c.evals++
 	active, inten := false, 0.0
-	if v, ok := c.live[mode+"\x00"+scope]; ok {
-		active, inten = true, v
-	}
 	for _, w := range c.faults {
 		if w.mode == mode && w.scope == scope && !now.Before(w.from) && now.Before(w.to) {
 			active = true

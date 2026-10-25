@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -27,8 +28,8 @@ type Resource struct {
 	// (queue). Integer >= 1.
 	Size int `yaml:"size"`
 	// HoldMS is the mean hold, execution or processing time per request at baseline, in ms,
-	// including the held-across dependency's baseline latency. Required for pool, concurrency
-	// and queue.
+	// including the held-across dependency's baseline latency, so it is at least that latency_ms.
+	// Required for pool, concurrency and queue.
 	HoldMS float64 `yaml:"hold_ms"`
 	// HeldAcross names a dependency resource (pool, concurrency, queue; optional). The effective
 	// hold is hold_ms + latency_ms(dependency) x (latency factor - 1), and the dependency's
@@ -42,7 +43,10 @@ type Resource struct {
 	// MaxDepth bounds a queue's backlog in messages; arrivals beyond it are rejected. Omitted
 	// means unbounded.
 	MaxDepth float64 `yaml:"max_depth"`
-	// LatencyMS is a dependency's baseline latency in ms (informational).
+	// LatencyMS is a dependency's baseline latency in ms. It is the base duration of a node bound
+	// to the dependency, and the unit by which dependency_slow stretches every pool, concurrency
+	// or queue held across it: effective hold = hold_ms + latency_ms x (latency factor - 1).
+	// Must be > 0 when any resource names the dependency in held_across.
 	LatencyMS float64 `yaml:"latency_ms"`
 	// SlowFactor is a dependency's latency multiplier under dependency_slow at intensity 1.
 	// Default 4, at least 1.
@@ -149,21 +153,40 @@ func Validate(s Set) error {
 	}
 	// held_across and of only point at dependencies, which reference nothing; demand.from links
 	// capacity resources and must not loop.
+	// The error names the smallest resource name on the cycle, found by walking names in order, so
+	// it is the same on every run (a resource merely feeding a cycle is never named).
+	names := make([]string, 0, len(byName))
 	for name := range byName {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	for _, name := range names {
 		seen := map[string]bool{}
-		for cur := name; cur != ""; {
+		for cur := name; cur != ""; cur = demandFrom(byName[cur]) {
 			if seen[cur] {
-				return fmt.Errorf("resource %q: demand.from cycle", name)
+				return fmt.Errorf("resource %q: demand.from cycle", cycleMin(cur, byName))
 			}
 			seen[cur] = true
-			next := ""
-			if dm := byName[cur].Demand; dm != nil {
-				next = dm.From
-			}
-			cur = next
 		}
 	}
 	return validateLoads(s.Loads, byName)
+}
+
+// demandFrom is the upstream a resource's demand comes from, "" for none.
+func demandFrom(r Resource) string {
+	if r.Demand == nil {
+		return ""
+	}
+	return r.Demand.From
+}
+
+// cycleMin is the smallest name on the demand.from cycle that passes through start.
+func cycleMin(start string, byName map[string]Resource) string {
+	lo := start
+	for cur := demandFrom(byName[start]); cur != start; cur = demandFrom(byName[cur]) {
+		lo = min(lo, cur)
+	}
+	return lo
 }
 
 func validateLoads(loads []Load, byName map[string]Resource) error {
@@ -254,6 +277,10 @@ func validateResource(r Resource, byName map[string]Resource) error {
 				bad("held_across %q names no declared resource", r.HeldAcross)
 			} else if dep.Kind != KindDependency {
 				bad("held_across %q is a %s, not a dependency", r.HeldAcross, dep.Kind)
+			} else if !(dep.LatencyMS > 0) { // also rejects NaN, which the dependency's own check reports
+				bad("held_across %q: its latency_ms must be > 0 (dependency_slow stretches the hold by latency_ms)", r.HeldAcross)
+			} else if r.HoldMS < dep.LatencyMS {
+				bad("hold_ms %v must be >= the held_across %q latency_ms %v (hold_ms includes the dependency's baseline latency)", r.HoldMS, r.HeldAcross, dep.LatencyMS)
 			}
 		}
 	} else {

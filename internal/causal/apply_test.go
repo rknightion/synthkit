@@ -247,7 +247,7 @@ func TestCallPolicy(t *testing.T) {
 
 func TestValidateRejects(t *testing.T) {
 	ok := []Resource{
-		{Name: "records-db", Kind: KindDependency},
+		{Name: "records-db", Kind: KindDependency, LatencyMS: 5},
 		{Name: "pool", Kind: KindPool, Size: 10, HoldMS: 10, AcquireTimeoutMS: 100, HeldAcross: "records-db", Demand: constant(5)},
 	}
 	if err := Validate(set(ok...)); err != nil {
@@ -353,6 +353,35 @@ func TestImportsStdlibAndFailuremodeOnly(t *testing.T) {
 				continue
 			}
 			t.Errorf("%s imports %q: internal/causal may import only the standard library and internal/failuremode", f, path)
+		}
+	}
+}
+
+// held_across needs a dependency baseline latency to stretch: a hold that includes it is at
+// least that long, and a zero latency would make dependency_slow stretch nothing.
+func TestValidateHeldAcrossLatency(t *testing.T) {
+	pool := func(holdMS float64, dep Resource) Set {
+		return set(dep, Resource{Name: "pool", Kind: KindPool, Size: 10, HoldMS: holdMS, AcquireTimeoutMS: 100, HeldAcross: dep.Name, Demand: constant(5)})
+	}
+	dep := func(latency float64) Resource {
+		return Resource{Name: "records-db", Kind: KindDependency, LatencyMS: latency}
+	}
+	for name, tc := range map[string]struct {
+		s    Set
+		want string // "" = valid
+	}{
+		"latency equals hold":      {pool(15, dep(15)), ""},
+		"latency below hold":       {pool(20, dep(15)), ""},
+		"zero latency":             {pool(20, dep(0)), "latency_ms must be > 0"},
+		"hold below latency":       {pool(10, dep(15)), "hold_ms 10 must be >= the held_across"},
+		"queue hold below latency": {set(dep(15), Resource{Name: "q", Kind: KindQueue, Size: 1, HoldMS: 14, HeldAcross: "records-db", Demand: constant(1)}), "hold_ms 14 must be >= the held_across"},
+	} {
+		err := Validate(tc.s)
+		switch {
+		case tc.want == "" && err != nil:
+			t.Errorf("%s: valid set rejected: %v", name, err)
+		case tc.want != "" && (err == nil || !strings.Contains(err.Error(), tc.want)):
+			t.Errorf("%s: got %v, want %q", name, err, tc.want)
 		}
 	}
 }

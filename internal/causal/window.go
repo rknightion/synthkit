@@ -13,7 +13,8 @@ import (
 // demand (declared or upstream demand plus expected retry attempts).
 // MeanInUse, MaxInUse and MeanWaitMS summarise the steps present. BacklogEnd and
 // OldestAgeSecEnd are the queue state at the last step present. Truncated reports that part of
-// the window is older than the retained history (15 minutes) or predates the model's start.
+// the window is older than the retained history (15 minutes), predates the model's start, or
+// asks about a model that has not been advanced yet (no history at all).
 type Window struct {
 	From, To                             time.Time
 	Steps                                int
@@ -24,8 +25,10 @@ type Window struct {
 	Truncated                            bool
 }
 
-// Window sums the steps in (from, to]; Truncated reports history older than the ring. Steps
-// newer than the last Advance are absent, not truncated.
+// Window sums the steps in (from, to]; Truncated reports history older than the ring, and a
+// model never advanced has none, so its non-empty window is empty and Truncated. Steps newer
+// than the last Advance are absent, not truncated. An empty or inverted interval is a clean
+// empty window.
 func (m *Model) Window(name string, from, to time.Time) (Window, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -34,7 +37,11 @@ func (m *Model) Window(name string, from, to time.Time) (Window, bool) {
 	if !ok {
 		return w, false
 	}
-	if !m.started || !to.After(from) {
+	if !to.After(from) {
+		return w, true
+	}
+	if !m.started {
+		w.Truncated = true
 		return w, true
 	}
 	kStart := gridIndex(from) + 1 // first grid point strictly after from

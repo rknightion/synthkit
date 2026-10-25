@@ -9,6 +9,7 @@ import (
 
 	"github.com/rknightion/synthkit/internal/blueprint"
 	"github.com/rknightion/synthkit/internal/causal"
+	"github.com/rknightion/synthkit/internal/control"
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/core/coretest"
 	"github.com/rknightion/synthkit/internal/fixture"
@@ -92,5 +93,53 @@ func TestAdvanceCausalEveryMasterTick(t *testing.T) {
 	}
 	if cons[0].clocks[0] != wls[0].clocks[0] {
 		t.Error("construct and workload received different clocks")
+	}
+}
+
+// TestAdvanceCausalDisabledConstruct pins that disabling a construct (one instance, or its whole
+// kind) stops its metric ticks, not its causal model: it is still advanced on every master tick.
+// A model that skipped ticks while disabled would, on re-enable, hold a stale history that the
+// still-running consumers of the same blueprint do not share, and the independently compiled
+// models would disagree until the next Horizon restart (ARCHITECTURE I42).
+func TestAdvanceCausalDisabledConstruct(t *testing.T) {
+	for name, state := range map[string]control.State{
+		"instance": {VolumeMultiplier: 1, DisabledConstructs: []string{control.ConstructKey("causal-bp", "causal_c", "c1")}},
+		"kind":     {VolumeMultiplier: 1, DisabledKinds: []string{"causal_c"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var cons []*causalConstruct
+			reg := core.NewRegistry()
+			reg.RegisterConstruct(core.ConstructReg{Kind: "causal_c", Doc: "t", Scope: core.ScopeBlueprint,
+				NewConfig:      func() any { return &struct{}{} },
+				MetricProducer: fixedMetricProducer(producerPromRW),
+				Build: func(any, *fixture.Set) (core.Construct, error) {
+					c := &causalConstruct{fakeConstruct: fakeConstruct{kind: "causal_c", signals: []core.SignalClass{core.Metrics}, interval: 10 * time.Minute}}
+					cons = append(cons, c)
+					return c, nil
+				}})
+			r := New(Sinks{Metrics: &coretest.MetricCapture{}, Logs: &coretest.LogCapture{}, Traces: &coretest.TraceCapture{}}, reg, Options{})
+			if err := r.AddBlueprint(&blueprint.Resolved{Name: "causal-bp", Label: "causal-bp",
+				Constructs: []blueprint.ConstructInstance{{Kind: "causal_c", Name: "c1", Config: &struct{}{}, Fixtures: &fixture.Set{Seed: "s"}}},
+			}); err != nil {
+				t.Fatal(err)
+			}
+			r.ApplyControl(state)
+			if r.constructEnabled("causal-bp", "causal_c", "c1") {
+				t.Fatal("construct is still enabled: the test exercises nothing")
+			}
+			start := time.Date(2026, 10, 26, 9, 0, 0, 0, time.UTC)
+			ticks := []time.Time{start, start.Add(5 * time.Second), start.Add(10 * time.Second)}
+			for _, now := range ticks {
+				if err := r.MasterTick(context.Background(), now); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if len(cons) != 1 {
+				t.Fatalf("built %d constructs", len(cons))
+			}
+			if got := cons[0].calls; len(got) != len(ticks) {
+				t.Fatalf("disabled construct advanced %d times over %d master ticks", len(got), len(ticks))
+			}
+		})
 	}
 }
