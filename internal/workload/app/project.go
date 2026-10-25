@@ -167,7 +167,7 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 						TraceID: r.TraceID, SpanID: call.PeerSpanID, ParentID: calleeContext,
 						Kind:  otlp.KindServer,
 						Start: hopStart, End: serverEnd,
-						Status: serverStatus(r, call, protoOf(callee)),
+						Status: serverStatus(r, i, protoOf(callee)),
 						Attrs:  sAttrs,
 					}
 					decorateServer(&server, r, i, callee)

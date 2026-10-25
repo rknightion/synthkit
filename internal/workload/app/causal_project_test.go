@@ -817,8 +817,8 @@ func TestCausalProjectGRPCEntryRootStatus(t *testing.T) {
 }
 
 // Only HTTP kinds stamp http.response.status_code: a worker, stream or job callee answers
-// over its own protocol. Their span status keeps the HTTP-shaped rule they always had, and every
-// other attribute is unchanged; an HTTP callee still stamps the code.
+// over its own protocol. A capacity refusal is not a handled business-rule rejection: non-HTTP
+// operations report ERROR, while an HTTP callee retains its 4xx SERVER rule and stamps the code.
 func TestCausalProjectNonHTTPKindsCarryNoHTTPStatus(t *testing.T) {
 	for _, tc := range []struct {
 		typ  string
@@ -845,8 +845,16 @@ func TestCausalProjectNonHTTPKindsCarryNoHTTPStatus(t *testing.T) {
 							t.Fatalf("%s callee span %q: http.response.status_code present=%v, want %v (%v)", tc.typ, sp.Name, has, tc.http, sp.Attrs)
 						}
 					}
-					if cs, ss := p.spans[c.SpanID], p.spans[c.PeerSpanID]; cs.Status != otlp.StatusError || ss.Status != otlp.StatusUnset {
+					wantServer := otlp.StatusError
+					if tc.http {
+						wantServer = otlp.StatusUnset
+					}
+					cs, ss := p.spans[c.SpanID], p.spans[c.PeerSpanID]
+					if cs.Status != otlp.StatusError || ss.Status != wantServer {
 						t.Fatalf("%s callee statuses: client %v server %v", tc.typ, cs.Status, ss.Status)
+					}
+					if _, has := ss.Attrs[attrErrorType]; has != !tc.http {
+						t.Fatalf("%s callee error.type presence %v", tc.typ, has)
 					}
 				}
 			}

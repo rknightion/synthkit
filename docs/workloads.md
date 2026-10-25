@@ -361,8 +361,14 @@ every signal projects the same request facts. The field reference is the generat
 `BLUEPRINT-SCHEMA.md` (`services[].uses`, `services[].worker`, `traffic.from_resource`,
 `traffic.success_status`, `traffic.error_mix`).
 
-- **Traces.** A failing request's origin span is ERROR and carries the cause as its status
-  description, `error.type`, and the mapped HTTP status where one applies; retries are separate CLIENT
+- **Traces.** An execution failure's origin span is ERROR and carries the cause as its status
+  description, `error.type`, and the mapped HTTP status where one applies. A causal rule-origin
+  4xx rejection is handled gracefully only at the originating operation: that root or non-HTTP
+  callee remains UNSET with neither `error.type` nor a status description; the warning log
+  retains the cause. Non-HTTP callers with an unabsorbed child failure remain ERROR even when
+  they inherit the same rule fault. Rule 5xx,
+  timeout, transport, token and execution failures are not handled rejections. Workers carry no
+  HTTP attributes, and HTTP/gRPC SERVER spans retain their protocol rules. Retries are separate CLIENT
   spans with `http.request.resend_count`; a `worker` entry's root span is CONSUMER. No `exception`
   span event is emitted, because the pinned semantic conventions deprecate it. See
   `signals/traces.md`, section `traces-app-causal`, for the status rules and sources.
@@ -433,7 +439,14 @@ Each node can declare custom metrics, log streams, and extra span attributes via
 - **Log body fields** and **span attributes**: any model, including `ref`, except `shape.incident_value`, `shape.batch`, `now`, `source_read`, `resource` and `outcomes` (metric values only) and `request_draw` (log body fields only). High-cardinality correlation keys (`trace_id`, `portkey_trace_id`, `run_id`, etc.) ride here — never as labels or stream labels.
   An app `ref` can also read `error_code` (the failed request's `error_mix` code; a causal failure
   takes the code of the declared `error_mix` entry with its status, weighted when several match,
-  else the fault's error type). A log body `ref` the line's request does not set (an error field
+  else the fault's error type). To distinguish healthy, handled and execution-error roots,
+  authors can decorate the structural span with an empty-kind span spec (still supplying
+  `name_template`) and application-owned attribute keys reading `ref: outcome` and
+  `ref: error_code`. The former distinguishes `success`, `client_error` (or `throttled` for
+  429), and `server_error`; the latter preserves the declared application code, not necessarily
+  the numeric status. This is not a universal handled-error marker: the author owns its meaning
+  in the declared rule/error mix. No new fixed catalogue attribute or conditional DSL is added.
+  A log body `ref` the line's request does not set (an error field
   on a healthy line) is omitted, never written as `""`. In a causal
   request that carries a fault or a failure, each service's log lines use that service's own hop:
   `span_id`, `status`, `outcome` and the stream `level` follow it, a retried callee logs once per

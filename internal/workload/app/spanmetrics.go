@@ -353,9 +353,9 @@ func (w *Workload) nodeTraceStatuses(now time.Time, world *core.World, n *node) 
 			statuses = append(statuses, rootStatus(w.entryRootKind(), protoOf(n), r))
 			continue
 		}
-		for _, call := range r.Calls {
+		for i, call := range r.Calls {
 			if call.Target == n.decl.Name && call.PeerSpanID != "" {
-				statuses = append(statuses, serverStatus(r, call, protoOf(n)))
+				statuses = append(statuses, serverStatus(r, i, protoOf(n)))
 			}
 		}
 	}

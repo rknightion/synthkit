@@ -78,6 +78,10 @@ https://github.com/open-telemetry/semantic-conventions/blob/v1.44.0/docs/excepti
 OpenTelemetry specification v1.61.0:
 https://github.com/open-telemetry/opentelemetry-specification/blob/v1.61.0/specification/trace/api.md
 (span status description only with `Error`; `CONSUMER` span kind).
+https://github.com/open-telemetry/semantic-conventions/blob/v1.44.0/docs/general/recording-errors.md
+(Development: context-sensitive error classification; errors handled gracefully SHOULD NOT be
+recorded on spans or metrics describing that operation; the example uses application-owned
+attributes to describe the handled result, not a universal handled-error attribute).
 
 - A worker entry's CONSUMER root is named `{messaging.operation.name} {destination}` per the pinned
   messaging Span name rule (messaging-spans.md "Span name": operation name, a space, then the
@@ -96,10 +100,18 @@ https://github.com/open-telemetry/opentelemetry-specification/blob/v1.61.0/speci
   UNIMPLEMENTED, INTERNAL, UNAVAILABLE and DATA_LOSS (here the 5xx class and a call that timed
   out), UNSET for a throttle or a 4xx rejection ([slug: traces-causal-grpc-status]). CLIENT spans
   are ERROR for 4xx, 5xx and transport failures (connect, credential, timeout), gRPC included. A
-  worker entry's root is a CONSUMER span; the HTTP rules do not apply to it, so any failed request
-  sets ERROR.
+  worker entry's root is a CONSUMER span; the HTTP rules do not apply to it. A causal rule-origin
+  4xx rejection is handled gracefully only at its originating operation: that root or non-HTTP
+  callee stays UNSET without `error.type` or a status description, while the warning log retains
+  the rejection cause. Non-HTTP callers with an unabsorbed child failure remain ERROR; inherited
+  rule-fault provenance is not operation-local handling evidence. This
+  exception is not a blanket 4xx exemption: token refusals, transport and execution failures,
+  timeouts (including one masking a rule answer), and rule-origin 5xx remain ERROR on non-HTTP
+  operations. An HTTP or gRPC SERVER still follows its protocol's status rules. CLIENT failures
+  remain ERROR. Authors may use empty-kind SpanSpec attributes with `ref: outcome` and
+  `ref: error_code` for their own application marker key/value; synthkit invents no fixed marker.
 - `http.response.status_code` is stamped on failing HTTP service hops and a failing SERVER root,
-  never on gRPC hops; db/cache leaf CLIENT spans get `error.type` only.
+  never on gRPC hops or worker/stream/job operations; db/cache leaf CLIENT spans get `error.type` only.
 - `error.type` is set only on a span whose status is ERROR (a SERVER span answering 4xx or 429
   stays UNSET with `http.response.status_code` and no `error.type`; the cause stays on the log).
   It is the origin's own type at the origin span (callee SERVER span for server-side

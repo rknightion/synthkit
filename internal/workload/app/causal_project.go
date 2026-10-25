@@ -116,9 +116,8 @@ func protoOf(n *node) hopProto {
 func httpNode(n *node) bool { return protoOf(n) == protoHTTP }
 
 // httpStatusRule reports whether the protocol follows the HTTP span-status rule (M10): only a 5xx
-// SERVER answer is ERROR. A worker, stream or job node keeps this shape, which it had when it
-// was classed with HTTP; only its status-code stamping is withdrawn.
-func (p hopProto) httpStatusRule() bool { return p == protoHTTP || p == protoNonHTTP }
+// SERVER answer is ERROR. Workers, streams and jobs follow operation semantics instead.
+func (p hopProto) httpStatusRule() bool { return p == protoHTTP }
 
 // grpcServerError reports whether a failed answer counts as an error on a gRPC SERVER span. The
 // causal facts carry HTTP-class statuses; read through the google.rpc code mapping, only the 5xx
@@ -174,14 +173,25 @@ func (w *Workload) successStatus() int {
 	return 200
 }
 
+// handledRule reports an application validation rejection, not an execution failure.
+// Its 4xx answer is handled gracefully; a rule's 5xx, or a timeout masking its answer,
+// remains a failure. This adds no standard marker: authors can decorate the structural
+// span using the existing outcome and error_code refs.
+func handledRule(f *ledger.Fault, status int) bool {
+	return f != nil && f.Kind == string(causal.KindRule) && f.Mode == causal.ModeRuleRegression && status >= 400 && status < 500
+}
+
 // rootStatus is the root span status. A request without causal decoration keeps spanStatus. A
 // causal request follows M10: an HTTP SERVER root is ERROR only for a 5xx response, a gRPC SERVER
 // root only for a failure that maps to a gRPC server error (grpcServerError), a CLIENT root for
-// any 4xx or 5xx, and a CONSUMER or INTERNAL root for any failure (a failed message or call is a
-// failed operation; root ruling D85).
+// any 4xx or 5xx, and a CONSUMER or INTERNAL root for any failure except an origin-local,
+// handled rule rejection (recording-errors.md v1.44.0).
 func rootStatus(kind otlp.SpanKind, p hopProto, r *ledger.Request) otlp.StatusCode {
 	if !causalDecorated(r) {
 		return spanStatus(r.Outcome)
+	}
+	if kind != otlp.KindClient && rootIsOrigin(r) && handledRule(r.Fault, r.StatusCode) {
+		return otlp.StatusUnset
 	}
 	var failed bool
 	switch {
@@ -204,15 +214,22 @@ func rootStatus(kind otlp.SpanKind, p hopProto, r *ledger.Request) otlp.StatusCo
 // only for a 5xx response (M10): a 4xx answer (rule, token, throttle) stays UNSET. A gRPC callee
 // is ERROR only for the statuses semconv v1.44.0 lists as gRPC server errors (grpcServerError),
 // and for a call that timed out, whose deadline the server also met (DEADLINE_EXCEEDED). Any
-// other non-HTTP callee is ERROR for any failed answer. A timed-out HTTP call's server span,
+// other non-HTTP callee is ERROR for any failed answer except its own handled rule rejection;
+// inheriting a rejecting child's fault does not mean this operation handled the failure.
+// A timed-out HTTP call's server span,
 // whose own answer the caller never saw, stays UNSET.
-func serverStatus(r *ledger.Request, c ledger.Call, p hopProto) otlp.StatusCode {
+func serverStatus(r *ledger.Request, i int, p hopProto) otlp.StatusCode {
+	c := r.Calls[i]
 	if !causalDecorated(r) {
 		return callStatus(c)
 	}
 	switch {
 	case p == protoGRPC:
 		if c.Failed && c.TimedOut || grpcServerError(c.StatusCode) {
+			return otlp.StatusError
+		}
+	case p == protoNonHTTP:
+		if c.Failed && (c.TimedOut || !callIsOrigin(r, i) || !handledRule(c.Fault, c.StatusCode)) {
 			return otlp.StatusError
 		}
 	case c.TimedOut:
@@ -809,7 +826,7 @@ func (cw *causalSpanWindow) serverFactors(n *node, status string) []float64 {
 			continue
 		}
 		for i, c := range r.Calls {
-			if c.Target != n.decl.Name || c.PeerSpanID == "" || spanMetricStatus(serverStatus(r, c, protoOf(n))) != status {
+			if c.Target != n.decl.Name || c.PeerSpanID == "" || spanMetricStatus(serverStatus(r, i, protoOf(n))) != status {
 				continue
 			}
 			f := gated && marked[i]
