@@ -165,6 +165,10 @@ is modeled. Fractional arrivals and receive capacity persist across active windo
 whole idle receive tokens are empty receives, not banked service capacity. Stock is sampled once
 per synthetic active second; default four-day retention and six-hour activity retention are model
 assumptions, not captured publication/sample-count guarantees. Message size is whole bytes.
+A queue bound to a declared `queue` resource (`resource:`) takes its sends, receives, deletes,
+visible messages and oldest-message age from the causal model's per-window arrivals, served count,
+backlog and FIFO oldest age (stock sampled once per 5 s model step); it emits no NotVisible,
+Delayed or EmptyReceives series, which have no model derivation.
 
 ```yaml signals
 family: aws_sqs

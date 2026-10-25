@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/cw"
 	"github.com/rknightion/synthkit/internal/fixture"
@@ -21,7 +22,15 @@ import (
 // Config requires explicit queue identities; no queues are generated from a seed.
 type Config struct {
 	Queues []Queue `yaml:"queues"`
+	// set is the blueprint's declared resources, injected by the resolver (causal.Consumer) when
+	// the blueprint declares any. Only a queue with Resource set reads it.
+	set causal.Set `yaml:"-"`
 }
+
+var _ causal.Consumer = (*Config)(nil)
+
+// UseResources implements causal.Consumer.
+func (c *Config) UseResources(s causal.Set) { c.set = s }
 
 // Queue specifies an operator-assumption workload, not captured numerical values.
 // A receive attempt handles at most one message. Every delivery succeeds exactly
@@ -51,6 +60,15 @@ type Queue struct {
 	// Enrichment selects only the P2 key vocabulary. All values are declared;
 	// omitted keys stay absent. P1/P3 tag alternatives cannot be union-filled.
 	Enrichment Enrichment `yaml:"enrichment"`
+	// Resource binds the queue to a declared `queue` resource (environments[].resources). A bound
+	// queue is driven by the causal model: NumberOfMessagesSent is the window's arrivals,
+	// NumberOfMessagesReceived and NumberOfMessagesDeleted are what the consumers served,
+	// ApproximateNumberOfMessagesVisible is the backlog and ApproximateAgeOfOldestMessage the
+	// oldest message's age. The resource owns arrival rate, consumer throughput and processing
+	// time, so arrivals_per_second, receives_per_second, processing_seconds, delay_seconds and
+	// load must be omitted, and the resource must not set max_depth (a standard queue is
+	// unbounded). NotVisible, Delayed and EmptyReceives are not emitted for a bound queue.
+	Resource string `yaml:"resource"`
 }
 
 // Enrichment is optional collector metadata, never an AWS dimension.
@@ -71,7 +89,7 @@ const (
 )
 
 func Registration() core.ConstructReg {
-	return core.ConstructReg{Kind: "sqs", Doc: "AWS/SQS ordinary queue metrics (remote-write only)", Scope: core.ScopeBlueprint, NewConfig: func() any { return &Config{} }, Build: Build}
+	return core.ConstructReg{Kind: "sqs", Doc: "AWS/SQS ordinary queue metrics (remote-write only)", Scope: core.ScopeBlueprint, NewConfig: func() any { return &Config{} }, Build: Build, FailureModes: causal.FailureModes}
 }
 
 type cohort struct {
@@ -85,9 +103,14 @@ type queueState struct {
 	arrival, drain           float64
 	activeUntil              time.Time
 	active                   bool
+	// res is the resolved name of the bound causal resource ("" for an unbound queue); the
+	// carries keep sub-message residuals of the model's fluid counts across windows.
+	res                    string
+	sentCarry, servedCarry float64
 }
 
 type Construct struct {
+	model     *causal.Model // nil unless a queue is bound to a resource
 	queues    []queueState
 	last      time.Time
 	started   bool
@@ -95,7 +118,18 @@ type Construct struct {
 	pausedFor time.Duration // active-time model excludes master-paused intervals
 }
 
-var _ core.Construct = (*Construct)(nil)
+var (
+	_ core.Construct  = (*Construct)(nil)
+	_ causal.Advancer = (*Construct)(nil)
+)
+
+// AdvanceCausal implements causal.Advancer: the composition root advances the model on every
+// master tick so bound consumers sample live faults at the same instants.
+func (c *Construct) AdvanceCausal(now time.Time, clk causal.Clock) {
+	if c.model != nil {
+		c.model.Advance(now, clk)
+	}
+}
 
 func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 	c, ok := cfg.(*Config)
@@ -114,6 +148,7 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 	out := &Construct{}
 	seen := map[string]bool{}
 	collectors := map[string]bool{}
+	boundBy := map[string]string{}
 	for _, q := range c.Queues {
 		if strings.TrimSpace(q.Name) == "" || strings.TrimSpace(q.CollectorName) == "" || q.CollectorName == "global" {
 			return nil, fmt.Errorf("sqs: queue name and explicit non-global collector_name required")
@@ -131,6 +166,13 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 		if math.IsNaN(q.MessageBytes) || math.IsInf(q.MessageBytes, 0) || q.MessageBytes != math.Trunc(q.MessageBytes) || q.MessageBytes < 0 || q.MessageBytes > 1048576 || q.ArrivalsPerSecond > 0 && q.MessageBytes < 1 {
 			return nil, fmt.Errorf("sqs %s: message_bytes must be whole finite bytes, 1..1048576 for nonzero arrivals", q.Name)
 		}
+		res := ""
+		if q.Resource != "" {
+			var err error
+			if res, err = c.bind(q, fx, boundBy); err != nil {
+				return nil, err
+			}
+		}
 		if q.Load != "" && q.Load != loadConstant && q.Load != loadBusiness {
 			return nil, fmt.Errorf("sqs %s: load must be empty, %q or %q, got %q", q.Name, loadConstant, loadBusiness, q.Load)
 		}
@@ -144,9 +186,61 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 				labels[k] = v
 			}
 		}
-		out.queues = append(out.queues, queueState{cfg: q, labels: labels})
+		out.queues = append(out.queues, queueState{cfg: q, labels: labels, res: res})
+	}
+	if len(boundBy) > 0 {
+		m, err := causal.Compile(c.set)
+		if err != nil {
+			return nil, fmt.Errorf("sqs: resources: %w", err)
+		}
+		out.model = m
 	}
 	return out, nil
+}
+
+// bind validates a queue's resource binding and returns the resolved resource name. The
+// resource owns the queue's traffic and consumers, so every field that would state them again
+// is rejected rather than silently ignored.
+func (c *Config) bind(q Queue, fx *fixture.Set, boundBy map[string]string) (string, error) {
+	if c.set.Empty() {
+		return "", fmt.Errorf("sqs %s: resource %q requires environments[].resources to declare it", q.Name, q.Resource)
+	}
+	env := ""
+	if fx.Env != nil {
+		env = fx.Env.Name
+	}
+	r, _, ok := c.set.Resolve(q.Resource, env)
+	if !ok {
+		return "", fmt.Errorf("sqs %s: resource %q names no declared resource", q.Name, q.Resource)
+	}
+	if r.Kind != causal.KindQueue {
+		return "", fmt.Errorf("sqs %s: resource %q is a %s, not a queue", q.Name, r.Name, r.Kind)
+	}
+	if r.MaxDepth != 0 {
+		return "", fmt.Errorf("sqs %s: resource %q sets max_depth, which is not SQS behaviour (a standard queue is unbounded); omit it", q.Name, r.Name)
+	}
+	for _, f := range []struct {
+		name string
+		set  bool
+	}{
+		{"arrivals_per_second", q.ArrivalsPerSecond != 0},
+		{"receives_per_second", q.ReceivesPerSecond != 0},
+		{"processing_seconds", q.ProcessingSeconds != 0},
+		{"delay_seconds", q.DelaySeconds != 0},
+		{"load", q.Load != ""},
+	} {
+		if f.set {
+			return "", fmt.Errorf("sqs %s: %s must be omitted on a queue bound to resource %q (the resource owns it)", q.Name, f.name, r.Name)
+		}
+	}
+	if q.MessageBytes < 1 {
+		return "", fmt.Errorf("sqs %s: message_bytes must be 1..1048576 on a bound queue", q.Name)
+	}
+	if other, dup := boundBy[r.Name]; dup {
+		return "", fmt.Errorf("sqs %s: resource %q is already bound by queue %q", q.Name, r.Name, other)
+	}
+	boundBy[r.Name] = q.Name
+	return r.Name, nil
 }
 func (*Construct) Kind() string                { return "sqs" }
 func (*Construct) Signals() []core.SignalClass { return []core.SignalClass{core.Metrics} }
@@ -183,6 +277,12 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	if w == nil || w.Metrics == nil {
 		return fmt.Errorf("sqs: metric writer required")
 	}
+	if c.model != nil {
+		if w.Shape == nil {
+			return fmt.Errorf("sqs: a queue bound to a resource requires the shape engine")
+		}
+		c.model.Advance(now, w.Shape)
+	}
 	start := now.Add(-time.Minute)
 	if c.started && c.last.After(start) {
 		start = c.last
@@ -193,6 +293,7 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		return nil
 	}
 	end := start.Add(time.Duration(seconds) * time.Second)
+	window := start                 // bound queues read the model on the wall clock
 	start = start.Add(-c.pausedFor) // cohort deadlines live on the unpaused clock
 	st := state.NewState()          // sparse output: never retain a prior period's observations
 	factors := c.businessFactors(w, start, seconds)
@@ -200,7 +301,11 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		q := &c.queues[i]
 		var age, delayed, invisible, visible cw.StatSet
 		var sent, received, deleted, empty, size cw.StatSet
-		for s := 1; s <= seconds; s++ {
+		bound := q.res != ""
+		if bound {
+			c.observeBound(q, window, end, &age, &visible, &sent, &received, &deleted, &size)
+		}
+		for s := 1; !bound && s <= seconds; s++ {
 			at := start.Add(time.Duration(s) * time.Second)
 			// Default SQS retention is four days. Expiration is not a delete call.
 			q.delayed.expire(at)
@@ -309,6 +414,39 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		return nil
 	}
 	return w.Metrics.Write(ctx, batch)
+}
+
+// observeBound fills a bound queue's statistics for the wall-clock window (from, to] from the
+// causal model: the window's arrivals are the sends, what the consumers served is both received
+// and deleted (the resource has no processing time or retries), and backlog and oldest age are
+// sampled at every grid step in the window. Counts keep their fractional residual across
+// windows so no message is invented or lost. Delayed, NotVisible and EmptyReceives have no
+// sourced derivation from the model and stay unobserved.
+func (c *Construct) observeBound(q *queueState, from, to time.Time, age, visible, sent, received, deleted, size *cw.StatSet) {
+	win, ok := c.model.Window(q.res, from, to)
+	if !ok {
+		return
+	}
+	arrivals := whole(&q.sentCarry, win.Arrivals)
+	served := whole(&q.servedCarry, win.Served)
+	observe(sent, 1, arrivals)
+	observe(received, 1, served)
+	observe(deleted, 1, served)
+	observe(size, q.cfg.MessageBytes, arrivals)
+	if arrivals > 0 || served > 0 {
+		q.activeUntil = to.Add(6 * time.Hour)
+		q.active = true
+	}
+	for at := from.Truncate(causal.Step).Add(causal.Step); !at.After(to); at = at.Add(causal.Step) {
+		st, ok := c.model.State(q.res, at)
+		if !ok {
+			continue
+		}
+		if st.Backlog > 0 || q.active && !at.After(q.activeUntil) {
+			observe(age, math.Round(st.OldestAgeSec), 1)
+			observe(visible, math.Round(st.Backlog), 1)
+		}
+	}
 }
 
 // businessFactors returns the per-second business factor for the window

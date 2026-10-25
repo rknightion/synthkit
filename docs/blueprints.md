@@ -107,7 +107,15 @@ resource-tag/ESM/Resource alias config.
 SQS and DynamoDB require explicit non-global `collector_name`, never an ARN guessed from resource
 names. SQS models one-message successful receives/deletes, declared delay/processing time, whole
 bytes, four-day retention and six-hour activity retention. It does not model retries, DLQs or fair
-queue groups; optional `enrichment` accepts only explicit supported P2 metadata keys. DynamoDB
+queue groups; optional `enrichment` accepts only explicit supported P2 metadata keys. A queue may set
+`resource:` to a declared `queue` resource (`environments[].resources`); the resource then owns the
+queue's traffic, so a bound queue omits `arrivals_per_second`, `receives_per_second`,
+`processing_seconds`, `delay_seconds` and `load`, and the resource omits `max_depth` (a standard
+queue is unbounded). Per window, sends are the model's arrivals, receives and deletes what its
+consumers served, visible messages the backlog and the oldest-message age the age of the head of the
+queue, so `dependency_slow` on the dependency the consumers hold each message across grows both and
+they drain after the fault; `consumer_slowdown` on the queue does the same. A bound queue does not
+emit NotVisible, Delayed or EmptyReceives, and one resource binds at most one queue. DynamoDB
 requires positive provisioned capacities/quotas; its account snapshots have no table dimensions.
 `write_source` is omitted, `Customer` or `GlobalTable`; the last requires independent `replication`.
 Table operations are GetItem, PutItem, UpdateItem, Query, Scan and SELECT-only ExecuteStatement.

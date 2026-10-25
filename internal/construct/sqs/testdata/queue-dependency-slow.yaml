@@ -1,0 +1,45 @@
+# Test-only declaration, not a deployable blueprint. One queue bound to a `queue` resource whose
+# consumers hold each message across an external validator; a scenario slows that validator for
+# ten minutes. Loaded through the real blueprint loader by internal/integration (a construct
+# directory may not import the loader).
+name: sqs-causal-dependency-slow
+label: sqs-causal-dependency-slow
+environments:
+  - name: prod
+    cloud:
+      provider: aws
+      account_id: "111122223333"
+      region: eu-west-1
+      vpc_id: vpc-fixture
+      cloudwatch: {albs: 0, s3_buckets: 0, nlb: false, ebs: false, nat_gateway: false, eks: false, firehose: false, private_link: false}
+      sqs:
+        queues:
+          - name: validation-queue
+            collector_name: declared-validation-collector
+            message_bytes: 2048
+            resource: validation-queue
+    resources:
+      # Four consumers, each message held 400 ms (a 350 ms validator call plus 50 ms of handling):
+      # mu = 4 / 0.4 s = 10 msg/s against a steady 8 msg/s of arrivals (rho 0.8), so no backlog.
+      # dependency_slow at intensity 1 (350 ms -> 1050 ms): h = 400 + 350 x 2 = 1100 ms,
+      # mu = 3.64 msg/s < 8, so the backlog grows 4.36 msg/s until the fault ends, then drains at
+      # 2 msg/s.
+      - name: validation-queue
+        kind: queue
+        size: 4
+        hold_ms: 400
+        held_across: external-validator
+        demand: {off_peak_rps: 8, peak_rps: 8, load: constant}
+      - name: external-validator
+        kind: dependency
+        latency_ms: 350
+        slow_factor: 3
+scenarios:
+  - name: validator-slowdown
+    title: External validator slowed
+    effects:
+      - {mode: dependency_slow, target: external-validator, intensity: 1}
+incidents:
+  - scenario: validator-slowdown
+    at: "2026-10-24T10:30"
+    for: 10m
