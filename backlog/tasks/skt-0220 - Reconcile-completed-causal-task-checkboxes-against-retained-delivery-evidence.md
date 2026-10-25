@@ -1,9 +1,11 @@
 ---
 id: SKT-0220
 title: Reconcile completed causal task checkboxes against retained delivery evidence
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@loop59-root'
 created_date: '2026-10-25T20:12:00Z'
+updated_date: '2026-10-25T20:44:00Z'
 labels:
   - causal
 dependencies: []
@@ -28,3 +30,15 @@ Composed review found older completed causal task records whose acceptance and d
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Apply only the bounded historical acceptance and full-gate checks supported by the six-record read-only evidence map, append exact historical SHA/run qualifications, and leave missing inventory/generator proof explicitly unchecked. Final status follows the published tracker batch.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Applied six bounded historical acceptance/full-gate checks with explicit source SHA/run and accepted interpretation notes. No task status changed. Six signals-inventory boxes remain unchecked; one generator invocation is missing and five generation conditions are not applicable, never claimed as executed. Retained implementation history preserved. These tracker changes await publication with the next ordinary source landing.
+<!-- SECTION:NOTES:END -->
