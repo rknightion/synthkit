@@ -53,7 +53,7 @@ func TestBoundBuildRejections(t *testing.T) {
 		want string
 	}{
 		"rate field":     {fn: lambda.Function{Name: "a", Resource: "fn-conc", InvocationsPerMin: 5}, want: "invocations_per_min"},
-		"several fields": {fn: lambda.Function{Name: "a", Resource: "fn-conc", DurationMS: 5, ErrorFraction: 0.1}, want: "duration_ms, error_fraction"},
+		"several fields": {fn: lambda.Function{Name: "a", Resource: "fn-conc", DurationMS: 5, Load: "business"}, want: "duration_ms, load"},
 		"wrong kind":     {fn: lambda.Function{Name: "a", Resource: "pool"}, want: "want kind concurrency"},
 		"dependency":     {fn: lambda.Function{Name: "a", Resource: "dep"}, want: "want kind concurrency"},
 		"unknown":        {fn: lambda.Function{Name: "a", Resource: "nope"}, want: "not a declared resource"},
@@ -153,5 +153,52 @@ func TestBoundZeroValuedSamples(t *testing.T) {
 	inv, errs, count := got["aws_lambda_invocations_sum"], got["aws_lambda_errors_sum"], got["aws_lambda_errors_sample_count"]
 	if math.Abs(errs-inv/2) > 1 || count != inv {
 		t.Fatalf("errors %v of %v invocations (sample count %v): %v", errs, inv, count, got)
+	}
+}
+
+// A bound function's error_fraction is a background share of the admitted invocations: it is the
+// whole of Errors at baseline, is added to the model's failures during an incident without ever
+// exceeding Invocations, and a share outside [0,1] is rejected.
+func TestBoundBackgroundErrorFraction(t *testing.T) {
+	c, err := lambda.Build(boundConfig(lambda.Function{Name: "bound", Resource: "fn-conc", ErrorFraction: 0.1}), fx())
+	if err != nil {
+		t.Fatal(err)
+	}
+	eng := shape.New("UTC", []string{"dependency_unavailable@2026-10-24T09:10/10m#1@dep"})
+	tick := func(at time.Time) map[string]float64 {
+		w := &capture{}
+		if err := c.Tick(context.Background(), at, &core.World{Metrics: w, Shape: eng}); err != nil {
+			t.Fatal(err)
+		}
+		return seriesByName(w, "bound")
+	}
+	base := time.Date(2026, 10, 24, 9, 0, 0, 0, time.UTC)
+	for i := 1; i <= 5; i++ {
+		c.(causal.Advancer).AdvanceCausal(base.Add(time.Duration(i)*time.Minute), eng)
+		if got := tick(base.Add(time.Duration(i) * time.Minute)); math.Abs(got["aws_lambda_errors_sum"]-60) > 1 {
+			t.Fatalf("minute %d: baseline errors %v, want 10%% of 600", i, got)
+		}
+	}
+	for i := 12; i <= 15; i++ { // full unavailability fails everything admitted; the share cannot exceed it
+		at := base.Add(time.Duration(i) * time.Minute)
+		c.(causal.Advancer).AdvanceCausal(at, eng)
+		got := tick(at)
+		if got["aws_lambda_errors_sum"] != got["aws_lambda_invocations_sum"] || got["aws_lambda_invocations_sum"] < 590 {
+			t.Fatalf("minute %d: errors %v of %v invocations, want all failed", i, got["aws_lambda_errors_sum"], got["aws_lambda_invocations_sum"])
+		}
+	}
+	// The share the full unavailability could not add is not carried into the recovery.
+	for i := 16; i <= 22; i++ {
+		at := base.Add(time.Duration(i) * time.Minute)
+		c.(causal.Advancer).AdvanceCausal(at, eng)
+		got := tick(at)
+		if i == 21 && math.Abs(got["aws_lambda_errors_sum"]-60) > 1 {
+			t.Fatalf("minute 21: recovery errors %v, want 10%% of 600 with no carried burst", got["aws_lambda_errors_sum"])
+		}
+	}
+	for _, v := range []float64{-0.1, 1.1, math.NaN()} {
+		if _, err := lambda.Build(boundConfig(lambda.Function{Name: "a", Resource: "fn-conc", ErrorFraction: v}), fx()); err == nil || !strings.Contains(err.Error(), "error_fraction must be finite in [0,1]") {
+			t.Fatalf("error_fraction %v: %v", v, err)
+		}
 	}
 }

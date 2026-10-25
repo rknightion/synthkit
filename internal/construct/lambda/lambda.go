@@ -116,13 +116,19 @@ type Function struct {
 	// causal model (environments[].resources). The resource is then the function's whole
 	// declaration: Throttles are the window's rejected requests, Invocations the admitted
 	// ones, Errors the admitted executions that failed (held-across dependency
-	// unavailability and credential failures), ConcurrentExecutions the in-use concurrency
+	// unavailability and credential failures, plus the optional error_fraction background
+	// share below), ConcurrentExecutions the in-use concurrency
 	// and Duration the effective hold. They are read from the shared model, never
 	// re-simulated. A bound function omits every arrival-rate and duration field
 	// (invocations_per_min, async_received_per_min, async_dropped_fraction, async_age_ms,
 	// stream_batches_per_min, iterator_age_ms, throttles_per_min, duration_ms,
-	// duration_ms_min, duration_ms_max, duration_ms_idle, duration_load, error_fraction,
-	// load) and is not a target of the function-axis modes; incidents reach it through the
+	// duration_ms_min, duration_ms_max, duration_ms_idle, duration_load, load) except
+	// error_fraction, which a bound function may declare as a background share of its admitted
+	// invocations that fail regardless of faults (an operator assumption for the captured
+	// baseline; the model fails work only through faults). Errors are that share of the admitted
+	// executions plus the model's failures, never more than the admitted executions, selected by
+	// the same fractional carry as an unbound function (deterministic, no random draw). A bound
+	// function is not a target of the function-axis modes; incidents reach it through the
 	// resource-axis modes (concurrency_reduced, dependency_slow, dependency_unavailable,
 	// credential_expired). One resource binds at most one function. Omitted keeps the
 	// function-axis behaviour, so default output is unchanged.
@@ -133,9 +139,11 @@ type functionState struct {
 	cfg                                                        Function
 	synchronous, errors, throttles, received, dropped, records eventCarry
 	spikeErrors                                                eventCarry
-	synchronousPerMin                                          float64
-	durMin, durMax                                             float64
-	business, durationBusiness                                 bool
+	// background carries a bound function's error_fraction share of its admitted invocations.
+	background                 eventCarry
+	synchronousPerMin          float64
+	durMin, durMax             float64
+	business, durationBusiness bool
 	// resource is the bound concurrency resource name ("" when unbound).
 	resource string
 }
@@ -327,7 +335,7 @@ func forbiddenWhenBound(f Function) []string {
 		{"throttles_per_min", f.ThrottlesPerMin != 0}, {"duration_ms", f.DurationMS != 0},
 		{"duration_ms_min", f.DurationMSMin != 0}, {"duration_ms_max", f.DurationMSMax != 0},
 		{"duration_ms_idle", f.DurationMSIdle != 0}, {"duration_load", f.DurationLoad != ""},
-		{"error_fraction", f.ErrorFraction != 0}, {"load", f.Load != ""},
+		{"load", f.Load != ""},
 	} {
 		if v.set {
 			out = append(out, v.name)
@@ -351,6 +359,9 @@ func validateBinding(cfg *Config, f Function, fx *fixture.Set, bound map[string]
 	}
 	if r.Kind != causal.KindConcurrency {
 		return "", fmt.Errorf("lambda: function %q resource %q is a %s resource; want kind concurrency", f.Name, f.Resource, r.Kind)
+	}
+	if !bounded(f.ErrorFraction, 1) {
+		return "", fmt.Errorf("lambda: function %q error_fraction must be finite in [0,1]", f.Name)
 	}
 	if fields := forbiddenWhenBound(f); len(fields) > 0 {
 		return "", fmt.Errorf("lambda: function %q is bound to resource %q, which supplies its arrivals, throttles, errors and duration: omit %s", f.Name, f.Resource, strings.Join(fields, ", "))
@@ -636,6 +647,15 @@ func (c *construct) boundWindow(f *functionState, from, to time.Time) boundCount
 	}
 	out.invocations = take(&f.synchronous, win.Admitted)
 	out.errors = takeAtMost(&f.errors, win.Failed, out.invocations)
+	if share := f.cfg.ErrorFraction; share > 0 {
+		// Background errors: error_fraction of the admitted executions, on top of the model's own
+		// failures and from a separate carry so the model's draw is unchanged. They are capped at
+		// the remaining successes, so Errors never exceeds Invocations, and the capped excess is
+		// dropped rather than carried: a window the model fails entirely cannot burst into the
+		// recovery. Deterministic: the carry alone, no random draw or wall clock.
+		background := take(&f.background, out.invocations*share)
+		out.errors += math.Min(background, out.invocations-out.errors)
+	}
 	out.throttles = take(&f.throttles, win.Rejected)
 	if out.invocations > 0 {
 		out.durationMS = c.meanHold(f.resource, from, to)

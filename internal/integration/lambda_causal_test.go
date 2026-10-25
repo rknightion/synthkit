@@ -181,15 +181,15 @@ func loadLambdaCausal(t *testing.T, text string) (*core.Registry, *blueprint.Res
 	return reg, res, err
 }
 
-// A bound function is declared by its resource: every arrival-rate and duration field is
-// rejected when the lambda construct is built (the loader and the runner build path), naming the
+// A bound function is declared by its resource: every arrival-rate and duration field except
+// error_fraction (the background error share, SKT-0168.09.28) is rejected when the lambda construct is built (the loader and the runner build path), naming the
 // field; a resource of the wrong kind, an unknown one and a doubly bound one are rejected too.
 func TestBoundLambdaRejectsForbiddenFieldsAndBindings(t *testing.T) {
 	for _, field := range []string{
 		"invocations_per_min: 60", "async_received_per_min: 10", "async_dropped_fraction: 0.1", "async_age_ms: 100",
 		"stream_batches_per_min: 5", "iterator_age_ms: 100", "throttles_per_min: 1", "duration_ms: 100",
 		"duration_ms_min: 10", "duration_ms_max: 200", "duration_ms_idle: 10", "duration_load: business",
-		"error_fraction: 0.1", "load: business",
+		"load: business",
 	} {
 		name, _, _ := strings.Cut(field, ":")
 		text := strings.Replace(lambdaCausalYAML, "            resource: enrich-fn-concurrency\n", "            resource: enrich-fn-concurrency\n            "+field+"\n", 1)
@@ -245,5 +245,105 @@ func TestBoundLambdaRejectsFunctionAxisModes(t *testing.T) {
 		if _, _, err := loadLambdaCausal(t, strings.Replace(base, "%s", "legacy-fn", 1)); err != nil {
 			t.Fatalf("%s on the legacy function must still load: %v", mode, err)
 		}
+	}
+}
+
+// lambdaCausalMinutes loads text through the real loader and catalog, ticks its lambda construct
+// for 45 one-minute windows from 09:00 as the runner does, and returns fn's families per minute.
+func lambdaCausalMinutes(t *testing.T, text, fn string) map[int]lambdaMinute {
+	t.Helper()
+	reg, res, err := loadLambdaCausal(t, text)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cr, _ := reg.Construct("lambda")
+	var ci *blueprint.ConstructInstance
+	for i := range res.Constructs {
+		if res.Constructs[i].Kind == "lambda" {
+			ci = &res.Constructs[i]
+		}
+	}
+	if ci == nil {
+		t.Fatal("no lambda construct")
+	}
+	c, err := cr.Build(ci.Config, ci.Fixtures)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adv, ok := c.(causal.Advancer)
+	if !ok {
+		t.Fatal("lambda construct is not a causal.Advancer")
+	}
+	eng := shape.New("UTC", res.Incidents)
+	start := time.Date(2026, 10, 24, 9, 0, 0, 0, time.UTC)
+	out := map[int]lambdaMinute{}
+	for i := 1; i <= 45; i++ {
+		now := start.Add(time.Duration(i) * time.Minute)
+		adv.AdvanceCausal(now, eng)
+		mc := &coretest.MetricCapture{}
+		if err := c.Tick(context.Background(), now, &core.World{Shape: eng, Metrics: mc}); err != nil {
+			t.Fatal(err)
+		}
+		out[i] = lambdaFamilies(mc, fn)
+	}
+	return out
+}
+
+// A bound function may declare error_fraction: a background share of the admitted invocations
+// that fail whatever the model says. At baseline Errors are exactly that share (60 of 600), a
+// held-across dependency_unavailable adds the model's failures on top (half of the admitted
+// calls, so 300 + 60), concurrency_reduced still throttles without erroring beyond the share,
+// and every other family is identical to the same
+// function declared without it.
+func TestBoundLambdaBackgroundErrorFraction(t *testing.T) {
+	bound := strings.Replace(lambdaCausalYAML, "            resource: enrich-fn-concurrency\n", "            resource: enrich-fn-concurrency\n            error_fraction: 0.1\n", 1)
+	if bound == lambdaCausalYAML {
+		t.Fatal("test setup: error_fraction not injected")
+	}
+	with := lambdaCausalMinutes(t, bound, "enrich-fn")
+	without := lambdaCausalMinutes(t, lambdaCausalYAML, "enrich-fn")
+	near := func(a, b float64) bool { return math.Abs(a-b) <= 1 }
+	for i := 1; i <= 45; i++ {
+		w, wo := with[i], without[i]
+		if w.invocations != wo.invocations || w.throttles != wo.throttles || w.concurrent != wo.concurrent || w.duration != wo.duration {
+			t.Fatalf("minute %d: error_fraction moved a non-error family: %+v vs %+v", i, w, wo)
+		}
+		if w.errors > w.invocations {
+			t.Fatalf("minute %d: errors %v exceed invocations %v", i, w.errors, w.invocations)
+		}
+		switch {
+		case i <= 5 || (i >= 31 && i <= 34): // healthy baseline: the background share alone
+			if !near(w.errors, 0.1*w.invocations) || wo.errors != 0 {
+				t.Fatalf("minute %d: errors %v (without %v), want 10%% of %v invocations", i, w.errors, wo.errors, w.invocations)
+			}
+		case i >= 26 && i <= 29: // half fail through the dependency and the background share of all admitted work adds to them
+			if !near(w.errors, 300+0.1*600) || !near(wo.errors, 300) {
+				t.Fatalf("minute %d under dependency_unavailable: errors %v (without %v), want 360 (300)", i, w.errors, wo.errors)
+			}
+		case i >= 11 && i <= 19: // throttled work is not invoked, so the share is of the 400 admitted
+			if !near(w.errors, 40) {
+				t.Fatalf("minute %d under concurrency_reduced: errors %v, want 40", i, w.errors)
+			}
+		}
+	}
+	// The share is fractional-carry deterministic: a second run is identical.
+	again := lambdaCausalMinutes(t, bound, "enrich-fn")
+	for i := range with {
+		if with[i] != again[i] {
+			t.Fatalf("minute %d: not deterministic: %+v vs %+v", i, with[i], again[i])
+		}
+	}
+}
+
+// error_fraction on a bound function is bounded like the unbound field: a share above 1 is
+// rejected when the construct is built.
+func TestBoundLambdaErrorFractionRange(t *testing.T) {
+	text := strings.Replace(lambdaCausalYAML, "            resource: enrich-fn-concurrency\n", "            resource: enrich-fn-concurrency\n            error_fraction: 1.5\n", 1)
+	reg, res, err := loadLambdaCausal(t, text)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if err := buildLambda(reg, res); err == nil || !strings.Contains(err.Error(), "error_fraction must be finite in [0,1]") {
+		t.Fatalf("error_fraction 1.5 on a bound function: build error %v, want the range rejection", err)
 	}
 }
