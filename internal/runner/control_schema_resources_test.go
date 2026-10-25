@@ -153,13 +153,13 @@ func TestControlSchemaListsBoundConsumersOfEveryResource(t *testing.T) {
 		want     []control.ResourceConsumer
 	}{
 		{"enrich-fn-concurrency", "concurrency", []control.ResourceConsumer{
-			{Kind: "lambda", Name: "prod", Identity: map[string]string{"dimension_FunctionName": "enrich-fn"}},
+			{Kind: "lambda", Name: "prod", Identity: map[string]string{"dimension_FunctionName": "enrich-fn", "account_id": "111122223333", "region": "eu-west-1"}},
 		}},
 		{"planner-concurrency", "concurrency", []control.ResourceConsumer{
 			{Kind: "agentcore", Name: "prod", Identity: map[string]string{"name": "arn:aws:bedrock-agentcore:eu-west-1:111122223333:runtime/planner"}},
 		}},
 		{"validation-queue", "queue", []control.ResourceConsumer{
-			{Kind: "sqs", Name: "prod", Identity: map[string]string{"dimension_QueueName": "validation-queue", "name": "validation-collector"}},
+			{Kind: "sqs", Name: "prod", Identity: map[string]string{"dimension_QueueName": "validation-queue", "name": "validation-collector", "account_id": "111122223333", "region": "eu-west-1"}},
 		}},
 		{"orders-queue", "queue", []control.ResourceConsumer{
 			{Kind: "solace", Name: "solace", Identity: map[string]string{"instance": "broker-a:9628", "vpn_name": "vpn-1", "queue_name": "orders-q"}},

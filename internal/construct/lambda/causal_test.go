@@ -5,6 +5,7 @@ package lambda_test
 import (
 	"context"
 	"math"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -200,5 +201,24 @@ func TestBoundBackgroundErrorFraction(t *testing.T) {
 		if _, err := lambda.Build(boundConfig(lambda.Function{Name: "a", Resource: "fn-conc", ErrorFraction: v}), fx()); err == nil || !strings.Contains(err.Error(), "error_fraction must be finite in [0,1]") {
 			t.Fatalf("error_fraction %v: %v", v, err)
 		}
+	}
+}
+
+// A bound function is identified by the account and region its series carry as well as its name,
+// and a label the context does not carry is absent, never empty.
+func TestResourceBindingsIdentityCarriesAccountAndRegion(t *testing.T) {
+	cfg := boundConfig(lambda.Function{Name: "enrich", Resource: "fn-conc"}, lambda.Function{Name: "legacy", InvocationsPerMin: 60, DurationMS: 10})
+	got := cfg.ResourceBindings(causal.BindContext{Env: "prod", Region: "eu-west-1", AccountID: "111122223333"})
+	want := []causal.Binding{{Resource: "fn-conc", Identity: map[string]string{"dimension_FunctionName": "enrich", "account_id": "111122223333", "region": "eu-west-1"}}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("bindings = %+v, want %+v", got, want)
+	}
+	other := cfg.ResourceBindings(causal.BindContext{Region: "us-east-2", AccountID: "444455556666"})
+	if reflect.DeepEqual(got[0].Identity, other[0].Identity) {
+		t.Fatalf("same-named function in another account and region has the same identity: %+v", other[0].Identity)
+	}
+	bare := cfg.ResourceBindings(causal.BindContext{})
+	if !reflect.DeepEqual(bare[0].Identity, map[string]string{"dimension_FunctionName": "enrich"}) {
+		t.Fatalf("no cloud fixture: identity %+v, want the function name alone", bare[0].Identity)
 	}
 }

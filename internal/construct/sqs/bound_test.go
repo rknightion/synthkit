@@ -4,6 +4,7 @@ package sqs
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -158,5 +159,26 @@ func TestBoundQueueAdvancesThroughTheHookAndFollowsConsumerSlowdown(t *testing.T
 	}
 	if v := got["aws_sqs_approximate_number_of_messages_visible_maximum"]; v < 4700 {
 		t.Fatalf("backlog %v after 10 stopped minutes, want about 4800", v)
+	}
+}
+
+// A bound queue is identified by the account and region its series carry as well as its queue
+// name and collector name, and a label the context does not carry is absent, never empty.
+func TestResourceBindingsIdentityCarriesAccountAndRegion(t *testing.T) {
+	cfg := &Config{Queues: []Queue{boundQueue(nil), {Name: "plain", CollectorName: "plain-collector"}}}
+	got := cfg.ResourceBindings(causal.BindContext{Env: "prod", Region: "eu-west-1", AccountID: "111122223333"})
+	want := []causal.Binding{{Resource: "jobs-queue", Identity: map[string]string{
+		"dimension_QueueName": "jobs", "name": "declared-collector", "account_id": "111122223333", "region": "eu-west-1",
+	}}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("bindings = %+v, want %+v", got, want)
+	}
+	other := cfg.ResourceBindings(causal.BindContext{Region: "us-east-2", AccountID: "444455556666"})
+	if reflect.DeepEqual(got[0].Identity, other[0].Identity) {
+		t.Fatalf("same-named queue in another account and region has the same identity: %+v", other[0].Identity)
+	}
+	bare := cfg.ResourceBindings(causal.BindContext{})
+	if !reflect.DeepEqual(bare[0].Identity, map[string]string{"dimension_QueueName": "jobs", "name": "declared-collector"}) {
+		t.Fatalf("no cloud fixture: identity %+v, want the queue and collector names alone", bare[0].Identity)
 	}
 }
