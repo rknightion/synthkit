@@ -310,6 +310,12 @@ type Traffic struct {
 	// request rate, replacing off_peak_rps and peak_rps (which are then ignored); the entry is
 	// typically a worker. Requires resources.
 	FromResource string `yaml:"from_resource"`
+	// Synchronous marks each from_resource request as a request/response invocation by the hop
+	// that published it (an API calling a function and waiting for its answer), not a message
+	// consumed later. The entry's root is a SERVER span; a request that takes a published
+	// message continues the caller's trace under the caller's CLIENT span and is laid inside
+	// that span's window. Requires from_resource; the entry may not also be a worker.
+	Synchronous bool `yaml:"synchronous"`
 	// SuccessStatus is the HTTP status of a successful entry request, 200 to 299. Omitted is 200.
 	SuccessStatus int `yaml:"success_status"`
 	// ErrorMix is the weighted set of statuses and codes a failed entry request draws from.

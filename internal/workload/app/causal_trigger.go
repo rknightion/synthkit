@@ -3,8 +3,10 @@
 package app
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/ledger"
@@ -47,6 +49,27 @@ import (
 // spans and its span-metric exemplars all carry the joined trace. No span is added or removed:
 // span metrics are driven by each workload's own requests, so the joined pair's spans are counted
 // once each under their own services, exactly as when they were two traces.
+//
+// Synchronous invocation (traffic.synchronous). A function invoked request/response by a hop (an
+// API calling a function and waiting for its answer) runs during the call, not after the caller
+// has answered. Its requests take messages through the same exchange, with three differences:
+//
+//   - The parent is the caller's CLIENT span (the outgoing invocation span, semantic-conventions
+//     v1.44.0 faas-spans.md: outgoing span kind CLIENT, incoming span kind SERVER), and the
+//     entry's root is a SERVER span. There is no link: an ordinary parent carries the context.
+//   - A message is consumable once its producing request has started no later than this
+//     request's mint instant, so a call minted earlier in the same tick is joined in that tick. A
+//     call made before this consumer's previous mint went unserved when it was consumable (the
+//     function ran fewer times than it was called) and is dropped, never joined (takeCall).
+//   - The joined root is laid inside the CLIENT span's window, centred on it, and the request's
+//     whole tree, its log lines and the windows of any call it makes in turn move with it
+//     (renderStart). Its duration is unchanged, so a run longer than the call it would join does
+//     not fit: it takes the message (one invocation per call, first in, first out) but keeps its
+//     own trace, as a run with no message does. So does a message whose caller emits no CLIENT
+//     span.
+//
+// Nothing is drawn: placement is arithmetic on facts already final, so the engine's draws and
+// every unjoined request are unchanged.
 
 // maxTrackedTriggers bounds the worker requests of earlier mints whose trigger context is still
 // held. The requests of the mint in progress are never evicted: one mint can join more requests than
@@ -55,8 +78,12 @@ import (
 // joined requests.
 const maxTrackedTriggers = 16384
 
-// trigger is the message creation context a joined worker request continues.
-type trigger struct{ trace, span string }
+// trigger is the message creation context a joined worker request continues. start is set only
+// for a synchronous join: the joined root's start before the trace's render offset.
+type trigger struct {
+	trace, span string
+	start       time.Time
+}
 
 // trackedTrigger is one joined worker request in the book and the mint (the minter's tick count
 // when it joined) that made it.
@@ -106,7 +133,17 @@ func (b *triggerBook) get(r *ledger.Request) (trigger, bool) {
 
 // bindExchanges resolves the app's side of each queue it publishes into or consumes. Called once
 // at build, after bindCausal validated the declarations.
-func (p *causalPlan) bindExchanges(set causal.Set) {
+func (p *causalPlan) bindExchanges(cfg *Config) error {
+	if cfg.Traffic.Synchronous {
+		if p.fromQueue == "" {
+			return fmt.Errorf("app: traffic.synchronous needs traffic.from_resource (the invocations it serves)")
+		}
+		if p.worker {
+			return fmt.Errorf("app service %q: worker and traffic.synchronous are exclusive: a worker consumes messages after they are published, a synchronous function runs during the call", p.entry)
+		}
+		p.sync = true
+	}
+	set := cfg.resources
 	for name, cn := range p.nodes {
 		if name == p.entry {
 			continue // a hop publishes; the entry's own use of a queue is not a caller hop
@@ -120,19 +157,32 @@ func (p *causalPlan) bindExchanges(set causal.Set) {
 			}
 		}
 	}
-	if p.worker {
+	if p.worker || p.sync {
 		if x, ok := set.QueueExchange(p.fromQueue); ok {
 			p.consumes = x
 			x.AddConsumer()
 		}
 	}
+	return nil
 }
 
 // exchange runs after a request's facts are final: a worker request first takes its message and
 // joins the producing trace, then the request publishes its own messages, so a worker that itself
 // publishes continues the same trace into the next queue.
 func (p *causalPlan) exchange(m *minter, r *ledger.Request) {
-	if p.consumes != nil {
+	// base is where the request's tree starts before its render offset: a synchronously joined
+	// request's placement, so a call it makes in turn is measured where it is rendered.
+	base := r.Start.Add(-r.Duration)
+	switch {
+	case p.consumes != nil && p.sync:
+		if msg, ok := p.takeCall(r.Start); ok {
+			if start, fits := syncPlacement(msg, r.Duration); fits {
+				r.TraceID = msg.Trace
+				p.triggers.put(atomic.LoadUint64(&m.tick), r, trigger{trace: msg.Trace, span: msg.Client, start: start})
+				base = start
+			}
+		}
+	case p.consumes != nil:
 		if msg, ok := p.consumes.Take(r.Start.Add(-r.Duration)); ok {
 			r.TraceID = msg.Trace
 			// The minter's tick count names the mint in progress (Mint advances it first).
@@ -142,6 +192,7 @@ func (p *causalPlan) exchange(m *minter, r *ledger.Request) {
 	if len(p.publishes) == 0 {
 		return
 	}
+	var wins []hopWindow
 	for i, c := range r.Calls {
 		xs := p.publishes[c.Target]
 		if len(xs) == 0 || c.Failed {
@@ -151,10 +202,69 @@ func (p *causalPlan) exchange(m *minter, r *ledger.Request) {
 		if span == "" {
 			continue
 		}
+		msg := causal.Message{Start: r.Start, Trace: r.TraceID, Span: span}
+		if client := m.hopClient(r, i); client != "" {
+			if wins == nil {
+				// The projection's own hop layout, on the request's timeline before its render
+				// offset (a joined request shares the trace, so it shares that offset).
+				wins = hopWindows(r, base, base.Add(max(r.Duration, time.Millisecond)), causalLayout(r))
+			}
+			msg.Client, msg.CallStart, msg.CallEnd = client, wins[i].start, wins[i].end
+		}
 		for _, x := range xs {
-			x.Publish(causal.Message{Start: r.Start, Trace: r.TraceID, Span: span})
+			x.Publish(msg)
 		}
 	}
+}
+
+// takeCall takes the oldest call a synchronous request minted at now can have served: one made no
+// later than now that was not already consumable at this consumer's previous mint. A call left
+// pending after the previous mint's last take went unserved while it was consumable (the function
+// ran fewer times than it was called), and so did one made before the previous mint instant; both
+// are dropped, never joined, so a run is never laid inside a call that had already ended. A call
+// published after the previous mint's last take (its producer minted later in that tick) is kept.
+func (p *causalPlan) takeCall(now time.Time) (causal.Message, bool) {
+	sm := &p.syncMints
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	if !now.Equal(sm.now) {
+		sm.prev, sm.now = sm.now, now
+		sm.stale, sm.left = sm.left, 0
+	}
+	defer func() { sm.left = p.consumes.Pending() }()
+	for {
+		msg, ok := p.consumes.Take(now)
+		switch {
+		case !ok:
+			return msg, false
+		case sm.stale > 0:
+			sm.stale--
+		case msg.Start.Before(sm.prev):
+		default:
+			return msg, true
+		}
+	}
+}
+
+// syncMints is a synchronous consumer's current and previous mint instants, the calls left
+// pending after its latest take, and how many of the oldest pending calls are still to be dropped
+// as unserved at the previous mint.
+type syncMints struct {
+	mu          sync.Mutex
+	now, prev   time.Time
+	left, stale int
+}
+
+// syncPlacement is where a synchronous request of duration d runs inside the call that published
+// msg: centred on the caller's CLIENT span window. It reports false when the caller emitted no
+// CLIENT span or the run is longer than the call.
+func syncPlacement(msg causal.Message, d time.Duration) (time.Time, bool) {
+	d = max(d, time.Millisecond)
+	window := msg.CallEnd.Sub(msg.CallStart)
+	if msg.Client == "" || d > window {
+		return time.Time{}, false
+	}
+	return msg.CallStart.Add((window - d) / 2), true
 }
 
 // hopContext is the span id of the span that publishes at hop i: the callee's server span when it
@@ -167,6 +277,15 @@ func (m *minter) hopContext(r *ledger.Request, i int) string {
 	}
 	if callee.kind.serverSpan && c.PeerSpanID != "" && callee.decl.tracesEnabled() {
 		return c.PeerSpanID
+	}
+	return m.hopClient(r, i)
+}
+
+// hopClient is the span id of the caller's CLIENT span at hop i; "" when the caller emits none.
+func (m *minter) hopClient(r *ledger.Request, i int) string {
+	c := r.Calls[i]
+	if m.graph.byName[c.Target] == nil {
+		return ""
 	}
 	caller := m.graph.entry
 	if c.ParentHopIndex >= 0 && c.ParentHopIndex < len(r.Calls) {
@@ -186,4 +305,13 @@ func (w *Workload) triggerOf(r *ledger.Request) (trigger, bool) {
 		return trigger{}, false
 	}
 	return w.m.causal.triggers.get(r)
+}
+
+// renderStart is where a request's tree starts on the rendered timeline: a synchronously joined
+// request's placement inside the call it serves, else the request's own RenderStart.
+func (w *Workload) renderStart(r *ledger.Request) time.Time {
+	if t, ok := w.triggerOf(r); ok && !t.start.IsZero() {
+		return t.start.Add(-r.RenderOffset)
+	}
+	return r.RenderStart()
 }

@@ -130,10 +130,14 @@ func (p hopProto) httpStatusRule() bool { return p == protoHTTP || p == protoNon
 func grpcServerError(status int) bool { return status >= 500 }
 
 // entryRootKind is the entry's root span kind: CONSUMER for a worker entry (a message consumer of
-// traffic.from_resource), else the service type's root kind.
+// traffic.from_resource), SERVER for a synchronously invoked one (traffic.synchronous; FaaS
+// incoming span), else the service type's root kind.
 func (w *Workload) entryRootKind() otlp.SpanKind {
 	if w.graph.entry.decl.Worker {
 		return otlp.KindConsumer
+	}
+	if w.cfg.Traffic.Synchronous {
+		return otlp.KindServer
 	}
 	return w.graph.entry.kind.rootKind
 }
@@ -444,7 +448,8 @@ func (w *Workload) hopViews(r *ledger.Request) []hopView {
 		upstream: entryUp,
 		origin:   decorated && entryFailed && (rootIsOrigin(r) || entryUp != "" && clientOrigin(-1)),
 	}}
-	base, reqEnd := r.RenderStart(), r.RenderStart().Add(r.Duration)
+	base := w.renderStart(r)
+	reqEnd := base.Add(r.Duration)
 	for i, c := range r.Calls {
 		callee := w.graph.byName[c.Target]
 		if callee == nil {
@@ -521,7 +526,7 @@ func causalRefs(refs map[string]string, v hopView) {
 // line receives the node's own failing status when its answer failed (0 otherwise), for the
 // gateway export log's status field.
 func (w *Workload) projectCausalLogs(r *ledger.Request, line func(n *node, level string, t time.Time, ctx telemetryspec.EvalCtx, failStatus int)) {
-	completedAt := r.RenderStart().Add(max(r.Duration, time.Millisecond))
+	completedAt := w.renderStart(r).Add(max(r.Duration, time.Millisecond))
 	views := w.hopViews(r)
 	for _, n := range w.graph.nodes {
 		if len(n.logs) == 0 {

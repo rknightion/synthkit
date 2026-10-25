@@ -235,6 +235,28 @@ spans), and the worker's logs carry that trace id. The pairing is fixed, not dra
 No span is added or removed, so span metrics and service-graph counts are unchanged. The entry
 service's own use of a queue is not a hop and publishes nothing.
 
+### Synchronously invoked functions run inside the call
+
+A function that a hop invokes request/response (an API calling a function and waiting for its
+answer) is declared like a worker's source, with `traffic: {from_resource: <invocations queue>,
+synchronous: true}` on the function's app, and the calling hop's service `uses` that queue. The
+entry must not also be a `worker`. Its root span is SERVER (semantic-conventions v1.44.0 FaaS spans:
+the incoming invocation span is SERVER, the outgoing one CLIENT). The pairing differs from a worker's:
+
+- A request takes the oldest unconsumed message whose producing request started no later than its
+  own mint instant, so a call minted earlier in the same tick is joined in that tick. A call made
+  before the function's previous mint went unserved while it was consumable and is dropped, never
+  joined.
+- The joined root is a child of the caller's CLIENT span for that hop, with no link, and is laid
+  centred inside that span's window; the request's child spans, its log lines and the calls it
+  makes in turn (a chained synchronous invocation nests inside it) move with it.
+- A run longer than the call it would join, or a message whose caller emits no CLIENT span, takes
+  the message (one invocation per call) but keeps its own trace, as a run with no message does.
+
+Set `signals: {traces: false}` on the caller's own stub node for the function, so the trace shows
+one SERVER span (the function's) under the CLIENT span rather than two. Without `synchronous` a
+`from_resource` app that is not a `worker` consumes no message and joins no trace.
+
 ### Service graph example
 
 ```yaml

@@ -14,10 +14,15 @@ const MaxPendingMessages = 32768
 
 // Message is one message published into a queue: the producing request's start and trace, and the
 // span that published it. The package owns no span or trace naming; the strings are opaque ids.
+// Client is the publishing hop's caller-side span ("" when the caller emits none) and CallStart and
+// CallEnd its window on the producer's timeline, which a synchronously invoked consumer runs inside.
 type Message struct {
 	Start time.Time
 	Trace string
 	Span  string
+
+	Client             string
+	CallStart, CallEnd time.Time
 }
 
 // Exchange is one declared queue's published messages, handed first in, first out to the

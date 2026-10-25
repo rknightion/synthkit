@@ -37,7 +37,7 @@ const (
 
 // causalOpted reports whether the config names any causal field.
 func (c *Config) causalOpted() bool {
-	if c.Traffic.FromResource != "" {
+	if c.Traffic.FromResource != "" || c.Traffic.Synchronous {
 		return true
 	}
 	for _, s := range c.Services {
@@ -87,6 +87,8 @@ type causalPlan struct {
 
 	publishes map[string][]*causal.Exchange
 	consumes  *causal.Exchange
+	sync      bool // traffic.synchronous: the consumer runs inside the publishing call
+	syncMints syncMints
 	triggers  triggerBook
 }
 
@@ -123,7 +125,9 @@ func buildCausalPlan(cfg *Config, g *graph, env string) (*causalPlan, error) {
 	if p.model, err = causal.Compile(cfg.resources); err != nil {
 		return nil, fmt.Errorf("app: resources: %w", err)
 	}
-	p.bindExchanges(cfg.resources)
+	if err := p.bindExchanges(cfg); err != nil {
+		return nil, err
+	}
 	return p, nil
 }
 

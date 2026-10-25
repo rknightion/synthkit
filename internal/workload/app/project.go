@@ -65,7 +65,7 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 	}
 
 	for _, r := range batch {
-		base := r.RenderStart()
+		base := w.renderStart(r)
 		dur := r.Duration
 		if dur <= 0 {
 			dur = time.Millisecond
@@ -88,9 +88,12 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 			decorateRoot(&root, r, httpNode(entry))
 			if t, ok := w.triggerOf(r); ok {
 				// A worker request that took a queue message continues the producing request's
-				// trace under the publisher's span, and links to that creation context.
+				// trace under the publisher's span, and links to that creation context. A
+				// synchronous invocation is an ordinary child of the caller's CLIENT span.
 				root.ParentID = t.span
-				root.Links = []otlp.Link{{TraceID: t.trace, SpanID: t.span}}
+				if t.start.IsZero() {
+					root.Links = []otlp.Link{{TraceID: t.trace, SpanID: t.span}}
+				}
 			}
 			er.Spans = append(er.Spans, root)
 			er.Spans = append(er.Spans, eChildren...)
@@ -465,7 +468,7 @@ func (w *Workload) projectLogs(ctx context.Context, world *core.World, batch []*
 		if dur <= 0 {
 			dur = time.Millisecond
 		}
-		completedAt := r.RenderStart().Add(dur)
+		completedAt := w.renderStart(r).Add(dur)
 		level := logLevel(r.Outcome)
 		if causalFailing(r) {
 			w.projectCausalLogs(r, func(n *node, level string, t time.Time, ctxEval telemetryspec.EvalCtx, failStatus int) {
