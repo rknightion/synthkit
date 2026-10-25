@@ -192,3 +192,36 @@ func TestValidationAndIdle(t *testing.T) {
 		t.Fatal("cumulative account stat")
 	}
 }
+
+// UpdateItem is a write operation like PutItem: write units only, no returned items, no
+// throttle capture (only GetItem and PutItem throttles were captured), and no customer
+// writes on a GlobalTable.
+func TestUpdateItemAdmission(t *testing.T) {
+	upd := func(mod func(*Table, *Operation)) error {
+		cfg := config()
+		o := Operation{Name: "UpdateItem", RequestsPerSecond: 0.5, WriteUnits: 1, LatencyMS: 5}
+		tb := cfg.Tables[0]
+		mod(&tb, &o)
+		tb.Operations = []Operation{o}
+		cfg.Tables = []Table{tb}
+		_, err := Registration().Build(cfg, fixtures())
+		return err
+	}
+	if err := upd(func(*Table, *Operation) {}); err != nil {
+		t.Fatalf("valid UpdateItem rejected: %v", err)
+	}
+	for name, mod := range map[string]func(*Table, *Operation){
+		"read units":     func(_ *Table, o *Operation) { o.ReadUnits = 1 },
+		"no write units": func(_ *Table, o *Operation) { o.WriteUnits = 0 },
+		"returned items": func(_ *Table, o *Operation) { o.ReturnedItems = 1 },
+		"throttles":      func(_ *Table, o *Operation) { o.ThrottledRequestsPerSecond = 0.1 },
+		"global table": func(tb *Table, _ *Operation) {
+			tb.WriteSource = "GlobalTable"
+			tb.Replication = &Replication{WritesPerSecond: 1, UnitsPerWrite: 1}
+		},
+	} {
+		if err := upd(mod); err == nil {
+			t.Errorf("%s: invalid UpdateItem accepted", name)
+		}
+	}
+}

@@ -16,6 +16,7 @@ import (
 
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/cw"
+	"github.com/rknightion/synthkit/internal/failuremode"
 	"github.com/rknightion/synthkit/internal/fixture"
 	"github.com/rknightion/synthkit/internal/state"
 )
@@ -66,6 +67,11 @@ type Table struct {
 // operator assumptions, not captured numeric distributions. ReadUnits can be
 // fractional (e.g. eventual reads); WriteUnits is capacity, not item bytes.
 // ExecuteStatement here means SELECT only. No grouped captured enum is expanded.
+// UpdateItem is a separately declared write operation: its requests are customer
+// writes like PutItem and consume write capacity at the table, and only
+// SuccessfulRequestLatency (TableName+Operation) is emitted for it. An operator
+// models an update-heavy table by splitting the write demand between PutItem and
+// UpdateItem, never by adding to it.
 type Operation struct {
 	Name              string  `yaml:"name"`
 	RequestsPerSecond float64 `yaml:"requests_per_second"`
@@ -120,6 +126,9 @@ type tableState struct {
 	replBusiness              bool
 	failures, polls, replicas float64
 	throttles                 []float64
+	// stormThrottles carries the fractions of incident-driven throttles per operation,
+	// separate from the declared baseline so an incident never changes the healthy draw.
+	stormThrottles []float64
 }
 
 const (
@@ -142,8 +151,47 @@ type construct struct {
 	paused  bool
 }
 
+// AxisTable is the failure axis of one declared table, addressed by its TableName.
+const AxisTable failuremode.Axis = "table"
+
+// ModeThrottleStorm is the table-axis incident: requests of the throttle-captured operations
+// (GetItem, PutItem) are additionally rejected for exceeding provisioned throughput. The extra
+// throttled requests in a window are intensity x that operation's admitted requests, so
+// ThrottledRequests (TableName+Operation) and ReadThrottleEvents/WriteThrottleEvents (TableName)
+// rise from absent to positive while it is active. Admitted requests, consumed capacity and
+// latency are unchanged, mirroring the Lambda function_throttle_storm. Query, Scan and
+// ExecuteStatement were not captured and are unaffected. The magnitude is a synthetic operator
+// assumption, not an AWS behaviour curve.
+const ModeThrottleStorm = "table_throttle_storm"
+
+// FailureModes is the table-axis vocabulary this construct implements.
+var FailureModes = []failuremode.Mode{
+	{Name: ModeThrottleStorm, Axis: AxisTable, Help: "table GetItem and PutItem requests are throttled on top of admitted requests (extra ThrottledRequests, ReadThrottleEvents and WriteThrottleEvents = intensity x requests)"},
+}
+
 func Registration() core.ConstructReg {
-	return core.ConstructReg{Kind: "dynamodb", Doc: "Explicit provisioned DynamoDB tables (remote-write only)", Scope: core.ScopeBlueprint, NewConfig: func() any { return &Config{} }, Build: Build}
+	return core.ConstructReg{Kind: "dynamodb", Doc: "Explicit provisioned DynamoDB tables (remote-write only)", Scope: core.ScopeBlueprint, NewConfig: func() any { return &Config{} }, Build: Build, FailureModes: FailureModes}
+}
+
+// FailureTargets reports each declared table name as a table-axis failure target. The blueprint
+// resolver duck-types it; this package does not import the blueprint package.
+func (c *Config) FailureTargets() []failuremode.Target {
+	out := make([]failuremode.Target, 0, len(c.Tables))
+	for _, t := range c.Tables {
+		out = append(out, failuremode.Target{Name: t.Name, Axis: AxisTable})
+	}
+	return out
+}
+
+// stormIntensity is the table's throttle-storm intensity this tick; zero when none is active.
+func stormIntensity(w *core.World, now time.Time, table string) float64 {
+	if w == nil || w.Shape == nil {
+		return 0
+	}
+	if on, inten := w.Shape.Eval(now, ModeThrottleStorm, table); on {
+		return inten
+	}
+	return 0
 }
 
 // Build takes an owned copy: subsequent config/fixture mutation cannot alter a
@@ -212,9 +260,9 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 				if o.WriteUnits != 0 || o.ReadUnits == 0 {
 					return nil, fmt.Errorf("dynamodb: select operations require read_units only")
 				}
-			case "PutItem":
+			case "PutItem", "UpdateItem":
 				if o.ReadUnits != 0 || o.WriteUnits == 0 || o.ReturnedItems != 0 {
-					return nil, fmt.Errorf("dynamodb: PutItem requires write_units only, no ReturnedItemCount")
+					return nil, fmt.Errorf("dynamodb: %s requires write_units only, no ReturnedItemCount", o.Name)
 				}
 			default:
 				return nil, fmt.Errorf("dynamodb: unsupported operation %q", o.Name)
@@ -273,7 +321,7 @@ func Build(raw any, fx *fixture.Set) (core.Construct, error) {
 			t.Stream = &s
 		}
 		t.Operations = append([]Operation(nil), t.Operations...)
-		ts := tableState{table: t, carry: make([]float64, len(t.Operations)), throttles: make([]float64, len(t.Operations)), business: make([]bool, len(t.Operations)), replBusiness: t.Load == loadBusiness}
+		ts := tableState{table: t, carry: make([]float64, len(t.Operations)), throttles: make([]float64, len(t.Operations)), stormThrottles: make([]float64, len(t.Operations)), business: make([]bool, len(t.Operations)), replBusiness: t.Load == loadBusiness}
 		for j, o := range t.Operations {
 			ts.business[j] = o.Load == loadBusiness || (o.Load == "" && t.Load == loadBusiness)
 		}
@@ -388,6 +436,7 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		l := c.labels(t.CollectorName)
 		l["dimension_TableName"] = t.Name
 		var readSum, writeSum, readPeak, writePeak, readMin, writeMin, readThrottled, writeThrottled float64
+		storm := stormIntensity(w, now, t.Name)
 		for j, o := range t.Operations {
 			rate, throttleRate := o.RequestsPerSecond, o.ThrottledRequestsPerSecond
 			if ts.business[j] {
@@ -397,7 +446,11 @@ func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 			}
 			n := take(rate, seconds, &ts.carry[j])
 			// Rejected requests: no capacity consumed and no successful-request series.
-			if throttled := take(throttleRate, seconds, &ts.throttles[j]); throttled > 0 {
+			throttled := take(throttleRate, seconds, &ts.throttles[j])
+			if storm > 0 && (o.Name == "GetItem" || o.Name == "PutItem") {
+				throttled += take(n*storm, 1, &ts.stormThrottles[j])
+			}
+			if throttled > 0 {
 				op := c.labels(t.CollectorName)
 				op["dimension_TableName"] = t.Name
 				op["dimension_Operation"] = o.Name

@@ -51,6 +51,8 @@ The `target` field on an effect resolves to a specific declared instance:
 | `function:*` | Every declared Lambda function |
 | `orders-out` | One queue declared under `integrations.solace` (see [queue axis](#queue-axis-solace)) |
 | `queue:*` | Every declared Solace queue |
+| `orders` | One table declared under an environment's `cloud.dynamodb.tables` (see [table axis](#table-axis-dynamodb)) |
+| `table:*` | Every declared DynamoDB table |
 | omitted | Valid only for single-axis modes — the mode's axis is inferred and all instances of that axis are targeted |
 
 The resolver validates every effect target against the blueprint's actual instance inventory at load time. An unknown name or an axis mismatch is a loud load error.
@@ -223,6 +225,20 @@ queue carrying it. The queue's changes roll up into its VPN and broker totals.
 
 There is no separate discard mode: the sourced discard counter records spool-full discards, which
 `queue_consumer_stall` reaches when the quota fills.
+
+### table axis (DynamoDB)
+
+Every table declared under an environment's `cloud.dynamodb.tables` is a target named by its
+`name` (the TableName, not `collector_name`). One table name declared in several environments is
+one target.
+
+| Mode | Effect |
+|---|---|
+| `table_throttle_storm` | GetItem and PutItem requests are rejected for exceeding provisioned throughput: each window gains `intensity` × the operation's admitted requests as throttled requests. `aws_dynamodb_throttled_requests` (TableName+Operation) and `aws_dynamodb_read_throttle_events` (GetItem) or `aws_dynamodb_write_throttle_events` (PutItem) on the table, otherwise absent, become positive and add to any declared `throttled_requests_per_second`. |
+
+Admitted requests, consumed capacity and latency are unchanged, as for `function_throttle_storm`.
+Query, Scan and ExecuteStatement were not captured and are unaffected. The magnitude is a synthetic
+operator assumption, not an AWS behaviour curve. With no incident active the output is unchanged.
 
 A function or queue name must be usable as a schedule scope: a name containing `@`, `/`, `#` or
 whitespace is not addressable, and naming it is an unknown-target error. The loader logs a warning

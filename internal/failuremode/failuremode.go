@@ -21,6 +21,7 @@ const (
 	AxisNetwork  Axis = "network"  // network-topology-exporter instance (SNMP topology discovery)
 	AxisFunction Axis = "function" // one declared serverless function (today: a cloud.lambda function name)
 	AxisQueue    Axis = "queue"    // one declared message queue (today: a Solace queue name)
+	AxisTable    Axis = "table"    // one declared provisioned table (today: a cloud.dynamodb table name)
 )
 
 // Target is one addressable failure target a construct declaration owns. A construct Config

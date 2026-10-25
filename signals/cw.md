@@ -198,7 +198,12 @@ Provisioned tables require explicit TableName and non-global `collector_name`. A
 utilization snapshots emit once without table identity. Consumed capacity is sampled per second,
 including idle zero traffic; request latency/items/Streams observations are sparse. Latency is
 service-side only, never client/network time. Supported successful table operations are GetItem,
-PutItem, Query, Scan and SELECT-only ExecuteStatement. ReturnedItemCount belongs only to Query,
+PutItem, UpdateItem, Query, Scan and SELECT-only ExecuteStatement. UpdateItem is documented by AWS as an
+Operation value but not captured (source: AWS DynamoDB metrics and dimensions,
+https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/metrics-dimensions.html, fetched
+2026-10-25): it is a customer write that emits only SuccessfulRequestLatency
+(TableName+Operation) and shares the table write demand with PutItem (split, never added), with no
+throttle or ReturnedItemCount series. ReturnedItemCount belongs only to Query,
 Scan and SELECT ExecuteStatement. Declared Streams GetRecords uses StreamLabel+Operation+TableName;
 it is never union-filled into table-operation observations. Write Source is omitted, Customer or
 GlobalTable; GlobalTable replication is independently declared applied writes, not PutItem calls.

@@ -110,8 +110,9 @@ bytes, four-day retention and six-hour activity retention. It does not model ret
 queue groups; optional `enrichment` accepts only explicit supported P2 metadata keys. DynamoDB
 requires positive provisioned capacities/quotas; its account snapshots have no table dimensions.
 `write_source` is omitted, `Customer` or `GlobalTable`; the last requires independent `replication`.
-Table operations are GetItem, PutItem, Query, Scan and SELECT-only ExecuteStatement. Returned items
-apply only to the three selection operations. An optional `stream` declares its own `label` and
+Table operations are GetItem, PutItem, UpdateItem, Query, Scan and SELECT-only ExecuteStatement.
+UpdateItem is a write operation declared separately from PutItem (write units only, latency only; the
+write demand is split between them, never added to). Returned items apply only to the three selection operations. An optional `stream` declares its own `label` and
 GetRecords polling; StreamLabel is absent from ordinary operations. Whole returned items/records/
 bytes and fractional read units/rates are distinct. Capacity samples may exist at zero traffic;
 latency/returned observations are sparse. Floating-point floors may delay a decimal-boundary
