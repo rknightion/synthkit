@@ -6,7 +6,7 @@ title: >-
 status: Parked
 assignee: []
 created_date: '2026-10-25T15:15:00Z'
-updated_date: '2026-10-25T22:18:00Z'
+updated_date: '2026-10-26T03:26:00Z'
 labels:
   - causal
 dependencies: []
@@ -42,4 +42,6 @@ Choose the smallest generic shared-concurrency grouping seam over heterogeneous 
 
 <!-- SECTION:NOTES:BEGIN -->
 Owner closeout: Shared concurrency-pool implementation held behind unlanded causal model; resume after composition and cost admission.
+
+Loop60 closeout: No shared-pool implementation or API freeze this run. Retained proposal keeps per-function resources, exclusive account-region projection and labelled proportional-fluid admission assumptions. Resume after evaluator/causal admission and timing-owner integration, never as a workaround for owner stops.
 <!-- SECTION:NOTES:END -->

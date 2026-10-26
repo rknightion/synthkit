@@ -1,10 +1,10 @@
 ---
 id: SKT-0211
 title: Make causal span timestamps identical on amd64 and arm64
-status: In Progress
+status: Parked
 assignee: []
 created_date: '2026-10-25T15:15:00Z'
-updated_date: '2026-10-25T22:31:00Z'
+updated_date: '2026-10-26T03:26:00Z'
 labels:
   - causal
 dependencies: []
@@ -42,4 +42,6 @@ Loop60: senior composes only charter-listed accepted engine/app/Lambda/AgentCore
 
 <!-- SECTION:NOTES:BEGIN -->
 Owner closeout: Accepted timestamp/engine split unlanded. Compose with accepted resend parity, retaining engine-only split and excluding held reference migration.
+
+Loop60 closeout: Accepted causal stack through fe995479 retains architecture proof and the repaired shared-exchange identity; not published because integrated app race still exceeds the unchanged 600-second budget. Resume only after owner-authorized evaluator resolution, current-main composition, exact final generation/review/full gate and dual-architecture facts.
 <!-- SECTION:NOTES:END -->

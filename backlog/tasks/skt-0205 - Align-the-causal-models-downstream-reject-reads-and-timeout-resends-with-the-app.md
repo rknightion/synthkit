@@ -6,7 +6,7 @@ title: >-
 status: Parked
 assignee: []
 created_date: '2026-10-25T13:38:00Z'
-updated_date: '2026-10-25T22:18:00Z'
+updated_date: '2026-10-26T03:26:00Z'
 labels:
   - causal
 dependencies: []
@@ -48,4 +48,6 @@ loop58 closeout (2026-10-25): parked unlanded; see /Users/rob/repos/synthkit/cod
 First convergence tripwire after legacy-duration omission and independent review findings for admitted pool-wait distribution plus architecture-dependent fused arithmetic. Senior escalation will share actual acquisition-wait semantics with expected timing and preserve all sampler, timing and identity checks. Current candidate is not accepted for landing.
 
 Owner closeout: Accepted resend-parity source after native escalation and dual-architecture facts, unlanded. Resume composed causal stack and exact dynamic/cold/catch-up cost admission. First trip converged; no attempt reset.
+
+Loop60 closeout: Accepted task-separated candidate is retained in the repaired fe995479 causal stack, not published. Composed app race still exceeds the unchanged600-second budget, including after exact optimization foundation; plain/component success is not full-gate acceptance. Resume after owner-authorized evaluator resolution, current-main composition, final generation/review/full gate and actual inventory proof. No timeout/assertion/population weakening or unchanged green sampling.
 <!-- SECTION:NOTES:END -->

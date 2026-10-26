@@ -4,7 +4,7 @@ title: Report a bound Lambda's failed executions at their real duration
 status: Parked
 assignee: []
 created_date: '2026-10-25T12:50:00Z'
-updated_date: '2026-10-25T22:19:00Z'
+updated_date: '2026-10-26T03:26:00Z'
 labels:
   - causal
 dependencies: []
@@ -36,4 +36,6 @@ Follow-up to SKT-0195. Failed executions of a causally bound Lambda now occupy t
 loop58 closeout (2026-10-25): parked unlanded; see /Users/rob/repos/synthkit/codex/closeout-2026-10-25-loop58.md. Accepted and in landing-13 mbox (codex/loop58/archive/land13-d4a51b34..3c664fc6.mbox); landing blocked by SKT-0211 (amd64 FMA digest drift). Resume: fix SKT-0211, re-gate, land.
 
 Owner closeout: accepted prior timing/join candidate remains in the retained archived causal stack, not in published database-only delivery. Resume from the explicit engine-only split with accepted timestamp/resend fixes, preserving existing assertions and excluding the held reference migration; final composition, generation, review and exact-tree gate remain required.
+
+Loop60 closeout: Accepted task-separated candidate is retained in the repaired fe995479 causal stack, not published. Composed app race still exceeds the unchanged600-second budget, including after exact optimization foundation; plain/component success is not full-gate acceptance. Resume after owner-authorized evaluator resolution, current-main composition, final generation/review/full gate and actual inventory proof. No timeout/assertion/population weakening or unchanged green sampling.
 <!-- SECTION:NOTES:END -->

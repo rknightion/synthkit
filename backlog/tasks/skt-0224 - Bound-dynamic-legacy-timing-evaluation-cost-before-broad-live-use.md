@@ -4,7 +4,7 @@ title: Bound dynamic legacy timing evaluation cost before broad live use
 status: Parked
 assignee: []
 created_date: '2026-10-25T22:00:00Z'
-updated_date: '2026-10-26T03:20:00Z'
+updated_date: '2026-10-26T03:26:00Z'
 labels:
   - causal
   - performance
@@ -44,4 +44,6 @@ Loop60: map hot paths first, then optimize and measure cold/catch-up/changing in
 Owner closeout: Runtime-cost blocker remains: observed 6.29s per gate and 13.93GB allocation churn. Optimization unattempted; resume exact cold/catch-up/dynamic profiling before broad live use.
 
 Second loop60 convergence stop: latest unlanded two-worker candidate remains unapproved. First fresh confirmation measured 4.140158258s above the unchanged four-second margin; remaining calls/processes stopped unmeasured. Ordered cold still exceeds 300s. Independent native review found an uncontained helper-goroutine panic and a caller-panic path that skips retained-plan recount. No more algorithm, lifecycle or repeated confirmation repair without owner reopening. Prior serial correctness verdicts remain scoped to their original bytes; no timed, concurrent, private or whole-runner admission. Candidate, failure evidence and offline-only limit proposal retained; private deployment stays held.
+
+Loop60 closeout: Second convergence stop remains binding: fresh4.140158258s exceeds4s, ordered cold exceeds300s and native worker panic/accounting findings remain open. No algorithm/lifecycle repair, confirmations, private-runtime admission or renamed bypass without explicit owner reopening; unsupported operating-limit proposal remains unapplied.
 <!-- SECTION:NOTES:END -->

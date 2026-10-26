@@ -3,9 +3,10 @@ id: SKT-0227
 title: >-
   Remove quadratic emitted-log lookup from app proofs without changing their
   coverage
-status: In Progress
+status: Parked
 assignee: []
 created_date: '2026-10-26T01:06:00Z'
+updated_date: '2026-10-26T03:26:00Z'
 labels:
   - performance
 dependencies: []
@@ -32,3 +33,9 @@ The causal stack passes plain tests but the app race package exceeds its unchang
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Loop60 closeout: Final68e11900 is correctness-reviewed only: independent raw-capture oracle and omitted-corpus controls resolve the service-review major, with all original cases retained. Actual app race still fails600.052s (181 passed, one in flight,83 unreached). Not Done or a budget fix; no unchanged broad resampling. Resume on a genuinely changed exact final composition after cost resolution.
+<!-- SECTION:NOTES:END -->

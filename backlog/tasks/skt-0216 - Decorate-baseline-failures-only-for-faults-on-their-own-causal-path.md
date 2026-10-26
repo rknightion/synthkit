@@ -1,10 +1,10 @@
 ---
 id: SKT-0216
 title: Decorate baseline failures only for faults on their own causal path
-status: In Progress
+status: Parked
 assignee: []
 created_date: '2026-10-25T19:30:00Z'
-updated_date: '2026-10-25T23:10:00Z'
+updated_date: '2026-10-26T03:26:00Z'
 labels:
   - causal
 dependencies: []
@@ -40,4 +40,6 @@ Implement own-path baseline-fault decoration on the immutable composed causal so
 
 <!-- SECTION:NOTES:BEGIN -->
 Owner closeout: Own-path fault decoration held for causal/app composition.
+
+Loop60 closeout: Own-path decoration candidate14934446 has actual red/green and native acceptance, but is unlanded with the causal foundation. Resume task-only delta on current-main composition after evaluator resolution; preserve all baseline warning/error and related-path timing assertions.
 <!-- SECTION:NOTES:END -->

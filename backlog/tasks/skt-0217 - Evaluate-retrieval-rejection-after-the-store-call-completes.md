@@ -4,7 +4,7 @@ title: Evaluate retrieval rejection after the store call completes
 status: Parked
 assignee: []
 created_date: '2026-10-25T19:30:00Z'
-updated_date: '2026-10-25T22:18:00Z'
+updated_date: '2026-10-26T03:26:00Z'
 labels:
   - causal
 dependencies: []
@@ -34,4 +34,6 @@ A retrieval rule currently rejects at arrival, making rejected calls finish befo
 
 <!-- SECTION:NOTES:BEGIN -->
 Owner closeout: Post-store retrieval rejection held for elapsed-time/app seam.
+
+Loop60 closeout: Actual post-store rule phase remains unimplemented. The invented validator topology was rejected, not accepted as a substitute. Resume only after performance/causal integration and a real post-children timing seam; retain rejection-origin and actual store-elapsed proof.
 <!-- SECTION:NOTES:END -->

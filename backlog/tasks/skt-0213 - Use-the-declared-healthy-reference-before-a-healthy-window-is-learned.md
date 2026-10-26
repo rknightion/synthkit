@@ -4,7 +4,7 @@ title: Use the declared healthy reference before a healthy window is learned
 status: Parked
 assignee: []
 created_date: '2026-10-25T19:30:00Z'
-updated_date: '2026-10-25T22:18:00Z'
+updated_date: '2026-10-26T03:26:00Z'
 labels:
   - causal
 dependencies: []
@@ -40,4 +40,6 @@ Use the accepted restored engine/timestamp candidate as baseline; reproduce a fa
 
 <!-- SECTION:NOTES:BEGIN -->
 Owner closeout: Accepted healthy-reference candidate unlanded. Resume causal-stack composition; preserve missing-own-timing limitation and learned-reference precedence.
+
+Loop60 closeout: Accepted task-separated candidate is retained in the repaired fe995479 causal stack, not published. Composed app race still exceeds the unchanged600-second budget, including after exact optimization foundation; plain/component success is not full-gate acceptance. Resume after owner-authorized evaluator resolution, current-main composition, final generation/review/full gate and actual inventory proof. No timeout/assertion/population weakening or unchanged green sampling.
 <!-- SECTION:NOTES:END -->

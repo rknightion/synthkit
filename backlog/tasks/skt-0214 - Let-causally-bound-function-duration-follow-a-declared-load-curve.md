@@ -4,7 +4,7 @@ title: Let causally bound function duration follow a declared load curve
 status: Parked
 assignee: []
 created_date: '2026-10-25T19:30:00Z'
-updated_date: '2026-10-25T22:18:00Z'
+updated_date: '2026-10-26T03:26:00Z'
 labels:
   - causal
 dependencies: []
@@ -34,4 +34,6 @@ Bound functions currently retain flat duration overnight. The causal model needs
 
 <!-- SECTION:NOTES:BEGIN -->
 Owner closeout: Bound-function load-curve implementation held for causal/Lambda seam.
+
+Loop60 closeout: No implementation or API freeze this run. Read-only seam decision uses declared environment Factor for duration independently of arrivals; occupancy, emission and caller timing require joint proof. Resume after evaluator/causal admission.
 <!-- SECTION:NOTES:END -->

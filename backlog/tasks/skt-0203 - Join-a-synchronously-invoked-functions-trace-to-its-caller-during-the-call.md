@@ -1,10 +1,10 @@
 ---
 id: SKT-0203
 title: Join a synchronously invoked function's trace to its caller during the call
-status: In Progress
+status: Parked
 assignee: []
 created_date: '2026-10-25T12:55:00Z'
-updated_date: '2026-10-25T23:05:00Z'
+updated_date: '2026-10-26T03:26:00Z'
 labels:
   - causal
 dependencies: []
@@ -38,4 +38,6 @@ loop58 closeout (2026-10-25): parked unlanded; see /Users/rob/repos/synthkit/cod
 Owner closeout: accepted prior timing/join candidate remains in the retained archived causal stack, not in published database-only delivery. Resume from the explicit engine-only split with accepted timestamp/resend fixes, preserving existing assertions and excluding the held reference migration; final composition, generation, review and exact-tree gate remain required.
 
 Integrated native review found count-based pending expiry can discard fresh synchronous calls after competing consumption or bounded eviction. Same composition lane repairs with a real failing shared-exchange regression and stable identity/watermark; preserve FIFO, caps and late same-tick publication. No source acceptance yet.
+
+Loop60 closeout: The fresh-call expiry defect was repaired by stable shared-exchange identity/watermark at fe995479 and independent native delta review passed. This supersedes the earlier pending-repair note, not the publication hold: composed app race is still red at 600 seconds. Preserve competing-consumer/eviction/FIFO/cap regressions; resume final causal composition after cost resolution.
 <!-- SECTION:NOTES:END -->
