@@ -148,7 +148,8 @@ app_causal:
     grpc_server_error_class: STATUS_CODE_ERROR      # 5xx class and timeouts; see traces-causal-grpc-status
     grpc_server_throttle_or_4xx: STATUS_CODE_UNSET
     client_4xx_5xx_transport_timeout: STATUS_CODE_ERROR
-    consumer_root_any_failure: STATUS_CODE_ERROR
+    consumer_root_unhandled_failure: STATUS_CODE_ERROR
+    nonhttp_origin_handled_rule_4xx: STATUS_CODE_UNSET # root or callee's own rule_regression only; not inherited child failure, token, transport, timeout or 5xx
   span_kinds:
     worker_entry_root: SPAN_KIND_CONSUMER
   span_events: none
