@@ -50,8 +50,15 @@ causal model, with `name` set to the runtime ARN (`arn:aws:bedrock-agentcore:<re
 the allowed `<resource-arn|global>` form) and no other dimension. `invocations` = admitted requests,
 `throttles` = rejected requests, `system_errors` = admitted requests that failed (a held-across
 dependency's unavailability or its credentials), `total_errors` = `system_errors` + `throttles`
-(the model has no client-error source), `latency` = the effective hold in milliseconds, absent in a
-window with no admitted request. The other invocation-class names have no modelled source and are
+(the model has no client-error source). Bound `latency` measures invocation elapsed time in
+milliseconds: completed invocations use the effective hold, while model-failed invocations end at
+their failed call. Each population's duration is the window's step holds weighted by its step rates;
+`_average` is the invocation-weighted mean across the populations present, consistent with the
+model's in-use concurrency. `_minimum` and `_maximum` are the shorter and longer population durations
+present (one population alone supplies both). The existing per-period gauge convention is retained:
+`_sum` equals that mean, not total invocation milliseconds, and `_sample_count` is 60, not the number
+of invocations. This differs from bound Lambda Duration's execution-total sum and execution count.
+A window with no admitted request has no latency observation. The other invocation-class names have no modelled source and are
 not emitted for a bound runtime. The `name=…/runtime/global` series is unchanged. The derivations
 are synthkit's, `v: assumed` like the names. Blueprint loading rejects legacy
 `agentcore_throttle` incidents and scenario effects that reach a bound runtime, including mixed
