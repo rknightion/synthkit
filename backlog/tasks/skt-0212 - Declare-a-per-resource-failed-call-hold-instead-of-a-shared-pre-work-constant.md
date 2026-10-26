@@ -4,7 +4,7 @@ title: Declare a per-resource failed-call hold instead of a shared pre-work cons
 status: Parked
 assignee: []
 created_date: '2026-10-25T19:30:00Z'
-updated_date: '2026-10-26T03:26:00Z'
+updated_date: '2026-10-26T05:56:00Z'
 labels:
   - causal
 dependencies: []
@@ -36,4 +36,6 @@ A shared layout pre-work share currently supplies a failed-call hold without a p
 Owner closeout: Per-resource failed-call hold unimplemented; resume after resend timing seam integration.
 
 Loop60 closeout: No implementation or API freeze this run. Read-only seam decision requires presence-bearing absolute resource-owned failed work in milliseconds, excluding separately modelled children/waits/backoffs, with exact nil-path compatibility. Resume after evaluator/causal admission and context-table review.
+
+Final loop closeout: retained unlanded causal candidateaf34 has native/component review and final CodeRabbit passes, but the exact integrated full gate fails app-race600.139s. No candidate source was pushed or deployed. Preserve task-specific earlier evidence/limits; resume only after the aggregate owner stop and relevant dependency/owner decisions are resolved, with no timeout/assertion/case/isolation reduction or unchanged full-gate retry.
 <!-- SECTION:NOTES:END -->

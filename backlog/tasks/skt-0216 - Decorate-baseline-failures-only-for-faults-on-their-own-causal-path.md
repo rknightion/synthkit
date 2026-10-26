@@ -4,7 +4,7 @@ title: Decorate baseline failures only for faults on their own causal path
 status: Parked
 assignee: []
 created_date: '2026-10-25T19:30:00Z'
-updated_date: '2026-10-26T03:26:00Z'
+updated_date: '2026-10-26T05:56:00Z'
 labels:
   - causal
 dependencies: []
@@ -42,4 +42,6 @@ Implement own-path baseline-fault decoration on the immutable composed causal so
 Owner closeout: Own-path fault decoration held for causal/app composition.
 
 Loop60 closeout: Own-path decoration candidate14934446 has actual red/green and native acceptance, but is unlanded with the causal foundation. Resume task-only delta on current-main composition after evaluator resolution; preserve all baseline warning/error and related-path timing assertions.
+
+Final loop closeout: retained unlanded causal candidateaf34 has native/component review and final CodeRabbit passes, but the exact integrated full gate fails app-race600.139s. No candidate source was pushed or deployed. Preserve task-specific earlier evidence/limits; resume only after the aggregate owner stop and relevant dependency/owner decisions are resolved, with no timeout/assertion/case/isolation reduction or unchanged full-gate retry.
 <!-- SECTION:NOTES:END -->

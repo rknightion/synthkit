@@ -4,7 +4,7 @@ title: Diagnose intermittent HA renewal-loss observation timeout under loaded ga
 status: Parked
 assignee: []
 created_date: '2026-10-21T15:25:00Z'
-updated_date: '2026-10-26T03:26:00Z'
+updated_date: '2026-10-26T05:57:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -67,4 +67,6 @@ Owner closeout: No new measurement: scout lacked native wait helper; no fallback
 One bounded current-context focused native race run passed all four unchanged renewal-loss scenarios, with CPU cap/load and actual readiness/fatal-exit timings retained. Non-reproduction only, not original-cause attribution or repair. Resume with a new failing actual-context log or discriminating controlled scheduling hypothesis; no unchanged repeated sampling.
 
 Loop60 closeout: The bounded current-context four-scenario pass is non-reproduction, not repair or cause attribution. Keep every deadline, observation and cleanup assertion; resume only from attributable failing evidence or a discriminating controlled scheduling hypothesis, not unchanged sampling.
+
+Final loop closeout: original attribution remains unresolved; ordinary later gate passes do not reproduce or repair it. Retain the prior task-specific diagnostics and exact failure evidence; resume only on new attributable actual-context evidence, not unchanged green sampling.
 <!-- SECTION:NOTES:END -->

@@ -4,7 +4,7 @@ title: Classify unchanged custody forecast race failure in composed telemetry ga
 status: Parked
 assignee: []
 created_date: '2026-10-25T20:26:00Z'
-updated_date: '2026-10-26T03:26:00Z'
+updated_date: '2026-10-26T05:57:00Z'
 labels:
   - causal
 dependencies: []
@@ -48,4 +48,6 @@ Owner closeout: Five whole-parent race passes per base/candidate with identical 
 Diagnostic-only slice published at b8e152b9 after native security, CodeRabbit and DS review, complete composed gate and private-term hygiene. Failure-only operation/generation/step and safe post-failure probe context preserve sentinel, limits and unchanged state. Original intermittent failure remains unattributed; resume from a newly failing actual-context observation, not injected-fault or later-green inference and not unchanged sampling.
 
 Loop60 closeout: Diagnostic-only sourceb8e152b9 and hosted CI are green, but original custody-corrupt cause remains unresolved. No unchanged sampling; resume from a new failing actual-context observation with operation/state/scheduling evidence.
+
+Final loop closeout: original attribution remains unresolved; ordinary later gate passes do not reproduce or repair it. Retain the prior task-specific diagnostics and exact failure evidence; resume only on new attributable actual-context evidence, not unchanged green sampling.
 <!-- SECTION:NOTES:END -->

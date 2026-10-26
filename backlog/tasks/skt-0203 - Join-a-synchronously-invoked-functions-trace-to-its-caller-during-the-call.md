@@ -4,7 +4,7 @@ title: Join a synchronously invoked function's trace to its caller during the ca
 status: Parked
 assignee: []
 created_date: '2026-10-25T12:55:00Z'
-updated_date: '2026-10-26T03:26:00Z'
+updated_date: '2026-10-26T05:56:00Z'
 labels:
   - causal
 dependencies: []
@@ -40,4 +40,6 @@ Owner closeout: accepted prior timing/join candidate remains in the retained arc
 Integrated native review found count-based pending expiry can discard fresh synchronous calls after competing consumption or bounded eviction. Same composition lane repairs with a real failing shared-exchange regression and stable identity/watermark; preserve FIFO, caps and late same-tick publication. No source acceptance yet.
 
 Loop60 closeout: The fresh-call expiry defect was repaired by stable shared-exchange identity/watermark at fe995479 and independent native delta review passed. This supersedes the earlier pending-repair note, not the publication hold: composed app race is still red at 600 seconds. Preserve competing-consumer/eviction/FIFO/cap regressions; resume final causal composition after cost resolution.
+
+Final loop closeout: retained unlanded causal candidateaf34 has native/component review and final CodeRabbit passes, but the exact integrated full gate fails app-race600.139s. No candidate source was pushed or deployed. Preserve task-specific earlier evidence/limits; resume only after the aggregate owner stop and relevant dependency/owner decisions are resolved, with no timeout/assertion/case/isolation reduction or unchanged full-gate retry.
 <!-- SECTION:NOTES:END -->

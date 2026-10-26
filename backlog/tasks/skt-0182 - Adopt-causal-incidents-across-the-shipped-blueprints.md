@@ -4,7 +4,7 @@ title: Adopt causal incidents across the shipped blueprints
 status: Parked
 assignee: []
 created_date: '2026-10-25T02:12:00Z'
-updated_date: '2026-10-26T03:31:00Z'
+updated_date: '2026-10-26T05:56:00Z'
 labels: []
 dependencies:
   - SKT-0168.09.15
@@ -49,4 +49,6 @@ Loop60 second convergence stop: reference migration remains unlanded. The suppor
 Loop60 closeout: Second convergence stop retained. Correct physical-target/call-occurrence identity and additive own-work timing are demonstrated engine dependencies; five-client/golden/family acceptance remains incomplete. Explicit owner reopening after evaluator admission is required, not a blueprint-only or renamed repair.
 
 Owner explicitly approves the recommended bounded engine-contract follow-up on senior/Astra: separate call occurrence from shared physical target, correct database identity, compose independent own work with synchronous calls. Implementation AFTER evaluator cost admission; then actual per-client healthy/fault/recovery/isolation and full golden attribution. Prior failed proposals and stops retained; no blueprint workaround or proof waiver.
+
+Final loop closeout: retained unlanded causal candidateaf34 has native/component review and final CodeRabbit passes, but the exact integrated full gate fails app-race600.139s. No candidate source was pushed or deployed. Preserve task-specific earlier evidence/limits; resume only after the aggregate owner stop and relevant dependency/owner decisions are resolved, with no timeout/assertion/case/isolation reduction or unchanged full-gate retry.
 <!-- SECTION:NOTES:END -->

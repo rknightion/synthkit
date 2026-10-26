@@ -4,7 +4,7 @@ title: Make causal span timestamps identical on amd64 and arm64
 status: Parked
 assignee: []
 created_date: '2026-10-25T15:15:00Z'
-updated_date: '2026-10-26T03:26:00Z'
+updated_date: '2026-10-26T05:56:00Z'
 labels:
   - causal
 dependencies: []
@@ -44,4 +44,6 @@ Loop60: senior composes only charter-listed accepted engine/app/Lambda/AgentCore
 Owner closeout: Accepted timestamp/engine split unlanded. Compose with accepted resend parity, retaining engine-only split and excluding held reference migration.
 
 Loop60 closeout: Accepted causal stack through fe995479 retains architecture proof and the repaired shared-exchange identity; not published because integrated app race still exceeds the unchanged 600-second budget. Resume only after owner-authorized evaluator resolution, current-main composition, exact final generation/review/full gate and dual-architecture facts.
+
+Final loop closeout: retained unlanded causal candidateaf34 has native/component review and final CodeRabbit passes, but the exact integrated full gate fails app-race600.139s. No candidate source was pushed or deployed. Preserve task-specific earlier evidence/limits; resume only after the aggregate owner stop and relevant dependency/owner decisions are resolved, with no timeout/assertion/case/isolation reduction or unchanged full-gate retry.
 <!-- SECTION:NOTES:END -->

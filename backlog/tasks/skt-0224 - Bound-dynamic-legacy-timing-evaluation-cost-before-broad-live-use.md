@@ -4,10 +4,11 @@ title: Bound dynamic legacy timing evaluation cost before broad live use
 status: Parked
 assignee: []
 created_date: '2026-10-25T22:00:00Z'
-updated_date: '2026-10-26T05:55:00Z'
+updated_date: '2026-10-26T05:57:00Z'
 labels:
   - causal
   - performance
+  - needs-owner
 dependencies: []
 ordinal: 430000
 ---
