@@ -214,12 +214,14 @@ func TestResetReplaysAnotherAppsPost(t *testing.T) {
 		t.Fatalf("blocks changed:\n got %s\nwant %s", sent.String(), want.String())
 	}
 
-	_, _, log, seed, cfg = resetFixture(t)
-	seed.Messages = append(seed.Messages, script.SeedMessage{Channel: "ops", From: script.SeedFromApp, Text: "x", Blocks: json.RawMessage(`[{"type":"table","rows":"not rows"}]`)})
-	if _, err := Reset(context.Background(), cfg, seed); err == nil || !strings.Contains(err.Error(), "blocks") {
-		t.Fatalf("bad blocks: err = %v", err)
-	}
-	if len(*log) != 0 {
-		t.Fatalf("calls before refusing: %v", *log)
+	for _, bad := range []string{`[{"type":"table","rows":"not rows"}]`, `[{}]`} {
+		_, _, log, seed, cfg = resetFixture(t)
+		seed.Messages = append(seed.Messages, script.SeedMessage{Channel: "ops", From: script.SeedFromApp, Text: "x", Blocks: json.RawMessage(bad)})
+		if _, err := Reset(context.Background(), cfg, seed); err == nil || !strings.Contains(err.Error(), "blocks") {
+			t.Fatalf("bad blocks %s: err = %v", bad, err)
+		}
+		if len(*log) != 0 {
+			t.Fatalf("bad blocks %s: calls before refusing: %v", bad, *log)
+		}
 	}
 }

@@ -358,6 +358,17 @@ func seedBlocks(seed *script.Seed) ([][]slack.Block, error) {
 		if len(m.Blocks) == 0 {
 			continue
 		}
+		var shapes []struct {
+			Type string `json:"type"`
+		}
+		if err := json.Unmarshal(m.Blocks, &shapes); err != nil {
+			return nil, fmt.Errorf("seed line %d blocks (%s): %w", i, m.BlocksFile, err)
+		}
+		for j, b := range shapes {
+			if b.Type == "" {
+				return nil, fmt.Errorf("seed line %d blocks (%s): block %d has no type", i, m.BlocksFile, j)
+			}
+		}
 		var bs slack.Blocks
 		if err := json.Unmarshal(m.Blocks, &bs); err != nil {
 			return nil, fmt.Errorf("seed line %d blocks (%s): %w", i, m.BlocksFile, err)
