@@ -4,10 +4,9 @@ title: Bind all five declared document-store clients to their causal resources
 status: Parked
 assignee: []
 created_date: '2026-10-25T19:30:00Z'
-updated_date: '2026-10-26T03:26:00Z'
+updated_date: '2026-10-26T03:31:00Z'
 labels:
   - causal
-  - needs-owner
 dependencies: []
 ordinal: 422000
 ---
@@ -45,4 +44,6 @@ Owner closeout: Five-client document-store binding held for sourced reference mi
 Loop60 second convergence stop, paired with SKT-0182 (reference-family realism): five pool declarations did not establish five actual store calls. Shared-leaf DFS suppresses generation; a distinct leaf restores its CLIENT span but not the required additive caller elapsed or common DocumentDB wire identity. No supported blueprint-only fix. Owner approval to reopen after explicit engine contracts and evaluator cost admission; actual per-client healthy/onset/recovery/isolation proof and golden attribution remain required.
 
 Loop60 closeout: Second convergence stop retained: the alias restores a missing actual CLIENT call but not correct additive caller elapsed or common physical database identity. No five-client completion; explicit owner reopening plus engine contracts, actual per-client healthy/fault/recovery/isolation and golden attribution required.
+
+Owner explicitly approves the recommended bounded engine-contract follow-up on senior/Astra: separate call occurrence from shared physical target, correct database identity, compose independent own work with synchronous calls. Implementation AFTER evaluator cost admission; then actual per-client healthy/fault/recovery/isolation and full golden attribution. Prior failed proposals and stops retained; no blueprint workaround or proof waiver.
 <!-- SECTION:NOTES:END -->

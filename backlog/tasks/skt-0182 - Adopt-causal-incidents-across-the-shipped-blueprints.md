@@ -4,9 +4,8 @@ title: Adopt causal incidents across the shipped blueprints
 status: Parked
 assignee: []
 created_date: '2026-10-25T02:12:00Z'
-updated_date: '2026-10-26T03:26:00Z'
-labels:
-  - needs-owner
+updated_date: '2026-10-26T03:31:00Z'
+labels: []
 dependencies:
   - SKT-0168.09.15
 priority: medium
@@ -48,4 +47,6 @@ Owner closeout: Owner realism decision open: exact application latency/overhead/
 Loop60 second convergence stop: reference migration remains unlanded. The supported distinct DB call-site experiment restored the missing generation CLIENT operation, but same-service orchestration still masks additive store elapsed time and DocumentDB physical identity is unsupported. Explicit call occurrence/physical-target and additive-work contracts are engine dependencies, not a blueprint workaround. Owner decision required before another reference repair; recommend authorizing those contracts after evaluator cost admission, then resuming per-client proof and complete golden attribution. Original failed proposals, red runner evidence and disputed service review remain retained; no golden acceptance or all-family completion.
 
 Loop60 closeout: Second convergence stop retained. Correct physical-target/call-occurrence identity and additive own-work timing are demonstrated engine dependencies; five-client/golden/family acceptance remains incomplete. Explicit owner reopening after evaluator admission is required, not a blueprint-only or renamed repair.
+
+Owner explicitly approves the recommended bounded engine-contract follow-up on senior/Astra: separate call occurrence from shared physical target, correct database identity, compose independent own work with synchronous calls. Implementation AFTER evaluator cost admission; then actual per-client healthy/fault/recovery/isolation and full golden attribution. Prior failed proposals and stops retained; no blueprint workaround or proof waiver.
 <!-- SECTION:NOTES:END -->
