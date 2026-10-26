@@ -234,6 +234,7 @@ func TestClientRetryValidation(t *testing.T) {
 		"too many retries": {Retries: 4, BackoffSeconds: 2, RetryOn: []string{"5xx"}},
 		"zero backoff":     {Retries: 1, BackoffSeconds: 0, RetryOn: []string{"5xx"}},
 		"nan backoff":      {Retries: 1, BackoffSeconds: math.NaN(), RetryOn: []string{"5xx"}},
+		"huge backoff":     {Retries: 1, BackoffSeconds: 1e10, RetryOn: []string{"5xx"}},
 		"no classes":       {Retries: 1, BackoffSeconds: 2},
 		"unknown class":    {Retries: 1, BackoffSeconds: 2, RetryOn: []string{"timeout"}},
 		"repeated class":   {Retries: 1, BackoffSeconds: 2, RetryOn: []string{"5xx", "5xx"}},

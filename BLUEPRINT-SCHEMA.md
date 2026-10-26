@@ -2005,7 +2005,7 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `traffic.error_mix[].weight` | float |  | Weight is this entry's relative share of failed requests, > 0. |
 | `traffic.client_retry` | object | yes | ClientRetry re-sends a failed entry request as a new request of the same logical request, which repeats that logical request's per-request draws. Omitted re-sends nothing. |
 | `traffic.client_retry.retries` | int |  | Retries is the number of re-sends after the first attempt, 1 to 3. |
-| `traffic.client_retry.backoff_seconds` | float |  | BackoffSeconds is the delay before re-send 1, doubled per further re-send (backoff x 2^k). |
+| `traffic.client_retry.backoff_seconds` | float |  | BackoffSeconds is the delay before re-send 1, (0, 600], doubled per further re-send (backoff x 2^k). |
 | `traffic.client_retry.retry_on[]` | string |  | RetryOn lists the failure classes that are re-sent: 5xx (any 5xx status), throttle (429). |
 | `otel` | object | yes | OTel enables the native OTLP metrics lane for inline service-node DSL instruments. Absent (nil) or Metrics=false leaves the established promrw path unchanged. Catalog profiles remain on promrw; they are not re-spelled into the native envelope. |
 | `otel.metrics` | bool |  |  |

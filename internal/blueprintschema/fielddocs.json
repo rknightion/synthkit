@@ -623,7 +623,7 @@
   "github.com/rknightion/synthkit/internal/workload/app.AgenticFlow.Agents": "Agents is the pool of agents the workflow can invoke; one fires per request (deterministic draw).",
   "github.com/rknightion/synthkit/internal/workload/app.AgenticFlow.OmitChat": "OmitChat drops the chat <model> leaf — set where a CONNECTED gateway/llm hop already models the LLM call (WS2/WS3 Path-B gateway span) so the LLM hop is not double-counted. WS1 (API-poll, no connected gateway) leaves it false: the in-process chat span IS the observed LLM call.",
   "github.com/rknightion/synthkit/internal/workload/app.AgenticFlow.Workflow": "Workflow is the LangGraph graph name → span \"invoke_workflow <Workflow>\" (gen_ai.workflow.name).",
-  "github.com/rknightion/synthkit/internal/workload/app.ClientRetry.BackoffSeconds": "BackoffSeconds is the delay before re-send 1, doubled per further re-send (backoff x 2^k).",
+  "github.com/rknightion/synthkit/internal/workload/app.ClientRetry.BackoffSeconds": "BackoffSeconds is the delay before re-send 1, (0, 600], doubled per further re-send (backoff x 2^k).",
   "github.com/rknightion/synthkit/internal/workload/app.ClientRetry.Retries": "Retries is the number of re-sends after the first attempt, 1 to 3.",
   "github.com/rknightion/synthkit/internal/workload/app.ClientRetry.RetryOn": "RetryOn lists the failure classes that are re-sent: 5xx (any 5xx status), throttle (429).",
   "github.com/rknightion/synthkit/internal/workload/app.Config.Automation": "Automation optionally emits a bounded sequential approval/task/HTTP-attempt recipe.",

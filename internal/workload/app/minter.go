@@ -53,11 +53,15 @@ type minter struct {
 type ClientRetry struct {
 	// Retries is the number of re-sends after the first attempt, 1 to 3.
 	Retries int `yaml:"retries"`
-	// BackoffSeconds is the delay before re-send 1, doubled per further re-send (backoff x 2^k).
+	// BackoffSeconds is the delay before re-send 1, (0, 600], doubled per further re-send (backoff x 2^k).
 	BackoffSeconds float64 `yaml:"backoff_seconds"`
 	// RetryOn lists the failure classes that are re-sent: 5xx (any 5xx status), throttle (429).
 	RetryOn []string `yaml:"retry_on"`
 }
+
+// maxClientRetryBackoffSeconds bounds the first re-send delay, matching the call_policies backoff_ms
+// cap (600000 ms), so backoff x 2^k stays far inside time.Duration's range.
+const maxClientRetryBackoffSeconds = 600
 
 // validate checks the policy (nil is valid: no re-sends) against the workload it applies to: only
 // a graph request path that mints at its own rate re-sends.
@@ -72,8 +76,8 @@ func (c *ClientRetry) validate(cfg *Config) error {
 		return fmt.Errorf("app: traffic.client_retry cannot combine with traffic.from_resource (a queue consumer mints exactly the messages its queue served)")
 	case c.Retries < 1 || c.Retries > causal.MaxRetries:
 		return fmt.Errorf("app: traffic.client_retry.retries %d must be in [1, %d]", c.Retries, causal.MaxRetries)
-	case math.IsNaN(c.BackoffSeconds) || math.IsInf(c.BackoffSeconds, 0) || c.BackoffSeconds <= 0:
-		return fmt.Errorf("app: traffic.client_retry.backoff_seconds must be a finite number > 0")
+	case math.IsNaN(c.BackoffSeconds) || c.BackoffSeconds <= 0 || c.BackoffSeconds > maxClientRetryBackoffSeconds:
+		return fmt.Errorf("app: traffic.client_retry.backoff_seconds must be in (0, %d]", maxClientRetryBackoffSeconds)
 	case len(c.RetryOn) == 0:
 		return fmt.Errorf("app: traffic.client_retry.retry_on must list at least one of 5xx, throttle")
 	}
