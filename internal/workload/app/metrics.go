@@ -53,7 +53,7 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 			if derived {
 				for _, spec := range n.metrics {
 					if isDerived(spec) {
-						w.observeDerived(nil, nil, id, n, spec, w.metricCtx(now, from, world, id, n, spec), incs, dt, paused)
+						w.observeDerived(nil, nil, id, n, spec, w.metricCtx(now, from, world, id, n, spec), incs, dt, paused, world)
 					}
 				}
 			}
@@ -87,7 +87,7 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 				if !paused {
 					ctx = w.metricCtx(now, from, world, id, n, spec)
 				}
-				w.observeDerived(w.st, nativeFor(i), id, n, spec, ctx, incs, dt, paused)
+				w.observeDerived(w.st, nativeFor(i), id, n, spec, ctx, incs, dt, paused, world)
 			}
 		}
 	}

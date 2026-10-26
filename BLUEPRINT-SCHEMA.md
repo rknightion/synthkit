@@ -1735,6 +1735,11 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].custom_metrics[].stock_of` | object | yes |  |
 | `services[].custom_metrics[].stock_of.metric` | string |  |  |
 | `services[].custom_metrics[].stock_of.dwell_seconds` | float |  |  |
+| `services[].custom_metrics[].stock_of.residence` | object | yes |  |
+| `services[].custom_metrics[].stock_of.residence.median` | float |  |  |
+| `services[].custom_metrics[].stock_of.residence.p95` | float |  |  |
+| `services[].custom_metrics[].stock_of.stall_mode` | string |  |  |
+| `services[].custom_metrics[].stock_of.field` | string |  |  |
 | `services[].custom_metrics[].count_of` | string |  |  |
 | `services[].custom_metrics[].shape_profile` | object | yes |  |
 | `services[].custom_metrics[].shape_profile.timezone` | string |  |  |
@@ -1828,6 +1833,11 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].metrics[].stock_of` | object | yes |  |
 | `services[].metrics[].stock_of.metric` | string |  |  |
 | `services[].metrics[].stock_of.dwell_seconds` | float |  |  |
+| `services[].metrics[].stock_of.residence` | object | yes |  |
+| `services[].metrics[].stock_of.residence.median` | float |  |  |
+| `services[].metrics[].stock_of.residence.p95` | float |  |  |
+| `services[].metrics[].stock_of.stall_mode` | string |  |  |
+| `services[].metrics[].stock_of.field` | string |  |  |
 | `services[].metrics[].count_of` | string |  |  |
 | `services[].metrics[].shape_profile` | object | yes |  |
 | `services[].metrics[].shape_profile.timezone` | string |  |  |

@@ -66,7 +66,10 @@ type MetricSpec struct {
 	LEStyle    string                `yaml:"le_style"`
 	// StockOf makes a gauge a derived stock (a level such as items in progress or a queue depth)
 	// of a counter on the same service node, instead of reading its own value model. Gauge only;
-	// value and labels must be omitted (the gauge inherits the counter's label combinations).
+	// value must be omitted. Without labels the gauge inherits the counter's label combinations
+	// (across every same-named counter spec on the node); with labels it is a projection: each
+	// label must be a counter label, each value one the counter takes, and a gauge series stocks
+	// the arrivals of every counter series that matches it. Labels may not declare value_scale.
 	StockOf *StockOf `yaml:"stock_of"`
 	// CountOf makes a histogram observe, per label combination and tick, as many values as the
 	// named counter on the same service node incremented (fractions carry deterministically), so
@@ -124,13 +127,50 @@ func MaxRateScale(labels map[string]ValueModel) float64 {
 	return prod
 }
 
-// StockOf derives a gauge as the stock of a counter: a first-order lag that settles at
-// counter rate × DwellSeconds (Little's law), per label combination. Each tick it moves toward
-// that target by 1 - exp(-tick/DwellSeconds); the first tick seeds the target directly, so a
-// restart shows no ramp. A paused workload adds no inflow and the stock drains.
+// StockOf derives a gauge as the stock of a counter, per gauge label combination. Set exactly
+// one of DwellSeconds and Residence.
+//
+// DwellSeconds is the fluid stock: a first-order lag that settles at counter rate × DwellSeconds
+// (Little's law). Each tick it moves toward that target by 1 - exp(-tick/DwellSeconds); the first
+// tick seeds the target directly, so a restart shows no ramp. A paused workload adds no inflow and
+// the stock drains.
+//
+// Residence is the item stock: the counter's increments arrive as whole items (fractions carry
+// deterministically), each item stays for its own residence draw and then completes, so the
+// gauge is an integer count that settles near counter rate × the residence mean. Draws hash the
+// series and arrival tick, never the shape engine or the wall clock, so a run is a function of
+// its tick sequence. The first tick seeds the steady-state population for that tick's rate (no
+// ramp after a restart). A paused workload adds no items and completions drain the stock.
+// StallMode names an incident mode that slows completions: while it is active on the service at
+// intensity i, every item's residence advances at (1 - i) of real time, so intensity 1 stops
+// completions (the count and the oldest age grow) and recovery drains the stock as the frozen
+// items finish. Field selects the reading: count (default) or oldest_age_seconds, the age of the
+// oldest item still in the stock (0 when empty), which has no horizon. Two gauges with the same
+// counter, labels, residence and stall mode share one item population. One series holds at most
+// MaxStockItems items; arrivals above it are dropped, never carried.
 type StockOf struct {
-	Metric       string  `yaml:"metric"`        // counter name on the same service node
-	DwellSeconds float64 `yaml:"dwell_seconds"` // mean time an item stays in the stock (> 0)
+	Metric       string     `yaml:"metric"`        // counter name on the same service node
+	DwellSeconds float64    `yaml:"dwell_seconds"` // fluid stock: mean time an item stays (> 0)
+	Residence    *Lognormal `yaml:"residence"`     // item stock: per-item residence seconds (median, p95)
+	StallMode    string     `yaml:"stall_mode"`    // item stock: incident mode that slows completions
+	Field        string     `yaml:"field"`         // item stock: count (default) | oldest_age_seconds
+}
+
+// Item-stock readings (StockOf.Field).
+const (
+	StockFieldCount     = "count"
+	StockFieldOldestAge = "oldest_age_seconds"
+)
+
+// MaxStockItems bounds the items one item-stock series holds. Arrivals above it are dropped.
+const MaxStockItems = 100000
+
+// EffectiveField is the item-stock reading, defaulting to count.
+func (s StockOf) EffectiveField() string {
+	if s.Field == "" {
+		return StockFieldCount
+	}
+	return s.Field
 }
 
 // CustomMetrics is the sourced, blueprint-owned variant of inline metric declarations.
@@ -325,14 +365,39 @@ func (m MetricSpec) validateStock() error {
 	if m.Value.setCount() != 0 {
 		return fmt.Errorf("metric %q: stock_of replaces the value model; omit value", m.Name)
 	}
-	if len(m.Labels) != 0 {
-		return fmt.Errorf("metric %q: stock_of inherits the counter's labels; omit labels", m.Name)
+	for _, k := range sortedKeys(m.Labels) {
+		for _, e := range m.Labels[k].Enum {
+			if e.ValueScale != nil {
+				return fmt.Errorf("metric %q label %q value %q: value_scale is not valid with stock_of (the stock counts items)", m.Name, k, e.Value)
+			}
+		}
 	}
-	if strings.TrimSpace(m.StockOf.Metric) == "" || m.StockOf.Metric == m.Name {
+	so := m.StockOf
+	if strings.TrimSpace(so.Metric) == "" || so.Metric == m.Name {
 		return fmt.Errorf("metric %q: stock_of.metric must name another counter", m.Name)
 	}
-	if d := m.StockOf.DwellSeconds; math.IsNaN(d) || math.IsInf(d, 0) || d <= 0 {
-		return fmt.Errorf("metric %q: stock_of.dwell_seconds must be finite and > 0", m.Name)
+	if so.Residence == nil {
+		if d := so.DwellSeconds; math.IsNaN(d) || math.IsInf(d, 0) || d <= 0 {
+			return fmt.Errorf("metric %q: stock_of.dwell_seconds must be finite and > 0", m.Name)
+		}
+		if so.StallMode != "" || so.Field != "" {
+			return fmt.Errorf("metric %q: stock_of.stall_mode and stock_of.field need stock_of.residence (the item stock)", m.Name)
+		}
+		return nil
+	}
+	if so.DwellSeconds != 0 {
+		return fmt.Errorf("metric %q: stock_of sets exactly one of dwell_seconds and residence", m.Name)
+	}
+	if err := (ValueModel{Lognormal: so.Residence}).Validate(); err != nil {
+		return fmt.Errorf("metric %q: stock_of.residence: %w", m.Name, err)
+	}
+	if md := so.StallMode; md != "" && strings.TrimSpace(md) != md {
+		return fmt.Errorf("metric %q: stock_of.stall_mode %q must be a nonblank incident mode name without surrounding whitespace", m.Name, md)
+	}
+	switch so.EffectiveField() {
+	case StockFieldCount, StockFieldOldestAge:
+	default:
+		return fmt.Errorf("metric %q: stock_of.field %q invalid (want count|oldest_age_seconds)", m.Name, so.Field)
 	}
 	return nil
 }

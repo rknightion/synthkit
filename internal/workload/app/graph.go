@@ -4,6 +4,8 @@ package app
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/rknightion/synthkit/internal/fixture"
@@ -180,9 +182,11 @@ func checkCustomMetricNames(existing []telemetryspec.MetricSpec, custom telemetr
 	return nil
 }
 
-// checkDerivedMetrics resolves each stock_of / count_of reference to a counter on the same node
-// and, for count_of, requires the histogram's labels to be a subset of the counter's, each with
-// the counter's value domain, so every counter series projects onto exactly one histogram series.
+// checkDerivedMetrics resolves each stock_of / count_of reference to the counter series of every
+// same-named counter spec on the node. A stock_of gauge's labels, when declared, must be counter
+// labels with values the counter takes, and each combination must match a counter series. For
+// count_of the histogram's labels must be a subset of the counter's, each with the counter's
+// value domain, so every counter series projects onto exactly one histogram series.
 func checkDerivedMetrics(n *node) error {
 	for _, m := range n.metrics {
 		ref := m.CountOf
@@ -192,15 +196,21 @@ func checkDerivedMetrics(n *node) error {
 		if ref == "" {
 			continue
 		}
-		src := n.counterSpec(ref)
-		if src == nil {
+		src := n.counterSeries(ref)
+		if len(src) == 0 {
 			return fmt.Errorf("metric %q: %q is not a counter on this service", m.Name, ref)
 		}
+		srcLabels := make([]map[string]string, len(src))
+		for i, c := range src {
+			srcLabels[i] = c.labels
+		}
+		domains := labelDomains(srcLabels)
 		if m.CountOf == "" {
+			if err := checkStockLabels(m, ref, src, domains); err != nil {
+				return err
+			}
 			continue
 		}
-		srcCombos := scaledLabelCombos(src.Labels)
-		domains := labelDomains(labelCombos(src.Labels))
 		histCombos := labelCombos(m.Labels)
 		for _, k := range sortedValueModelKeys(m.Labels) {
 			if _, ok := domains[k]; !ok {
@@ -219,20 +229,49 @@ func checkDerivedMetrics(n *node) error {
 		}
 		// The most one histogram series can observe in a tick is the sum of the largest
 		// increments of the counter series it projects (one series when the labels are equal).
-		if nominal, ok := nominalMax(src.Value); ok {
-			worst := 0.0
-			for _, h := range histCombos {
-				rate := 0.0
-				for _, c := range srcCombos {
-					if projects(h, c.labels) {
-						rate += c.rate
-					}
+		// A series with an unbounded model leaves its histogram series to the runtime clamp.
+		worst := 0.0
+		for _, h := range histCombos {
+			rate, bounded := 0.0, true
+			for _, c := range src {
+				if projects(h, c.labels) {
+					rate += c.max
+					bounded = bounded && c.bounded
 				}
+			}
+			if bounded {
 				worst = max(worst, rate)
 			}
-			if n := nominal * worst; n > telemetryspec.MaxObservationsPerTick {
-				return fmt.Errorf("metric %q: count_of counter %q can increment %v per tick, above %d observations per series per tick", m.Name, ref, n, telemetryspec.MaxObservationsPerTick)
+		}
+		if worst > telemetryspec.MaxObservationsPerTick {
+			return fmt.Errorf("metric %q: count_of counter %q can increment %v per tick, above %d observations per series per tick", m.Name, ref, worst, telemetryspec.MaxObservationsPerTick)
+		}
+	}
+	return nil
+}
+
+// checkStockLabels validates a stock_of gauge's label projection against its counter's series.
+func checkStockLabels(m telemetryspec.MetricSpec, ref string, src []counterSeries, domains map[string]map[string]bool) error {
+	for _, k := range sortedValueModelKeys(m.Labels) {
+		if _, ok := domains[k]; !ok {
+			return fmt.Errorf("metric %q: stock_of label %q is not a label of counter %q (stock labels must be a subset of the counter's)", m.Name, k, ref)
+		}
+	}
+	for _, combo := range labelCombos(m.Labels) {
+		for _, k := range slices.Sorted(maps.Keys(combo)) {
+			if !domains[k][combo[k]] {
+				return fmt.Errorf("metric %q: stock_of label %q value %q is not a value of counter %q", m.Name, k, combo[k], ref)
 			}
+		}
+		matched := false
+		for _, c := range src {
+			if projects(combo, c.labels) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return fmt.Errorf("metric %q: stock_of label combination %v matches no series of counter %q", m.Name, combo, ref)
 		}
 	}
 	return nil

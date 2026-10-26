@@ -390,8 +390,10 @@ type Workload struct {
 	nowHold map[string]time.Time
 	// carry holds the fractional observation remainder per scaled-rate histogram series.
 	carry map[string]float64
-	// stock holds each stock_of gauge's current level per label combination.
+	// stock holds each fluid stock_of gauge's current level per label combination.
 	stock map[string]float64
+	// items holds each item stock_of population per counter, residence, stall mode and series.
+	items map[string]*itemStock
 	// healthySpan holds a causal workload's latest healthy real span duration (seconds) per
 	// span-metric reference key, the basis a faulted row scales its legacy draws by.
 	healthySpan map[string]float64
