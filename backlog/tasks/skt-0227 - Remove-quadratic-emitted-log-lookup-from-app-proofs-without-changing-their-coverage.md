@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-26T01:06:00Z'
-updated_date: '2026-10-26T04:46:00Z'
+updated_date: '2026-10-26T04:58:00Z'
 labels:
   - performance
 dependencies: []
@@ -48,4 +48,6 @@ Loop60 closeout: Final68e11900 is correctness-reviewed only: independent raw-cap
 Exact integrated65ef full gate failed app-race600.180s; terminal AppDefaultWireParity had run42s and is not established as the cause of cumulative timeout. SpanID/index/worker/lifecycle changes are present, CodeRabbit54of54 clean, but no race-budget clearance or publication. Independent senior read-only attribution starts from immutable65ef; original first-dispatch lineage retained, four-hour point remains05:06Z. Private demo proof second-stop does not authorize numerical or private repair through this task.
 
 Clock correction from the native append-only dispatch event: first appindex dispatch was2026-10-26T01:07:59Z, so the four-hour point is05:07:59Z. Earlier01:06/05:06 shorthand used the board-creation time; this correction is not an attempt or clock reset. Current read-only attribution dispatch04:40:35Z does not reset the lineage.
+
+Read-only exact-source profiles completed: parity helper duplicates complete JSON encoding, a material old helper cost; State.Collect was not its sampled CPU bottleneck. Selected causal model callers separately dominate sampled allocation, outside new repair authority. A distinct byte-exact parity-helper prerequisite is tracked; the original aggregate-budget lineage/four-hour point remains unchanged, and the600.180s gate is not cleared by scoped passes.
 <!-- SECTION:NOTES:END -->
