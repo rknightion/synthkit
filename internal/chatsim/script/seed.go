@@ -4,10 +4,12 @@ package script
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -55,6 +57,19 @@ type SeedMessage struct {
 	Key string `yaml:"key"`
 	// ReplyTo is the Key of an earlier line; this line goes in that line's thread.
 	ReplyTo string `yaml:"reply_to"`
+	// As gives an "app" line its own name and picture, to replay another integration's post.
+	As *SeedAs `yaml:"as"`
+	// BlocksFile is a JSON array of Slack blocks, relative to the seed file, posted with Text
+	// as the notification fallback.
+	BlocksFile string `yaml:"blocks_file"`
+	// Blocks is BlocksFile's content, read by LoadSeed.
+	Blocks json.RawMessage `yaml:"-"`
+}
+
+// SeedAs is the identity an "app" line posts under.
+type SeedAs struct {
+	Name    string `yaml:"name"`
+	IconURL string `yaml:"icon_url"`
 }
 
 // Seed message authors besides personas.
@@ -72,6 +87,21 @@ func LoadSeed(path string, sc *Scenario) (*Seed, error) {
 	s, err := ParseSeed(data, sc)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	for i := range s.Messages {
+		m := &s.Messages[i]
+		if m.BlocksFile == "" {
+			continue
+		}
+		raw, err := os.ReadFile(filepath.Join(filepath.Dir(path), m.BlocksFile))
+		if err != nil {
+			return nil, fmt.Errorf("%s: messages[%d]: %w", path, i, err)
+		}
+		raw = bytes.TrimSpace(raw)
+		if !json.Valid(raw) || len(raw) == 0 || raw[0] != '[' {
+			return nil, fmt.Errorf("%s: messages[%d]: blocks_file %s is not a JSON array", path, i, m.BlocksFile)
+		}
+		m.Blocks = raw
 	}
 	return s, nil
 }
@@ -132,6 +162,20 @@ func (s *Seed) validate(sc *Scenario) error {
 		case personas[m.From]:
 		default:
 			add("%s: from %q is not a persona id, %q or %q", at, m.From, SeedFromOperator, SeedFromApp)
+		}
+		if m.As != nil {
+			if m.From != SeedFromApp {
+				add("%s: as is only for from %q", at, SeedFromApp)
+			}
+			if strings.TrimSpace(m.As.Name) == "" {
+				add("%s: as.name is required", at)
+			}
+			if m.As.IconURL != "" && !strings.HasPrefix(m.As.IconURL, "https://") {
+				add("%s: as.icon_url must be an https URL", at)
+			}
+		}
+		if f := m.BlocksFile; f != "" && (filepath.IsAbs(f) || strings.HasPrefix(filepath.Clean(f), "..")) {
+			add("%s: blocks_file must be a path inside the seed's directory", at)
 		}
 		if m.ReplyTo != "" && !keys[m.ReplyTo] {
 			add("%s: reply_to %q names no earlier key", at, m.ReplyTo)

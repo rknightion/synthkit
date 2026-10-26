@@ -4,6 +4,7 @@ package slack
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -119,6 +120,10 @@ func Reset(ctx context.Context, cfg ResetConfig, seed *script.Seed) (ResetReport
 	if err != nil {
 		return r.rep, err
 	}
+	blocks, err := seedBlocks(seed)
+	if err != nil {
+		return r.rep, err
+	}
 	keep := map[string]bool{}
 	for _, k := range seed.Wipe.Keep {
 		if id := r.channelID(k, byName); id != "" {
@@ -147,7 +152,7 @@ func Reset(ctx context.Context, cfg ResetConfig, seed *script.Seed) (ResetReport
 			}
 		}
 	}
-	if err := r.seed(ctx, seed, targets, names); err != nil {
+	if err := r.seed(ctx, seed, targets, names, blocks); err != nil {
 		return r.rep, err
 	}
 	return r.rep, nil
@@ -345,6 +350,23 @@ func (r *resetter) wipe(ctx context.Context, c slack.Channel) error {
 	return nil
 }
 
+// seedBlocks decodes each line's Slack blocks, so a malformed file stops the reset before
+// anything is deleted.
+func seedBlocks(seed *script.Seed) ([][]slack.Block, error) {
+	out := make([][]slack.Block, len(seed.Messages))
+	for i, m := range seed.Messages {
+		if len(m.Blocks) == 0 {
+			continue
+		}
+		var bs slack.Blocks
+		if err := json.Unmarshal(m.Blocks, &bs); err != nil {
+			return nil, fmt.Errorf("seed line %d blocks (%s): %w", i, m.BlocksFile, err)
+		}
+		out[i] = bs.BlockSet
+	}
+	return out, nil
+}
+
 // pause is the deterministic wait before seed line i.
 func pause(p script.Range, i int) time.Duration {
 	if p.Max <= p.Min {
@@ -354,7 +376,7 @@ func pause(p script.Range, i int) time.Duration {
 	return p.Min + time.Duration(frac*float64(p.Max-p.Min))
 }
 
-func (r *resetter) seed(ctx context.Context, seed *script.Seed, targets []string, names map[string]string) error {
+func (r *resetter) seed(ctx context.Context, seed *script.Seed, targets []string, names map[string]string, blocks [][]slack.Block) error {
 	joined := map[string]bool{}
 	for _, id := range targets {
 		if joined[id] || r.cfg.DryRun {
@@ -381,6 +403,9 @@ func (r *resetter) seed(ctx context.Context, seed *script.Seed, targets []string
 			}
 		}
 		opts := []slack.MsgOption{slack.MsgOptionText(m.Text, false)}
+		if len(blocks[i]) > 0 {
+			opts = append(opts, slack.MsgOptionBlocks(blocks[i]...))
+		}
 		if m.ReplyTo != "" {
 			opts = append(opts, slack.MsgOptionTS(keys[m.ReplyTo]))
 		}
@@ -389,6 +414,13 @@ func (r *resetter) seed(ctx context.Context, seed *script.Seed, targets []string
 		case script.SeedFromOperator:
 			api = r.cfg.User
 		case script.SeedFromApp:
+			if m.As != nil {
+				opts = append(opts, slack.MsgOptionUsername(m.As.Name))
+				if m.As.IconURL != "" {
+					opts = append(opts, slack.MsgOptionIconURL(m.As.IconURL))
+				}
+				break
+			}
 			if r.cfg.AppName != "" {
 				opts = append(opts, slack.MsgOptionUsername(r.cfg.AppName))
 			}

@@ -139,6 +139,11 @@ incident on the bindings' `irm.grafana_url` (token in `irm.token_env`, default
 so resolved ones remain in IRM's history. A persona's `avatar.image_url` (public https) shows a
 picture instead of its emoji. A line is `from` a persona id, `operator` (posted as the user token's
 user) or `app`, in a logical channel or `#name`; `key` and `reply_to` make a thread.
+An `app` line can replay another integration's post: `as: {name, icon_url}` sets the name and
+picture it shows, and `blocks_file` (a JSON array of Slack blocks, relative to the seed file, such
+as the `blocks` of a captured `conversations.history` message) is posted with `text` as the
+notification fallback. A blocks file that does not decode stops the reset before anything is
+deleted.
 
 ```yaml
 apiVersion: synthkit.chatsim/v1

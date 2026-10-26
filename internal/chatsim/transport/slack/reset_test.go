@@ -3,8 +3,13 @@
 package slack
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -25,6 +30,8 @@ type fakeAPI struct {
 	limitOne bool                       // rate-limit the first delete once
 	log      *[]string
 	posts    int
+	sent     []url.Values
+	wire     *slack.Client // when set, posts also go through a real client to a test server
 }
 
 func (f *fakeAPI) GetConversationsForUserContext(context.Context, *slack.GetConversationsForUserParameters) ([]slack.Channel, string, error) {
@@ -67,6 +74,12 @@ func (f *fakeAPI) PostMessageContext(_ context.Context, ch string, opts ...slack
 		return "", "", err
 	}
 	f.posts++
+	f.sent = append(f.sent, vals)
+	if f.wire != nil {
+		if _, _, err := f.wire.PostMessageContext(context.Background(), ch, opts...); err != nil {
+			return "", "", err
+		}
+	}
 	ts := fmt.Sprintf("%s.%d", f.who, f.posts)
 	line := fmt.Sprintf("%s post %s %q as=%q", f.who, ch, vals.Get("text"), vals.Get("username"))
 	if th := vals.Get("thread_ts"); th != "" {
@@ -163,5 +176,50 @@ func TestResetDryRunChangesNothing(t *testing.T) {
 	}
 	if len(*log) != 0 || rep.Deleted != 6 || rep.Archived != 1 || rep.Posted != 3 {
 		t.Fatalf("dry run: calls %v report %+v", *log, rep)
+	}
+}
+
+// TestResetReplaysAnotherAppsPost: an "app" line with As and Blocks posts under that name and
+// picture with the blocks unchanged, tables included; malformed blocks stop the reset before
+// anything is deleted.
+func TestResetReplaysAnotherAppsPost(t *testing.T) {
+	_, bot, log, seed, cfg := resetFixture(t)
+	var bodies []url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		bodies = append(bodies, r.PostForm)
+		_, _ = w.Write([]byte(`{"ok":true,"channel":"C1","ts":"1.0"}`))
+	}))
+	defer srv.Close()
+	bot.wire = slack.New("x", slack.OptionAPIURL(srv.URL+"/"))
+	blocks := `[{"type":"rich_text","block_id":"a1","elements":[{"type":"rich_text_section","elements":[{"type":"text","text":"Automation completed","style":{"bold":true}}]}]},` +
+		`{"type":"table","block_id":"t1","rows":[[{"type":"rich_text","elements":[{"type":"rich_text_section","elements":[{"type":"text","text":"Source"}]}]}]]}]`
+	seed.Messages = append(seed.Messages, script.SeedMessage{Channel: "ops", From: script.SeedFromApp, Text: "Automation completed",
+		As: &script.SeedAs{Name: "Grafana Cloud", IconURL: "https://x.test/g.png"}, Blocks: json.RawMessage(blocks)})
+	if _, err := Reset(context.Background(), cfg, seed); err != nil {
+		t.Fatal(err)
+	}
+	got := bodies[len(bodies)-1]
+	if got.Get("username") != "Grafana Cloud" || got.Get("icon_url") != "https://x.test/g.png" {
+		t.Fatalf("identity %v", got)
+	}
+	var want, sent bytes.Buffer
+	if err := json.Compact(&want, []byte(blocks)); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Compact(&sent, []byte(got.Get("blocks"))); err != nil {
+		t.Fatalf("blocks %q: %v", got.Get("blocks"), err)
+	}
+	if want.String() != sent.String() {
+		t.Fatalf("blocks changed:\n got %s\nwant %s", sent.String(), want.String())
+	}
+
+	_, _, log, seed, cfg = resetFixture(t)
+	seed.Messages = append(seed.Messages, script.SeedMessage{Channel: "ops", From: script.SeedFromApp, Text: "x", Blocks: json.RawMessage(`[{"type":"table","rows":"not rows"}]`)})
+	if _, err := Reset(context.Background(), cfg, seed); err == nil || !strings.Contains(err.Error(), "blocks") {
+		t.Fatalf("bad blocks: err = %v", err)
+	}
+	if len(*log) != 0 {
+		t.Fatalf("calls before refusing: %v", *log)
 	}
 }

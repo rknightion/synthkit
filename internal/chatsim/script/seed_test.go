@@ -3,6 +3,8 @@
 package script
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -55,3 +57,43 @@ personas:
 beats:
   - {id: hello, at: +0s, speakers: [alex], goal: say hi}
 `
+
+// TestSeedReplayedPost: an "app" line can carry another integration's name, picture and Slack
+// blocks; LoadSeed reads the blocks file beside the seed and refuses anything but a JSON array.
+func TestSeedReplayedPost(t *testing.T) {
+	sc, err := Parse([]byte(seedTestScenario))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	seedFile := filepath.Join(dir, "s.seed.yaml")
+	write := func(name, body string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	head := "apiVersion: synthkit.chatsim/v1\nkind: ChatSeed\nname: m\nmessages:\n"
+	write("s.seed.yaml", head+`  - {channel: ops, from: app, text: summary, as: {name: Watcher, icon_url: "https://x.test/i.png"}, blocks_file: post.json}`+"\n")
+	write("post.json", `[{"type":"section","text":{"type":"mrkdwn","text":"hi"}}]`)
+	s, err := LoadSeed(seedFile, sc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m := s.Messages[0]; m.As.Name != "Watcher" || !strings.Contains(string(m.Blocks), `"mrkdwn"`) {
+		t.Fatalf("line %+v", m)
+	}
+	write("post.json", `{"type":"section"}`)
+	if _, err := LoadSeed(seedFile, sc); err == nil || !strings.Contains(err.Error(), "not a JSON array") {
+		t.Fatalf("object blocks: err = %v", err)
+	}
+	bad := head + `  - {channel: ops, from: alex, text: x, as: {name: W}}
+  - {channel: ops, from: app, text: x, as: {name: "", icon_url: "http://x.test/i.png"}, blocks_file: ../post.json}
+`
+	_, err = ParseSeed([]byte(bad), sc)
+	for _, want := range []string{`as is only for from "app"`, "as.name is required", "as.icon_url must be an https URL", "blocks_file must be a path inside"} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Fatalf("error %v, want it to mention %s", err, want)
+		}
+	}
+}
