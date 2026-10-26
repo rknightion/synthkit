@@ -316,7 +316,10 @@ type Traffic struct {
 	// Omitted keeps 50% 500 upstream_5xx, 30% 400 bad_request and 20% 429 rate_limited.
 	ErrorMix []ErrorOutcome `yaml:"error_mix"`
 	// ClientRetry re-sends a failed entry request as a new request of the same logical request,
-	// which repeats that logical request's per-request draws. Omitted re-sends nothing.
+	// which repeats that logical request's per-request draws. Omitted re-sends nothing. Graph apps
+	// only: rejected with an automation or agent_pipeline workload and with from_resource. Re-sends
+	// add to the declared request rate, a paused workload drops its due re-sends, and scheduled
+	// re-sends are in memory only (a restart forgets them). It is separate from call_policies.
 	ClientRetry *ClientRetry `yaml:"client_retry"`
 }
 

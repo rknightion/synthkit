@@ -170,6 +170,51 @@ load. The retry rules:
   that times out cannot know the cause), so `retry_on: [timeout]` resends it. With no timeout, or a
   timeout longer than the rejection, the same rejection is made once.
 
+### Entry-client retry
+
+`traffic.client_retry` models the entry client re-sending a failed request. It is opt-in and
+omitted by default. The re-send is a new request of the same logical request: fresh trace, span
+and request IDs, but the logical request's per-request draws (every `request_draw` value, and so
+every `when` gate) repeat, so a bundle shows the same source ID and the same drawn route on every
+attempt while distinct logical requests stay fresh.
+
+```yaml
+workloads:   # illustrative fixture values, not production defaults
+  - type: app
+    name: mine-app
+    traffic:
+      off_peak_rps: 1
+      peak_rps: 5
+      client_retry: {retries: 2, backoff_seconds: 30, retry_on: [5xx, throttle]}
+```
+
+| Key | Limits |
+|---|---|
+| `retries` | Re-sends after the first attempt, 1 to 3. |
+| `backoff_seconds` | Delay before the first re-send, greater than 0 and at most 600; doubled for each further re-send (`backoff × 2^k`). |
+| `retry_on` | At least one of `5xx` (any 5xx status) and `throttle` (429), no repeats. A 4xx other than 429 is never re-sent. |
+
+Behaviour and limits:
+
+- A re-send draws its own outcome, so it may succeed. It is re-sent in turn while it fails a listed
+  class and re-sends remain. Re-sends add to the declared request rate, as a real client's do, so
+  peak volume reads above `peak_rps`.
+- A re-send is minted on the first tick at or after its due time, so a short backoff is rounded up
+  to the tick spacing.
+- Applies to graph requests only. It is rejected on an `automation` or `agent_pipeline` workload
+  (which mint no graph calls) and with `traffic.from_resource` (a queue consumer mints exactly the
+  messages its queue served).
+- A paused workload (master volume 0) drops its due re-sends. Scheduled re-sends are held in
+  memory, so a restart forgets them.
+- Statuses come from the entry's `traffic.error_mix` and `error_rate`. A `retry_on`
+  class the mix never produces simply re-sends nothing.
+
+What this does NOT prove: it is the entry client's retry only. It is separate from a service's
+[`call_policies` retries](#call-policies-and-retry-semantics), which re-send between services inside
+one request. It models no server-side idempotency or deduplication, no client-side budget or circuit
+breaker, and no jitter. The shared draws are a synthetic identity for the logical request, never a
+label or a join key.
+
 ### Worker apps continue the trace that queued their message
 
 An app whose `traffic.from_resource` names a queue and whose entry is a `worker` mints one request
@@ -345,8 +390,9 @@ Each node can declare custom metrics, log streams, and extra span attributes via
 | `normal` | `normal: {mean: 50.0, stddev: 10.0}` | Gaussian draw (negative clamped to 0) |
 | `lognormal` | `lognormal: {median: 120, p95: 3600}` | Right-skewed positive draw with the given median and 95th percentile (see below) |
 | `bool` | `bool: {p_true: 0.1}` | Weighted boolean |
-| `shape` | `shape: {base: 100.0, mode: latency_storm}` | Legacy `base × load × incident multiplier`; optional metric-only `incident_value` selects an explicit endpoint instead, and `incident_absolute` keeps that endpoint off the load curve (see below) |
-| `now` | `now: {}` or `now: {stall_mode: error_spike}` | The tick time in Unix seconds (gauge metric values only), for a collector heartbeat. Plain `now: {}` advances every tick whether or not work succeeded. With `stall_mode`, the gauge holds its last reading while that incident mode is active on the service the metric belongs to and resumes at the tick time afterwards, so a last-success-age alert can fire; a stall already active on the first tick holds that tick's reading, and the hold is not persisted across a restart. Never the wall clock; `value_scale` is rejected on its labels |
+| `shape` | `shape: {base: 100.0, mode: latency_storm}` | Legacy `base × load × incident multiplier`; optional metric-only `incident_value` selects an explicit endpoint instead, and `incident_absolute` keeps that endpoint off the load curve (see below). On a counter, `batch: {period, phase}` releases the arrivals in batches ([batch arrivals](#batch-arrivals)) |
+| `now` | `now: {}`, `now: {stall_mode: error_spike}`, `now: {arrivals_only: true}` or `now: {period: 15m, phase: 2m}` | The tick time in Unix seconds (gauge metric values only), for a collector heartbeat or a last-success timestamp. Plain `now: {}` advances every tick whether or not work succeeded. `stall_mode`, `arrivals_only`, `period` and `phase` turn it into a stalled, source-event or scheduled reading, and an enum label value may carry its own `stall_mode`; see [collector self-telemetry](#collector-self-telemetry). A stall already active on the first tick holds that tick's reading, and the hold is not persisted across a restart. Never the wall clock; `value_scale` is rejected on its labels |
+| `source_read` | `source_read: {measure: records_inspected, per_tick: 40, stall_mode: error_spike}` | A collector's own read work as a counter increment (counter metric values only): records inspected, checkpoint progress or read failures, derived from one stall state. See [collector self-telemetry](#collector-self-telemetry) |
 | `resource` | `resource: {name: db-pool, field: utilization}` | A field of a declared `resources:` entry's model state (metric values only). Gauge fields `demand_rps`, `capacity`, `utilization`, `in_use`, `waiting`, `wait_seconds`, `backlog`, `oldest_age_seconds`, `latency_factor`, `hold_seconds`, `served_rps`, `failed_share` need a gauge metric; counter fields `rejected`, `admitted`, `failed` (window sums since the last tick) need a counter metric. Reads 0 where the workload supplies no model |
 | `outcomes` | `outcomes: {status: [5xx], measure: share}` or `{status_label: code, measure: count}` | The node's hop outcomes in the metric window (metric values only). `status` lists `success`, `4xx`, `5xx` or exact three-digit statuses; alternatively `status_label` names an `enum` label of the same metric whose values are such statuses and select the status per series (set exactly one of the two). `measure` is `count` (default, counter metric), `share` (gauge metric) or `latency` (histogram metric, one observation per matching hop duration in seconds). Reads 0 where the workload supplies no outcomes |
 | `request_draw` | `request_draw: {key: order, format: "ORD-{digits:10}"}` or `{key: path, enum: [{value: /v1/orders, weight: 6}, {value: /v1/items, weight: 3}]}` | A value drawn once per request and shared by every log line of that request that names the same `key` (log body fields only), so a multi-line log bundle carries one fresh ID and one path instead of a fixed specimen. Set exactly one of `format` and `enum`. `format` is literal text with generated runs `{digits:N}`, `{hex:N}` (lower case) or `{upper:N}` (upper case letters and digits), N from 1 to 32 and at most 64 generated characters in all; literal braces are not supported. `enum` is a weighted categorical draw (weights are the share of requests; `rate_scale`, `value_scale` and `shape_profile` are rejected). The draw hashes the request's seed unit and mint instant, never the shape engine or the wall clock: it is deterministic for a given seed and clock, consumes no engine randomness, and an ID does not repeat across a restart. Repeat the same declaration on every line of the bundle; lines declaring a key differently draw different values. In a failing causal request every node's lines and every retried attempt share the one request's draw |
@@ -355,9 +401,9 @@ Each node can declare custom metrics, log streams, and extra span attributes via
 **Capability matrix** (enforced at load time):
 
 - **Metric labels** and **Loki stream labels**: only `const` / `const_str` / `enum`. These must enumerate a stable, total domain on every run.
-- **Metric values**: only numeric models — `const`, `int_range`, `float_range`, `normal`, `lognormal`, `bool`, `shape`, and `now` on gauges, plus `resource` and `outcomes` under the instrument rules in the table above. A metric whose value is `resource` or `outcomes` rejects enum `rate_scale` and `value_scale` on its labels, since they would distort window counts.
+- **Metric values**: only numeric models — `const`, `int_range`, `float_range`, `normal`, `lognormal`, `bool`, `shape`, `now` on gauges and `source_read` on counters, plus `resource` and `outcomes` under the instrument rules in the table above. `shape.batch` is valid on a counter's `shape` value only. A metric whose value is `resource` or `outcomes` rejects enum `rate_scale` and `value_scale` on its labels, since they would distort window counts.
 - Enum `rate_scale` / `value_scale` are admitted on **metric labels** only (see below); a log, stream-label or span enum carrying them is rejected.
-- **Log body fields** and **span attributes**: any model, including `ref`, except `shape.incident_value`, `now`, `resource` and `outcomes` (metric values only) and `request_draw` (log body fields only). High-cardinality correlation keys (`trace_id`, `portkey_trace_id`, `run_id`, etc.) ride here — never as labels or stream labels.
+- **Log body fields** and **span attributes**: any model, including `ref`, except `shape.incident_value`, `shape.batch`, `now`, `source_read`, `resource` and `outcomes` (metric values only) and `request_draw` (log body fields only). High-cardinality correlation keys (`trace_id`, `portkey_trace_id`, `run_id`, etc.) ride here — never as labels or stream labels.
   An app `ref` can also read `error_code` (the failed request's `error_mix` code; a causal failure
   takes the code of the declared `error_mix` entry with its status, weighted when several match,
   else the fault's error type). A log body `ref` the line's request does not set (an error field
@@ -434,6 +480,183 @@ Example inline metric:
       value:
         shape: { base: 1.0, mode: throughput_drop }
 ```
+
+#### Collector self-telemetry
+
+Opt-in value sources model a collector's own health series (a heartbeat, a last-success time,
+records read, a checkpoint, read failures). All are metric values: the `now` gauge and the
+`source_read` counter. They share one stall mechanism, so a single incident can freeze the
+heartbeat, stop the read counters and start the failure counter together instead of three
+hand-aligned shapes.
+
+```yaml
+custom_metrics:   # illustrative fixture values, not production defaults
+  - name: collector_heartbeat_timestamp_seconds
+    source: <instrumentation contract>
+    instrument: gauge
+    value: {now: {stall_mode: error_spike}}
+  - name: collector_newest_event_timestamp_seconds
+    source: <instrumentation contract>
+    instrument: gauge
+    value: {now: {arrivals_only: true, stall_mode: error_spike}}
+  - name: collector_last_success_timestamp_seconds
+    source: <instrumentation contract>
+    instrument: gauge
+    value: {now: {period: 15m, phase: 2m, stall_mode: error_spike}}
+  - name: collector_records_inspected_total
+    source: <instrumentation contract>
+    instrument: counter
+    value: {source_read: {measure: records_inspected, per_tick: 40, stall_mode: error_spike}}
+  - name: collector_read_failures_total
+    source: <instrumentation contract>
+    instrument: counter
+    value: {source_read: {measure: read_failures, per_tick: 3, stall_mode: error_spike}}
+```
+
+**`now` options.** All four are optional and independent.
+
+| Key | Limits | Effect |
+|---|---|---|
+| `stall_mode` | An incident mode name, no surrounding whitespace. The name is not checked against the failure-mode registry at load; a mode no incident activates never stalls. | While that mode is active on the service the metric belongs to, at any intensity above 0, the gauge holds its last reading and resumes at the tick time when the incident ends. Intensity 0 does not stall. |
+| `arrivals_only` | `true` or omitted. | The gauge advances only on a tick where the node's source had arrivals: its load factor (its own `shape_profile` clock, else the blueprint curve, times the master volume) is above 0. A quiet period or a paused workload holds the reading, so a quiet source reads old while the collector is healthy. `stall_mode` still freezes it too. |
+| `period` | Greater than 0 and at most `24h` (a daily job is the longest cadence). Omitted or `0` reads the tick time. | The reading is the most recent schedule boundary at or before the tick time: epoch-aligned multiples of `period`, shifted by `phase`. A job that runs every 15 minutes steps every 15 minutes instead of every tick. A boundary that falls inside a stall or a quiet source is a missed run: the gauge keeps its last reading until the first boundary after the hold ends. |
+| `phase` | At least 0 and strictly less than `period`; needs a `period`. | Offsets the boundaries from the epoch grid. |
+
+Any enum label value of the same metric may carry its own `stall_mode` (`{value: alpha,
+stall_mode: error_spike}`): that series stalls and holds independently of its siblings, and every
+other series follows the value's `stall_mode`. At most one label of a metric may declare one, and
+only a `now` or `source_read` value accepts it. The hold is kept per series and is not persisted: a
+restart inside an incident re-holds from the first tick it sees. A stall already active on the
+first tick holds that tick's reading. The gauge reads the tick time the workload was driven with,
+never the wall clock, and uses no randomness.
+
+**`source_read`.** A counter value (any other instrument is rejected) with a required `measure` and
+a finite `per_tick` greater than 0. `per_tick` is added once per metric tick, not per second, so
+changing the metric interval changes the rate; it is cumulative across ticks like every counter.
+
+| `measure` | Per tick |
+|---|---|
+| `records_inspected` | Adds `per_tick` times the node's load factor (as a `shape` value reads it); adds nothing while stalled. |
+| `checkpoint` | Same as `records_inspected`, so the two advance and stop together. |
+| `read_failures` | Adds `per_tick` only while stalled, otherwise 0. It requires a `stall_mode` on the value or on an enum label value, since it has nothing to fail in otherwise. |
+
+`stall_mode` follows the same rules as for `now`, including the per-series enum override. The model
+reads no metric name: the blueprint names the counter, and the labels are whatever the metric
+declares.
+
+What this does NOT prove:
+
+- A heartbeat is collector freshness, not source health. Plain `now: {}` advances every tick
+  whether or not any work succeeded; only a `stall_mode` makes it stop, and only because an
+  incident says so.
+- `arrivals_only` reads the tick time of the last tick with arrivals. It is a proxy for the newest
+  source event, not a timestamp taken from any request or record.
+- A `period` gauge is a deterministic step on the tick clock. It records no job run, duration or
+  failure, and its missed runs are exactly the ticks held by a stall or a quiet source.
+- A stall is all or nothing for these sources (any intensity above 0). `records_inspected` and
+  `checkpoint` share one stall state, so no lag between reading and checkpointing is modelled, and
+  `read_failures` is a symptom of the stall, not an independent error process. For a graded slowdown
+  use the [item stock](#stock-gauges) `stall_mode`.
+
+#### Batch arrivals
+
+A counter whose source delivers in batches, rather than continuously, adds `batch: {period,
+phase}` to its `shape` value. The per-tick arrivals accumulate through each cadence window at the
+same smooth load a continuous source would see, and the whole window is released at once at its end,
+so the series is flat between releases and steps once per cadence.
+
+```yaml
+custom_metrics:   # illustrative fixture values, not production defaults
+  - name: records_received_total
+    source: <instrumentation contract>
+    instrument: counter
+    value: {shape: {base: 40, mode: throughput_drop, batch: {period: 15m, phase: 4m}}}
+```
+
+| Key | Limits |
+|---|---|
+| `batch.period` | Required, greater than 0 and at most `24h`. |
+| `batch.phase` | At least 0 and strictly less than `period`; default 0. Release boundaries sit at `phase + k × period` counted from the Unix epoch, so they are timezone independent. |
+
+Limits and behaviour:
+
+- Counter metric values only, on a `shape` value. A gauge reads a level rather than arrivals, and a
+  log, span or stream-label value rejects it.
+- Rejected on a metric that also declares `stock_of` or `count_of`, and with `incident_value`.
+  `stock_of` and `count_of` on a different metric follow the batched counter's releases instead,
+  so a stock over a batched counter fills in steps.
+- Over any run of whole windows the batched counter delivers exactly what the smooth curve would
+  have, including the incident amplification active at each accumulated tick. It uses the series'
+  own `shape_profile` clock when one is declared, else the node's.
+- A release lands on the first tick at or after the window end. A `period` at or below the metric
+  tick degenerates to continuous delivery. A gap in ticks longer than one tick (a pause, a long
+  stall of the process) skips the window boundaries inside it, and those windows are not released.
+- No random draw and no state: a release is a pure function of the tick time.
+
+What this does NOT prove: it models the shape of delivery (a spike per cadence), not any batch
+size, lateness, retry or partial delivery of a real source, and it says nothing about how a real
+collector acknowledges the batch.
+
+#### Gated and dwelled log lines
+
+Two fields on `services[].logs[]` shape a request's multi-line log bundle: `when` writes a line
+only for some requests, and `dwell_seconds` gives a line its own event time.
+
+```yaml
+logs:   # illustrative fixture values, not production defaults
+  - source: <instrumentation contract>
+    stream_labels: {channel: {const_str: audit}}
+    body:
+      route: {request_draw: {key: route, enum: [{value: ingest, weight: 3}, {value: export, weight: 1}]}}
+      msg:   {const_str: request accepted}
+  - source: <instrumentation contract>
+    stream_labels: {channel: {const_str: audit}}
+    when:
+      request_draw: {key: route, enum: [{value: ingest, weight: 3}, {value: export, weight: 1}]}
+      in: [export]
+    dwell_seconds: {lognormal: {median: 20, p95: 90}}
+    body:
+      msg: {const_str: export written}
+```
+
+**`when: {request_draw, in}`.** The line is written only when the request's drawn value of
+`request_draw` is one of `in`, so one bundle's line set follows a drawn route or outcome.
+
+- `request_draw` must be an `enum` (a formatted ID cannot select a line), declared the way the
+  bundle's body fields declare the same `key`. Every `request_draw` of that key in the workload, in
+  a body field or another gate, across all nodes' logs, must be an enum with the same weights in
+  the same order. The same request draw then picks the same entry index everywhere. The values may
+  differ (two enums of one key and one weight list pair their values by index).
+- `in` lists at least one value, each one of the enum's values, with no repeats.
+- The gate reads the request's seeded draw only, never the shape engine, and a gated-out line still
+  evaluates its body, so gating never shifts another field's values. A node with `signals.logs:
+  false` writes none either way.
+- Omitted writes the line for every request.
+
+**`dwell_seconds`.** A numeric value model (`const`, `int_range`, `float_range`, `normal` or
+`lognormal`; any other model is rejected at load) giving the seconds the request spent before this
+line. Within a bundle, a line's time is the previous written line's time plus its dwell, and the
+bundle's last written line keeps the request's completion time, so earlier lines are backdated
+and none is future-dated.
+
+- A bundle is the lines of one request on the legacy path, and one node's attempt on a causal
+  request.
+- The first written line's dwell places nothing (no line precedes it). A line without a dwell
+  shares the time of the line before it, and a bundle with no dwell on any line keeps every line at
+  the request's completion.
+- A gated-out line adds no dwell. A negative or NaN draw counts as 0, and a draw above 86,400
+  seconds (including infinity) is capped at 86,400.
+- The model is evaluated after the line's body, so it never shifts a body draw. It is a separate
+  draw from any body field that reports the same figure, so a logged `duration` and the gap to the
+  next line agree only if you declare them to.
+- Keep a bundle's summed dwell well inside the log backend's out-of-order acceptance window, which
+  is about an hour by default for Loki: a line backdated further than that can be rejected by the
+  backend. The 86,400 s cap only stops a runaway model; it is not a safe value, and the sum is not
+  checked at load.
+
+What this does NOT prove: `dwell_seconds` moves log timestamps only. Span times and metric
+durations are unchanged, so nothing ties a dwell to the trace for that request unless you choose
+matching values.
 
 ### Blueprint-owned custom metrics
 
@@ -522,23 +745,82 @@ and `p95 >= median`; equal values give a constant. Its mean sits above the media
 tail, unlike the symmetric `normal`, so a histogram's p95 and a threshold SLI behave like real
 durations. Choose bucket bounds that span the tail (seconds to days are fine).
 
-**Stock gauges.** `stock_of: {metric, dwell_seconds}` makes a gauge the level of a counter on the
-same service node (for example items in progress), instead of reading a value model. Omit
-`value` and `labels`: the gauge inherits the counter's label combinations, including its
-`rate_scale`s. Each tick the level moves toward `counter rate × dwell_seconds` (Little's law)
-by `1 - exp(-tick / dwell_seconds)`; the first tick seeds the target, so a restart shows no ramp,
-and the first tick assumes the 60 s metric interval. While the workload is paused the inflow is
-zero and the level drains.
+#### Stock gauges
+
+`stock_of: {metric, ...}` makes a gauge the level of a counter on the same
+service node (for example items in progress or a queue depth), instead of reading a value model.
+Omit `value`; `value_scale` is rejected on its labels (the stock counts items). Set exactly one of
+`dwell_seconds` (a fluid stock) and `residence` (an item stock).
+
+- **Which counter series.** `metric` names a counter on the same node (not the gauge itself). When
+  several same-named counter specs exist on the node (a blueprint may declare one spec per series),
+  the stock resolves all of them. With no `labels`, the gauge inherits the counter's label
+  combinations and each series stocks exactly its own counter series. With `labels`, the gauge is a
+  projection: each label must be a counter label, each value one the counter takes, every
+  combination must match at least one counter series, and a gauge series stocks the summed arrivals
+  of every counter series that matches it. A projection onto fewer labels, or none, sums the rest.
+- **Fluid stock: `dwell_seconds`** (finite, greater than 0). Each tick the level moves toward
+  `counter rate × dwell_seconds` (Little's law) by `1 - exp(-tick / dwell_seconds)`; the first tick
+  seeds the target, so a restart shows no ramp, and the first tick assumes the 60 s metric interval.
+  While the workload is paused the inflow is zero and the level drains. It is a smooth level, not
+  whole items, and it has no stall.
+- **Item stock: `residence: {median, p95}`.** The counter's increments arrive as whole items
+  (fractions carry deterministically), each item stays for its own lognormal residence draw
+  (`median > 0`, `p95 >= median`, both finite) and then completes, so the gauge is an integer that
+  settles near `counter rate × the residence mean` (the mean sits above the median). Draws hash the
+  series and the arrival tick, never the shape engine or the wall clock, so a run is a function of
+  its tick sequence. The first tick seeds the steady-state population for that tick's rate (no ramp
+  after a restart), and a paused workload adds no items so completions drain the stock. One series
+  holds at most 100,000 items; arrivals above that are dropped, never carried.
+    - `stall_mode` (item stock only): an incident mode name. While it is active on the service at
+      intensity `i`, every item's residence advances at `(1 - i)` of real time. Intensity 1 stops
+      completions, so the count and the oldest age grow, and recovery drains the frozen items as
+      they finish. Unlike the `now` and `source_read` stall, it is graded. Without it an incident on
+      the same service leaves the stock at its baseline.
+    - `field` (item stock only): `count` (default) or `oldest_age_seconds`, the real seconds since
+      the oldest item still in the stock arrived (0 when empty). It has no horizon: it keeps growing
+      for as long as the stock is stalled.
+    - Two gauges with the same counter, labels, `residence` and `stall_mode` share one item
+      population, so a count gauge and an oldest-age gauge stay consistent with each other.
+
+```yaml
+custom_metrics:   # illustrative fixture values, not production defaults
+  - name: reviews_started_total
+    source: <instrumentation contract>
+    instrument: counter
+    value: {const: 3}
+  - name: reviews_open
+    source: <instrumentation contract>
+    instrument: gauge
+    stock_of: {metric: reviews_started_total, residence: {median: 600, p95: 1800}, stall_mode: latency_storm}
+  - name: reviews_oldest_age_seconds
+    source: <instrumentation contract>
+    instrument: gauge
+    stock_of: {metric: reviews_started_total, residence: {median: 600, p95: 1800}, stall_mode: latency_storm, field: oldest_age_seconds}
+```
+
+What this does NOT prove: a stock is a gauge derived from a counter, not a queue. Nothing the stock
+holds feeds back into the request path, the counter, latency or any capacity limit, and the items
+are anonymous (no per-item identity reaches a log or trace). The population lives in memory, so a
+restart re-seeds a steady state and forgets any stalled backlog.
 
 **Histogram counts from a counter.** `count_of: <counter>` makes a histogram observe, per label
 combination and tick, as many values as the named same-node counter incremented (fractions
 carry, rounding half up), so `_count` equals the counter's total rounded to a whole count, within
-the per-tick bound above. Its labels must be a subset of the counter's, each with the counter's
-value domain: a histogram on every counter label follows one counter series per combination,
-and one on fewer labels (or none) observes the summed increments of the counter series that
-match it, so a latency histogram split by `outcome` still follows a counter split by `outcome`
-and `route`. A histogram label the counter lacks is rejected. Its own enum values may declare
-`value_scale` but not `rate_scale`. A combination is absent until its counter first increments. Observation cost grows with the counter's increment, so keep it a
+the per-tick bound above. Its labels must be a subset of the counter's, each value one the
+counter takes, and every label combination must match at least one counter series. A histogram
+on every counter label follows one counter series per combination, and one on fewer labels (or
+none) observes the summed increments of the counter series that match it, so a latency
+histogram split by `outcome` still follows a counter split by `outcome` and `route`. The
+counter may be declared as one `metrics:` spec per series: the histogram reads every same-named
+counter spec on the node, so one histogram spec per series (each with its own `value`) takes its
+count from the matching counter series, and `_count` equals that series' increase each tick.
+A histogram label the counter lacks, a value it never takes, or a combination no counter series
+carries is rejected. Its own enum values may declare `value_scale` but not `rate_scale`.
+`count_of_service: <service>` reads the counter on another node of the same workload (for
+example a counter a scenario targets through its own service): the named service must be
+declared before the histogram's service, an unknown or later service is rejected at load, and
+a source that is paused records nothing for the tick. A combination is absent until its counter first increments. Observation cost grows with the counter's increment, so keep it a
 plausible per-tick event count.
 
 ```yaml

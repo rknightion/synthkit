@@ -355,10 +355,12 @@ func (n NowModel) Boundary(at time.Time) time.Time {
 
 // SourceReadModel is one counter of a collector's own read loop, so records inspected, checkpoint
 // progress and read failures derive from the same stall state instead of three hand-aligned
-// shapes. Each tick adds PerTick (times the node's load factor for records_inspected and
+// shapes. Each metric tick adds PerTick (times the node's load factor for records_inspected and
 // checkpoint, like a shape value) while the stall is inactive and nothing while it is active
-// (records_inspected, checkpoint), or PerTick only while it is active (read_failures). The
-// counter is cumulative across ticks (internal/state). The model draws no randomness.
+// (records_inspected, checkpoint), or PerTick only while it is active (read_failures). PerTick is
+// per tick, not per second: the metric interval is not divided out. A stall is all or nothing
+// (any intensity above 0). The counter is cumulative across ticks (internal/state). The model
+// draws no randomness.
 //
 // StallMode names the incident mode that stalls the collector, resolved per service like a now
 // gauge's; an enum label value may override it for its own series (EnumEntry.StallMode).
@@ -471,7 +473,9 @@ type ShapeModel struct {
 	IncidentAbsolute bool     `yaml:"incident_absolute"` // incident share of the value is not multiplied by load; needs incident_value
 	// Batch makes a counter's source deliver in batches: the per-tick arrivals accumulate and are
 	// released at the cadence (zero between releases), conserving the smooth curve's total. Counter
-	// metric values only; the workload resolves the release against the series' own clock.
+	// metric values only, and not with incident_value or on a metric that declares stock_of or
+	// count_of (those follow the batched counter instead); the workload resolves the release
+	// against the series' own clock. Period is in (0, 24h] and Phase in [0, Period).
 	Batch *shape.Batch `yaml:"batch"`
 }
 

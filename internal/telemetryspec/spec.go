@@ -150,13 +150,17 @@ func MaxRateScale(labels map[string]ValueModel) float64 {
 // series and arrival tick, never the shape engine or the wall clock, so a run is a function of
 // its tick sequence. The first tick seeds the steady-state population for that tick's rate (no
 // ramp after a restart). A paused workload adds no items and completions drain the stock.
-// StallMode names an incident mode that slows completions: while it is active on the service at
-// intensity i, every item's residence advances at (1 - i) of real time, so intensity 1 stops
-// completions (the count and the oldest age grow) and recovery drains the stock as the frozen
-// items finish. Field selects the reading: count (default) or oldest_age_seconds, the age of the
-// oldest item still in the stock (0 when empty), which has no horizon. Two gauges with the same
-// counter, labels, residence and stall mode share one item population. One series holds at most
-// MaxStockItems items; arrivals above it are dropped, never carried.
+//
+// StallMode and Field apply to the item stock only (a fluid stock rejects both). StallMode names
+// an incident mode that slows completions: while it is active on the service at intensity i,
+// every item's residence advances at (1 - i) of real time, so intensity 1 stops completions (the
+// count and the oldest age grow) and recovery drains the stock as the frozen items finish. Unlike
+// a now or source_read stall it is graded by intensity, and the mode name is not checked against
+// the failure-mode registry. Field selects the reading: count (default) or oldest_age_seconds, the
+// real seconds since the oldest item still in the stock arrived (0 when empty), which has no
+// horizon. Two gauges with the same counter, labels, residence and stall mode share one item
+// population. One series holds at most MaxStockItems items; arrivals above it are dropped, never
+// carried. The population is in memory only: a restart re-seeds the steady state.
 type StockOf struct {
 	Metric       string     `yaml:"metric"`        // counter name on the same service node
 	DwellSeconds float64    `yaml:"dwell_seconds"` // fluid stock: mean time an item stays (> 0)
@@ -431,10 +435,15 @@ type LogSpec struct {
 	// backdated and none is future-dated. The first written line's dwell places nothing (no line
 	// precedes it). A line without a dwell shares the time of the line before it, and a bundle with
 	// no dwell on any line keeps every line at the request's completion. A gated-out line adds no
-	// dwell. A negative or NaN draw counts as 0 and a draw above 86400 (including +Inf) is capped at 86400. The model is
-	// evaluated after the line's body, so it never shifts a body draw. Numeric models only
-	// (const, int_range, float_range, normal, lognormal); it is a separate draw from any body field
-	// that reports the same figure.
+	// dwell. A negative or NaN draw counts as 0 and a draw above 86400 (including +Inf) is capped at
+	// 86400. The model is evaluated after the line's body, so it never shifts a body draw. Numeric
+	// models only (const, int_range, float_range, normal, lognormal); it is a separate draw from any
+	// body field that reports the same figure.
+	//
+	// A bundle is the lines of one request on the legacy path and one node's attempt on a causal
+	// request. Only log timestamps move: spans and metric durations are unchanged. The bundle's
+	// summed dwell is not validated; keep it well inside the log backend's out-of-order acceptance
+	// window (about an hour by default for Loki), since the 86400 cap only stops a runaway model.
 	DwellSeconds *ValueModel `yaml:"dwell_seconds"`
 }
 

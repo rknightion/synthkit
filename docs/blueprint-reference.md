@@ -307,12 +307,20 @@ The `app` workload declares a multi-service graph. See [workloads.md](workloads.
 | `services[].volume_claims[]` | string | no | PVC template names for `kube_persistentvolumeclaim_*` and kubelet volume stats. |
 | `services[].metrics[]` | object | no | Inline custom metric definitions (DSL). |
 | `services[].logs[]` | object | no | Inline custom log stream definitions (DSL). |
+| `services[].logs[].when` | object | no | Writes the line only for requests whose per-request draw is listed. See [gated and dwelled log lines](workloads.md#gated-and-dwelled-log-lines). |
+| `services[].logs[].when.request_draw` | object | — | An `enum` `request_draw` (`key`, `enum[]`; no `format`), with the same weights in the same order as every other `request_draw` of that `key` in the workload's logs. |
+| `services[].logs[].when.in[]` | string | — | One or more of the enum's values, no repeats. |
+| `services[].logs[].dwell_seconds` | value model | no | Seconds the request spent before this line; a bundle's earlier lines are backdated from its completion by their successors' dwells. Numeric models only (`const`, `int_range`, `float_range`, `normal`, `lognormal`); a draw is clamped to `[0, 86400]` s. Keep a bundle's summed dwell well under 1 h (Loki's out-of-order window); the sum is not checked at load. |
 | `services[].spans[]` | object | no | Inline custom span attribute definitions (DSL). |
 | `traffic` | object | no | Entry node invocation volume shaping. |
 | `traffic.shape` | string | — | Shape profile name. |
 | `traffic.off_peak_rps` | float | — | Trough rate. Default `5`. |
 | `traffic.peak_rps` | float | — | Plateau rate. Default `50`. |
 | `traffic.request_latency_p95_ms` | float | — | Base end-to-end latency p95. Default `0` ⇒ `200ms`. LLM/agentic apps should set this to seconds (e.g. `9000`). |
+| `traffic.client_retry` | object | no | Entry-client re-send of a failed request as a new request of the same logical request (the logical request's per-request draws repeat). Graph apps only: rejected with `automation`, `agent_pipeline` and `traffic.from_resource`. Omitted re-sends nothing. See [entry-client retry](workloads.md#entry-client-retry). |
+| `traffic.client_retry.retries` | int | — | Re-sends after the first attempt, `1` to `3`. |
+| `traffic.client_retry.backoff_seconds` | float | — | Delay before the first re-send, in `(0, 600]`; doubled for each further re-send. |
+| `traffic.client_retry.retry_on[]` | string | — | One or more of `5xx` (any 5xx status) and `throttle` (429); no repeats. |
 | `models[]` | object | no | Valid `(model, provider)` routing pairs for AI apps. Empty ⇒ non-AI app. |
 | `models[].model` | string | — | `gen_ai.request.model` value (e.g. `gpt-4o`, `claude-3.5-sonnet`). |
 | `models[].provider` | string | — | `gen_ai.provider.name` value (e.g. `azure-openai`, `bedrock`). |
@@ -331,7 +339,22 @@ The DSL value model is a one-of; exactly one of these keys must be present per v
 | `normal` | `{mean, stddev}` | Normal distribution. |
 | `bool` | `{p_true}` | Bernoulli with given probability. |
 | `shape` | `{base, mode}` | Incident-responsive value driven by the shape engine. |
+| `shape.batch` | `{period, phase}` | Counter metric values only: releases the accumulated arrivals once per `period` (`(0, 24h]`), boundaries offset by `phase` (`[0, period)`), zero between releases. Not valid with `stock_of`, `count_of` or `incident_value` on the same metric. See [batch arrivals](workloads.md#batch-arrivals). |
+| `now` | `{stall_mode, arrivals_only, period, phase}` | Gauge metric values only: the tick time in Unix seconds. `stall_mode` holds it while that incident mode is active; `arrivals_only` advances it only on ticks where the node's source had arrivals; `period` (`(0, 24h]`) and `phase` (`[0, period)`) read the last schedule boundary, held under a stall. An enum label value may add its own `stall_mode` (one label per metric). See [collector self-telemetry](workloads.md#collector-self-telemetry). |
+| `source_read` | `{measure, per_tick, stall_mode}` | Counter metric values only. `measure` is `records_inspected`, `checkpoint` (both stop while stalled) or `read_failures` (only while stalled, needs a `stall_mode`); `per_tick` is finite and above 0 and is added per metric tick. See [collector self-telemetry](workloads.md#collector-self-telemetry). |
 | `ref` | string | Correlation field reference (high-card). **Metric/stream labels reject this.** |
+
+Two further metric keys derive a gauge from a counter on the same service node (see
+[stock gauges](workloads.md#stock-gauges)); both replace the gauge's `value`:
+
+| Key | Type | Description |
+|---|---|---|
+| `stock_of.metric` | string | The counter to stock (not the gauge itself). Resolves every same-named counter spec on the node. |
+| `stock_of.dwell_seconds` | float | Fluid stock: finite and above 0. Set exactly one of this and `stock_of.residence`. |
+| `stock_of.residence` | `{median, p95}` | Item stock of whole items with a lognormal residence: `median > 0`, `p95 >= median`, finite. At most 100,000 items per series; arrivals above that are dropped. |
+| `stock_of.stall_mode` | string | Item stock only: while that incident mode is active at intensity `i`, residences advance at `1 - i` of real time. |
+| `stock_of.field` | string | Item stock only: `count` (default) or `oldest_age_seconds`. |
+| `labels` (on a `stock_of` gauge) | map | Optional projection: each label must be a counter label with values the counter takes, and every combination must match a counter series. `value_scale` is rejected. Omitted inherits the counter's series. |
 
 ---
 

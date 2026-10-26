@@ -53,9 +53,11 @@ type minter struct {
 type ClientRetry struct {
 	// Retries is the number of re-sends after the first attempt, 1 to 3.
 	Retries int `yaml:"retries"`
-	// BackoffSeconds is the delay before re-send 1, (0, 600], doubled per further re-send (backoff x 2^k).
+	// BackoffSeconds is the delay before re-send 1, (0, 600], doubled per further re-send (backoff
+	// x 2^k). A re-send is minted on the first tick at or after its due time.
 	BackoffSeconds float64 `yaml:"backoff_seconds"`
-	// RetryOn lists the failure classes that are re-sent: 5xx (any 5xx status), throttle (429).
+	// RetryOn lists the failure classes that are re-sent: 5xx (any 5xx status), throttle (429). At
+	// least one, no repeats; any other status (such as a 400) is never re-sent.
 	RetryOn []string `yaml:"retry_on"`
 }
 
