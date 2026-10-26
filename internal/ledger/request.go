@@ -72,6 +72,10 @@ func NewCorrelationFromSeed(seed string) Correlation {
 	}
 }
 
+// CorrelationSpanIDFromSeed derives only the root SpanID of NewCorrelationFromSeed
+// using its exact seed frame. It does not mint the other correlation join keys.
+func CorrelationSpanIDFromSeed(seed string) string { return hexNFromSeed(seed+"\x00span", 8) }
+
 // Outcome is a request's terminal status (drives error metrics, log status codes, span
 // status).
 type Outcome int

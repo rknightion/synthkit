@@ -33,6 +33,9 @@ Three tiers, mandatory:
   profiling. See ARCHITECTURE §6.1.
 - Counters and histograms are cumulative across ticks (`internal/state`): push totals, never deltas.
   Request-scoped IDs come only from the per-blueprint ledger; constructs never mint them.
+  App root span IDs use the ledger's narrow `CorrelationSpanIDFromSeed` helper with the existing
+  binding/tick/request frame. Trace, session, request and cross-system join keys stay fresh even
+  when a minter is reconstructed; do not replace fresh correlation with a deterministic key-set.
 - CloudWatch names and five-stat expansion (`_sum/_average/_maximum/_minimum/_sample_count`) come
   from `signals/cw.md` and are emitted through `cw.EmitStats`/`cw.StatSet`. `_sum` is a per-period
   GAUGE, never a rate; suffix labels stay isolated; `cw` invents no names.

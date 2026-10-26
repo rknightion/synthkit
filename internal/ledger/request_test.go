@@ -4,6 +4,7 @@ package ledger
 
 import (
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -37,6 +38,38 @@ func TestNewCorrelationFromSeedDeterministic(t *testing.T) {
 	}
 	if got := TraceIDFromSeed("fixed-tick-request", "trace"); len(got) != 32 {
 		t.Fatalf("deterministic trace ID length = %d, want 32", len(got))
+	}
+}
+
+var correlationSeeds = []string{"", "fixed-tick-request", "app\x00demo\x00prod\x00cluster\x000\x000", "app\x00demo\x00prod\x00cluster\x001\x000", "a\x00span", "λ/request", strings.Repeat("long-seed/", 100)}
+
+// The full derivation is deliberately independent: changing the narrow helper's
+// domain or truncation must not silently change app root span identity.
+func TestCorrelationSpanIDFromSeed(t *testing.T) {
+	for i, seed := range correlationSeeds {
+		want := NewCorrelationFromSeed(seed).SpanID
+		if wrong := SpanIDFromSeed(seed, ""); wrong == want {
+			t.Fatalf("seed[%d] does not discriminate the existing unit-scoped domain", i)
+		}
+		if got := CorrelationSpanIDFromSeed(seed); got != want || !hex8.MatchString(got) {
+			t.Errorf("seed[%d] SpanID=%s, want full correlation SpanID=%s", i, got, want)
+		}
+	}
+}
+
+var benchmarkSpanID string
+
+func BenchmarkFullCorrelationSpan(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		benchmarkSpanID = NewCorrelationFromSeed(correlationSeeds[i%len(correlationSeeds)]).SpanID
+	}
+}
+
+func BenchmarkCorrelationSpanID(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		benchmarkSpanID = CorrelationSpanIDFromSeed(correlationSeeds[i%len(correlationSeeds)])
 	}
 }
 

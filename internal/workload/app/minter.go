@@ -192,7 +192,7 @@ func (m *minter) mintRequest(now time.Time, eng *shape.Engine, tick uint64, requ
 	// making any live trace, session, request or cross-system join repeat.
 	seed := fmt.Sprintf("app\x00%s\x00%s\x00%s\x00%d\x00%d", m.workloadName, m.env, m.cluster, tick, requestIdx)
 	correlation := ledger.NewCorrelation()
-	correlation.SpanID = ledger.NewCorrelationFromSeed(seed).SpanID
+	correlation.SpanID = ledger.CorrelationSpanIDFromSeed(seed)
 	mc := m.drawModel(eng)
 	r := &ledger.Request{
 		Correlation: correlation,
