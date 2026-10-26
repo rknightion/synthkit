@@ -3,9 +3,10 @@ id: SKT-0226
 title: >-
   Reject unsupported database trace identity engines instead of defaulting to
   PostgreSQL
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-26T00:25:00Z'
+updated_date: '2026-10-26T01:09:00Z'
 labels:
   - causal
   - fidelity
@@ -33,3 +34,9 @@ Source inspection confirms app graph dbSystemName defaults every unknown engine 
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Admit the independently recorded generic fail-closed bug only: reject unsupported db_instance engines rather than emitting false PostgreSQL identity. No new DocumentDB mapping, call-occurrence API, additive timing, reference migration or owner-park reopening is authorized. Existing supported mappings and actual build boundary must be preserved.
+<!-- SECTION:NOTES:END -->
