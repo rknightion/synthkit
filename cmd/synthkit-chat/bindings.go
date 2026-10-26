@@ -24,6 +24,10 @@ type Bindings struct {
 	IRM            struct {
 		BotIDs []string `yaml:"bot_ids"`
 		AppIDs []string `yaml:"app_ids"`
+		// GrafanaURL and TokenEnv are the stack a seed with wipe.irm resets: TokenEnv names a
+		// service account token with IRM admin rights.
+		GrafanaURL string `yaml:"grafana_url"`
+		TokenEnv   string `yaml:"token_env"`
 	} `yaml:"irm"`
 	Control struct {
 		URL          string          `yaml:"url"`
@@ -58,6 +62,7 @@ const (
 	defaultUserTokenEnv = "SLACK_USER_TOKEN"
 	defaultAPIKeyEnv    = "OPENROUTER_API_KEY"
 	defaultControlEnv   = "CONTROL_TOKEN"
+	defaultIRMTokenEnv  = "GRAFANA_IRM_TOKEN"
 	defaultJournalDir   = "chatsim-runs"
 )
 
@@ -98,6 +103,7 @@ func (b *Bindings) defaults() {
 	set(&b.Slack.UserTokenEnv, defaultUserTokenEnv)
 	set(&b.OpenRouter.APIKeyEnv, defaultAPIKeyEnv)
 	set(&b.Control.TokenEnv, defaultControlEnv)
+	set(&b.IRM.TokenEnv, defaultIRMTokenEnv)
 	set(&b.JournalDir, defaultJournalDir)
 	if b.Control.PollInterval.Duration == 0 {
 		b.Control.PollInterval.Duration = time.Second
@@ -124,10 +130,13 @@ func (b *Bindings) validate() error {
 			errs = append(errs, fmt.Sprintf("irm.app_ids: %q is not a Slack app id", id))
 		}
 	}
-	for _, n := range []string{b.Slack.BotTokenEnv, b.Slack.AppTokenEnv, b.Slack.UserTokenEnv, b.OpenRouter.APIKeyEnv, b.Control.TokenEnv} {
+	for _, n := range []string{b.Slack.BotTokenEnv, b.Slack.AppTokenEnv, b.Slack.UserTokenEnv, b.IRM.TokenEnv, b.OpenRouter.APIKeyEnv, b.Control.TokenEnv} {
 		if !envNameRe.MatchString(n) {
 			errs = append(errs, fmt.Sprintf("%q is not an environment variable name (bindings hold names, never secrets)", n))
 		}
+	}
+	if u := b.IRM.GrafanaURL; u != "" && !strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://") {
+		errs = append(errs, "irm.grafana_url must be http:// or https://")
 	}
 	if b.Control.URL != "" && !strings.HasPrefix(b.Control.URL, "http://") && !strings.HasPrefix(b.Control.URL, "https://") {
 		errs = append(errs, "control.url must be http:// or https://")

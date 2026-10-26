@@ -37,6 +37,9 @@ type SeedWipe struct {
 	ArchiveMatch string `yaml:"archive_match"`
 	// Keep lists channel names ("#name") or logical channels left untouched.
 	Keep []string `yaml:"keep"`
+	// IRM also deletes every OnCall alert group and resolves every open incident on the
+	// bindings' Grafana stack, before the Slack wipe.
+	IRM bool `yaml:"irm"`
 }
 
 // SeedMessage is one posted line.

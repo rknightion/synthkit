@@ -27,6 +27,7 @@ import (
 
 	"github.com/rknightion/synthkit/internal/chatsim/director"
 	"github.com/rknightion/synthkit/internal/chatsim/engine"
+	"github.com/rknightion/synthkit/internal/chatsim/irm"
 	"github.com/rknightion/synthkit/internal/chatsim/llm/openrouter"
 	"github.com/rknightion/synthkit/internal/chatsim/script"
 	"github.com/rknightion/synthkit/internal/chatsim/transport/console"
@@ -415,11 +416,15 @@ func liveMode(ctx context.Context, f *flags, stdin io.Reader, stdout, stderr io.
 				tr.Hello(ctx, fmt.Sprintf("Reset: could not heal %s: %v", sc.Trigger.SynthkitScenario, err))
 			}
 		}
+		irmRep, err := resetIRM(ctx, b, seed, false, func(line string) { logf("reset: %s", line) })
+		if err != nil {
+			tr.Hello(ctx, fmt.Sprintf("Reset: IRM: %v", err))
+		}
 		rep, err := slackt.Reset(ctx, resetConfig(sc, b, user, tr.ResetAPI(), false, func(line string) { logf("reset: %s", line) }, logf), seed)
 		if err != nil {
 			tr.Hello(ctx, fmt.Sprintf("Reset stopped: %v (%s so far)", err, rep))
 		} else {
-			tr.Hello(ctx, "Reset done: "+rep.String())
+			tr.Hello(ctx, "Reset done: "+rep.String()+irmRep)
 		}
 		drain(ctx, events, logf)
 		if dir, usageFn, err = newDirector(f, sc, b); err != nil {
@@ -481,6 +486,30 @@ func resetConfig(sc *script.Scenario, b *Bindings, user, bot slackt.ResetAPI, dr
 		AppName: b.ControlDM.Name, AppEmoji: b.ControlDM.Emoji, DryRun: dry, Progress: progress, Logf: logf}
 }
 
+// resetIRM clears the stack's alert groups and open incidents when the seed asks for it, and
+// returns a summary suffix for the reset notice.
+func resetIRM(ctx context.Context, b *Bindings, seed *script.Seed, dry bool, progress func(string)) (string, error) {
+	if !seed.Wipe.IRM {
+		return "", nil
+	}
+	if b.IRM.GrafanaURL == "" {
+		return "", errors.New("the seed sets wipe.irm but bindings have no irm.grafana_url")
+	}
+	tok, err := secret(b.IRM.TokenEnv)
+	if err != nil {
+		return "", err
+	}
+	rep, err := irm.Reset(ctx, irm.Config{GrafanaURL: b.IRM.GrafanaURL, Token: tok, DryRun: dry, Progress: progress})
+	for _, p := range rep.Problems {
+		progress("problem: " + p)
+	}
+	progress(rep.String())
+	if err != nil {
+		return "", err
+	}
+	return "; IRM: " + rep.String(), nil
+}
+
 func resetMode(ctx context.Context, f *flags, stdout io.Writer) error {
 	sc, err := loadScenario(f)
 	if err != nil {
@@ -506,6 +535,9 @@ func resetMode(ctx context.Context, f *flags, stdout io.Writer) error {
 		return err
 	}
 	logf := func(format string, a ...any) { fmt.Fprintf(stdout, format+"\n", a...) }
+	if _, err := resetIRM(ctx, b, seed, f.dryRun, func(line string) { fmt.Fprintln(stdout, "reset:", line) }); err != nil {
+		return err
+	}
 	rep, err := slackt.Reset(ctx, resetConfig(sc, b, slackt.WebClient(ut), slackt.WebClient(bot), f.dryRun,
 		func(line string) { fmt.Fprintln(stdout, "reset:", line) }, logf), seed)
 	fmt.Fprintln(stdout, "reset:", rep)
