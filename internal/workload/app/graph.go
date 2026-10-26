@@ -428,8 +428,8 @@ func buildGraph(services []ServiceNode) (*graph, error) {
 // server.address). Resolution mirrors the blueprint's same-env SERVICE resolution: prefer the
 // per-env instance "<db_instance>-<lower(env)>" (env names are UPPERCASE, db names use a lowercase
 // suffix → case-insensitive), falling back to an exact name match. A db_instance that resolves to
-// no declared database is a loud build error (the blueprint listed a backing db that does not exist
-// in this env). Deterministic: no rand; identity comes from the resolver-built fixtures.
+// no declared database or an unsupported engine is a loud build error rather than a fabricated
+// trace identity. Deterministic: no rand; identity comes from the resolver-built fixtures.
 func (g *graph) resolveDBIdentities(env string, dbs []*fixture.DB) error {
 	byName := make(map[string]*fixture.DB, len(dbs))
 	for _, db := range dbs {
@@ -454,6 +454,10 @@ func (g *graph) resolveDBIdentities(env string, dbs []*fixture.DB) error {
 			return fmt.Errorf("app: service %q db_instance %q resolves to no database in env %q (declared: %s)",
 				n.decl.Name, base, env, strings.Join(declared, ", "))
 		}
+		if dbSystemName(db.Engine) == "" {
+			return fmt.Errorf("app: service %q db_instance %q resolves to database %q in env %q with unsupported engine %q",
+				n.decl.Name, base, db.Name, env, db.Engine)
+		}
 		n.dbIdentity = dbSpanIdentity(db)
 	}
 	return nil
@@ -475,7 +479,8 @@ func dbSpanIdentity(db *fixture.DB) map[string]any {
 	return a
 }
 
-// dbSystemName maps a DB engine to the stable OTel db.system.name value.
+// dbSystemName maps a supported DB engine to the stable OTel db.system.name value.
+// An empty result means the engine has no supported trace identity.
 func dbSystemName(engine string) string {
 	switch engine {
 	case "mysql":
@@ -485,7 +490,7 @@ func dbSystemName(engine string) string {
 	case "postgres":
 		return "postgresql"
 	}
-	return "postgresql"
+	return ""
 }
 
 // instanceKeyHost extracts the endpoint FQDN host from a dbo11y InstanceKey

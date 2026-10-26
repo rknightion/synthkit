@@ -241,6 +241,11 @@ workloads:
         calls: []
 ```
 
+`db_instance` is optional. When present, it must resolve to a database in the environment whose
+engine is `postgres`, `mysql` or `redis`. An unresolved instance or unsupported/empty engine fails
+the app build; there is no PostgreSQL identity fallback. The outgoing database CLIENT span uses
+the resolved identity. A causal resource binding alone does not supply that trace identity.
+
 The resulting trace shape:
 
 ```mermaid
@@ -250,7 +255,7 @@ graph LR
     api["mine-api SERVER"]
     gw["mine-gateway SERVER"]
     llm["mine-llm CLIENT (external)"]
-    db["mine-db SERVER (db hop)"]
+    db["mine-db CLIENT (db operation)"]
 
     browser --> fe
     fe --> api

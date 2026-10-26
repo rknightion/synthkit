@@ -88,6 +88,10 @@ remains required. Preserve same-minute pool connection agreement, synthetic dura
 projection and unbound isolation. The [canonical dbo11y contract](signals/dbo11y.md#causal-database-bindings)
 owns these limits; [bound incidents](docs/incidents.md#bound-constructs) owns admission and legacy-mode exclusion.
 
+App `db_instance` trace identities support only `postgres`, `mysql` and `redis` fixtures.
+Unsupported or empty fixture engines fail the app build rather than acquiring a PostgreSQL
+identity; a causal `resource:` binding alone does not establish a trace-identity mapping.
+
 ## Declared pipeline mechanic
 
 `internal/pipelinerun` is the sanctioned shared deterministic run-window seam for Glue/MWAA,
