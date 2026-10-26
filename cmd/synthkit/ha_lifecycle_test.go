@@ -47,6 +47,7 @@ type namedLeaseRecorder struct {
 	updates  []string
 	released chan struct{}
 	once     sync.Once
+	latency  time.Duration
 }
 
 func leaseMicroTimestamp(now time.Time) string {
@@ -72,6 +73,17 @@ func newNamedLeaseRecorder(t *testing.T) (*namedLeaseRecorder, *httptest.Server)
 	a.document.Spec.LeaseDurationSeconds = 30
 	a.document.Spec.RenewTime = leaseMicroTimestamp(time.Now())
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		a.mu.Lock()
+		delay := a.latency
+		a.mu.Unlock()
+		if delay > 0 {
+			// A loaded host answers late; a request the client abandoned is not served.
+			select {
+			case <-time.After(delay):
+			case <-r.Context().Done():
+				return
+			}
+		}
 		a.mu.Lock()
 		defer a.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
@@ -108,6 +120,13 @@ func newNamedLeaseRecorder(t *testing.T) (*namedLeaseRecorder, *httptest.Server)
 		}
 	}))
 	return a, srv
+}
+
+// setLatency delays every subsequent Lease API response by d, standing in for a loaded host.
+func (a *namedLeaseRecorder) setLatency(d time.Duration) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.latency = d
 }
 func (a *namedLeaseRecorder) allowAcquisition() {
 	a.mu.Lock()
@@ -201,8 +220,8 @@ func exerciseHALeaseFileLifecycle(t *testing.T, expire, incompleteHeaders bool) 
 	cfg.SelfObsEnabled = false
 	cfg.MasterTick = time.Hour
 	cfg.HARetryPeriod = 50 * time.Millisecond
-	cfg.HARenewDeadline = 300 * time.Millisecond
-	cfg.HAKubeRequestTimeout = 100 * time.Millisecond
+	cfg.HARenewDeadline = fleetHARenewDeadline
+	cfg.HAKubeRequestTimeout = fleetHAKubeRequestTimeout
 	cfg.HAReleaseTimeout = time.Second
 	cfg.SendDrainDeadline = 2 * time.Second
 	if expire {

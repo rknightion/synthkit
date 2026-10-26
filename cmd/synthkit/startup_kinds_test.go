@@ -462,8 +462,8 @@ func TestHAActivationAppliesStartupDisabledKinds(t *testing.T) {
 	cfg.HANamespace, cfg.HALeaseName, cfg.PodUID = "test", "lease", "process"
 	cfg.MasterTick = time.Hour
 	cfg.HARetryPeriod = 50 * time.Millisecond
-	cfg.HARenewDeadline = 300 * time.Millisecond
-	cfg.HAKubeRequestTimeout = 100 * time.Millisecond
+	cfg.HARenewDeadline = fleetHARenewDeadline
+	cfg.HAKubeRequestTimeout = fleetHAKubeRequestTimeout
 	cfg.HAReleaseTimeout = time.Second
 	cfg.SendDrainDeadline = 2 * time.Second
 	cfg.GitPollInterval = 0

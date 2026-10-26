@@ -243,7 +243,7 @@ func TestHALeadershipSessionAcrossRestart(t *testing.T) {
 	// Forged configured tags must not decide session attribution.
 	cfg.SelfObsTags = sessionIDKey + "=forged," + sessionAttributionKey + "=forged"
 	cfg.SelfObsMetricInterval = 100 * time.Millisecond
-	cfg.HARetryPeriod, cfg.HARenewDeadline, cfg.HAKubeRequestTimeout = 50*time.Millisecond, 300*time.Millisecond, 100*time.Millisecond
+	cfg.HARetryPeriod, cfg.HARenewDeadline, cfg.HAKubeRequestTimeout = 50*time.Millisecond, fleetHARenewDeadline, fleetHAKubeRequestTimeout
 	cfg.HAReleaseTimeout, cfg.SendDrainDeadline = time.Second, 3*time.Second
 	cfg.BlueprintsDir, cfg.BlueprintDataDir, cfg.BlueprintNames, cfg.SnapshotPath = baked, filepath.Join(root, "data"), []string{"test"}, statePath
 	cfg.FMURL, cfg.ControlToken, cfg.SigilEndpoint, cfg.FaroCollector, cfg.ProfilesURL, cfg.PyroscopeURL = "", "", "", "", "", ""

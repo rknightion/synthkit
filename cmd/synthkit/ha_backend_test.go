@@ -136,8 +136,8 @@ func TestHAKubernetesStateReloadBeforeRealFirstTick(t *testing.T) {
 	cfg.SelfObsEnabled = false
 	cfg.MasterTick = time.Second
 	cfg.HARetryPeriod = 50 * time.Millisecond
-	cfg.HARenewDeadline = 300 * time.Millisecond
-	cfg.HAKubeRequestTimeout = 100 * time.Millisecond
+	cfg.HARenewDeadline = fleetHARenewDeadline
+	cfg.HAKubeRequestTimeout = fleetHAKubeRequestTimeout
 	cfg.HAReleaseTimeout = time.Second
 	cfg.SendDrainDeadline = 2 * time.Second
 	cfg.BlueprintsDir = filepath.Join(root, "baked")

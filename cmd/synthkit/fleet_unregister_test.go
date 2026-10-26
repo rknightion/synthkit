@@ -79,115 +79,206 @@ func TestFleetHALifecycleHelper(t *testing.T) {
 	}
 }
 
+// The HA helper subprocess runs against an in-process fake Lease API on a shared, loaded
+// runner. The startup named-Lease lookup is one bounded request, so its budget is the
+// production-sized request timeout rather than a figure only an idle host meets; the renew
+// deadline stays above it as config requires. Both stay far inside the 15s subprocess bound.
+const (
+	fleetHAKubeRequestTimeout = 2 * time.Second
+	fleetHARenewDeadline      = 5 * time.Second
+)
+
+// fleetHAHelperConfig builds the helper's HA config around a selected one-collector roster
+// served by remoteURL.
+func fleetHAHelperConfig(t *testing.T, root, remoteURL string, teardown bool) *config.Config {
+	t.Helper()
+	baked := filepath.Join(root, "baked")
+	if err := os.Mkdir(baked, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(baked, "selected.yaml"), []byte("name: selected\nhosts: [{name: selected-host, os: linux}]\nfeatures:\n  fleet_management:\n    enabled: true\n    collectors_per_os: {linux: 1}\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.Load(filepath.Join(root, "absent.env"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.HAMode = "lease"
+	cfg.StateBackend = "file"
+	cfg.HANamespace = "test"
+	cfg.HALeaseName = "lease"
+	cfg.PodUID = "process"
+	cfg.FleetUnregister = teardown
+	cfg.DryRun = false
+	cfg.SelfObsEnabled = false
+	cfg.MasterTick = time.Hour
+	cfg.HARetryPeriod = 50 * time.Millisecond
+	cfg.HARenewDeadline = fleetHARenewDeadline
+	cfg.HAKubeRequestTimeout = fleetHAKubeRequestTimeout
+	cfg.HAReleaseTimeout = time.Second
+	cfg.SendDrainDeadline = 2 * time.Second
+	cfg.BlueprintsDir = baked
+	cfg.BlueprintDataDir = filepath.Join(root, "data")
+	cfg.BlueprintNames = []string{"selected"}
+	cfg.SnapshotPath = filepath.Join(root, "control.json")
+	cfg.FMURL = remoteURL
+	cfg.FMToken = "test"
+	cfg.FMStackID = "test"
+	cfg.ControlToken = ""
+	cfg.SigilEndpoint = ""
+	cfg.FaroCollector = ""
+	cfg.ProfilesURL = ""
+	cfg.GitPollInterval = 0
+	cfg.PromRWURL = remoteURL
+	cfg.OTLPEndpoint = remoteURL
+	cfg.LokiURL = remoteURL
+	cfg.HTTPAddr = childHTTPAddr
+	return cfg
+}
+
 func TestFleetHAGracefulRestartKeepsIDsAndExplicitTeardown(t *testing.T) {
 	for _, teardown := range []bool{false, true} {
 		t.Run(map[bool]string{false: "restart", true: "teardown"}[teardown], func(t *testing.T) {
-			api, leaseServer := newNamedLeaseRecorder(t)
-			defer leaseServer.Close()
-			api.allowAcquisition()
-			root := t.TempDir()
-			baked := filepath.Join(root, "baked")
-			if err := os.Mkdir(baked, 0700); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(filepath.Join(baked, "selected.yaml"), []byte("name: selected\nhosts: [{name: selected-host, os: linux}]\nfeatures:\n  fleet_management:\n    enabled: true\n    collectors_per_os: {linux: 1}\n"), 0600); err != nil {
-				t.Fatal(err)
-			}
-			var mu sync.Mutex
-			var deleted []string
-			registrations := 0
+			runFleetHAGracefulLifecycle(t, teardown, 0)
+		})
+	}
+}
+
+// A loaded runner answers the Lease API slower than an idle one. Every Lease request here is
+// delayed past the old 100ms budget, inside the production-sized one and with room left in the
+// 1s release budget; the lifecycle must complete with every assertion of the unslowed run.
+func TestFleetHAGracefulRestartToleratesSlowLeaseAPI(t *testing.T) {
+	for _, teardown := range []bool{false, true} {
+		t.Run(map[bool]string{false: "restart", true: "teardown"}[teardown], func(t *testing.T) {
+			runFleetHAGracefulLifecycle(t, teardown, 150*time.Millisecond)
+		})
+	}
+}
+
+// Tolerating a slow API must not hide a lookup that never succeeds: a connection-dropping or hung
+// Lease API still fails the lifecycle at the named lookup, with no registration or teardown.
+func TestFleetHAUnreachableLeaseAPIStillFails(t *testing.T) {
+	for _, kind := range []string{"reset", "hung"} {
+		t.Run(kind, func(t *testing.T) {
+			stop := make(chan struct{})
+			defer close(stop)
+			// Both fakes stay listening, so no freed port is handed to the child: one drops
+			// every connection without a response, the other never answers.
+			unreachable := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if kind == "reset" {
+					conn, _, err := w.(http.Hijacker).Hijack()
+					if err == nil {
+						_ = conn.Close()
+					}
+					return
+				}
+				select {
+				case <-stop:
+				case <-r.Context().Done():
+				}
+			}))
+			defer unreachable.Close()
+			leaseURL := unreachable.URL
+			var calls atomic.Int32
 			remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				mu.Lock()
-				defer mu.Unlock()
-				var body struct {
-					ID string `json:"id"`
-				}
-				_ = json.NewDecoder(r.Body).Decode(&body)
-				if strings.HasSuffix(r.URL.Path, "/UnregisterCollector") {
-					deleted = append(deleted, body.ID)
-				}
-				if strings.HasSuffix(r.URL.Path, "/RegisterCollector") {
-					registrations++
-				}
+				calls.Add(1)
 				_, _ = w.Write([]byte(`{}`))
 			}))
 			defer remote.Close()
-			cfg, err := config.Load(filepath.Join(root, "absent.env"))
-			if err != nil {
-				t.Fatal(err)
-			}
-			cfg.HAMode = "lease"
-			cfg.StateBackend = "file"
-			cfg.HANamespace = "test"
-			cfg.HALeaseName = "lease"
-			cfg.PodUID = "process"
-			cfg.FleetUnregister = teardown
-			cfg.DryRun = false
-			cfg.SelfObsEnabled = false
-			cfg.MasterTick = time.Hour
-			cfg.HARetryPeriod = 50 * time.Millisecond
-			cfg.HARenewDeadline = 300 * time.Millisecond
-			cfg.HAKubeRequestTimeout = 100 * time.Millisecond
-			cfg.HAReleaseTimeout = time.Second
-			cfg.SendDrainDeadline = 2 * time.Second
-			cfg.BlueprintsDir = baked
-			cfg.BlueprintDataDir = filepath.Join(root, "data")
-			cfg.BlueprintNames = []string{"selected"}
-			cfg.SnapshotPath = filepath.Join(root, "control.json")
-			cfg.FMURL = remote.URL
-			cfg.FMToken = "test"
-			cfg.FMStackID = "test"
-			cfg.ControlToken = ""
-			cfg.SigilEndpoint = ""
-			cfg.FaroCollector = ""
-			cfg.ProfilesURL = ""
-			cfg.GitPollInterval = 0
-			cfg.PromRWURL = remote.URL
-			cfg.OTLPEndpoint = remote.URL
-			cfg.LokiURL = remote.URL
-			cfg.HTTPAddr = childHTTPAddr
-			col := fleetmgmt.Roster("selected:fleet_management", "", map[string]int{"linux": 1})[0]
-			store, err := configuredFleetStore(cfg, nil, ha.AlwaysLeader{})
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := store.Set(context.Background(), col.ID, true); err != nil {
-				t.Fatal(err)
-			}
+			root := t.TempDir()
+			cfg := fleetHAHelperConfig(t, root, remote.URL, false)
 			cfgPath := filepath.Join(root, "config.json")
 			writeHAJSON(t, cfgPath, cfg)
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
 			cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestFleetHALifecycleHelper$")
-			cmd.Env = append(os.Environ(), "FLEET_HA_HELPER_CONFIG="+cfgPath, "FLEET_HA_HELPER_LEASE="+leaseServer.URL, "GORACE="+os.Getenv("GORACE")+" atexit_sleep_ms=0")
-			if out, err := cmd.CombinedOutput(); err != nil {
-				mu.Lock()
-				removed := append([]string(nil), deleted...)
-				count := registrations
-				mu.Unlock()
-				t.Fatalf("HA lifecycle exit: %v; registered=%d unregistered=%v\n%s", err, count, removed, out)
+			cmd.Env = append(os.Environ(), "FLEET_HA_HELPER_CONFIG="+cfgPath, "FLEET_HA_HELPER_LEASE="+leaseURL, "GORACE="+os.Getenv("GORACE")+" atexit_sleep_ms=0")
+			started := time.Now()
+			out, err := cmd.CombinedOutput()
+			if ctx.Err() != nil {
+				t.Fatalf("unreachable Lease API did not fail within the bound: %s", out)
 			}
-			ids, err := store.Load(context.Background())
-			if err != nil {
-				t.Fatal(err)
+			if err == nil || !strings.Contains(string(out), "HA named lease lookup") {
+				t.Fatalf("unreachable Lease API did not fail at the named lookup: err=%v\n%s", err, out)
 			}
-			mu.Lock()
-			defer mu.Unlock()
-			if teardown {
-				if !reflect.DeepEqual(deleted, []string{col.ID}) || registrations != 0 || len(ids) != 0 {
-					t.Fatalf("teardown deleted=%v registered=%d state=%v", deleted, registrations, ids)
-				}
-			} else {
-				if len(deleted) != 0 || registrations != 1 || !reflect.DeepEqual(ids, []string{col.ID}) {
-					t.Fatalf("restart deleted=%v registered=%d state=%v", deleted, registrations, ids)
-				}
+			if elapsed := time.Since(started); kind == "hung" && elapsed < fleetHAKubeRequestTimeout {
+				t.Fatalf("hung lookup failed after %v, before its %v request budget", elapsed, fleetHAKubeRequestTimeout)
 			}
-			select {
-			case <-api.released:
-			default:
-				t.Fatal("planned handoff did not release lease")
+			if calls.Load() != 0 {
+				t.Fatalf("lifecycle reached Fleet Management without a Lease lookup: calls=%d", calls.Load())
 			}
 		})
+	}
+}
+
+// runFleetHAGracefulLifecycle runs the helper through acquisition, a heartbeat (restart) or an
+// explicit teardown, and a planned Lease release, with leaseDelay added to each Lease request.
+func runFleetHAGracefulLifecycle(t *testing.T, teardown bool, leaseDelay time.Duration) {
+	api, leaseServer := newNamedLeaseRecorder(t)
+	defer leaseServer.Close()
+	api.setLatency(leaseDelay)
+	api.allowAcquisition()
+	root := t.TempDir()
+	var mu sync.Mutex
+	var deleted []string
+	registrations := 0
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		var body struct {
+			ID string `json:"id"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if strings.HasSuffix(r.URL.Path, "/UnregisterCollector") {
+			deleted = append(deleted, body.ID)
+		}
+		if strings.HasSuffix(r.URL.Path, "/RegisterCollector") {
+			registrations++
+		}
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer remote.Close()
+	cfg := fleetHAHelperConfig(t, root, remote.URL, teardown)
+	col := fleetmgmt.Roster("selected:fleet_management", "", map[string]int{"linux": 1})[0]
+	store, err := configuredFleetStore(cfg, nil, ha.AlwaysLeader{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Set(context.Background(), col.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	cfgPath := filepath.Join(root, "config.json")
+	writeHAJSON(t, cfgPath, cfg)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestFleetHALifecycleHelper$")
+	cmd.Env = append(os.Environ(), "FLEET_HA_HELPER_CONFIG="+cfgPath, "FLEET_HA_HELPER_LEASE="+leaseServer.URL, "GORACE="+os.Getenv("GORACE")+" atexit_sleep_ms=0")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		mu.Lock()
+		removed := append([]string(nil), deleted...)
+		count := registrations
+		mu.Unlock()
+		t.Fatalf("HA lifecycle exit: %v; registered=%d unregistered=%v\n%s", err, count, removed, out)
+	}
+	ids, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if teardown {
+		if !reflect.DeepEqual(deleted, []string{col.ID}) || registrations != 0 || len(ids) != 0 {
+			t.Fatalf("teardown deleted=%v registered=%d state=%v", deleted, registrations, ids)
+		}
+	} else {
+		if len(deleted) != 0 || registrations != 1 || !reflect.DeepEqual(ids, []string{col.ID}) {
+			t.Fatalf("restart deleted=%v registered=%d state=%v", deleted, registrations, ids)
+		}
+	}
+	select {
+	case <-api.released:
+	default:
+		t.Fatal("planned handoff did not release lease")
 	}
 }
 
@@ -613,7 +704,7 @@ func TestFleetUnregisterHAInterruptedBeforeLeadership(t *testing.T) {
 			}
 			cfg.HAMode, cfg.StateBackend, cfg.HANamespace, cfg.HALeaseName, cfg.PodUID = "lease", "file", "test", "lease", "process"
 			cfg.FleetUnregister, cfg.DryRun, cfg.SelfObsEnabled = true, false, false
-			cfg.HARetryPeriod, cfg.HARenewDeadline, cfg.HAKubeRequestTimeout = 50*time.Millisecond, 300*time.Millisecond, 100*time.Millisecond
+			cfg.HARetryPeriod, cfg.HARenewDeadline, cfg.HAKubeRequestTimeout = 50*time.Millisecond, fleetHARenewDeadline, fleetHAKubeRequestTimeout
 			cfg.HAReleaseTimeout, cfg.SendDrainDeadline = time.Second, 2*time.Second
 			cfg.BlueprintsDir, cfg.BlueprintDataDir, cfg.BlueprintNames = baked, filepath.Join(root, "data"), []string{"selected"}
 			cfg.SnapshotPath = filepath.Join(root, "control.json")
