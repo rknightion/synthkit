@@ -203,7 +203,8 @@ brings a persona in after the beat's first line: a narrator line in the app's ow
 `final: true` beat ends the run once it is done; `end.after` bounds every run.
 
 Personas post with `chat.postMessage` plus a per-message username and `icon_emoji`. They are never
-edited and never scheduled on Slack's side. Avatars are emoji only.
+edited and never scheduled on Slack's side. A persona with `avatar.image_url` posts with that
+picture instead of its emoji.
 
 ## What keeps it honest
 
@@ -227,5 +228,5 @@ channel is paced to one post per second.
 
 ## Current limits
 
-Operator intent classification, run resume and reconciliation, threads and reactions, image
-avatars and concurrent runs are not implemented yet.
+Operator intent classification, run resume and reconciliation, persona threads and reactions, and
+concurrent runs are not implemented yet.

@@ -110,19 +110,20 @@ func Reset(ctx context.Context, cfg Config) (Report, error) {
 	}
 
 	// Incidents first: resolving one can post to its channel, which the Slack wipe then clears.
-	var q struct {
-		Incidents []struct {
-			IncidentID string `json:"incidentID"`
-			Status     string `json:"status"`
-			Title      string `json:"title"`
-		} `json:"incidents"`
-		Cursor struct {
-			HasMore   bool   `json:"hasMore"`
-			NextValue string `json:"nextValue"`
-		} `json:"cursor"`
-	}
 	cursor := ""
 	for {
+		// Fresh per page: Unmarshal keeps fields a page omits, which would re-query one cursor forever.
+		var q struct {
+			Incidents []struct {
+				IncidentID string `json:"incidentID"`
+				Status     string `json:"status"`
+				Title      string `json:"title"`
+			} `json:"incidents"`
+			Cursor struct {
+				HasMore   bool   `json:"hasMore"`
+				NextValue string `json:"nextValue"`
+			} `json:"cursor"`
+		}
 		body := map[string]any{"query": map[string]any{"limit": 100, "orderDirection": "DESC"}}
 		if cursor != "" {
 			body["cursor"] = map[string]any{"nextValue": cursor}

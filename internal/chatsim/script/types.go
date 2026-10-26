@@ -104,7 +104,7 @@ func (p Persona) FirstName() string {
 	return p.ID
 }
 
-// Avatar is emoji only in this release.
+// Avatar is an emoji, optionally replaced by an https picture (ImageURL).
 type Avatar struct {
 	Emoji string `yaml:"emoji"`
 	// ImageURL, a public https image, is the persona's picture; the emoji is the fallback
