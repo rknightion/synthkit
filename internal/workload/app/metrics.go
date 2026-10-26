@@ -68,6 +68,7 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 		for i, spec := range n.metrics {
 			native := nativeFor(i)
 			if paused {
+				n.notePaused(now, spec)
 				ctx := pausedCtx
 				w.stallProviders(&ctx, now, world, id, n, spec)
 				w.observePausedMetricStates(w.st, native, id, spec, ctx)

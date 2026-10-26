@@ -125,6 +125,8 @@ type node struct {
 	// records its counters' per-tick increments for that reader (metrics.go Tick allocates them
 	// through hasDerived; observeMetricStates publishes them).
 	exportsInc bool
+	// vols is the master volume history a batched series' release scales its accumulated ticks by.
+	vols volumeLog
 }
 
 // graph is the validated service graph: nodes in declaration order + a name index + the entry node.
@@ -254,7 +256,9 @@ func checkDerivedMetrics(n *node, byName map[string]*node) error {
 		}
 		// The most one histogram series can observe in a tick is the sum of the largest
 		// increments of the counter series it projects (one series when the labels are equal).
-		// A series with an unbounded model leaves its histogram series to the runtime clamp.
+		// A batched counter's one release carries a whole window of arrivals (counterSeries.max
+		// counts them at the default metric cadence). A series with an unbounded model leaves its
+		// histogram series to the runtime clamp.
 		worst := 0.0
 		for _, h := range histCombos {
 			rate, bounded := 0.0, true

@@ -93,7 +93,8 @@ type MetricSpec struct {
 	// Its labels may not declare rate_scale (the counter owns the rate). A histogram label may
 	// select a subset of a counter label's values, so a blueprint that declares one counter spec
 	// per series can pair each histogram spec with its own counter series (every combination must
-	// match at least one counter series).
+	// match at least one counter series). The most one series can observe in a tick is bounded at
+	// load, counting a batched counter's whole-window release as one tick's increment.
 	CountOf string `yaml:"count_of"`
 	// CountOfService names the service node whose counter count_of reads, for a counter declared
 	// on another node of the same app workload (for example a counter a scenario targets by its
@@ -175,8 +176,8 @@ func MaxRateScale(labels map[string]ValueModel) float64 {
 // the failure-mode registry. Field selects the reading: count (default) or oldest_age_seconds, the
 // real seconds since the oldest item still in the stock arrived (0 when empty), which has no
 // horizon. Two gauges with the same counter, labels, residence and stall mode share one item
-// population. One series holds at most MaxStockItems items; arrivals above it are dropped, never
-// carried. The population is in memory only: a restart re-seeds the steady state.
+// population. One series holds at most MaxStockItems items, and so does its backing store, however
+// long a straggler pins the oldest arrival; arrivals above it are dropped, never carried. The population is in memory only: a restart re-seeds the steady state.
 type StockOf struct {
 	// Metric is the name of the counter, declared on the same service node, whose arrivals the
 	// stock holds.

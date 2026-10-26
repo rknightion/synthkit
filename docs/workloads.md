@@ -584,14 +584,26 @@ Limits and behaviour:
   log, span or stream-label value rejects it.
 - Rejected on a metric that also declares `stock_of` or `count_of`, and with `incident_value`.
   `stock_of` and `count_of` on a different metric follow the batched counter's releases instead,
-  so a stock over a batched counter fills in steps.
+  so a stock over a batched counter fills in steps. A `count_of` histogram over a batched counter
+  sees a whole window in one tick, so load rejects a declaration whose release exceeds 10,000
+  observations (the window's ticks at the default 60 s metric cadence times the largest per-tick
+  increment); a blueprint ticking faster than the default releases more and meets the runtime clamp.
 - Over any run of whole windows the batched counter delivers exactly what the smooth curve would
-  have, including the incident amplification active at each accumulated tick. It uses the series'
-  own `shape_profile` clock when one is declared, else the node's.
+  have, including the incident amplification scheduled at each accumulated tick. It uses the
+  series' own `shape_profile` clock when one is declared, else the node's.
+- Each accumulated tick is read as it ran: under the master volume in force at that tick and
+  under the scheduled incident windows only. A volume change scales only the ticks it covered,
+  and a tick paused with volume 0 (including ticks paused from the start of the run) adds nothing
+  to its window. A live fault (the control plane's failure state) is read for the current tick
+  alone, and a release accumulates only past ticks, so a live fault never amplifies a batched
+  release and never rescales the ticks before it; scheduled incidents do amplify. Only a `period`
+  at or below the metric tick, which delivers continuously, reads the live fault. The first
+  release of a run reads the window before the run at the volume the run started with.
 - A release lands on the first tick at or after the window end. A `period` at or below the metric
   tick degenerates to continuous delivery. A gap in ticks longer than one tick (a pause, a long
   stall of the process) skips the window boundaries inside it, and those windows are not released.
-- No random draw and no state: a release is a pure function of the tick time.
+- No random draw: a release is a function of the tick time, the scheduled incidents and the
+  record of the master volume (a few change points per node, kept for at most a day and a window).
 
 What this does NOT prove: it models the shape of delivery (a spike per cadence), not any batch
 size, lateness, retry or partial delivery of a real source, and it says nothing about how a real
@@ -736,7 +748,8 @@ They belong under `labels.<key>.enum[]`. The generated schema does not expand `l
 One series makes at most **10,000 histogram observations per tick** through `rate_scale` or
 `count_of`. A declaration whose nominal per-tick count exceeds that is rejected at load (the
 product of the largest `rate_scale` per label; for `count_of`, the largest summed increment of
-the counter series one histogram series follows, with a legacy `shape` incident at ×3). Rates that only grow at runtime (a master volume above 1,
+the counter series one histogram series follows, with a legacy `shape` incident at ×3, and for a
+batched counter the whole window one release carries at the default 60 s cadence). Rates that only grow at runtime (a master volume above 1,
 an unbounded `normal` / `lognormal` counter) are clamped at the bound and the excess is dropped.
 
 **Skewed durations.** `lognormal: {median, p95}` draws `median × exp(sigma × z)` with

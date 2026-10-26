@@ -191,6 +191,9 @@ type seriesShape struct {
 	batch   *shape.Batch
 	mode    string // incident mode amplifying the load (empty when none applies)
 	service string
+	// vols is the node's record of the master volume each past tick of a batch window ran under
+	// (nil for an unbatched series).
+	vols *volumeLog
 }
 
 // seriesShape returns the per-series load reader for node n's metric i, or nil when none of its
@@ -208,6 +211,10 @@ func (w *Workload) seriesShape(now time.Time, step time.Duration, world *core.Wo
 		return nil
 	}
 	s := &seriesShape{now: now, step: step, eng: world.Shape, amp: 1.0, loads: loads, node: n.load, batch: batch, service: id.service}
+	if batch != nil {
+		n.vols.observe(now, world.Shape.VolumeMultiplier())
+		s.vols = &n.vols
+	}
 	if spec.Value.Kind() == telemetryspec.KindShape && spec.Value.Shape != nil &&
 		spec.Value.Shape.Mode != "" && spec.Value.Shape.IncidentValue == nil {
 		s.mode = spec.Value.Shape.Mode
@@ -228,14 +235,24 @@ func (s *seriesShape) ctx(base telemetryspec.EvalCtx, ci int) telemetryspec.Eval
 		lp = s.loads[ci]
 	}
 	if s.batch != nil {
-		// Each accumulated tick reads the series' clock at its own time, with the incident
-		// amplification active then; the release is exact zero between boundaries.
+		// Each accumulated tick reads the series' clock at its own time, under the scheduled
+		// incident amplification then and the master volume it ran under; the release is exact
+		// zero between boundaries. Only the tick being evaluated reads the live fault state, so
+		// a fault switched on late in a window never rescales the ticks accumulated before it,
+		// and a pause or volume change speaks for the ticks it covered, not the whole window.
 		base.ShapeVal = s.batch.Release(s.now, s.step, func(t time.Time) float64 {
+			if t.Equal(s.now) {
+				amp := 1.0
+				if s.mode != "" {
+					amp = s.eng.FailFactor(t, s.mode, s.service, incidentAmplification)
+				}
+				return lp.business(t, s.eng) * amp
+			}
 			amp := 1.0
 			if s.mode != "" {
-				amp = s.eng.FailFactor(t, s.mode, s.service, incidentAmplification)
+				amp = scheduledFactor(s.eng, t, s.mode, s.service)
 			}
-			return lp.business(t, s.eng) * amp
+			return lp.businessAt(t, s.eng, s.vols.at(t, s.eng.VolumeMultiplier())) * amp
 		})
 		base.ExactLoad = true
 		return base
@@ -263,6 +280,97 @@ func (lp *loadProfile) business(now time.Time, eng *shape.Engine) float64 {
 	}
 	t := lp.local(now, eng)
 	return lp.curve.Diurnal(t) * lp.curve.BusinessWeekly(t) * eng.VolumeMultiplier()
+}
+
+// businessAt is business at an instant whose master volume was vol (the live knob read at a past
+// tick is not that tick's): the same curve, scaled by vol instead of the Engine's current multiplier.
+func (lp *loadProfile) businessAt(now time.Time, eng *shape.Engine, vol float64) float64 {
+	if lp == nil {
+		cur := eng.VolumeMultiplier()
+		if !(cur > 0) {
+			return 0
+		}
+		return eng.BusinessFactor(now) / cur * vol
+	}
+	t := lp.local(now, eng)
+	return lp.curve.Diurnal(t) * lp.curve.BusinessWeekly(t) * vol
+}
+
+// scheduledFactor is Engine.FailFactor at the incident amplification over the scheduled incident
+// windows alone: a pure function of the instant, for ticks the live fault state cannot speak for.
+func scheduledFactor(eng *shape.Engine, at time.Time, mode, service string) float64 {
+	active, intensity := eng.EvalScheduled(at, mode, service)
+	if !active {
+		return 1.0
+	}
+	return 1 + (incidentAmplification-1)*intensity
+}
+
+// volumeLog records the master volume a node's batched series ran under, as change points, so a
+// batch release scales each accumulated tick by the volume of that tick: a paused tick (volume 0)
+// reads 0 and adds nothing. Ticks before the first record read the first recorded volume, the
+// volume the run started with.
+type volumeLog struct {
+	last time.Time
+	pts  []volPoint // ascending by at
+}
+
+type volPoint struct {
+	at   time.Time
+	mult float64
+}
+
+// observe records the volume mult of the unpaused tick now. Observing an instant already seen is
+// a no-op.
+func (l *volumeLog) observe(now time.Time, mult float64) { l.record(now, mult) }
+
+// paused records that the workload ticked at now under an explicit volume 0, when the batched
+// series is not evaluated at all.
+func (l *volumeLog) paused(now time.Time) { l.record(now, 0) }
+
+func (l *volumeLog) record(now time.Time, mult float64) {
+	if len(l.pts) == 0 {
+		l.pts = append(l.pts, volPoint{at: now, mult: mult})
+		l.last = now
+		return
+	}
+	if !now.After(l.last) {
+		return
+	}
+	if l.pts[len(l.pts)-1].mult != mult {
+		l.pts = append(l.pts, volPoint{at: now, mult: mult})
+	}
+	l.last = now
+	// A window reaches back at most shape.MaxBatchPeriod; keep the point in force at its start.
+	cut := now.Add(-shape.MaxBatchPeriod - time.Hour)
+	k := 0
+	for k+1 < len(l.pts) && !l.pts[k+1].at.After(cut) {
+		k++
+	}
+	if k > 0 {
+		l.pts = append([]volPoint(nil), l.pts[k:]...)
+	}
+}
+
+// notePaused records a paused tick for the node's batched series (spec), which the paused
+// metric pass does not evaluate.
+func (n *node) notePaused(now time.Time, spec telemetryspec.MetricSpec) {
+	if spec.Value.Kind() == telemetryspec.KindShape && spec.Value.Shape != nil && spec.Value.Shape.Batch != nil {
+		n.vols.paused(now)
+	}
+}
+
+// at is the master volume in force at t; def is returned before anything was observed.
+func (l *volumeLog) at(t time.Time, def float64) float64 {
+	if l == nil || len(l.pts) == 0 {
+		return def
+	}
+	for i := len(l.pts) - 1; i >= 0; i-- {
+		if !l.pts[i].at.After(t) {
+			return l.pts[i].mult
+		}
+	}
+	return l.pts[0].mult
 }
 
 // factor is the environment-weighted load, the shape_profile counterpart of Engine.Factor.

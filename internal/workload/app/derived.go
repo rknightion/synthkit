@@ -220,6 +220,16 @@ func (c counterSrc) perTick(at time.Time, eng *shape.Engine, service string) flo
 	return v * c.rate
 }
 
+// batchReleaseTicks is how many ticks of arrivals one release of the value carries at the default
+// metric cadence: 1 for an unbatched value, else the batch period over the tick (a blueprint
+// ticking faster than the default releases more, and meets the runtime clamp instead).
+func batchReleaseTicks(v telemetryspec.ValueModel) float64 {
+	if v.Kind() != telemetryspec.KindShape || v.Shape == nil || v.Shape.Batch == nil {
+		return 1
+	}
+	return max(1, math.Ceil(float64(v.Shape.Batch.Period)/float64(interval)))
+}
+
 // counterSeries resolves a counter name to the series of EVERY non-derived counter spec of that
 // name on the node (a blueprint may declare one spec per series), in declaration then label
 // order, each series once. It is nil when the node declares no such counter. This is the shared
@@ -233,6 +243,7 @@ func (n *node) counterSeries(name string) []counterSeries {
 			continue
 		}
 		nominal, bounded := nominalMax(m.Value)
+		nominal *= batchReleaseTicks(m.Value)
 		for ci, c := range scaledLabelCombos(m.Labels) {
 			sig := state.LabelSig(c.labels)
 			j, seen := at[sig]
@@ -318,6 +329,9 @@ func (s *itemStock) item(seq int64) *stockItem { return &s.items[seq-s.base] }
 func (s *itemStock) less(i, j int) bool { return s.item(s.due[i]).done < s.item(s.due[j]).done }
 
 func (s *itemStock) push(at int64, done float64) {
+	if len(s.items) >= telemetryspec.MaxStockItems && s.n < len(s.items) {
+		s.compact() // completed items still hold slots behind a long-tail item: reclaim them
+	}
 	s.items = append(s.items, stockItem{at: at, done: done})
 	s.due = append(s.due, s.base+int64(len(s.items)-1))
 	s.n++
@@ -351,6 +365,29 @@ func (s *itemStock) pop() {
 		s.due[i], s.due[m] = s.due[m], s.due[i]
 		i = m
 	}
+}
+
+// compact drops every completed item from the backing slice, wherever it sits, keeping the
+// survivors' arrival order and re-pointing the completion heap at their new positions. The heap's
+// shape and keys are untouched, so completions, counts and ages read exactly as before. The slice
+// then holds only the items still in the stock, at most MaxStockItems. A push compacts only when
+// the slice is full, so a stock held at the cap by steady churn compacts at most once per tick
+// (every arrival the cap admits, the completions free): waiting for more freed slots would drop
+// arrivals the stock has room for.
+func (s *itemStock) compact() {
+	pos := make([]int64, len(s.items))
+	out := s.items[:0] // in place: a survivor never moves past its own slot
+	for i, it := range s.items {
+		if it.gone {
+			continue
+		}
+		pos[i] = int64(len(out))
+		out = append(out, it)
+	}
+	for k, seq := range s.due {
+		s.due[k] = pos[seq-s.base]
+	}
+	s.items, s.base, s.head = out, 0, 0
 }
 
 // complete removes every item whose completion point the progress clock has passed and drops

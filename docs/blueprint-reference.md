@@ -344,8 +344,9 @@ The DSL value model is a one-of; exactly one of these keys must be present per v
 | `source_read` | `{measure, per_tick, stall_mode}` | Counter metric values only. `measure` is `records_inspected`, `checkpoint` (both stop while stalled) or `read_failures` (only while stalled, needs a `stall_mode`); `per_tick` is finite and above 0 and is added per metric tick. See [collector self-telemetry](workloads.md#collector-self-telemetry). |
 | `ref` | string | Correlation field reference (high-card). **Metric/stream labels reject this.** |
 
-Two further metric keys derive a gauge from a counter on the same service node (see
-[stock gauges](workloads.md#stock-gauges)); both replace the gauge's `value`:
+Two further metric keys derive a metric from a counter (see
+[stock gauges](workloads.md#stock-gauges)): `stock_of` derives a gauge and replaces its `value`;
+`count_of` sets how many values a histogram observes and keeps the histogram's `value`:
 
 | Key | Type | Description |
 |---|---|---|
@@ -355,6 +356,8 @@ Two further metric keys derive a gauge from a counter on the same service node (
 | `stock_of.stall_mode` | string | Item stock only: while that incident mode is active at intensity `i`, residences advance at `1 - i` of real time. |
 | `stock_of.field` | string | Item stock only: `count` (default) or `oldest_age_seconds`. |
 | `labels` (on a `stock_of` gauge) | map | Optional projection: each label must be a counter label with values the counter takes, and every combination must match a counter series. `value_scale` is rejected. Omitted inherits the counter's series. |
+| `count_of` | string | Histogram only: the name of a counter on the same service node (or the node named by `count_of_service`); each tick the histogram observes as many values (drawn from its `value`) as that counter incremented, so `_count` tracks the counter. Labels must be a subset of the counter's, each value one it takes, and every combination must match a counter series. At most 10,000 observations per series per tick; a batched counter's whole-window release counts (rejected at load). See [histogram counts from a counter](workloads.md#stock-gauges). |
+| `count_of_service` | string | With `count_of` only: the service node whose counter `count_of` reads. It must be declared before the histogram's service; unknown or later services are rejected at load. A source that is paused records nothing for the tick. |
 
 ---
 
