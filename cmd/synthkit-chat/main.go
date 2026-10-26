@@ -480,7 +480,7 @@ func drain(ctx context.Context, events <-chan engine.Event, logf func(string, ..
 func resetConfig(sc *script.Scenario, b *Bindings, user, bot slackt.ResetAPI, dry bool, progress func(string), logf func(string, ...any)) slackt.ResetConfig {
 	ids := map[string]engine.Identity{}
 	for _, p := range sc.Personas {
-		ids[p.ID] = engine.Identity{PersonaID: p.ID, Name: p.Name, Emoji: p.Avatar.Emoji}
+		ids[p.ID] = engine.Identity{PersonaID: p.ID, Name: p.Name, Emoji: p.Avatar.Emoji, ImageURL: p.Avatar.ImageURL}
 	}
 	return slackt.ResetConfig{User: user, Bot: bot, Channels: b.Channels, Personas: ids,
 		AppName: b.ControlDM.Name, AppEmoji: b.ControlDM.Emoji, DryRun: dry, Progress: progress, Logf: logf}

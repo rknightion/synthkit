@@ -387,7 +387,7 @@ func (m *Machine) enqueue(now time.Time, pid, logical, beat, text string, due, a
 	m.postSeq++
 	q := &queued{seq: m.postSeq, due: due, persona: pid, addressedAt: addressedAt, post: Post{
 		RunID: m.runID, UtteranceID: UtteranceID(m.runID, m.postSeq), ChannelID: cid, Logical: logical, Beat: beat,
-		Identity: &Identity{PersonaID: pid, Name: ps.def.Name, Emoji: ps.def.Avatar.Emoji}, Text: strings.TrimSpace(text),
+		Identity: &Identity{PersonaID: pid, Name: ps.def.Name, Emoji: ps.def.Avatar.Emoji, ImageURL: ps.def.Avatar.ImageURL}, Text: strings.TrimSpace(text),
 	}}
 	m.queue = append(m.queue, q)
 	ps.lastDue = due

@@ -107,6 +107,9 @@ func (p Persona) FirstName() string {
 // Avatar is emoji only in this release.
 type Avatar struct {
 	Emoji string `yaml:"emoji"`
+	// ImageURL, a public https image, is the persona's picture; the emoji is the fallback
+	// where an image cannot be shown.
+	ImageURL string `yaml:"image_url"`
 }
 
 // Fact is declared ground truth the cast may cite.

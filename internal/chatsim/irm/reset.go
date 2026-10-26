@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Package irm returns a Grafana IRM stack to a clean slate for a drill: every OnCall alert group
-// is deleted and every open incident is resolved. Grafana's API cannot delete an incident, so
-// resolved incidents stay in IRM's history.
+// Package irm returns a Grafana IRM stack to a clean slate for a drill: every open OnCall alert
+// group and every open incident is resolved. Neither can be deleted for good (an alert group
+// delete is accepted but the group stays listed), so resolved ones stay in IRM's history.
 package irm
 
 import (
@@ -32,13 +32,12 @@ type Config struct {
 
 // Report says what a reset did.
 type Report struct {
-	AlertGroupsDeleted, IncidentsResolved, IncidentsKept int
-	Problems                                             []string
+	AlertGroupsResolved, IncidentsResolved int
+	Problems                               []string
 }
 
 func (r Report) String() string {
-	return fmt.Sprintf("%d alert groups deleted, %d incidents resolved (%d already resolved stay in history; IRM cannot delete incidents)",
-		r.AlertGroupsDeleted, r.IncidentsResolved, r.IncidentsKept)
+	return fmt.Sprintf("%d alert groups and %d incidents resolved", r.AlertGroupsResolved, r.IncidentsResolved)
 }
 
 type client struct {
@@ -79,7 +78,7 @@ func (c *client) do(ctx context.Context, method, url string, body, out any) erro
 	return nil
 }
 
-// Reset deletes every alert group and resolves every open incident on the stack.
+// Reset resolves every open alert group and incident on the stack.
 func Reset(ctx context.Context, cfg Config) (Report, error) {
 	var rep Report
 	if cfg.GrafanaURL == "" || cfg.Token == "" {
@@ -133,7 +132,6 @@ func Reset(ctx context.Context, cfg Config) (Report, error) {
 		}
 		for _, in := range q.Incidents {
 			if in.Status == "resolved" {
-				rep.IncidentsKept++
 				continue
 			}
 			if !cfg.DryRun {
@@ -159,14 +157,17 @@ func Reset(ctx context.Context, cfg Config) (Report, error) {
 		var page struct {
 			Next    *string `json:"next"`
 			Results []struct {
-				ID string `json:"id"`
+				ID    string `json:"id"`
+				State string `json:"state"`
 			} `json:"results"`
 		}
 		if err := c.do(ctx, http.MethodGet, next, nil, &page); err != nil {
 			return rep, fmt.Errorf("list alert groups: %w", err)
 		}
 		for _, g := range page.Results {
-			ids = append(ids, g.ID)
+			if g.State != "resolved" {
+				ids = append(ids, g.ID)
+			}
 		}
 		next = ""
 		if page.Next != nil {
@@ -175,13 +176,13 @@ func Reset(ctx context.Context, cfg Config) (Report, error) {
 	}
 	for _, id := range ids {
 		if !cfg.DryRun {
-			if err := c.do(ctx, http.MethodDelete, oncall+"/api/v1/alert_groups/"+id+"/", nil, nil); err != nil {
-				rep.Problems = append(rep.Problems, fmt.Sprintf("delete alert group %s: %v", id, err))
+			if err := c.do(ctx, http.MethodPost, oncall+"/api/v1/alert_groups/"+id+"/resolve/", nil, nil); err != nil {
+				rep.Problems = append(rep.Problems, fmt.Sprintf("resolve alert group %s: %v", id, err))
 				continue
 			}
 		}
-		rep.AlertGroupsDeleted++
+		rep.AlertGroupsResolved++
 	}
-	cfg.Progress(fmt.Sprintf("deleted %d alert groups", rep.AlertGroupsDeleted))
+	cfg.Progress(fmt.Sprintf("resolved %d alert groups", rep.AlertGroupsResolved))
 	return rep, nil
 }

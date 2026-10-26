@@ -123,10 +123,11 @@ admin's user token (`slack.user_token_env`, default `SLACK_USER_TOKEN`): add the
 scopes, reinstall, and copy the User OAuth Token. Owners and admins can delete members' and apps'
 messages in channels they are in; anything Slack still refuses is counted in the report. Seeded
 lines post now, since Slack cannot backdate a message: `pace` (default `4s..10s`) or a line's
-`after` spreads them out. `wipe.irm: true` first deletes every Grafana IRM alert group and resolves
-every open incident on the bindings' `irm.grafana_url` (token in `irm.token_env`, default
-`GRAFANA_IRM_TOKEN`, a service account with IRM admin rights). The incident API cannot delete an
-incident, so resolved ones remain in IRM's history. A line is `from` a persona id, `operator` (posted as the user token's
+`after` spreads them out. `wipe.irm: true` first resolves every open Grafana IRM alert group and
+incident on the bindings' `irm.grafana_url` (token in `irm.token_env`, default
+`GRAFANA_IRM_TOKEN`, a service account with IRM admin rights). Neither can be deleted for good,
+so resolved ones remain in IRM's history. A persona's `avatar.image_url` (public https) shows a
+picture instead of its emoji. A line is `from` a persona id, `operator` (posted as the user token's
 user) or `app`, in a logical channel or `#name`; `key` and `reply_to` make a thread.
 
 ```yaml

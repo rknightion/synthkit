@@ -397,7 +397,7 @@ func (r *resetter) seed(ctx context.Context, seed *script.Seed, targets []string
 			}
 		default:
 			id := r.cfg.Personas[m.From]
-			opts = append(opts, slack.MsgOptionUsername(id.Name), slack.MsgOptionIconEmoji(id.Emoji),
+			opts = append(opts, slack.MsgOptionUsername(id.Name), personaIcon(id),
 				slack.MsgOptionMetadata(slack.SlackMetadata{EventType: SeedEventType, EventPayload: map[string]any{"seed": seed.Name, "persona": m.From}}))
 		}
 		var ts string

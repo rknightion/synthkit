@@ -204,6 +204,9 @@ func (sc *Scenario) Validate() error {
 		} else {
 			names[key] = true
 		}
+		if u := p.Avatar.ImageURL; u != "" && !strings.HasPrefix(u, "https://") {
+			add("persona %s: avatar.image_url %q must be an https URL", p.ID, u)
+		}
 		if !emojiRe.MatchString(p.Avatar.Emoji) {
 			add("persona %s: avatar.emoji %q must look like :name:", p.ID, p.Avatar.Emoji)
 		}

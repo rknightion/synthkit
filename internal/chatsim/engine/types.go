@@ -57,6 +57,8 @@ type Identity struct {
 	PersonaID string `json:"persona"`
 	Name      string `json:"name"`
 	Emoji     string `json:"emoji"`
+	// ImageURL, when set, is shown instead of Emoji.
+	ImageURL string `json:"image_url,omitempty"`
 }
 
 // Post is one outbound message. Narrator posts (Identity == nil) appear in the app's own

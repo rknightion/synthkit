@@ -12,10 +12,10 @@ import (
 	"testing"
 )
 
-// TestResetResolvesOpenIncidentsAndDeletesEveryAlertGroup: the OnCall host comes from the IRM
-// app settings, open incidents are resolved (resolved ones are left), and alert groups are
-// deleted across pages, each request carrying the token and the stack URL.
-func TestResetResolvesOpenIncidentsAndDeletesEveryAlertGroup(t *testing.T) {
+// TestResetResolvesOpenIncidentsAndAlertGroups: the OnCall host comes from the IRM app
+// settings, and open incidents and alert groups are resolved across pages (resolved ones are
+// left), each request carrying the token and the stack URL.
+func TestResetResolvesOpenIncidentsAndAlertGroups(t *testing.T) {
 	var calls []string
 	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -31,11 +31,11 @@ func TestResetResolvesOpenIncidentsAndDeletesEveryAlertGroup(t *testing.T) {
 		case strings.HasSuffix(r.URL.Path, "QueryIncidents"):
 			_, _ = io.WriteString(w, `{"incidents":[{"incidentID":"1","status":"resolved","title":"old"},{"incidentID":"2","status":"active","title":"live"}],"cursor":{"hasMore":false}}`)
 		case r.URL.Path == "/oncall/api/v1/alert_groups/" && r.URL.Query().Get("page") == "":
-			_, _ = io.WriteString(w, `{"next":"`+srv.URL+`/oncall/api/v1/alert_groups/?page=2","results":[{"id":"A"}]}`)
+			_, _ = io.WriteString(w, `{"next":"`+srv.URL+`/oncall/api/v1/alert_groups/?page=2","results":[{"id":"A","state":"firing"},{"id":"Z","state":"resolved"}]}`)
 		case r.URL.Path == "/oncall/api/v1/alert_groups/":
-			_, _ = io.WriteString(w, `{"next":null,"results":[{"id":"B"}]}`)
-		case r.Method == http.MethodDelete:
-			w.WriteHeader(http.StatusNoContent)
+			_, _ = io.WriteString(w, `{"next":null,"results":[{"id":"B","state":"acknowledged"}]}`)
+		case strings.HasSuffix(r.URL.Path, "/resolve/"):
+			w.WriteHeader(http.StatusOK)
 		}
 	}))
 	defer srv.Close()
@@ -49,13 +49,13 @@ func TestResetResolvesOpenIncidentsAndDeletesEveryAlertGroup(t *testing.T) {
 		`POST /api/plugins/grafana-irm-app/resources/api/v1/IncidentsService.UpdateStatus {"incidentID":"2","status":"resolved"}`,
 		"GET /oncall/api/v1/alert_groups/?perpage=100",
 		"GET /oncall/api/v1/alert_groups/?page=2",
-		"DELETE /oncall/api/v1/alert_groups/A/",
-		"DELETE /oncall/api/v1/alert_groups/B/",
+		"POST /oncall/api/v1/alert_groups/A/resolve/",
+		"POST /oncall/api/v1/alert_groups/B/resolve/",
 	}
 	if !slices.Equal(calls, want) {
 		t.Fatalf("calls:\n%s\nwant:\n%s", strings.Join(calls, "\n"), strings.Join(want, "\n"))
 	}
-	if rep.AlertGroupsDeleted != 2 || rep.IncidentsResolved != 1 || rep.IncidentsKept != 1 || len(rep.Problems) != 0 {
+	if rep.AlertGroupsResolved != 2 || rep.IncidentsResolved != 1 || len(rep.Problems) != 0 {
 		t.Fatalf("report %+v", rep)
 	}
 }

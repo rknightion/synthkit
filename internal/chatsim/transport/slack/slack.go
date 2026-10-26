@@ -297,7 +297,7 @@ func (t *Transport) Post(ctx context.Context, p engine.Post) (string, error) {
 	}
 	if p.Identity != nil {
 		persona = p.Identity.PersonaID
-		opts = append(opts, slack.MsgOptionUsername(p.Identity.Name), slack.MsgOptionIconEmoji(p.Identity.Emoji))
+		opts = append(opts, slack.MsgOptionUsername(p.Identity.Name), personaIcon(*p.Identity))
 	} else {
 		opts = append(opts, slack.MsgOptionBlocks(slack.NewContextBlock("", slack.NewTextBlockObject(slack.MarkdownType, "_"+p.Text+"_", false, false))))
 	}
@@ -321,6 +321,14 @@ func (t *Transport) Post(ctx context.Context, p engine.Post) (string, error) {
 		return "", fmt.Errorf("slack chat.postMessage: %w", err)
 	}
 	return ts, nil
+}
+
+// personaIcon is the persona's picture when it has one, else its emoji.
+func personaIcon(id engine.Identity) slack.MsgOption {
+	if id.ImageURL != "" {
+		return slack.MsgOptionIconURL(id.ImageURL)
+	}
+	return slack.MsgOptionIconEmoji(id.Emoji)
 }
 
 // Join implements engine.Transport: conversations.join, then backfill recent history so an
