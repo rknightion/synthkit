@@ -468,11 +468,13 @@ concurrent-model throughput, or unattended continuous emission on the strength o
 fixture results. Measure the actual complete caller, including cold start, changing inputs,
 catch-up/reset and whole-process peak memory, before considering a separate operating envelope.
 
-The public sibling fixture passed one twelve-call series against a four-second per-call check,
-but a fresh process then failed its first call at 4.140 s; repeatable margin is not established.
-Its remaining eleven calls and four further processes were not run. The ordered two-pool,
-later-rejection fixture exceeded its 300-second cold-start bound; its later surfaces remain
-unmeasured and that shape is outside this supported-use envelope. Neither observation defines
+The public sibling fixture's dynamic series ran 60 calls across five fresh processes at 2.69 to
+2.88 s each against the four-second per-call check, with peak memory about 74 MiB; its cold,
+catch-up and reset surfaces took about 6.9 s, 2.7 s and 2.7 s on one gate host. The ordered
+two-pool, later-rejection shape (legacy timing with two waited pools and a rule on one node)
+still exceeds its 300-second cold-start bound by a wide margin, and reaching it would change
+emitted values; that shape is outside this supported-use envelope and unsupported for live
+use. No shipped blueprint compiles a node of that shape. Neither observation defines
 a safe replacement deadline. Cache retention caps do not bound transient allocation or whole
 process memory. Generic fixture checks do not establish private-input or whole-runner admission.
 
