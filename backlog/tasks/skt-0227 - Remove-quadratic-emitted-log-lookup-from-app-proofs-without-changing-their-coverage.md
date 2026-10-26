@@ -3,10 +3,10 @@ id: SKT-0227
 title: >-
   Remove quadratic emitted-log lookup from app proofs without changing their
   coverage
-status: In Progress
+status: Parked
 assignee: []
 created_date: '2026-10-26T01:06:00Z'
-updated_date: '2026-10-26T04:58:00Z'
+updated_date: '2026-10-26T05:10:00Z'
 labels:
   - performance
 dependencies: []
@@ -50,4 +50,6 @@ Exact integrated65ef full gate failed app-race600.180s; terminal AppDefaultWireP
 Clock correction from the native append-only dispatch event: first appindex dispatch was2026-10-26T01:07:59Z, so the four-hour point is05:07:59Z. Earlier01:06/05:06 shorthand used the board-creation time; this correction is not an attempt or clock reset. Current read-only attribution dispatch04:40:35Z does not reset the lineage.
 
 Read-only exact-source profiles completed: parity helper duplicates complete JSON encoding, a material old helper cost; State.Collect was not its sampled CPU bottleneck. Selected causal model callers separately dominate sampled allocation, outside new repair authority. A distinct byte-exact parity-helper prerequisite is tracked; the original aggregate-budget lineage/four-hour point remains unchanged, and the600.180s gate is not cleared by scoped passes.
+
+First aggregate-cost convergence trip at05:07:59Z after four hours from the actual first dispatch. Split the accepted index correctness partial from the distinct measured legacy parity-byte serialization prerequisite; original lineage is retained, not reset by a new task ID. Stop additional index repairs. Only the already-admitted bounded helper correction and exact delta review/changed-candidate root gate may progress; another aggregate failure or new class parks owner rather than chaining helpers. No numerical/private/timeout/case/isolation changes or unchanged full-gate retry.
 <!-- SECTION:NOTES:END -->
