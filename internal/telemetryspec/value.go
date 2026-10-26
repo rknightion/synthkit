@@ -40,6 +40,14 @@ const (
 	KindOutcomes   = "outcomes"
 
 	KindRequestDraw = "request_draw"
+	KindSourceRead  = "source_read"
+)
+
+// Source-read measures (SourceReadModel.Measure): what a collector's own read loop reports.
+const (
+	ReadRecordsInspected = "records_inspected" // records examined in a tick; none while stalled
+	ReadCheckpoint       = "checkpoint"        // checkpoint position advanced in a tick; none while stalled
+	ReadFailures         = "read_failures"     // failed reads in a tick; only while stalled
 )
 
 // Outcome measures (OutcomeValue.Measure). An omitted measure is MeasureCount.
@@ -113,6 +121,9 @@ type ValueModel struct {
 	// RequestDraw draws a formatted ID or an enum value once per request and repeats it on every
 	// log line of that request that names the same key (log body field only).
 	RequestDraw *RequestDraw `yaml:"request_draw"`
+	// SourceRead is a collector's own read work, a counter increment that advances with reads and
+	// stops (or turns to failures) while its stall_mode incident is active (counter metric value only).
+	SourceRead *SourceReadModel `yaml:"source_read"`
 }
 
 // RequestDraw is a value drawn once per request and shared by every log line of that request
@@ -217,8 +228,8 @@ func (d RequestDraw) validate() error {
 		return nil
 	}
 	for _, e := range d.Enum {
-		if e.Scaled() || e.ShapeProfile != nil {
-			return fmt.Errorf("request_draw %q value %q: rate_scale, value_scale and shape_profile are valid on metric labels only", d.Key, e.Value)
+		if e.Scaled() || e.ShapeProfile != nil || e.StallMode != "" {
+			return fmt.Errorf("request_draw %q value %q: rate_scale, value_scale, shape_profile and stall_mode are valid on metric labels only", d.Key, e.Value)
 		}
 	}
 	if err := validateEnumEntries(d.Enum); err != nil {
@@ -300,8 +311,51 @@ func (o OutcomeValue) EffectiveMeasure() string {
 // can fire. Omitted means the gauge always advances. The workload that owns the metric resolves
 // the incident (the same per-service resolution its shape values use); the model itself only
 // carries the name.
+//
+// ArrivalsOnly makes the gauge a source-event time instead of a read time: it advances only on a
+// tick where the source had arrivals (the node's load factor is above 0, so a quiet period of its
+// shape_profile or a paused workload counts as none) and holds its last reading otherwise, so a
+// quiet source reads old without the collector having stalled. StallMode still freezes it.
+//
+// The hold is kept per series: an enum label value that declares its own stall_mode (EnumEntry)
+// stalls and holds independently of its siblings; every other series follows StallMode.
 type NowModel struct {
-	StallMode string `yaml:"stall_mode"`
+	StallMode    string `yaml:"stall_mode"`
+	ArrivalsOnly bool   `yaml:"arrivals_only"`
+}
+
+// SourceReadModel is one counter of a collector's own read loop, so records inspected, checkpoint
+// progress and read failures derive from the same stall state instead of three hand-aligned
+// shapes. Each tick adds PerTick (times the node's load factor for records_inspected and
+// checkpoint, like a shape value) while the stall is inactive and nothing while it is active
+// (records_inspected, checkpoint), or PerTick only while it is active (read_failures). The
+// counter is cumulative across ticks (internal/state). The model draws no randomness.
+//
+// StallMode names the incident mode that stalls the collector, resolved per service like a now
+// gauge's; an enum label value may override it for its own series (EnumEntry.StallMode).
+// read_failures needs a stall mode (here or on an enum value). The model reads no metric name:
+// the blueprint names the counter.
+type SourceReadModel struct {
+	Measure   string  `yaml:"measure"`
+	PerTick   float64 `yaml:"per_tick"`
+	StallMode string  `yaml:"stall_mode"`
+}
+
+// validate enforces the model's own invariants; the instrument and per-value stall rules need
+// the owning metric (MetricSpec.Validate).
+func (r SourceReadModel) validate() error {
+	switch r.Measure {
+	case ReadRecordsInspected, ReadCheckpoint, ReadFailures:
+	default:
+		return fmt.Errorf("source_read: measure %q invalid (want records_inspected|checkpoint|read_failures)", r.Measure)
+	}
+	if math.IsNaN(r.PerTick) || math.IsInf(r.PerTick, 0) || r.PerTick <= 0 {
+		return fmt.Errorf("source_read: per_tick %v must be finite and > 0", r.PerTick)
+	}
+	if m := r.StallMode; m != "" && strings.TrimSpace(m) != m {
+		return fmt.Errorf("source_read: stall_mode %q must be a nonblank incident mode name without surrounding whitespace", m)
+	}
+	return nil
 }
 
 // EnumEntry is one weighted categorical value. Weight only steers a per-request draw (a log body
@@ -325,6 +379,10 @@ type EnumEntry struct {
 	// be a `shape`). The label value is unchanged, so the series set is identical. Omitted means
 	// the series follows the inherited profile.
 	ShapeProfile *shape.Profile `yaml:"shape_profile"`
+	// StallMode gives this value's series its own stall incident mode in place of the metric's
+	// (METRIC labels only; the metric's value must be a `now` or `source_read`). At most one label
+	// of a metric may declare it. Omitted means the series follows the metric's stall_mode.
+	StallMode string `yaml:"stall_mode"`
 }
 
 // Scaled reports whether the entry declares either per-value metric multiplier.
@@ -397,6 +455,13 @@ type EvalCtx struct {
 	Norm              func() float64    // standard-normal — the shape engine's NormFloat64; nil ⇒ deterministic 0
 	Now               time.Time         // tick time read by the now model; zero ⇒ the model reads 0
 	Labels            map[string]string // the evaluated series' label values, passed to the outcome providers
+
+	// NowFor, when set, is the now model's reading for the series carrying these labels (its own
+	// stall mode and hold); nil reads Now.
+	NowFor func(labels map[string]string) time.Time
+	// Stalled reports whether the source_read model's collector is stalled for the series
+	// carrying these labels; nil reads as not stalled.
+	Stalled func(labels map[string]string) bool
 
 	// Resource reads a resource field (name, field); ok=false or a nil func ⇒ the model reads 0.
 	Resource func(name, field string) (float64, bool)
@@ -486,10 +551,30 @@ func (v ValueModel) Eval(ctx EvalCtx) (float64, string) {
 	case KindRequestDraw:
 		return 0, v.RequestDraw.eval(ctx.Draw)
 	case KindNow:
-		if ctx.Now.IsZero() {
+		at := ctx.Now
+		if ctx.NowFor != nil {
+			at = ctx.NowFor(ctx.Labels)
+		}
+		if at.IsZero() {
 			return 0, ""
 		}
-		return float64(ctx.Now.Unix()) + float64(ctx.Now.Nanosecond())/1e9, ""
+		return float64(at.Unix()) + float64(at.Nanosecond())/1e9, ""
+	case KindSourceRead:
+		stalled := ctx.Stalled != nil && ctx.Stalled(ctx.Labels)
+		if v.SourceRead.Measure == ReadFailures {
+			if stalled {
+				return v.SourceRead.PerTick, ""
+			}
+			return 0, ""
+		}
+		if stalled {
+			return 0, ""
+		}
+		load := ctx.ShapeVal
+		if load == 0 && !ctx.ExactLoad {
+			load = 1.0
+		}
+		return v.SourceRead.PerTick * load, ""
 	case KindLognormal:
 		sigma := math.Log(v.Lognormal.P95/v.Lognormal.Median) / z95
 		return v.Lognormal.Median * math.Exp(sigma*ctx.norm()), ""
@@ -594,6 +679,8 @@ func (v ValueModel) Kind() string {
 		return KindOutcomes
 	case v.RequestDraw != nil:
 		return KindRequestDraw
+	case v.SourceRead != nil:
+		return KindSourceRead
 	}
 	return ""
 }
@@ -604,7 +691,7 @@ func (v ValueModel) setCount() int {
 	for _, set := range []bool{
 		v.Const != nil, v.ConstStr != nil, len(v.Enum) > 0, v.IntRange != nil,
 		v.FloatRange != nil, v.Normal != nil, v.Bool != nil, v.Shape != nil, v.Ref != "",
-		v.Lognormal != nil, v.Now != nil, v.Resource != nil, v.Outcomes != nil, v.RequestDraw != nil,
+		v.Lognormal != nil, v.Now != nil, v.Resource != nil, v.Outcomes != nil, v.RequestDraw != nil, v.SourceRead != nil,
 	} {
 		if set {
 			n++
@@ -618,7 +705,7 @@ func (v ValueModel) setCount() int {
 func (v ValueModel) Validate() error {
 	switch n := v.setCount(); {
 	case n == 0:
-		return fmt.Errorf("value model: no model set (need exactly one of const|const_str|enum|int_range|float_range|normal|lognormal|bool|shape|now|resource|outcomes|request_draw|ref)")
+		return fmt.Errorf("value model: no model set (need exactly one of const|const_str|enum|int_range|float_range|normal|lognormal|bool|shape|now|resource|outcomes|source_read|request_draw|ref)")
 	case n > 1:
 		return fmt.Errorf("value model: %d models set, need exactly one", n)
 	}
@@ -678,6 +765,8 @@ func (v ValueModel) Validate() error {
 		return v.Outcomes.validate()
 	case KindRequestDraw:
 		return v.RequestDraw.validate()
+	case KindSourceRead:
+		return v.SourceRead.validate()
 	case KindRef:
 		if strings.TrimSpace(v.Ref) == "" {
 			return fmt.Errorf("ref: empty correlation field name")

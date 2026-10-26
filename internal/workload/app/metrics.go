@@ -69,7 +69,7 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 			native := nativeFor(i)
 			if paused {
 				ctx := pausedCtx
-				ctx.Now = w.heartbeatNow(now, world, id, spec)
+				w.stallProviders(&ctx, now, world, id, n, spec)
 				w.observePausedMetricStates(w.st, native, id, spec, ctx)
 				continue
 			}
@@ -133,8 +133,9 @@ func (w *Workload) metricCtx(now, from time.Time, world *core.World, id nodeIden
 		IncidentIntensity: intensity,
 		Rand:              world.Shape.Float64,
 		Norm:              world.Shape.NormFloat64,
-		Now:               w.heartbeatNow(now, world, id, spec), // the tick time (or its stalled hold), never the wall clock
+		Now:               now, // the tick time, never the wall clock; stallProviders holds it per series
 	}
+	w.stallProviders(&ctx, now, world, id, n, spec)
 	w.causalProviders(&ctx, spec, n, from, now, world)
 	return ctx
 }
@@ -143,23 +144,32 @@ func (w *Workload) metricCtx(now, from time.Time, world *core.World, id nodeIden
 // (×N at intensity 1.0) — e.g. a fallback rate triples under fallback_storm.
 const incidentAmplification = 3.0
 
-// heartbeatNow is the time a `now` gauge reads this tick: the tick time, unless the metric declares
-// a stall_mode that is active for its service, when it is the last reading taken while the mode was
-// inactive. The hold is workload state keyed by node and metric, advanced only by non-stalled
-// ticks, so it is deterministic and never reads the wall clock. A stall that is already active on
-// the first evaluation has no earlier reading to hold, so that tick reads the tick time and becomes
-// the held value. Every other value model gets the tick time unchanged. The hold is not persisted:
-// after a process restart inside an incident the gauge re-holds from the first tick it sees.
-func (w *Workload) heartbeatNow(now time.Time, world *core.World, id nodeIdentity, spec telemetryspec.MetricSpec) time.Time {
-	if spec.Value.Kind() != telemetryspec.KindNow || spec.Value.Now.StallMode == "" {
+// heartbeatNow is the time one series of a `now` gauge reads this tick: the tick time, unless the
+// series is stalled, or the gauge is arrivals_only and the node had none this tick, when it is the
+// last reading taken while it was neither. The series stalls on its own stall mode (an enum label
+// value's stall_mode, else the metric's), resolved per service like a shape value's.
+//
+// The hold is workload state keyed by node, metric, series labels and stall mode, so two series
+// with different stall modes hold independently. It advances only on ticks the series is not held,
+// so it is deterministic and never reads the wall clock. A hold that is already due on the first
+// evaluation has no earlier reading, so that tick reads the tick time and becomes the held value.
+// Every other value model gets the tick time unchanged. The hold is not persisted: after a
+// process restart inside an incident the gauge re-holds from the first tick it sees. n is the
+// node, for the arrivals read; nil counts as arrivals.
+func (w *Workload) heartbeatNow(now time.Time, world *core.World, id nodeIdentity, n *node, spec telemetryspec.MetricSpec, labels map[string]string) time.Time {
+	if spec.Value.Kind() != telemetryspec.KindNow {
 		return now
 	}
-	key := id.service + "\x00" + spec.Name
-	// An active window at intensity 0 is a no-op everywhere else (a shape value reads baseline),
-	// so it does not stall the heartbeat either.
-	if active, intensity := world.Shape.Eval(now, spec.Value.Now.StallMode, id.service); active && intensity > 0 {
-		if held, ok := w.nowHold[key]; ok {
-			return held
+	mode := spec.SeriesStallMode(labels)
+	arrivalsOnly := spec.Value.Now.ArrivalsOnly
+	if mode == "" && !arrivalsOnly {
+		return now
+	}
+	key := id.service + "\x00" + incKey(spec.Name, labels) + "\x00" + mode
+	held := stallActive(now, world, id, mode) || (arrivalsOnly && !w.hadArrivals(now, world, n))
+	if held {
+		if at, ok := w.nowHold[key]; ok {
+			return at
 		}
 	}
 	if w.nowHold == nil {
@@ -167,4 +177,43 @@ func (w *Workload) heartbeatNow(now time.Time, world *core.World, id nodeIdentit
 	}
 	w.nowHold[key] = now
 	return now
+}
+
+// stallActive reports whether the incident mode is active for the service at intensity above 0.
+// An active window at intensity 0 is a no-op everywhere else (a shape value reads baseline), so it
+// does not stall a producer either.
+func stallActive(now time.Time, world *core.World, id nodeIdentity, mode string) bool {
+	if mode == "" {
+		return false
+	}
+	active, intensity := world.Shape.Eval(now, mode, id.service)
+	return active && intensity > 0
+}
+
+// hadArrivals reports whether the node's source had arrivals this tick: its load factor (its own
+// shape_profile clock, else the blueprint curve, times the master volume) is above 0. A paused
+// workload has none.
+func (w *Workload) hadArrivals(now time.Time, world *core.World, n *node) bool {
+	if n == nil {
+		return true
+	}
+	return !world.Shape.Paused() && n.load.business(now, world.Shape) > 0
+}
+
+// stallProviders wires the stall state a `now` gauge or a `source_read` counter reads for each of
+// its series (see heartbeatNow); every other value is unchanged.
+func (w *Workload) stallProviders(ctx *telemetryspec.EvalCtx, now time.Time, world *core.World, id nodeIdentity, n *node, spec telemetryspec.MetricSpec) {
+	switch spec.Value.Kind() {
+	case telemetryspec.KindNow:
+		if spec.SeriesStallMode(nil) == "" && !spec.HasSeriesStall() && !spec.Value.Now.ArrivalsOnly {
+			return
+		}
+		ctx.NowFor = func(labels map[string]string) time.Time {
+			return w.heartbeatNow(now, world, id, n, spec, labels)
+		}
+	case telemetryspec.KindSourceRead:
+		ctx.Stalled = func(labels map[string]string) bool {
+			return stallActive(now, world, id, spec.SeriesStallMode(labels))
+		}
+	}
 }

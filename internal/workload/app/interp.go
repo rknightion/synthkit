@@ -283,6 +283,8 @@ func (w *Workload) observePausedMetricStates(st, native *state.State, id nodeIde
 		labels := mergeLabels(base, combo.labels)
 		var val float64
 		if spec.Value.Kind() != telemetryspec.KindShape {
+			ctx := ctx
+			ctx.Labels = combo.labels
 			val, _ = spec.Value.Eval(ctx)
 			val *= combo.value
 		}

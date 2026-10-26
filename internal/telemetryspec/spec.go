@@ -218,6 +218,9 @@ func (m MetricSpec) Validate() error {
 	if err := m.validateCausalValue(); err != nil {
 		return err
 	}
+	if err := m.validateStall(); err != nil {
+		return err
+	}
 	if m.hasClock() {
 		switch {
 		case m.StockOf != nil || m.CountOf != "":

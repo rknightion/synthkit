@@ -41,6 +41,10 @@ func checkValue(vm ValueModel, pos position, where string) error {
 	if vm.RequestDraw != nil && pos != posBody {
 		return fmt.Errorf("%s: request_draw is log body only", where)
 	}
+	// A source read draws on the metric lane's stall state; no other evaluator supplies one.
+	if vm.SourceRead != nil && pos != posMetricValue {
+		return fmt.Errorf("%s: source_read is metric value only", where)
+	}
 	// The causal models read model state or window outcomes, which only the metric lane supplies.
 	if (vm.Resource != nil || vm.Outcomes != nil) && pos != posMetricValue {
 		return fmt.Errorf("%s: %s is metric value only", where, vm.Kind())
@@ -55,6 +59,9 @@ func checkValue(vm ValueModel, pos position, where string) error {
 			}
 			if e.ShapeProfile != nil {
 				return fmt.Errorf("%s: enum shape_profile is valid on metric labels only", where)
+			}
+			if e.StallMode != "" {
+				return fmt.Errorf("%s: enum stall_mode is valid on metric labels only", where)
 			}
 		}
 	}
@@ -78,9 +85,9 @@ func checkValue(vm ValueModel, pos position, where string) error {
 		// a metric value.
 		switch vm.Kind() {
 		case KindConst, KindIntRange, KindFloatRange, KindNormal, KindLognormal, KindBool, KindShape, KindNow,
-			KindResource, KindOutcomes:
+			KindResource, KindOutcomes, KindSourceRead:
 		default:
-			return fmt.Errorf("%s: metric value must be numeric (const|int_range|float_range|normal|lognormal|bool|shape|now|resource|outcomes), got %q", where, vm.Kind())
+			return fmt.Errorf("%s: metric value must be numeric (const|int_range|float_range|normal|lognormal|bool|shape|now|resource|outcomes|source_read), got %q", where, vm.Kind())
 		}
 	case posBody, posAttr:
 		// Any validated model is allowed here — including a high-card ref (the correlation glue:

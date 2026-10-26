@@ -1674,6 +1674,7 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].custom_metrics[].value.enum[].shape_profile.plateau_end_hour` | float | yes |  |
 | `services[].custom_metrics[].value.enum[].shape_profile.ramp_down_end_hour` | float | yes |  |
 | `services[].custom_metrics[].value.enum[].shape_profile.weekend_factor` | float | yes |  |
+| `services[].custom_metrics[].value.enum[].stall_mode` | string |  |  |
 | `services[].custom_metrics[].value.int_range` | object | yes |  |
 | `services[].custom_metrics[].value.int_range.min` | int |  |  |
 | `services[].custom_metrics[].value.int_range.max` | int |  |  |
@@ -1697,6 +1698,7 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].custom_metrics[].value.lognormal.p95` | float |  |  |
 | `services[].custom_metrics[].value.now` | object | yes |  |
 | `services[].custom_metrics[].value.now.stall_mode` | string |  |  |
+| `services[].custom_metrics[].value.now.arrivals_only` | bool |  |  |
 | `services[].custom_metrics[].value.resource` | object | yes |  |
 | `services[].custom_metrics[].value.resource.name` | string |  |  |
 | `services[].custom_metrics[].value.resource.field` | string |  |  |
@@ -1720,6 +1722,11 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].custom_metrics[].value.request_draw.enum[].shape_profile.plateau_end_hour` | float | yes |  |
 | `services[].custom_metrics[].value.request_draw.enum[].shape_profile.ramp_down_end_hour` | float | yes |  |
 | `services[].custom_metrics[].value.request_draw.enum[].shape_profile.weekend_factor` | float | yes |  |
+| `services[].custom_metrics[].value.request_draw.enum[].stall_mode` | string |  |  |
+| `services[].custom_metrics[].value.source_read` | object | yes |  |
+| `services[].custom_metrics[].value.source_read.measure` | string |  |  |
+| `services[].custom_metrics[].value.source_read.per_tick` | float |  |  |
+| `services[].custom_metrics[].value.source_read.stall_mode` | string |  |  |
 | `services[].custom_metrics[].buckets[]` | float |  |  |
 | `services[].custom_metrics[].le_style` | string |  |  |
 | `services[].custom_metrics[].stock_of` | object | yes |  |
@@ -1757,6 +1764,7 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].metrics[].value.enum[].shape_profile.plateau_end_hour` | float | yes |  |
 | `services[].metrics[].value.enum[].shape_profile.ramp_down_end_hour` | float | yes |  |
 | `services[].metrics[].value.enum[].shape_profile.weekend_factor` | float | yes |  |
+| `services[].metrics[].value.enum[].stall_mode` | string |  |  |
 | `services[].metrics[].value.int_range` | object | yes |  |
 | `services[].metrics[].value.int_range.min` | int |  |  |
 | `services[].metrics[].value.int_range.max` | int |  |  |
@@ -1780,6 +1788,7 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].metrics[].value.lognormal.p95` | float |  |  |
 | `services[].metrics[].value.now` | object | yes |  |
 | `services[].metrics[].value.now.stall_mode` | string |  |  |
+| `services[].metrics[].value.now.arrivals_only` | bool |  |  |
 | `services[].metrics[].value.resource` | object | yes |  |
 | `services[].metrics[].value.resource.name` | string |  |  |
 | `services[].metrics[].value.resource.field` | string |  |  |
@@ -1803,6 +1812,11 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].metrics[].value.request_draw.enum[].shape_profile.plateau_end_hour` | float | yes |  |
 | `services[].metrics[].value.request_draw.enum[].shape_profile.ramp_down_end_hour` | float | yes |  |
 | `services[].metrics[].value.request_draw.enum[].shape_profile.weekend_factor` | float | yes |  |
+| `services[].metrics[].value.request_draw.enum[].stall_mode` | string |  |  |
+| `services[].metrics[].value.source_read` | object | yes |  |
+| `services[].metrics[].value.source_read.measure` | string |  |  |
+| `services[].metrics[].value.source_read.per_tick` | float |  |  |
+| `services[].metrics[].value.source_read.stall_mode` | string |  |  |
 | `services[].metrics[].buckets[]` | float |  |  |
 | `services[].metrics[].le_style` | string |  |  |
 | `services[].metrics[].stock_of` | object | yes |  |
