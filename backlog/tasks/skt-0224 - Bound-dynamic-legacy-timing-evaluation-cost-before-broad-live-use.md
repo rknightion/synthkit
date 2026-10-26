@@ -1,14 +1,13 @@
 ---
 id: SKT-0224
 title: Bound dynamic legacy timing evaluation cost before broad live use
-status: Parked
+status: In Progress
 assignee: []
 created_date: '2026-10-25T22:00:00Z'
-updated_date: '2026-10-26T05:57:00Z'
+updated_date: '2026-10-26T11:09:00Z'
 labels:
   - causal
   - performance
-  - needs-owner
 dependencies: []
 ordinal: 430000
 ---
@@ -50,4 +49,6 @@ Loop60 closeout: Second convergence stop remains binding: fresh4.140158258s exce
 Owner explicitly reopens up to TWO bounded defect-repair rounds on senior/Astra, limited to helper panic containment, complete join and post-panic accounting. Preserve all prior failure evidence, numerical semantics, four-second margin and operating limits; no general optimization/reset. After correctness, exact whole-private-runner startup/catch-up/fault/RSS and integration gates decide admission; no deployment by approval alone.
 
 Closeout: numerical worker panic/join/accounting round1 is source-correctness approved on both architectures, but unlanded integrated source still fails the app600-second race budget. Generic fresh4.140158s above4s and orderedcold above300s remain; private whole-runner measurement never ran because its supervisor reached a separate second owner stop. Explicit offline operating limits are authored, not five-second runtime admission. No further algorithm work or deployment; remaining bounded numerical lifecycle allowance is not repurposed to bypass owner holds.
+
+loop61: resumed under the owner's Q04 reopening (charter) after the realism set deployed; needs-owner removed.
 <!-- SECTION:NOTES:END -->

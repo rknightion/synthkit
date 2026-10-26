@@ -3,13 +3,12 @@ id: SKT-0227
 title: >-
   Remove quadratic emitted-log lookup from app proofs without changing their
   coverage
-status: Parked
+status: In Progress
 assignee: []
 created_date: '2026-10-26T01:06:00Z'
-updated_date: '2026-10-26T05:55:00Z'
+updated_date: '2026-10-26T11:09:00Z'
 labels:
   - performance
-  - needs-owner
 dependencies: []
 priority: high
 type: bug
@@ -55,4 +54,6 @@ Read-only exact-source profiles completed: parity helper duplicates complete JSO
 First aggregate-cost convergence trip at05:07:59Z after four hours from the actual first dispatch. Split the accepted index correctness partial from the distinct measured legacy parity-byte serialization prerequisite; original lineage is retained, not reset by a new task ID. Stop additional index repairs. Only the already-admitted bounded helper correction and exact delta review/changed-candidate root gate may progress; another aggregate failure or new class parks owner rather than chaining helpers. No numerical/private/timeout/case/isolation changes or unchanged full-gate retry.
 
 Final closeout: the one bounded parity-byte prerequisite preserves exact output and materially reduces its encoder cost, but exact integratedaf34 full gate still fails app-race600.139s at the unchanged600-second aggregate limit. SECOND aggregate convergence stop; no further helper, comparator, case/isolation/budget or numerical iteration under current authority. Full candidate remains unpushed. Resume only after owner approves a separately bounded broader aggregate-cost approach; retained profiles distinguish parity helper cost from numerical caller churn.
+
+loop61: resumed under the owner's Q04 reopening (charter) after the realism set deployed; needs-owner removed.
 <!-- SECTION:NOTES:END -->

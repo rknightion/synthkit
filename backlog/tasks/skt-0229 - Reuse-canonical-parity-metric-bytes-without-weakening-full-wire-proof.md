@@ -1,10 +1,10 @@
 ---
 id: SKT-0229
 title: Reuse canonical parity metric bytes without weakening full wire proof
-status: Parked
+status: In Progress
 assignee: []
 created_date: '2026-10-26T04:57:00Z'
-updated_date: '2026-10-26T05:55:00Z'
+updated_date: '2026-10-26T11:09:00Z'
 labels:
   - performance
 dependencies: []
@@ -43,4 +43,6 @@ Read exact existing helper/comparator and preserved race profiles; retain the or
 
 <!-- SECTION:NOTES:BEGIN -->
 Closeout: exact two-file0dbd correction committed locally asaf34, not published. Native and DS PASS; CodeRabbit complete2of2/no findings; all13 declarations/52 actual executions raw-byte equal with semantic negatives, focused parity racePASS82.72s. Representative encoder CPU/allocation savings are scoped only. Exact final full gate still fails app-race600.139s, so DoD/landing remain blocked by aggregate owner stop. No further correction or comparator shortcut; retain candidate/proofs for owner-approved resumption.
+
+loop61: resumed under the owner's Q04 reopening (charter) after the realism set deployed; needs-owner removed.
 <!-- SECTION:NOTES:END -->
