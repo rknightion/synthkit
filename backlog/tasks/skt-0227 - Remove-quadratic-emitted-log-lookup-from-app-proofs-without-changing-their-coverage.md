@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-26T01:06:00Z'
-updated_date: '2026-10-26T04:42:00Z'
+updated_date: '2026-10-26T04:46:00Z'
 labels:
   - performance
 dependencies: []
@@ -46,4 +46,6 @@ Read-only bounded attribution on materially changed exact integrated source65ef 
 Loop60 closeout: Final68e11900 is correctness-reviewed only: independent raw-capture oracle and omitted-corpus controls resolve the service-review major, with all original cases retained. Actual app race still fails600.052s (181 passed, one in flight,83 unreached). Not Done or a budget fix; no unchanged broad resampling. Resume on a genuinely changed exact final composition after cost resolution.
 
 Exact integrated65ef full gate failed app-race600.180s; terminal AppDefaultWireParity had run42s and is not established as the cause of cumulative timeout. SpanID/index/worker/lifecycle changes are present, CodeRabbit54of54 clean, but no race-budget clearance or publication. Independent senior read-only attribution starts from immutable65ef; original first-dispatch lineage retained, four-hour point remains05:06Z. Private demo proof second-stop does not authorize numerical or private repair through this task.
+
+Clock correction from the native append-only dispatch event: first appindex dispatch was2026-10-26T01:07:59Z, so the four-hour point is05:07:59Z. Earlier01:06/05:06 shorthand used the board-creation time; this correction is not an attempt or clock reset. Current read-only attribution dispatch04:40:35Z does not reset the lineage.
 <!-- SECTION:NOTES:END -->
