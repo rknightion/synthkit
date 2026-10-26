@@ -200,6 +200,16 @@ type Request struct {
 	// non-success outcome or a slowed request.
 	Causal bool
 	Fault  *Fault
+
+	// Logical identity: a request a client re-sends after a failure is a NEW request (fresh
+	// trace, span and request IDs) of the same logical request. Logical is the logical request's
+	// seed unit, set on every re-send to the first attempt's unit so the logical request's
+	// per-request draws (a source ID, its drawn path) repeat on every attempt while distinct
+	// logical requests stay fresh; "" means the request is its own logical request (every
+	// request that is not a re-send). LogicalAttempt is 0 on the first attempt and k on re-send
+	// k. Neither is ever a label.
+	Logical        string
+	LogicalAttempt int
 }
 
 // RenderStart is the base timestamp span/log lanes use to time a request's tree. Traces are

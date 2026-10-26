@@ -315,6 +315,9 @@ type Traffic struct {
 	// ErrorMix is the weighted set of statuses and codes a failed entry request draws from.
 	// Omitted keeps 50% 500 upstream_5xx, 30% 400 bad_request and 20% 429 rate_limited.
 	ErrorMix []ErrorOutcome `yaml:"error_mix"`
+	// ClientRetry re-sends a failed entry request as a new request of the same logical request,
+	// which repeats that logical request's per-request draws. Omitted re-sends nothing.
+	ClientRetry *ClientRetry `yaml:"client_retry"`
 }
 
 // NewConfig returns a *Config with documented defaults. An app MUST declare services (no default
@@ -420,6 +423,9 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 	if err := validateOutcomeMix(cfg); err != nil {
 		return nil, err
 	}
+	if err := cfg.Traffic.ClientRetry.validate(cfg); err != nil {
+		return nil, err
+	}
 	load, err := resolveLoadProfile(cfg.ShapeProfile)
 	if err != nil {
 		return nil, err
@@ -427,6 +433,15 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 	g, err := buildGraph(cfg.Services)
 	if err != nil {
 		return nil, err
+	}
+	// One request's bundle spans every node's lines (its draws are shared across nodes), so the
+	// when gates are checked against the whole workload's log declarations.
+	var bundle []telemetryspec.LogSpec
+	for _, n := range g.nodes {
+		bundle = append(bundle, n.logs...)
+	}
+	if err := telemetryspec.ValidateLogBundle(bundle); err != nil {
+		return nil, fmt.Errorf("app: %w", err)
 	}
 	w := &Workload{
 		cfg:        *cfg,
@@ -463,6 +478,7 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 	w.m.load = g.entry.load
 	w.m.automation = cfg.Automation
 	w.m.agentPipeline = cfg.AgentPipeline
+	w.m.retry = cfg.Traffic.ClientRetry
 	// Wire BrowserOrigin minting: the minter sets r.BrowserOrigin only when RUM is active
 	// (entry has rum_faro + binding carries a Faro sink). Mirror webservice minter's cfg.RUM flag.
 	w.m.rumEnabled = w.rumEnabled()

@@ -178,14 +178,24 @@ func reqRefs(r *ledger.Request, call *ledger.Call) map[string]string {
 	return refs
 }
 
-// requestDraw is the per-request draw a log body's request_draw reads: causal.UnitDraw over the
-// request's seed unit. The unit is the minter's deterministic root span id (it hashes the
-// binding, tick and request index) plus the mint instant, so a request draws the same values in
-// every projection (every log line, node and retry attempt) and in every run with the same seed
-// and clock, while a restarted minter, whose tick count starts over, draws fresh ones. It never
+// requestDraw is the per-request draw a log body's request_draw (and a line's when gate) reads:
+// causal.UnitDraw over the request's logical seed unit (drawUnit). A request draws the same
+// values in every projection (every log line, node and retry attempt), and every client re-send
+// of one logical request draws its first attempt's values, in every run with the same seed and
+// clock, while a restarted minter, whose tick count starts over, draws fresh ones. It never
 // touches the shape engine or the wall clock.
 func requestDraw(r *ledger.Request) func(string) float64 {
-	return causal.UnitDraw(r.SpanID + "\x00" + strconv.FormatInt(r.Start.UnixNano(), 10))
+	return causal.UnitDraw(drawUnit(r))
+}
+
+// drawUnit is the seed unit of the request's logical request: the re-send's Logical, or for a
+// first attempt the minter's deterministic root span id (it hashes the binding, tick and request
+// index) plus the mint instant.
+func drawUnit(r *ledger.Request) string {
+	if r.Logical != "" {
+		return r.Logical
+	}
+	return r.SpanID + "\x00" + strconv.FormatInt(r.Start.UnixNano(), 10)
 }
 
 // observeMetric evaluates one metric spec into the established promrw state for a node: it stamps

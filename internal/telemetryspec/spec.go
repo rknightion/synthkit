@@ -344,6 +344,119 @@ type LogSpec struct {
 	Source       string                `yaml:"source"`
 	StreamLabels map[string]ValueModel `yaml:"stream_labels"`
 	Body         map[string]ValueModel `yaml:"body"`
+	// When, when set, writes this line only for the requests whose per-request draw falls in the
+	// listed values, so one bundle's line set follows a drawn route or outcome. Omitted writes the
+	// line for every request.
+	When *LogCondition `yaml:"when"`
+}
+
+// LogCondition gates one log line on a per-request draw. RequestDraw is an enum request_draw
+// declared as the bundle's body fields declare the same key (same key, entries and weights;
+// ValidateLogBundle enforces the weights), so the gate and those fields read the one value the
+// request drew; the line is written
+// when that value is one of In. The gate reads the request's seeded draw only, never the shape
+// engine, and a gated-out line still evaluates its body, so gating never shifts another field's
+// values.
+type LogCondition struct {
+	RequestDraw RequestDraw `yaml:"request_draw"`
+	In          []string    `yaml:"in"`
+}
+
+func (c LogCondition) validate() error {
+	d := c.RequestDraw
+	if d.Format != "" {
+		return fmt.Errorf("when: request_draw %q must be an enum (a formatted ID cannot select a line)", d.Key)
+	}
+	if err := d.validate(); err != nil {
+		return fmt.Errorf("when: %w", err)
+	}
+	if len(c.In) == 0 {
+		return fmt.Errorf("when: request_draw %q: in must list at least one drawn value", d.Key)
+	}
+	domain := make(map[string]bool, len(d.Enum))
+	for _, e := range d.Enum {
+		domain[e.Value] = true
+	}
+	seen := make(map[string]bool, len(c.In))
+	for _, v := range c.In {
+		if !domain[v] {
+			return fmt.Errorf("when: request_draw %q: in value %q is not one of its enum values", d.Key, v)
+		}
+		if seen[v] {
+			return fmt.Errorf("when: request_draw %q: in value %q repeats", d.Key, v)
+		}
+		seen[v] = true
+	}
+	return nil
+}
+
+// ValidateLogBundle checks that every when gate in one bundle (all the log lines a request can
+// write, across nodes) selects on the value its bundle reports: every request_draw of the gate's
+// key, in a body field or another gate, must be an enum with the gate's weights in the same order,
+// so the same request draw picks the same entry index everywhere. Values may differ (two enums of
+// one key and one weight list pair their values by index, such as a rule id and its token).
+func ValidateLogBundle(logs []LogSpec) error {
+	gates := map[string]LogCondition{}
+	var keys []string
+	for _, l := range logs {
+		if l.When == nil {
+			continue
+		}
+		if _, ok := gates[l.When.RequestDraw.Key]; !ok {
+			keys = append(keys, l.When.RequestDraw.Key)
+		}
+		gates[l.When.RequestDraw.Key] = *l.When
+	}
+	if len(gates) == 0 {
+		return nil
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		gate := gates[key].RequestDraw
+		check := func(d RequestDraw, where string) error {
+			if d.Key != key {
+				return nil
+			}
+			same := d.Format == "" && len(d.Enum) == len(gate.Enum)
+			for i := 0; same && i < len(d.Enum); i++ {
+				same = d.Enum[i].Weight == gate.Enum[i].Weight
+			}
+			if !same {
+				return fmt.Errorf("log %s: request_draw %q must be an enum with the same weights in the same order as the when gate on that key", where, key)
+			}
+			return nil
+		}
+		for _, l := range logs {
+			if l.When != nil {
+				if err := check(l.When.RequestDraw, fmt.Sprintf("%q when", l.Source)); err != nil {
+					return err
+				}
+			}
+			for _, bk := range sortedKeys(l.Body) {
+				if d := l.Body[bk].RequestDraw; d != nil {
+					if err := check(*d, fmt.Sprintf("%q body %q", l.Source, bk)); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// Writes reports whether the line is written for the request whose draw ctx carries: always
+// without a When, otherwise when the request's drawn value is one of When.In.
+func (l LogSpec) Writes(ctx EvalCtx) bool {
+	if l.When == nil {
+		return true
+	}
+	v := l.When.RequestDraw.eval(ctx.Draw)
+	for _, in := range l.When.In {
+		if v == in {
+			return true
+		}
+	}
+	return false
 }
 
 // Validate enforces the log's structure + the capability matrix on its stream labels + body.
@@ -359,6 +472,11 @@ func (l LogSpec) Validate() error {
 	for _, k := range sortedKeys(l.Body) {
 		if err := checkValue(l.Body[k], posBody, fmt.Sprintf("log %q body %q", l.Source, k)); err != nil {
 			return err
+		}
+	}
+	if l.When != nil {
+		if err := l.When.validate(); err != nil {
+			return fmt.Errorf("log %q %w", l.Source, err)
 		}
 	}
 	return nil
@@ -416,6 +534,9 @@ func (p Profile) Validate() error {
 		if err := p.Logs[i].Validate(); err != nil {
 			return fmt.Errorf("profile %q: %w", p.Name, err)
 		}
+	}
+	if err := ValidateLogBundle(p.Logs); err != nil {
+		return fmt.Errorf("profile %q: %w", p.Name, err)
 	}
 	for i := range p.Spans {
 		if err := p.Spans[i].Validate(); err != nil {

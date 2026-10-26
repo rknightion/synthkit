@@ -5,9 +5,11 @@ package app
 import (
 	"fmt"
 	"math"
+	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/genai"
 	"github.com/rknightion/synthkit/internal/ledger"
 	"github.com/rknightion/synthkit/internal/shape"
@@ -36,6 +38,76 @@ type minter struct {
 	tick          uint64
 	// causal is the compiled causal derivation (internal/causal); nil keeps every request legacy.
 	causal *causalPlan
+	// retry is the entry client's re-send policy; nil re-sends nothing (the default).
+	retry *ClientRetry
+	// retryMu guards pending, the re-sends scheduled by earlier ticks.
+	retryMu sync.Mutex
+	pending []pendingRetry
+}
+
+// ClientRetry is the entry client's re-send policy: a failed entry request whose failure class is
+// listed is sent again, after a backoff, as a NEW request of the same logical request (fresh
+// trace, span and request IDs; the logical request's per-request draws repeat). The re-send
+// draws its own outcome, so it may succeed; it is re-sent in turn while it fails a listed class
+// and re-sends remain. Re-sends add to the declared request rate, as a real client's do.
+type ClientRetry struct {
+	// Retries is the number of re-sends after the first attempt, 1 to 3.
+	Retries int `yaml:"retries"`
+	// BackoffSeconds is the delay before re-send 1, doubled per further re-send (backoff x 2^k).
+	BackoffSeconds float64 `yaml:"backoff_seconds"`
+	// RetryOn lists the failure classes that are re-sent: 5xx (any 5xx status), throttle (429).
+	RetryOn []string `yaml:"retry_on"`
+}
+
+// validate checks the policy (nil is valid: no re-sends) against the workload it applies to: only
+// a graph request path that mints at its own rate re-sends.
+func (c *ClientRetry) validate(cfg *Config) error {
+	if c == nil {
+		return nil
+	}
+	switch {
+	case cfg.Automation != nil || cfg.AgentPipeline != nil:
+		return fmt.Errorf("app: traffic.client_retry applies to graph requests, which an automation or agent_pipeline workload does not mint")
+	case cfg.Traffic.FromResource != "":
+		return fmt.Errorf("app: traffic.client_retry cannot combine with traffic.from_resource (a queue consumer mints exactly the messages its queue served)")
+	case c.Retries < 1 || c.Retries > causal.MaxRetries:
+		return fmt.Errorf("app: traffic.client_retry.retries %d must be in [1, %d]", c.Retries, causal.MaxRetries)
+	case math.IsNaN(c.BackoffSeconds) || math.IsInf(c.BackoffSeconds, 0) || c.BackoffSeconds <= 0:
+		return fmt.Errorf("app: traffic.client_retry.backoff_seconds must be a finite number > 0")
+	case len(c.RetryOn) == 0:
+		return fmt.Errorf("app: traffic.client_retry.retry_on must list at least one of 5xx, throttle")
+	}
+	seen := map[string]bool{}
+	for _, class := range c.RetryOn {
+		if class != causal.Retry5xx && class != causal.RetryThrottle {
+			return fmt.Errorf("app: traffic.client_retry.retry_on %q must be one of 5xx, throttle", class)
+		}
+		if seen[class] {
+			return fmt.Errorf("app: traffic.client_retry.retry_on %q repeats", class)
+		}
+		seen[class] = true
+	}
+	return nil
+}
+
+// resends reports whether a request answered with status is re-sent under the policy.
+func (c *ClientRetry) resends(status int) bool {
+	for _, class := range c.RetryOn {
+		switch {
+		case class == causal.Retry5xx && status >= 500 && status <= 599:
+			return true
+		case class == causal.RetryThrottle && status == 429:
+			return true
+		}
+	}
+	return false
+}
+
+// pendingRetry is one scheduled re-send of a logical request.
+type pendingRetry struct {
+	due     time.Time
+	logical string // the logical request's seed unit (drawUnit of its first attempt)
+	attempt int    // the re-send's LogicalAttempt
 }
 
 func newMinter(name, env, cluster string, weight float64, nonProd bool, traffic Traffic, models []ModelChoice, g *graph) *minter {
@@ -166,12 +238,58 @@ func (m *minter) Mint(now time.Time, tickSec float64, eng *shape.Engine) []*ledg
 	} else {
 		n = ledger.StochasticRound(m.expectedVolume(now, tickSec, eng), eng.Float64())
 	}
+	if m.retry != nil {
+		return m.mintWithRetries(now, eng, tick, n)
+	}
 	if n <= 0 {
 		return nil
 	}
 	out := make([]*ledger.Request, 0, n)
 	for requestIdx := range n {
 		out = append(out, m.mintRequest(now, eng, tick, requestIdx))
+	}
+	return out
+}
+
+// mintWithRetries is Mint under a client re-send policy: the tick's n fresh requests, then every
+// re-send due by now (request indexes continue after the fresh ones, so each attempt keeps its
+// own fresh identity), then schedules a re-send of each that failed a listed class with re-sends
+// left. A paused workload takes no traffic, so its due re-sends are dropped.
+func (m *minter) mintWithRetries(now time.Time, eng *shape.Engine, tick uint64, n int) []*ledger.Request {
+	m.retryMu.Lock()
+	defer m.retryMu.Unlock()
+	var due []pendingRetry
+	kept := m.pending[:0]
+	for _, p := range m.pending {
+		if p.due.After(now) {
+			kept = append(kept, p)
+		} else if !eng.Paused() {
+			due = append(due, p)
+		}
+	}
+	m.pending = kept
+	out := make([]*ledger.Request, 0, max(n, 0)+len(due))
+	for requestIdx := range max(n, 0) {
+		out = append(out, m.mintRequest(now, eng, tick, requestIdx))
+	}
+	for j, p := range due {
+		r := m.mintRequest(now, eng, tick, max(n, 0)+j)
+		r.Logical, r.LogicalAttempt = p.logical, p.attempt
+		out = append(out, r)
+	}
+	for _, r := range out {
+		if r.LogicalAttempt >= m.retry.Retries || !m.retry.resends(r.StatusCode) {
+			continue
+		}
+		backoff := m.retry.BackoffSeconds * math.Pow(2, float64(r.LogicalAttempt))
+		m.pending = append(m.pending, pendingRetry{
+			due:     now.Add(time.Duration(backoff * float64(time.Second))),
+			logical: drawUnit(r),
+			attempt: r.LogicalAttempt + 1,
+		})
+	}
+	if len(out) == 0 {
+		return nil
 	}
 	return out
 }

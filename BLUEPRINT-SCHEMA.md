@@ -1841,6 +1841,25 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].logs[].source` | string |  |  |
 | `services[].logs[].stream_labels` | map[string]ValueModel |  |  |
 | `services[].logs[].body` | map[string]ValueModel |  |  |
+| `services[].logs[].when` | object | yes |  |
+| `services[].logs[].when.request_draw` | object |  |  |
+| `services[].logs[].when.request_draw.key` | string |  |  |
+| `services[].logs[].when.request_draw.format` | string |  |  |
+| `services[].logs[].when.request_draw.enum[]` | object |  |  |
+| `services[].logs[].when.request_draw.enum[].value` | string |  |  |
+| `services[].logs[].when.request_draw.enum[].weight` | float |  |  |
+| `services[].logs[].when.request_draw.enum[].rate_scale` | float | yes |  |
+| `services[].logs[].when.request_draw.enum[].value_scale` | float | yes |  |
+| `services[].logs[].when.request_draw.enum[].shape_profile` | object | yes |  |
+| `services[].logs[].when.request_draw.enum[].shape_profile.timezone` | string |  |  |
+| `services[].logs[].when.request_draw.enum[].shape_profile.floor` | float | yes |  |
+| `services[].logs[].when.request_draw.enum[].shape_profile.ramp_up_start_hour` | float | yes |  |
+| `services[].logs[].when.request_draw.enum[].shape_profile.plateau_start_hour` | float | yes |  |
+| `services[].logs[].when.request_draw.enum[].shape_profile.plateau_end_hour` | float | yes |  |
+| `services[].logs[].when.request_draw.enum[].shape_profile.ramp_down_end_hour` | float | yes |  |
+| `services[].logs[].when.request_draw.enum[].shape_profile.weekend_factor` | float | yes |  |
+| `services[].logs[].when.request_draw.enum[].stall_mode` | string |  |  |
+| `services[].logs[].when.in[]` | string |  |  |
 | `services[].spans[]` | object |  | inline custom spans (extra attrs on this node's span) |
 | `services[].spans[].name_template` | string |  |  |
 | `services[].spans[].kind` | string |  |  |
@@ -1896,6 +1915,10 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `traffic.error_mix[].status` | int |  | Status is the HTTP status of the failed request, 400 to 599 (429 is a throttle). |
 | `traffic.error_mix[].code` | string |  | Code is the error code recorded on the request (log detail); empty records the status. |
 | `traffic.error_mix[].weight` | float |  | Weight is this entry's relative share of failed requests, > 0. |
+| `traffic.client_retry` | object | yes | ClientRetry re-sends a failed entry request as a new request of the same logical request, which repeats that logical request's per-request draws. Omitted re-sends nothing. |
+| `traffic.client_retry.retries` | int |  | Retries is the number of re-sends after the first attempt, 1 to 3. |
+| `traffic.client_retry.backoff_seconds` | float |  | BackoffSeconds is the delay before re-send 1, doubled per further re-send (backoff x 2^k). |
+| `traffic.client_retry.retry_on[]` | string |  | RetryOn lists the failure classes that are re-sent: 5xx (any 5xx status), throttle (429). |
 | `otel` | object | yes | OTel enables the native OTLP metrics lane for inline service-node DSL instruments. Absent (nil) or Metrics=false leaves the established promrw path unchanged. Catalog profiles remain on promrw; they are not re-spelled into the native envelope. |
 | `otel.metrics` | bool |  |  |
 | `models[]` | object |  | Models is the set of valid (model, provider) routings this app's requests draw from. The minter picks ONE pair per request and stamps it into the correlation, so the gen_ai spans + gateway export logs of every gen_ai-composed node carry the REAL model AND provider (the names-are-law value behind the gen_ai_client / gateway_export_log profiles). Pairing them (vs two independent lists) prevents impossible combinations like a Claude model on the Azure-OpenAI provider. Empty ⇒ a non-AI app. These feed body/attr FIELDS only (never labels), so the per-request draw does not affect the -dump inventory (I32). Values are blueprint-declared (customer model lists stay out of the catalog). |

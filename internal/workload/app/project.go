@@ -380,17 +380,9 @@ func (w *Workload) projectLogs(ctx context.Context, world *core.World, batch []*
 	var order []key
 	// emit evaluates one log spec into its (node, source, level) stream. failStatus is the node's
 	// own failing status on a causal request that failed through it (0 = the node did not fail).
+	// at is this line's own timestamp. A line whose when gate the request's draw does not meet
+	// still evaluates its body (so its draws never shift a later line's) but is not written.
 	emit := func(n *node, spec telemetryspec.LogSpec, level string, at time.Time, ctxEval telemetryspec.EvalCtx, failStatus int) {
-		var stream *loki.Stream
-		if n.decl.logsEnabled() {
-			k := key{n.decl.Name, spec.Source, level}
-			stream = streams[k]
-			if stream == nil {
-				stream = &loki.Stream{Labels: w.streamLabels(w.identity(n), spec, level)}
-				streams[k] = stream
-				order = append(order, k)
-			}
-		}
 		body := map[string]any{}
 		meta := map[string]string{}
 		for _, bk := range sortedValueModelKeys(spec.Body) {
@@ -414,9 +406,17 @@ func (w *Workload) projectLogs(ctx context.Context, world *core.World, batch []*
 			}
 			body[bk] = v
 		}
-		if stream != nil {
-			stream.Lines = append(stream.Lines, loki.Line{T: at, Body: jsonBody(body), Meta: meta})
+		if !n.decl.logsEnabled() || !spec.Writes(ctxEval) {
+			return
 		}
+		k := key{n.decl.Name, spec.Source, level}
+		stream := streams[k]
+		if stream == nil {
+			stream = &loki.Stream{Labels: w.streamLabels(w.identity(n), spec, level)}
+			streams[k] = stream
+			order = append(order, k)
+		}
+		stream.Lines = append(stream.Lines, loki.Line{T: at, Body: jsonBody(body), Meta: meta})
 	}
 
 	for _, r := range batch {
