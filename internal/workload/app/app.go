@@ -392,6 +392,9 @@ type Workload struct {
 	carry map[string]float64
 	// stock holds each fluid stock_of gauge's current level per label combination.
 	stock map[string]float64
+	// exported holds, per service another node reads through count_of_service, the counter
+	// increments that node recorded at its latest tick.
+	exported map[string]nodeIncs
 	// items holds each item stock_of population per counter, residence, stall mode and series.
 	items map[string]*itemStock
 	// healthySpan holds a causal workload's latest healthy real span duration (seconds) per

@@ -1743,6 +1743,7 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].custom_metrics[].stock_of.stall_mode` | string |  |  |
 | `services[].custom_metrics[].stock_of.field` | string |  |  |
 | `services[].custom_metrics[].count_of` | string |  |  |
+| `services[].custom_metrics[].count_of_service` | string |  |  |
 | `services[].custom_metrics[].shape_profile` | object | yes |  |
 | `services[].custom_metrics[].shape_profile.timezone` | string |  |  |
 | `services[].custom_metrics[].shape_profile.floor` | float | yes |  |
@@ -1843,6 +1844,7 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].metrics[].stock_of.stall_mode` | string |  |  |
 | `services[].metrics[].stock_of.field` | string |  |  |
 | `services[].metrics[].count_of` | string |  |  |
+| `services[].metrics[].count_of_service` | string |  |  |
 | `services[].metrics[].shape_profile` | object | yes |  |
 | `services[].metrics[].shape_profile.timezone` | string |  |  |
 | `services[].metrics[].shape_profile.floor` | float | yes |  |

@@ -121,6 +121,10 @@ type node struct {
 	// value, one entry per label combination (scaledLabelCombos order) holding that series' own
 	// load profile, nil where it follows the node. A nil slice means no series of the spec has one.
 	seriesLoads [][]*loadProfile
+	// exportsInc is set at load when a later node's count_of_service names this one: the node then
+	// records its counters' per-tick increments for that reader (metrics.go Tick allocates them
+	// through hasDerived; observeMetricStates publishes them).
+	exportsInc bool
 }
 
 // graph is the validated service graph: nodes in declaration order + a name index + the entry node.
@@ -185,9 +189,12 @@ func checkCustomMetricNames(existing []telemetryspec.MetricSpec, custom telemetr
 // checkDerivedMetrics resolves each stock_of / count_of reference to the counter series of every
 // same-named counter spec on the node. A stock_of gauge's labels, when declared, must be counter
 // labels with values the counter takes, and each combination must match a counter series. For
-// count_of the histogram's labels must be a subset of the counter's, each with the counter's
-// value domain, so every counter series projects onto exactly one histogram series.
-func checkDerivedMetrics(n *node) error {
+// count_of the histogram's labels must be counter labels, each value one the counter takes, and
+// each label combination must match at least one counter series (the histogram series observes
+// the summed increments of the series that match it). A count_of_service names another node of
+// the workload as the counter's source; byName holds the nodes declared before n, so the source's
+// increments are always recorded earlier in the same tick, and that node is marked as an exporter.
+func checkDerivedMetrics(n *node, byName map[string]*node) error {
 	for _, m := range n.metrics {
 		ref := m.CountOf
 		if m.StockOf != nil {
@@ -196,9 +203,20 @@ func checkDerivedMetrics(n *node) error {
 		if ref == "" {
 			continue
 		}
-		src := n.counterSeries(ref)
+		from, where := n, "this service"
+		if m.CountOfService != "" && m.CountOfService != n.decl.Name {
+			from = byName[m.CountOfService]
+			if from == nil {
+				return fmt.Errorf("metric %q: count_of_service %q is not a service declared before %q in this workload (a cross-node count_of source must be declared earlier)", m.Name, m.CountOfService, n.decl.Name)
+			}
+			where = fmt.Sprintf("service %q", m.CountOfService)
+		}
+		src := from.counterSeries(ref)
 		if len(src) == 0 {
-			return fmt.Errorf("metric %q: %q is not a counter on this service", m.Name, ref)
+			return fmt.Errorf("metric %q: %q is not a counter on %s", m.Name, ref, where)
+		}
+		if from != n {
+			from.exportsInc = true
 		}
 		srcLabels := make([]map[string]string, len(src))
 		for i, c := range src {
@@ -217,14 +235,21 @@ func checkDerivedMetrics(n *node) error {
 				return fmt.Errorf("metric %q: count_of label %q is not a label of counter %q (histogram labels must be a subset of the counter's)", m.Name, k, ref)
 			}
 		}
-		for k, vals := range labelDomains(histCombos) {
-			if len(vals) != len(domains[k]) {
-				return fmt.Errorf("metric %q: count_of labels must have the same combinations as counter %q", m.Name, ref)
-			}
-			for v := range vals {
-				if !domains[k][v] {
-					return fmt.Errorf("metric %q: count_of labels must have the same combinations as counter %q", m.Name, ref)
+		for _, h := range histCombos {
+			for _, k := range slices.Sorted(maps.Keys(h)) {
+				if !domains[k][h[k]] {
+					return fmt.Errorf("metric %q: count_of label %q value %q is not a value of counter %q", m.Name, k, h[k], ref)
 				}
+			}
+			matched := false
+			for _, c := range src {
+				if projects(h, c.labels) {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				return fmt.Errorf("metric %q: count_of label combination %v matches no series of counter %q", m.Name, h, ref)
 			}
 		}
 		// The most one histogram series can observe in a tick is the sum of the largest
@@ -379,7 +404,7 @@ func buildGraph(services []ServiceNode) (*graph, error) {
 				return nil, fmt.Errorf("app service %q: %w", s.Name, err)
 			}
 		}
-		if err := checkDerivedMetrics(n); err != nil {
+		if err := checkDerivedMetrics(n, g.byName); err != nil {
 			return nil, fmt.Errorf("app service %q: %w", s.Name, err)
 		}
 		for _, l := range n.logs {

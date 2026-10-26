@@ -74,10 +74,19 @@ type MetricSpec struct {
 	// CountOf makes a histogram observe, per label combination and tick, as many values as the
 	// named counter on the same service node incremented (fractions carry deterministically), so
 	// the histogram's _count tracks the counter. Histogram only; its labels must be a subset of
-	// the counter's, each with the counter's value domain, and a series observes the summed
+	// the counter's, each value one the counter takes, and a series observes the summed
 	// increments of the counter series that match it (the whole counter when it has no labels).
-	// Its labels may not declare rate_scale (the counter owns the rate).
+	// Its labels may not declare rate_scale (the counter owns the rate). A histogram label may
+	// select a subset of a counter label's values, so a blueprint that declares one counter spec
+	// per series can pair each histogram spec with its own counter series (every combination must
+	// match at least one counter series).
 	CountOf string `yaml:"count_of"`
+	// CountOfService names the service node whose counter count_of reads, for a counter declared
+	// on another node of the same app workload (for example a counter a scenario targets by its
+	// own service). Omitted reads the histogram's own node. The named service must be declared
+	// before the histogram's service in the workload, so its increments are recorded the same
+	// tick; there is no reference across workloads. Valid only with count_of.
+	CountOfService string `yaml:"count_of_service"`
 	// ShapeProfile gives every series of this metric its own business clock and curve, laid over
 	// the node's inherited profile field by field (an enum value's shape_profile lays over this
 	// in turn). It moves only a `shape` value, so any other value model rejects it; stock_of and
@@ -298,6 +307,9 @@ func (m MetricSpec) Validate() error {
 		if strings.TrimSpace(m.CountOf) == "" || m.CountOf == m.Name {
 			return fmt.Errorf("metric %q: count_of must name another counter", m.Name)
 		}
+	}
+	if m.CountOfService != "" && m.CountOf == "" {
+		return fmt.Errorf("metric %q: count_of_service requires count_of", m.Name)
 	}
 	if m.Instrument == InstrumentHistogram {
 		if len(m.Buckets) == 0 {

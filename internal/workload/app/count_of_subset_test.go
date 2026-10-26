@@ -138,8 +138,7 @@ func TestCountOfLabelSubsetRejected(t *testing.T) {
 	labelDoc := "        labels:\n          region:\n            enum:\n              - {value: east}\n              - {value: west, value_scale: 2}"
 	for _, tc := range []struct{ name, doc string }{
 		{"is not a label of counter", strings.Replace(subsetDoc, labelDoc, labelDoc+"\n          tier: {const_str: gold}", 1)},
-		{"same combinations", strings.Replace(subsetDoc, "              - {value: west, value_scale: 2}", "              - {value: north}", 1)},
-		{"same combinations", strings.Replace(subsetDoc, "              - {value: east}\n              - {value: west, value_scale: 2}", "              - {value: east}", 1)},
+		{"is not a value of counter", strings.Replace(subsetDoc, "              - {value: west, value_scale: 2}", "              - {value: north}", 1)},
 	} {
 		name, doc := tc.name, tc.doc
 		cfg := NewConfig().(*Config)

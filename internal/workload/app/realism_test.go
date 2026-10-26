@@ -232,10 +232,10 @@ func TestCountOfFollowsCounter(t *testing.T) {
 
 func TestDerivedReferenceRejected(t *testing.T) {
 	for name, doc := range map[string]string{
-		"is not a counter":      strings.Replace(derivedDoc, "stock_of: {metric: items_started_total", "stock_of: {metric: nope_total", 1),
-		"same combinations":     strings.Replace(derivedDoc, "              - {value: standard, value_scale: 4}", "              - {value: other}", 1),
-		"omit value":            strings.Replace(derivedDoc, "dwell_seconds: 600}", "dwell_seconds: 600}\n        value: {const: 1}", 1),
-		"dwell_seconds must be": strings.Replace(derivedDoc, "dwell_seconds: 600", "dwell_seconds: 0", 1),
+		"is not a counter":          strings.Replace(derivedDoc, "stock_of: {metric: items_started_total", "stock_of: {metric: nope_total", 1),
+		"is not a value of counter": strings.Replace(derivedDoc, "              - {value: standard, value_scale: 4}", "              - {value: other}", 1),
+		"omit value":                strings.Replace(derivedDoc, "dwell_seconds: 600}", "dwell_seconds: 600}\n        value: {const: 1}", 1),
+		"dwell_seconds must be":     strings.Replace(derivedDoc, "dwell_seconds: 600", "dwell_seconds: 0", 1),
 	} {
 		cfg := NewConfig().(*Config)
 		dec := yaml.NewDecoder(bytes.NewReader([]byte(doc)))

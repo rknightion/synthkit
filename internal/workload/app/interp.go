@@ -264,6 +264,7 @@ func (w *Workload) observeMetricStates(st, native *state.State, id nodeIdentity,
 			}
 			if incs != nil {
 				incs[incKey(spec.Name, combo.labels)] += val
+				w.publishIncs(id.service, ctx.Now, incs)
 			}
 		}
 	}

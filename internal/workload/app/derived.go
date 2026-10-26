@@ -45,15 +45,59 @@ func (w *Workload) carryCount(name string, labels map[string]string, rate float6
 	return int(n)
 }
 
-// nodeHasDerived reports whether a node declares any stock_of / count_of spec, so the
-// interpreter only records counter increments where something reads them.
+// hasDerived reports whether a node needs its counter increments recorded each tick: it
+// declares a stock_of / count_of spec that reads them, or another node's count_of_service names
+// it as the counter's source. The interpreter records increments only where something reads them.
 func (n *node) hasDerived() bool {
+	if n.exportsInc {
+		return true
+	}
 	for _, spec := range n.metrics {
 		if isDerived(spec) {
 			return true
 		}
 	}
 	return false
+}
+
+// nodeIncs is one exporting node's recorded counter increments of one tick (the map the node's
+// Tick pass fills), stamped with the tick time so a reader never replays an older tick.
+type nodeIncs struct {
+	at   time.Time
+	incs map[string]float64
+}
+
+// publishIncs makes the increments an exporting node records this tick readable by the nodes
+// that name it in count_of_service. It stores the node's live map, so later counter specs of the
+// same pass are visible without a copy, and a new tick's map replaces the old one.
+func (w *Workload) publishIncs(service string, at time.Time, incs map[string]float64) {
+	if g := w.graph; g == nil || g.byName[service] == nil || !g.byName[service].exportsInc {
+		return
+	}
+	if w.exported == nil {
+		w.exported = make(map[string]nodeIncs)
+	}
+	w.exported[service] = nodeIncs{at: at, incs: incs}
+}
+
+// sourceIncs resolves the counter source of a count_of spec on node n: the node's own series and
+// this tick's increments, or, when the spec names another service, that service's counter series
+// and its increments recorded at tick time now (none when it recorded nothing this tick, such as
+// a paused source).
+func (w *Workload) sourceIncs(n *node, spec telemetryspec.MetricSpec, own map[string]float64, now time.Time) ([]counterSeries, map[string]float64) {
+	from := n
+	if spec.CountOfService != "" && spec.CountOfService != n.decl.Name {
+		from = w.graph.byName[spec.CountOfService]
+		if from == nil {
+			return nil, nil // unreachable: buildGraph rejects an unknown source service
+		}
+		rec := w.exported[spec.CountOfService]
+		if !rec.at.Equal(now) {
+			return from.counterSeries(spec.CountOf), nil
+		}
+		return from.counterSeries(spec.CountOf), rec.incs
+	}
+	return from.counterSeries(spec.CountOf), own
 }
 
 // observeDerived evaluates one stock_of gauge or count_of histogram after the node's ordinary
@@ -91,7 +135,7 @@ func (w *Workload) observeDerived(st, native *state.State, id nodeIdentity, n *n
 		if paused {
 			return
 		}
-		src := n.counterSeries(spec.CountOf)
+		src, srcIncs := w.sourceIncs(n, spec, incs, ctx.Now)
 		if len(src) == 0 {
 			return // unreachable: buildGraph rejects a missing source counter
 		}
@@ -99,7 +143,7 @@ func (w *Workload) observeDerived(st, native *state.State, id nodeIdentity, n *n
 			labels := mergeLabels(base, combo.labels)
 			// The histogram series observes the counter increments of every series that
 			// projects onto it: one series when the labels are equal, a sum for a label subset.
-			rate := projectedInc(incs, spec.CountOf, src, combo.labels)
+			rate := projectedInc(srcIncs, spec.CountOf, src, combo.labels)
 			k := min(w.carryCount(spec.Name, labels, rate), telemetryspec.MaxObservationsPerTick)
 			for range k {
 				val, _ := spec.Value.Eval(ctx)
