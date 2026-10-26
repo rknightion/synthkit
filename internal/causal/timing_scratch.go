@@ -25,12 +25,25 @@ type timingScratch struct {
 	used, retained int
 	memo           *timingMemo
 	limit          int // zero preserves the standalone serial helper's original cap
+	// transient scratch lends no slot buffers (take returns nil, as for a nil scratch, so
+	// every result is caller-owned) and only reuses the call-local temporaries below. The
+	// non-legacy flow evaluation uses it: its results persist in per-node caches.
+	transient bool
+	// Call-local temporaries that never escape the call using them: compaction's per-key
+	// group, the sort's workspace, and the output of compactTransient (valid until that
+	// method's next call). Reusing them changes no arithmetic; the slot buffers above would
+	// otherwise grow by three per compaction until reset, and a point with many compactions
+	// exceeds the retention bound and allocates.
+	group, sortTmp, cout []elapsed
+	// added and atoms are emitScratch's per-call emission and acquisition-wait cells: both
+	// are copied out (or consumed) before that call returns, and emitScratch never nests.
+	added, atoms []elapsed
 }
 
 const maxTimingScratchAtoms = 1 << 18
 
 func (s *timingScratch) take() (int, []elapsed) {
-	if s == nil {
+	if s == nil || s.transient {
 		return -1, nil
 	}
 	i := s.used
@@ -42,7 +55,7 @@ func (s *timingScratch) take() (int, []elapsed) {
 }
 
 func (s *timingScratch) keep(i int, b []elapsed) {
-	if s == nil {
+	if s == nil || i < 0 {
 		return
 	}
 	s.retained -= cap(s.buffers[i])
@@ -86,6 +99,9 @@ func (s *timingScratch) sortElapsed(group []elapsed) {
 	if sorted {
 		return
 	}
+	if s.sortFewDistinct(group) {
+		return
+	}
 	const run = 16
 	for lo := 0; lo < len(group); lo += run {
 		hi := min(lo+run, len(group))
@@ -102,13 +118,18 @@ func (s *timingScratch) sortElapsed(group []elapsed) {
 	if len(group) <= run {
 		return
 	}
-	ti, tmp := s.take()
+	var tmp []elapsed
+	if s != nil {
+		tmp = s.sortTmp
+	}
 	if cap(tmp) < len(group) {
 		tmp = make([]elapsed, len(group))
 	} else {
 		tmp = tmp[:len(group)]
 	}
-	defer func() { s.keep(ti, tmp) }()
+	if s != nil {
+		defer func() { s.sortTmp = tmp[:0] }()
+	}
 	src, dst := group, tmp
 	for width := run; width < len(group); width *= 2 {
 		for lo := 0; lo < len(group); lo += 2 * width {
@@ -127,6 +148,90 @@ func (s *timingScratch) sortElapsed(group []elapsed) {
 		src, dst = dst, src
 	}
 	copy(group, src)
+}
+
+// maxSortDistinct bounds the distinct-value stable sort. Compaction groups are often a few
+// values (a timeout atom's mean is the timeout or a few rounding steps from it), where a
+// counting placement replaces the O(n log n) merge.
+const maxSortDistinct = 64
+
+// sortFewDistinct stably sorts a NaN-free group with at most maxSortDistinct distinct ms
+// values (ordered by <, so -0 and +0 are one value, as they tie under the merge): each
+// value's elements are placed in encounter order, values ascending. A stable sort's output
+// is unique for a given comparator, so this is exactly the merge below. It reports false,
+// leaving the group untouched, when there are more distinct values.
+func (s *timingScratch) sortFewDistinct(group []elapsed) bool {
+	var storage [maxSortDistinct]float64
+	values := storage[:0]
+	// lower is the first index whose value is not below v.
+	lower := func(v float64) int {
+		lo, hi := 0, len(values)
+		for lo < hi {
+			mid := (lo + hi) / 2
+			if values[mid] < v {
+				lo = mid + 1
+			} else {
+				hi = mid
+			}
+		}
+		return lo
+	}
+	// Runs of one value are the common case (most atoms of a timeout group are exactly the
+	// timeout): the previous element's value needs no search.
+	prev, prevSet := 0.0, false
+	for _, e := range group {
+		if prevSet && e.ms == prev {
+			continue
+		}
+		prev, prevSet = e.ms, true
+		i := lower(e.ms)
+		if i < len(values) && values[i] == e.ms {
+			continue
+		}
+		if len(values) == maxSortDistinct {
+			return false
+		}
+		values = append(values, 0)
+		copy(values[i+1:], values[i:])
+		values[i] = e.ms
+	}
+	var rankStorage [512]uint8
+	ranks := rankStorage[:0]
+	if len(group) > len(rankStorage) {
+		ranks = make([]uint8, 0, len(group))
+	}
+	var start [maxSortDistinct + 1]int
+	r := 0
+	prevSet = false
+	for _, e := range group {
+		if !prevSet || e.ms != prev {
+			prev, prevSet, r = e.ms, true, lower(e.ms)
+		}
+		ranks = append(ranks, uint8(r))
+		start[r+1]++
+	}
+	for r := 1; r <= len(values); r++ {
+		start[r] += start[r-1]
+	}
+	var tmp []elapsed
+	if s != nil {
+		tmp = s.sortTmp
+	}
+	if cap(tmp) < len(group) {
+		tmp = make([]elapsed, len(group))
+	} else {
+		tmp = tmp[:len(group)]
+	}
+	for i, e := range group {
+		r := ranks[i]
+		tmp[start[r]] = e
+		start[r]++
+	}
+	copy(group, tmp)
+	if s != nil {
+		s.sortTmp = tmp[:0]
+	}
+	return true
 }
 
 // Fixed, small immutable probability grids avoid repeating transcendental work.

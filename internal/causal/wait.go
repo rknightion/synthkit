@@ -51,9 +51,20 @@ func (w acquisitionWait) atoms(bins int, cuts ...float64) []elapsed {
 }
 
 func (w acquisitionWait) atomsScratch(bins int, scratch *timingScratch, cuts ...float64) []elapsed {
+	if w.quantile(1) == 0 {
+		return []elapsed{{p: 1}}
+	}
+	oi, out := scratch.take()
+	out = w.atomsInto(out, bins, cuts...)
+	scratch.keep(oi, out)
+	return out
+}
+
+// atomsInto appends the wait law's cells (atomsScratch) to out.
+func (w acquisitionWait) atomsInto(out []elapsed, bins int, cuts ...float64) []elapsed {
 	maxMS := float64(w.quantile(1)) / float64(time.Millisecond)
 	if maxMS == 0 {
-		return []elapsed{{p: 1}}
+		return append(out, elapsed{p: 1})
 	}
 	continuous := w.cdf(maxMS - 1/float64(time.Millisecond))
 	var boundaryStorage [13]float64
@@ -66,8 +77,6 @@ func (w acquisitionWait) atomsScratch(bins int, scratch *timingScratch, cuts ...
 	}
 	// Only the small cut list is sorted; each interval has its own bounded cells.
 	slices.Sort(boundaries)
-	oi, out := scratch.take()
-	defer func() { scratch.keep(oi, out) }()
 	for i := 1; i < len(boundaries); i++ {
 		lo, hi := boundaries[i-1], boundaries[i]
 		if hi <= lo {
@@ -85,6 +94,18 @@ func (w acquisitionWait) atomsScratch(bins int, scratch *timingScratch, cuts ...
 	}
 	return out
 }
+
+// waitCutQuantiles are the own-work law's quantiles at the fixed probabilities whose
+// elapsed times split the acquisition-wait cells at the caller's deadline (emitScratch),
+// evaluated once with the law's own quantile.
+var waitCutQuantiles = func() (q [workJitter + 1][11]float64) {
+	for law := workLognormal; law <= workJitter; law++ {
+		for i, u := range [...]float64{1e-12, 1e-6, .001, .01, .1, .5, .9, .99, .999, 1 - 1e-6, 1 - 1e-12} {
+			q[law][i] = law.quantile(u)
+		}
+	}
+	return q
+}()
 
 // waitTiming keeps the last admitted acquisition as a law, with a bounded
 // convolution of earlier independent acquisitions. A later resource rejection
@@ -135,13 +156,20 @@ func (w waitTiming) emitScratch(out []elapsed, key outcomeKey, p float64, terms 
 	if w.earlier == nil || transport {
 		return emitElapsedLawMemo(out, key, p, terms, timeout, transport, materialize, bins, law, memo)
 	}
-	ai, added := scratch.take()
-	defer func() { scratch.keep(ai, added) }()
-	shifted := make([]durationTerm, len(terms))
+	var added []elapsed
+	if scratch != nil {
+		added = scratch.added[:0]
+		defer func() { scratch.added = added[:0] }()
+	}
+	var shiftedStorage [4]durationTerm
+	shifted := shiftedStorage[:0]
+	if len(terms) > len(shiftedStorage) {
+		shifted = make([]durationTerm, 0, len(terms))
+	}
+	shifted = shifted[:len(terms)]
 	var bases [11]float64
 	if timeout > 0 {
-		for i, u := range [...]float64{1e-12, 1e-6, .001, .01, .1, .5, .9, .99, .999, 1 - 1e-6, 1 - 1e-12} {
-			x := law.quantile(u)
+		for i, x := range waitCutQuantiles[law] {
 			for _, t := range terms {
 				bases[i] = math.Max(bases[i], float64(t.a*x)+t.b)
 			}
@@ -162,7 +190,14 @@ func (w waitTiming) emitScratch(out []elapsed, key outcomeKey, p float64, terms 
 		var programStorage [128]timingEmissionCell
 		program := programStorage[:0]
 		useProgram := !materialize && memo != nil
-		for _, a := range w.last.atomsScratch(bins, scratch, cuts...) {
+		var cells []elapsed
+		if scratch != nil {
+			scratch.atoms = w.last.atomsInto(scratch.atoms[:0], bins, cuts...)
+			cells = scratch.atoms
+		} else {
+			cells = w.last.atomsScratch(bins, nil, cuts...)
+		}
+		for _, a := range cells {
 			for i, t := range terms {
 				shifted[i] = durationTerm{t.a, t.b + prior.ms + a.ms}
 			}
@@ -181,7 +216,7 @@ func (w waitTiming) emitScratch(out []elapsed, key outcomeKey, p float64, terms 
 		if useProgram {
 			added = scratch.emitProgram(added, program, key, timeout, bins, law, memo)
 		} else {
-			compacted := scratch.compact(added, bins)
+			compacted := scratch.compactTransient(added, bins)
 			added = append(added[:0], compacted...)
 		}
 	}

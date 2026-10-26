@@ -97,7 +97,7 @@ func TestTimingMemoExactKeysAndLifetime(t *testing.T) {
 		case 2:
 			next[0].held = math.Nextafter(next[0].held, 1)
 		case 3:
-			next[0].key = outcomeKey{class: ClassHTTP, status: 503}
+			next[0].key = outcomeKey{class: classHTTP, status: 503}
 		case 4:
 			next[0].key.rule = true
 		case 5:
@@ -112,11 +112,12 @@ func TestTimingMemoExactKeysAndLifetime(t *testing.T) {
 			t.Fatalf("compaction dependency %d", change)
 		}
 	}
-	// Same cheap slot hash but a different class must fail the complete comparison.
+	// Same cheap slot hash but a different class must fail the complete comparison (the
+	// slot hash folds the interned class code into the status bits).
 	a, b := slices.Clone(in), slices.Clone(in)
 	for i := range a {
-		a[i].key.class = "abc"
-		b[i].key.class = "def"
+		a[i].key = outcomeKey{class: classHTTP, status: 0x200}
+		b[i].key = outcomeKey{class: classThrottle, status: 0x100}
 	}
 	if timingAtomHash(a, 8) != timingAtomHash(b, 8) {
 		t.Fatal("fixture must collide")
@@ -143,7 +144,7 @@ func TestTimingEmissionExactKeysAndLifetime(t *testing.T) {
 	memo := &timingMemo{}
 	scratch := &timingScratch{memo: memo}
 	cells := []timingEmissionCell{{p: .3, cdf: .2}, {p: .2, cdf: .7}, {p: .5, cdf: .9}}
-	key := outcomeKey{class: ClassHTTP, status: 503}
+	key := outcomeKey{class: classHTTP, status: 503}
 	prefix := []elapsed{{p: .1, ms: 23}}
 	expected := func(cells []timingEmissionCell, key outcomeKey, timeout float64, bins int, law workLaw) []elapsed {
 		out := slices.Clone(prefix)
@@ -156,7 +157,7 @@ func TestTimingEmissionExactKeysAndLifetime(t *testing.T) {
 				cdf = law.cdf(c.cdf)
 			}
 			if timeout > 0 && cdf < 1 {
-				out = append(out, elapsed{key: outcomeKey{class: ClassTimeout}, p: c.p * (1 - cdf), ms: timeout})
+				out = append(out, elapsed{key: outcomeKey{class: classTimeout}, p: c.p * (1 - cdf), ms: timeout})
 			}
 			if cdf != 0 {
 				out = append(out, elapsed{key: key, p: c.p * cdf})

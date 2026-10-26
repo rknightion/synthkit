@@ -211,7 +211,7 @@ func TestFlowChildElapsedQuadratureRefinement(t *testing.T) {
 	for _, bins := range []int{elapsedBins, 512} {
 		got := 0.0
 		for _, e := range cf.elapsedServe(0, reject, bins, false) {
-			if e.key.class == ClassTimeout {
+			if e.key.class == classTimeout {
 				got += e.p
 			}
 		}

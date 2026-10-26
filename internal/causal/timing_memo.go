@@ -84,7 +84,7 @@ func timingAtomHash(in []elapsed, bins int) uint64 {
 	h := uint64(bins) ^ uint64(len(in))*0x9e3779b97f4a7c15
 	for _, e := range in {
 		h = bits.RotateLeft64(h, 11) ^ math.Float64bits(e.p)
-		h = h*1099511628211 ^ bits.RotateLeft64(math.Float64bits(e.ms), 17) ^ bits.RotateLeft64(math.Float64bits(e.held), 31) ^ uint64(e.key.status) ^ uint64(len(e.key.class))
+		h = h*1099511628211 ^ bits.RotateLeft64(math.Float64bits(e.ms), 17) ^ bits.RotateLeft64(math.Float64bits(e.held), 31) ^ uint64(e.key.status) ^ uint64(e.key.class)<<8
 		if e.key.rule {
 			h ^= 0xd6e8feb86659fd93
 		}

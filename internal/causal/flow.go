@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"sync"
 	"time"
 )
 
@@ -171,10 +172,76 @@ func validateFlow(f *Flow, byName map[string]Resource) error {
 
 // outcomeKey is how one failure looks to the caller that receives it: class and status, and
 // whether a rule rejected it (never resent).
+//
+// The class is interned (failClass) so an elapsed atom holds no pointer: the timing
+// quadrature copies and compacts atoms by the million, and a string field made every copy a
+// write-barriered, GC-scanned move. Equality is the class string's.
 type outcomeKey struct {
-	class  FailureClass
+	class  failClass
 	status int
 	rule   bool
+}
+
+// failClass is an interned FailureClass: the declared classes have fixed codes, any other
+// value a code assigned on first use. The code is only compared and hashed, never ordered.
+type failClass uint8
+
+const (
+	classNone failClass = iota
+	classHTTP
+	classThrottle
+	classTimeout
+	classConnect
+	classCredential
+	classDeclared // first dynamically interned code
+)
+
+var classNames = struct {
+	sync.Mutex
+	names []FailureClass
+	codes map[FailureClass]failClass
+}{names: []FailureClass{ClassNone, ClassHTTP, ClassThrottle, ClassTimeout, ClassConnect, ClassCredential}}
+
+func classOf(c FailureClass) failClass {
+	switch c {
+	case ClassNone:
+		return classNone
+	case ClassHTTP:
+		return classHTTP
+	case ClassThrottle:
+		return classThrottle
+	case ClassTimeout:
+		return classTimeout
+	case ClassConnect:
+		return classConnect
+	case ClassCredential:
+		return classCredential
+	}
+	classNames.Lock()
+	defer classNames.Unlock()
+	if code, ok := classNames.codes[c]; ok {
+		return code
+	}
+	if len(classNames.names) > math.MaxUint8 {
+		panic("causal: too many failure classes")
+	}
+	if classNames.codes == nil {
+		classNames.codes = map[FailureClass]failClass{}
+	}
+	code := failClass(len(classNames.names))
+	classNames.names = append(classNames.names, c)
+	classNames.codes[c] = code
+	return code
+}
+
+// Class is the interned code's FailureClass.
+func (c failClass) Class() FailureClass {
+	if c < classDeclared {
+		return [...]FailureClass{ClassNone, ClassHTTP, ClassThrottle, ClassTimeout, ClassConnect, ClassCredential}[c]
+	}
+	classNames.Lock()
+	defer classNames.Unlock()
+	return classNames.names[c]
 }
 
 type failShare struct {
@@ -234,6 +301,19 @@ type cflow struct {
 	planSlots, planAtoms int
 	timingMemos          [2]timingMemo
 	runMode              *legacyRunMode // package-private proof seam; nil in production
+	// temps is the non-legacy evaluation's transient scratch (see timingScratch.transient):
+	// the Model's lock serialises every evaluation of a flow.
+	temps timingScratch
+}
+
+// evalScratch is the scratch for one timing evaluation: the legacy evaluator's own (nil in
+// the reference mode), else the flow's transient temporaries.
+func (cf *cflow) evalScratch(legacy *legacyEval) *timingScratch {
+	if legacy != nil {
+		return legacy.scratch
+	}
+	cf.temps.transient = true
+	return &cf.temps
 }
 
 // gate places one load in its compiled flow: the path from the entry to the node and the index
@@ -244,6 +324,12 @@ type gate struct {
 	use         int
 	legacyCache []legacyCacheEntry
 	legacyNext  int
+	// The non-legacy answers, keyed by every numerical input of the request tree (the entry's
+	// subtree inputs) compared bit for bit, bounded like legacyCache: a capacity solve repeats
+	// its iterate sequence on every steady step, more iterates than a node's cache holds.
+	arrivalsCache []legacyCacheEntry
+	arrivalsNext  int
+	arrivalsKey   []float64
 }
 
 type legacyCacheEntry struct {
@@ -291,7 +377,7 @@ func compileFlow(f *Flow, byName map[string]*compiled) *cflow {
 			}
 		}
 		fn.stretch, fn.hopErr = n.Stretch, n.HopError
-		fn.hopKey = outcomeKey{class: ClassHTTP, status: n.HopError.Status}
+		fn.hopKey = outcomeKey{class: classHTTP, status: n.HopError.Status}
 		fn.storm = 1
 		if i > 0 {
 			cf.nodes[n.Parent].kids = append(cf.nodes[n.Parent].kids, i)
@@ -435,10 +521,10 @@ func (cf *cflow) serve(n int, rej rejectFn) dist {
 	for _, k := range fn.kids {
 		e := cf.edge(k, rej)
 		for _, f := range e.fails {
-			status, class := CallerStatus(cf.nodes[k].policy, f.key.class, f.key.status, n == 0)
+			status, class := CallerStatus(cf.nodes[k].policy, f.key.class.Class(), f.key.status, n == 0)
 			// Mapped, a rule rejection is an ordinary status: only the direct caller (edge) knows
 			// it was a rule, so a caller further up resends it if its policy retries the status.
-			fail(outcomeKey{class: class, status: status}, float64(out.ok*f.p), tau)
+			fail(outcomeKey{class: classOf(class), status: status}, float64(out.ok*f.p), tau)
 		}
 		out.ok *= e.ok
 	}
@@ -454,7 +540,7 @@ func (cf *cflow) serve(n int, rej rejectFn) dist {
 		late += float64(out.ok * tau)
 		out.ok *= 1 - tau
 	}
-	out.add(outcomeKey{class: ClassTimeout}, late)
+	out.add(outcomeKey{class: classTimeout}, late)
 	return out
 }
 
@@ -480,8 +566,34 @@ func compactElapsed(in []elapsed, bins int) []elapsed {
 }
 
 func (scratch *timingScratch) compact(in []elapsed, bins int) []elapsed {
+	if out, trivial := compactTrivial(in, bins); trivial {
+		return out
+	}
+	oi, out := scratch.take()
+	out = scratch.compactInto(out, in, bins)
+	scratch.keep(oi, out)
+	return out
+}
+
+// compactTransient is compact for a caller that copies the result before its next
+// compaction: the result aliases scratch's reusable output (or the input when nothing
+// needs compacting) and is valid until the next compactTransient call on scratch.
+func (scratch *timingScratch) compactTransient(in []elapsed, bins int) []elapsed {
+	if out, trivial := compactTrivial(in, bins); trivial || scratch == nil {
+		if trivial {
+			return out
+		}
+		return scratch.compact(in, bins)
+	}
+	scratch.cout = scratch.compactInto(scratch.cout[:0], in, bins)
+	return scratch.cout
+}
+
+// compactTrivial is compaction's no-work cases: no atoms, or at most bins positive atoms of
+// one outcome, returned as they are.
+func compactTrivial(in []elapsed, bins int) ([]elapsed, bool) {
 	if len(in) == 0 {
-		return nil
+		return nil, true
 	}
 	if len(in) <= bins {
 		single := true
@@ -489,19 +601,21 @@ func (scratch *timingScratch) compact(in []elapsed, bins int) []elapsed {
 			single = single && e.p > 0 && e.key == in[0].key
 		}
 		if single {
-			return in
+			return in, true
 		}
 	}
+	return nil, false
+}
+
+// compactInto appends in's compaction to out.
+func (scratch *timingScratch) compactInto(out, in []elapsed, bins int) []elapsed {
 	var memo *timingMemo
 	if scratch != nil && len(in) > bins {
 		memo = scratch.memo
 	}
 	cached, hash, hit := memo.compactLookup(in, bins)
 	if hit {
-		i, owned := scratch.take()
-		owned = append(owned, cached...)
-		scratch.keep(i, owned)
-		return owned
+		return append(out, cached...)
 	}
 	var keyStorage [8]outcomeKey
 	keys := keyStorage[:0]
@@ -510,10 +624,12 @@ func (scratch *timingScratch) compact(in []elapsed, bins int) []elapsed {
 			keys = append(keys, e.key)
 		}
 	}
-	oi, out := scratch.take()
-	defer func() { scratch.keep(oi, out) }()
-	gi, group := scratch.take()
-	defer func() { scratch.keep(gi, group) }()
+	var group []elapsed
+	if scratch != nil {
+		group = scratch.group
+		defer func() { scratch.group = group[:0] }()
+	}
+	start := len(out)
 	for _, key := range keys {
 		group = group[:0]
 		total := 0.0
@@ -528,14 +644,25 @@ func (scratch *timingScratch) compact(in []elapsed, bins int) []elapsed {
 			continue
 		}
 		scratch.sortElapsed(group)
+		// A group whose durations (or held parts) are all zero accumulates exactly +0 for
+		// them: +0 + take x (+-0) is +0, and +0 / p is +0. Skip those products.
+		zeroMS, zeroHeld := true, true
+		for _, e := range group {
+			zeroMS = zeroMS && e.ms == 0
+			zeroHeld = zeroHeld && e.held == 0
+		}
 		cell := 0
 		width := total * probabilityCell(0, bins)
 		bucket := elapsed{key: key}
 		for _, e := range group {
 			for e.p > 0 {
 				take := math.Min(e.p, width-bucket.p)
-				bucket.ms += float64(take * e.ms)
-				bucket.held += float64(take * e.held)
+				if !zeroMS {
+					bucket.ms += float64(take * e.ms)
+				}
+				if !zeroHeld {
+					bucket.held += float64(take * e.held)
+				}
 				bucket.p += take
 				e.p -= take
 				if bucket.p >= width {
@@ -554,7 +681,7 @@ func (scratch *timingScratch) compact(in []elapsed, bins int) []elapsed {
 			out = append(out, bucket)
 		}
 	}
-	memo.compactKeep(in, out, bins, hash)
+	memo.compactKeep(in, out[start:], bins, hash)
 	return out
 }
 
@@ -618,7 +745,7 @@ func emitElapsedLawMemo(out []elapsed, key outcomeKey, p float64, terms []durati
 	cdf := elapsedLawCDF(terms, timeout, transport, law, memo)
 	if timeout > 0 && !transport {
 		if cdf < 1 {
-			out = append(out, elapsed{key: outcomeKey{class: ClassTimeout}, p: p * (1 - cdf), ms: timeout})
+			out = append(out, elapsed{key: outcomeKey{class: classTimeout}, p: p * (1 - cdf), ms: timeout})
 		}
 	}
 	if cdf == 0 {
@@ -764,10 +891,7 @@ func (cf *cflow) computeTimed(n int, rej rejectFn, bins int, materialize bool, l
 			law = workJitter
 		}
 	}
-	var scratch *timingScratch
-	if legacy != nil {
-		scratch = legacy.scratch
-	}
+	scratch := cf.evalScratch(legacy)
 	var waits waitTiming
 	emit := func(out []elapsed, key outcomeKey, p float64, terms []durationTerm, timeout float64, transport, materialize bool, bins int) []elapsed {
 		return waits.emitScratch(out, key, p, terms, timeout, transport, materialize, bins, law, scratch)
@@ -841,8 +965,8 @@ func (cf *cflow) computeChildren(n int, remaining float64, rej rejectFn, bins in
 				p := path.p * e.p
 				ms := path.ms + e.ms
 				if e.key != (outcomeKey{}) {
-					status, class := CallerStatus(cf.nodes[k].policy, e.key.class, e.key.status, n == 0)
-					failures = append(failures, elapsed{key: outcomeKey{class: class, status: status}, p: p, ms: ms})
+					status, class := CallerStatus(cf.nodes[k].policy, e.key.class.Class(), e.key.status, n == 0)
+					failures = append(failures, elapsed{key: outcomeKey{class: classOf(class), status: status}, p: p, ms: ms})
 				} else {
 					held := path.held
 					if fn.covered >= 0 && cf.nodes[k].dur == fn.dur.ref {
@@ -867,10 +991,7 @@ func (cf *cflow) elapsedEdge(n int, rej rejectFn, bins int) []elapsed {
 
 func (cf *cflow) computeEdge(n int, rej rejectFn, bins int, legacy *legacyEval, fresh bool) []elapsed {
 	pol := cf.nodes[n].policy
-	var scratch *timingScratch
-	if legacy != nil {
-		scratch = legacy.scratch
-	}
+	scratch := cf.evalScratch(legacy)
 	active := []elapsed{{p: 1}}
 	oi, out := scratch.take()
 	defer func() { scratch.keep(oi, out) }()
@@ -889,7 +1010,7 @@ func (cf *cflow) computeEdge(n int, rej rejectFn, bins int, legacy *legacyEval, 
 		for _, prefix := range active {
 			for _, a := range attempt {
 				e := elapsed{key: a.key, p: prefix.p * a.p, ms: prefix.ms + backoff + a.ms}
-				if j < pol.Retries && a.key != (outcomeKey{}) && !a.key.rule && pol.Retryable(a.key.class, a.key.status) {
+				if j < pol.Retries && a.key != (outcomeKey{}) && !a.key.rule && pol.Retryable(a.key.class.Class(), a.key.status) {
 					e.key = outcomeKey{}
 					next = append(next, e)
 				} else {
@@ -927,7 +1048,7 @@ func (cf *cflow) edge(k int, rej rejectFn) dist {
 	attempts, last := retrySeries(pol, a)
 	out := dist{ok: a.ok * attempts}
 	for _, f := range a.fails {
-		if !f.key.rule && pol.Retryable(f.key.class, f.key.status) {
+		if !f.key.rule && pol.Retryable(f.key.class.Class(), f.key.status) {
 			out.add(f.key, float64(f.p*last))
 		} else {
 			out.add(f.key, float64(f.p*attempts))
@@ -943,7 +1064,7 @@ func (cf *cflow) edge(k int, rej rejectFn) dist {
 func retrySeries(pol CallPolicy, a dist) (attempts, last float64) {
 	r := 0.0
 	for _, f := range a.fails {
-		if !f.key.rule && pol.Retryable(f.key.class, f.key.status) {
+		if !f.key.rule && pol.Retryable(f.key.class.Class(), f.key.status) {
 			r += f.p
 		}
 	}
@@ -974,6 +1095,41 @@ func (g *gate) arrivals(rej rejectFn) float64 {
 	if cf.needsLegacy {
 		return g.legacyArrivals(rej, legacyPoints, legacyBins)
 	}
+	inputs := cf.elapsedInputs(0, rej, g.arrivalsKey[:0])
+	g.arrivalsKey = inputs
+	for _, c := range g.arrivalsCache {
+		if sameBits(c.inputs, inputs) {
+			return c.value
+		}
+	}
+	v := g.computeArrivals(rej)
+	entry := legacyCacheEntry{inputs: slices.Clone(inputs), value: v}
+	if len(g.arrivalsCache) < 2*maxFixedPoint {
+		g.arrivalsCache = append(g.arrivalsCache, entry)
+	} else {
+		g.arrivalsCache[g.arrivalsNext] = entry
+		g.arrivalsNext = (g.arrivalsNext + 1) % len(g.arrivalsCache)
+	}
+	return v
+}
+
+// sameBits reports bit-identical inputs: an answer is reused only for exactly the
+// arithmetic inputs that produced it.
+func sameBits(a, b []float64) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if math.Float64bits(v) != math.Float64bits(b[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// computeArrivals is arrivals without the answer cache.
+func (g *gate) computeArrivals(rej rejectFn) float64 {
+	cf := g.flow
 	v := 1.0
 	for i, n := range g.path {
 		fn := &cf.nodes[n]
@@ -1051,7 +1207,7 @@ func (e *legacyEval) summary(n int, fresh bool) dist {
 func retryProbability(pol CallPolicy, d dist) float64 {
 	r := 0.0
 	for _, f := range d.fails {
-		if !f.key.rule && pol.Retryable(f.key.class, f.key.status) {
+		if !f.key.rule && pol.Retryable(f.key.class.Class(), f.key.status) {
 			r += f.p
 		}
 	}
@@ -1316,5 +1472,5 @@ func (g *gate) heldCall(c *compiled) *CallPolicy {
 func (c *compiled) failKey() outcomeKey {
 	e := Effect{}
 	c.failArrival(&e)
-	return outcomeKey{class: e.Class, status: e.Status, rule: c.r.Kind == KindRule}
+	return outcomeKey{class: classOf(e.Class), status: e.Status, rule: c.r.Kind == KindRule}
 }

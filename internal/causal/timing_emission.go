@@ -28,9 +28,7 @@ type timingEmissionEntry struct {
 
 func emissionHash(prefix []elapsed, cells []timingEmissionCell, key outcomeKey, timeout float64, bins int, law workLaw) uint64 {
 	h := timingAtomHash(prefix, bins) ^ math.Float64bits(timeout) ^ uint64(key.status) ^ uint64(law)
-	for i := 0; i < len(key.class); i++ {
-		h = h*1099511628211 ^ uint64(key.class[i])
-	}
+	h = h*1099511628211 ^ uint64(key.class)
 	if key.rule {
 		h ^= 0xd6e8feb86659fd93
 	}
@@ -128,13 +126,13 @@ func (scratch *timingScratch) emitProgram(added []elapsed, cells []timingEmissio
 			cdf = memo.cdfValue(law, cell.cdf)
 		}
 		if timeout > 0 && cdf < 1 {
-			added = append(added, elapsed{key: outcomeKey{class: ClassTimeout}, p: cell.p * (1 - cdf), ms: timeout})
+			added = append(added, elapsed{key: outcomeKey{class: classTimeout}, p: cell.p * (1 - cdf), ms: timeout})
 		}
 		if cdf != 0 {
 			added = append(added, elapsed{key: key, p: cell.p * cdf})
 		}
 	}
-	compacted := scratch.compact(added, bins)
+	compacted := scratch.compactTransient(added, bins)
 	memo.emissionKeep(prefix, cells, compacted, key, timeout, bins, law, h)
 	return append(added[:0], compacted...)
 }
