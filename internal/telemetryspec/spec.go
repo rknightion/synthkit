@@ -229,6 +229,16 @@ func (m MetricSpec) Validate() error {
 			return fmt.Errorf("metric %q: shape_profile needs a shape value (only a shape value reads the business clock)", m.Name)
 		}
 	}
+	if m.Value.Shape != nil && m.Value.Shape.Batch != nil {
+		switch {
+		case m.Instrument != InstrumentCounter:
+			return fmt.Errorf("metric %q: shape batch is valid on a counter only (a gauge reads a level, not arrivals)", m.Name)
+		case m.StockOf != nil || m.CountOf != "":
+			return fmt.Errorf("metric %q: shape batch is not valid with stock_of or count_of (they follow the counter's batches)", m.Name)
+		case m.Value.Shape.IncidentValue != nil:
+			return fmt.Errorf("metric %q: shape batch is not valid with incident_value (the incident intensity is read at the release tick, not per accumulated tick)", m.Name)
+		}
+	}
 	if m.StockOf != nil {
 		if err := m.validateStock(); err != nil {
 			return err

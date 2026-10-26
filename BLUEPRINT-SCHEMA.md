@@ -1692,6 +1692,9 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].custom_metrics[].value.shape.mode` | string |  |  |
 | `services[].custom_metrics[].value.shape.incident_value` | float | yes |  |
 | `services[].custom_metrics[].value.shape.incident_absolute` | bool |  |  |
+| `services[].custom_metrics[].value.shape.batch` | object | yes |  |
+| `services[].custom_metrics[].value.shape.batch.period` | duration |  |  |
+| `services[].custom_metrics[].value.shape.batch.phase` | duration |  |  |
 | `services[].custom_metrics[].value.ref` | string |  |  |
 | `services[].custom_metrics[].value.lognormal` | object | yes |  |
 | `services[].custom_metrics[].value.lognormal.median` | float |  |  |
@@ -1782,6 +1785,9 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].metrics[].value.shape.mode` | string |  |  |
 | `services[].metrics[].value.shape.incident_value` | float | yes |  |
 | `services[].metrics[].value.shape.incident_absolute` | bool |  |  |
+| `services[].metrics[].value.shape.batch` | object | yes |  |
+| `services[].metrics[].value.shape.batch.period` | duration |  |  |
+| `services[].metrics[].value.shape.batch.phase` | duration |  |  |
 | `services[].metrics[].value.ref` | string |  |  |
 | `services[].metrics[].value.lognormal` | object | yes |  |
 | `services[].metrics[].value.lognormal.median` | float |  |  |

@@ -440,6 +440,10 @@ type ShapeModel struct {
 	Mode             string   `yaml:"mode"`
 	IncidentValue    *float64 `yaml:"incident_value"`    // metric-only endpoint at intensity 1, before load scaling
 	IncidentAbsolute bool     `yaml:"incident_absolute"` // incident share of the value is not multiplied by load; needs incident_value
+	// Batch makes a counter's source deliver in batches: the per-tick arrivals accumulate and are
+	// released at the cadence (zero between releases), conserving the smooth curve's total. Counter
+	// metric values only; the workload resolves the release against the series' own clock.
+	Batch *shape.Batch `yaml:"batch"`
 }
 
 // EvalCtx carries the per-evaluation inputs: correlation refs + the shape reading + the
@@ -740,6 +744,11 @@ func (v ValueModel) Validate() error {
 	case KindShape:
 		if v.Shape.IncidentAbsolute && v.Shape.IncidentValue == nil {
 			return fmt.Errorf("shape: incident_absolute requires incident_value")
+		}
+		if v.Shape.Batch != nil {
+			if err := v.Shape.Batch.Validate(); err != nil {
+				return fmt.Errorf("shape: %w", err)
+			}
 		}
 		if v.Shape.IncidentValue != nil {
 			if strings.TrimSpace(v.Shape.Mode) == "" {

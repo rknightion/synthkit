@@ -74,7 +74,7 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 				continue
 			}
 			metricCtx := w.metricCtx(now, from, world, id, n, spec)
-			w.observeMetricStates(w.st, native, id, spec, metricCtx, incs, w.seriesShape(now, world, id, n, i, spec))
+			w.observeMetricStates(w.st, native, id, spec, metricCtx, incs, w.seriesShape(now, time.Duration(dt*float64(time.Second)), world, id, n, i, spec))
 		}
 		// Derived specs read this tick's counter increments, so they run after the node's
 		// ordinary specs; they consume draws only when declared (count_of observations).

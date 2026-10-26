@@ -33,6 +33,9 @@ func checkValue(vm ValueModel, pos position, where string) error {
 	if vm.Shape != nil && vm.Shape.IncidentValue != nil && pos != posMetricValue {
 		return fmt.Errorf("%s: shape incident_value is metric value only", where)
 	}
+	if vm.Shape != nil && vm.Shape.Batch != nil && pos != posMetricValue {
+		return fmt.Errorf("%s: shape batch is metric value only", where)
+	}
 	// The now model reads the metric lane's tick time; no other evaluator supplies it.
 	if vm.Now != nil && pos != posMetricValue {
 		return fmt.Errorf("%s: now is metric value only", where)

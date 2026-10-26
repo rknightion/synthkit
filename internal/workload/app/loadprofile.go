@@ -173,37 +173,77 @@ func shapeProfileOf(p *shape.Profile) *ShapeProfile {
 }
 
 // seriesShape re-reads the shape load for the label combinations of one metric that declare
-// their own clock. It carries the tick time, the incident amplification the node-level load
-// already carries, and the metric's pre-resolved per-combination profiles. A nil *seriesShape
-// leaves every series on the node's load.
+// their own clock, and releases a batched counter's arrivals on its cadence. It carries the tick
+// time, the incident amplification the node-level load already carries, the node's own load, the
+// metric's pre-resolved per-combination profiles and, for a batch, the tick spacing and the
+// incident mode to re-amplify past ticks with. A nil *seriesShape leaves every series on the node's load.
 type seriesShape struct {
 	now   time.Time
+	step  time.Duration // the tick spacing a batch accumulates over (the metric lane's real cadence)
 	eng   *shape.Engine
 	amp   float64
 	loads []*loadProfile
+	// node is the node's effective load (nil reads the Engine's curve); a batch reads it for the
+	// combinations that declare no clock of their own.
+	node *loadProfile
+	// batch, when set, replaces the smooth load with the release of the arrivals accumulated since
+	// the previous cadence boundary (zero between releases).
+	batch   *shape.Batch
+	mode    string // incident mode amplifying the load (empty when none applies)
+	service string
 }
 
 // seriesShape returns the per-series load reader for node n's metric i, or nil when none of its
-// series declares a clock (the common case, which then does no extra work).
-func (w *Workload) seriesShape(now time.Time, world *core.World, id nodeIdentity, n *node, i int, spec telemetryspec.MetricSpec) *seriesShape {
-	if i >= len(n.seriesLoads) || n.seriesLoads[i] == nil {
+// series declares a clock or a batch (the common case, which then does no extra work).
+func (w *Workload) seriesShape(now time.Time, step time.Duration, world *core.World, id nodeIdentity, n *node, i int, spec telemetryspec.MetricSpec) *seriesShape {
+	var loads []*loadProfile
+	if i < len(n.seriesLoads) {
+		loads = n.seriesLoads[i]
+	}
+	var batch *shape.Batch
+	if spec.Value.Kind() == telemetryspec.KindShape && spec.Value.Shape != nil {
+		batch = spec.Value.Shape.Batch
+	}
+	if loads == nil && batch == nil {
 		return nil
 	}
-	amp := 1.0
+	s := &seriesShape{now: now, step: step, eng: world.Shape, amp: 1.0, loads: loads, node: n.load, batch: batch, service: id.service}
 	if spec.Value.Kind() == telemetryspec.KindShape && spec.Value.Shape != nil &&
 		spec.Value.Shape.Mode != "" && spec.Value.Shape.IncidentValue == nil {
-		amp = world.Shape.FailFactor(now, spec.Value.Shape.Mode, id.service, incidentAmplification)
+		s.mode = spec.Value.Shape.Mode
+		s.amp = world.Shape.FailFactor(now, s.mode, id.service, incidentAmplification)
 	}
-	return &seriesShape{now: now, eng: world.Shape, amp: amp, loads: n.seriesLoads[i]}
+	return s
 }
 
 // ctx returns base with the shape load of combination ci's own clock, or base unchanged when
-// that combination follows the node.
+// that combination follows the node and is not batched.
 func (s *seriesShape) ctx(base telemetryspec.EvalCtx, ci int) telemetryspec.EvalCtx {
-	if s == nil || ci >= len(s.loads) || s.loads[ci] == nil {
+	if s == nil {
 		return base
 	}
-	base.ShapeVal = s.loads[ci].business(s.now, s.eng) * s.amp
+	lp := s.node
+	own := ci < len(s.loads) && s.loads[ci] != nil
+	if own {
+		lp = s.loads[ci]
+	}
+	if s.batch != nil {
+		// Each accumulated tick reads the series' clock at its own time, with the incident
+		// amplification active then; the release is exact zero between boundaries.
+		base.ShapeVal = s.batch.Release(s.now, s.step, func(t time.Time) float64 {
+			amp := 1.0
+			if s.mode != "" {
+				amp = s.eng.FailFactor(t, s.mode, s.service, incidentAmplification)
+			}
+			return lp.business(t, s.eng) * amp
+		})
+		base.ExactLoad = true
+		return base
+	}
+	if !own {
+		return base
+	}
+	base.ShapeVal = lp.business(s.now, s.eng) * s.amp
 	base.ExactLoad = true
 	return base
 }
