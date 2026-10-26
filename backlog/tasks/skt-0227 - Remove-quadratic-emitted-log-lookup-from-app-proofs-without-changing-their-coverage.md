@@ -3,10 +3,10 @@ id: SKT-0227
 title: >-
   Remove quadratic emitted-log lookup from app proofs without changing their
   coverage
-status: Parked
+status: In Progress
 assignee: []
 created_date: '2026-10-26T01:06:00Z'
-updated_date: '2026-10-26T03:26:00Z'
+updated_date: '2026-10-26T04:42:00Z'
 labels:
   - performance
 dependencies: []
@@ -34,8 +34,16 @@ The causal stack passes plain tests but the app race package exceeds its unchang
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
 
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Read-only bounded attribution on materially changed exact integrated source65ef after actual app race600.180s failure: at most two scoped profiles, meaningful race-instrumented costs and per-test contributions, no source/test/case/population/timeout changes or full-gate retry. Return quantified minimal repair scope or blocker; no implementation authority inferred.
+<!-- SECTION:PLAN:END -->
+
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 Loop60 closeout: Final68e11900 is correctness-reviewed only: independent raw-capture oracle and omitted-corpus controls resolve the service-review major, with all original cases retained. Actual app race still fails600.052s (181 passed, one in flight,83 unreached). Not Done or a budget fix; no unchanged broad resampling. Resume on a genuinely changed exact final composition after cost resolution.
+
+Exact integrated65ef full gate failed app-race600.180s; terminal AppDefaultWireParity had run42s and is not established as the cause of cumulative timeout. SpanID/index/worker/lifecycle changes are present, CodeRabbit54of54 clean, but no race-budget clearance or publication. Independent senior read-only attribution starts from immutable65ef; original first-dispatch lineage retained, four-hour point remains05:06Z. Private demo proof second-stop does not authorize numerical or private repair through this task.
 <!-- SECTION:NOTES:END -->
