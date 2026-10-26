@@ -1,12 +1,13 @@
 ---
 id: SKT-0218
 title: Bind all five declared document-store clients to their causal resources
-status: In Progress
+status: Parked
 assignee: []
 created_date: '2026-10-25T19:30:00Z'
-updated_date: '2026-10-25T23:33:00Z'
+updated_date: '2026-10-26T00:47:00Z'
 labels:
   - causal
+  - needs-owner
 dependencies: []
 ordinal: 422000
 ---
@@ -40,4 +41,6 @@ Single reference-blueprint owner binds all five declared document-store clients 
 
 <!-- SECTION:NOTES:BEGIN -->
 Owner closeout: Five-client document-store binding held for sourced reference migration.
+
+Loop60 second convergence stop, paired with SKT-0182 (reference-family realism): five pool declarations did not establish five actual store calls. Shared-leaf DFS suppresses generation; a distinct leaf restores its CLIENT span but not the required additive caller elapsed or common DocumentDB wire identity. No supported blueprint-only fix. Owner approval to reopen after explicit engine contracts and evaluator cost admission; actual per-client healthy/onset/recovery/isolation proof and golden attribution remain required.
 <!-- SECTION:NOTES:END -->

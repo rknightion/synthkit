@@ -1,11 +1,12 @@
 ---
 id: SKT-0182
 title: Adopt causal incidents across the shipped blueprints
-status: In Progress
+status: Parked
 assignee: []
 created_date: '2026-10-25T02:12:00Z'
-updated_date: '2026-10-25T23:33:00Z'
-labels: []
+updated_date: '2026-10-26T00:47:00Z'
+labels:
+  - needs-owner
 dependencies:
   - SKT-0168.09.15
 priority: medium
@@ -43,4 +44,6 @@ Owner approved labelled reference-workload assumptions anchored to published lat
 loop58 closeout (2026-10-25): parked unlanded; see /Users/rob/repos/synthkit/codex/closeout-2026-10-25-loop58.md. Acme migration rebased to d61cf24e (commit in /Users/rob/repos/synthkit/codex/loop58/archive/land13-d4a51b34..3c664fc6.mbox); owner held it for realism: source database call times and reject_share (realism lane partial diff in codex/loop58/archive/worktrees/loop58-real); also needs SKT-0211 (amd64 digest) first.
 
 Owner closeout: Owner realism decision open: exact application latency/overhead/deadline/affected-input shares lack matched evidence. Recommend labelled assumptions anchored to sourced ranges; alternative matched captures. No migration.
+
+Loop60 second convergence stop: reference migration remains unlanded. The supported distinct DB call-site experiment restored the missing generation CLIENT operation, but same-service orchestration still masks additive store elapsed time and DocumentDB physical identity is unsupported. Explicit call occurrence/physical-target and additive-work contracts are engine dependencies, not a blueprint workaround. Owner decision required before another reference repair; recommend authorizing those contracts after evaluator cost admission, then resuming per-client proof and complete golden attribution. Original failed proposals, red runner evidence and disputed service review remain retained; no golden acceptance or all-family completion.
 <!-- SECTION:NOTES:END -->
