@@ -3,9 +3,10 @@ id: SKT-0228
 title: >-
   Derive only the deterministic correlation SpanID when the app discards the
   other fields
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-26T01:40:00Z'
+updated_date: '2026-10-26T02:18:00Z'
 labels:
   - performance
 dependencies: []
@@ -32,3 +33,9 @@ App mintRequest creates fresh correlation fields, then calls ledger.NewCorrelati
 - [ ] #2 just gen (only if a blueprint field, construct/workload config struct, or a skill under plugins/synthkit/skills/ changed)
 - [ ] #3 just dump — inventory diffed against signals/
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Root freezes a narrow ledger-owned CorrelationSpanIDFromSeed(seed string) string seam with exactly the old full-correlation SpanID framing seed plus NUL span, length eight bytes. Keep NewCorrelationFromSeed unchanged as an independent reference, keep all fresh join keys and shape draws unchanged, and change only the app call that currently discards seven deterministic fields. Capture before/after cost and real minter compatibility; no package-budget completion inferred.
+<!-- SECTION:NOTES:END -->
