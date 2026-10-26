@@ -55,15 +55,29 @@ const (
 // histogram → the value model is a per-observation value, with required Buckets + LEStyle (classic
 // `_bucket`, I4). Labels are series dimensions (capability matrix: const/const_str/enum only).
 type MetricSpec struct {
-	Name       string                `yaml:"name"`
-	Source     string                `yaml:"source"` // config-only citation; required by ValidateCustom
-	Instrument string                `yaml:"instrument"`
-	Unit       string                `yaml:"unit"`
-	Scope      string                `yaml:"scope"`
-	Labels     map[string]ValueModel `yaml:"labels"`
-	Value      ValueModel            `yaml:"value"`
-	Buckets    []float64             `yaml:"buckets"`
-	LEStyle    string                `yaml:"le_style"`
+	// Name is the metric family name, emitted as declared.
+	Name string `yaml:"name"`
+	// Source cites where the metric's name and behaviour come from (documentation or an observed
+	// capture). It is required on a blueprint-owned custom metric and is never emitted.
+	Source string `yaml:"source"`
+	// Instrument is the metric kind: gauge, counter or histogram.
+	Instrument string `yaml:"instrument"`
+	// Unit is the unit string carried on a native OTLP metric; it does not rename the series.
+	Unit string `yaml:"unit"`
+	// Scope selects whether the series carries the blueprint selector (blueprint) or is a shared
+	// substrate series with none (substrate). Omitted uses the owning node's default.
+	Scope string `yaml:"scope"`
+	// Labels are the series dimensions, one value model per label name. Only constant and enum
+	// values are allowed, and a label's enum expands to every value on every tick.
+	Labels map[string]ValueModel `yaml:"labels"`
+	// Value is the value model: the reading of a gauge, the per-tick increment of a counter or one
+	// observation of a histogram. Omit it only on a stock_of gauge.
+	Value ValueModel `yaml:"value"`
+	// Buckets are the histogram's upper bounds in increasing order (histogram only).
+	Buckets []float64 `yaml:"buckets"`
+	// LEStyle renders the histogram's le bucket-bound label: bare (default) or dotzero, which
+	// writes a whole bound with a trailing .0 as the OTLP to Prometheus translation does.
+	LEStyle string `yaml:"le_style"`
 	// StockOf makes a gauge a derived stock (a level such as items in progress or a queue depth)
 	// of a counter on the same service node, instead of reading its own value model. Gauge only;
 	// value must be omitted. Without labels the gauge inherits the counter's label combinations
@@ -162,11 +176,22 @@ func MaxRateScale(labels map[string]ValueModel) float64 {
 // population. One series holds at most MaxStockItems items; arrivals above it are dropped, never
 // carried. The population is in memory only: a restart re-seeds the steady state.
 type StockOf struct {
-	Metric       string     `yaml:"metric"`        // counter name on the same service node
-	DwellSeconds float64    `yaml:"dwell_seconds"` // fluid stock: mean time an item stays (> 0)
-	Residence    *Lognormal `yaml:"residence"`     // item stock: per-item residence seconds (median, p95)
-	StallMode    string     `yaml:"stall_mode"`    // item stock: incident mode that slows completions
-	Field        string     `yaml:"field"`         // item stock: count (default) | oldest_age_seconds
+	// Metric is the name of the counter, declared on the same service node, whose arrivals the
+	// stock holds.
+	Metric string `yaml:"metric"`
+	// DwellSeconds selects the fluid stock: the mean seconds an item stays, so the level settles
+	// at the counter rate times this value. Must be finite and above 0; set exactly one of
+	// dwell_seconds and residence.
+	DwellSeconds float64 `yaml:"dwell_seconds"`
+	// Residence selects the item stock: each arriving item stays for its own residence draw
+	// (median and 95th percentile, in seconds), so the gauge is a whole-number count.
+	Residence *Lognormal `yaml:"residence"`
+	// StallMode (item stock only) names the incident mode that slows completions: at intensity i
+	// every item's residence advances at (1 - i) of real time, so intensity 1 stops completions.
+	StallMode string `yaml:"stall_mode"`
+	// Field (item stock only) selects the reading: count (default) or oldest_age_seconds, the
+	// seconds since the oldest item still in the stock arrived (0 when empty).
+	Field string `yaml:"field"`
 }
 
 // Item-stock readings (StockOf.Field).
@@ -422,9 +447,14 @@ func (m MetricSpec) validateStock() error {
 // matrix: const/const_str/enum only — the sink also asserts I14/I15). Body fields are the JSON
 // line content (any value model, including a high-card ref — the correlation glue rides here).
 type LogSpec struct {
-	Source       string                `yaml:"source"`
+	// Source names the log line's stream within the service node; required and non-blank.
+	Source string `yaml:"source"`
+	// StreamLabels are the log stream's indexed labels. Only constant and enum values are allowed,
+	// and a high-cardinality correlation ref is rejected here.
 	StreamLabels map[string]ValueModel `yaml:"stream_labels"`
-	Body         map[string]ValueModel `yaml:"body"`
+	// Body holds the fields of the JSON log line, one value model per field. Any value model is
+	// allowed, including a high-cardinality correlation ref.
+	Body map[string]ValueModel `yaml:"body"`
 	// When, when set, writes this line only for the requests whose per-request draw falls in the
 	// listed values, so one bundle's line set follows a drawn route or outcome. Omitted writes the
 	// line for every request.
@@ -472,8 +502,12 @@ func (l LogSpec) DwellSecondsOf(ctx EvalCtx) (float64, bool) {
 // engine, and a gated-out line still evaluates its body, so gating never shifts another field's
 // values.
 type LogCondition struct {
+	// RequestDraw is the per-request enum draw the gate reads, declared exactly as the bundle's
+	// body fields declare the same key.
 	RequestDraw RequestDraw `yaml:"request_draw"`
-	In          []string    `yaml:"in"`
+	// In lists the drawn values for which the line is written; at least one, each one of the
+	// draw's enum values, none repeated.
+	In []string `yaml:"in"`
 }
 
 func (c LogCondition) validate() error {
@@ -610,9 +644,17 @@ func (l LogSpec) Validate() error {
 // SpanSpec declares one span a service node emits as its participation in the one request trace.
 // Attributes are span attributes (any value model, including a high-card ref).
 type SpanSpec struct {
-	NameTemplate string                `yaml:"name_template"`
-	Kind         string                `yaml:"kind"`
-	Attributes   map[string]ValueModel `yaml:"attributes"`
+	// NameTemplate is the span name; {{attr.key}} placeholders are filled from the span's own
+	// evaluated attributes. Required and non-blank. When the span merges into the node's own span
+	// (see Kind) a non-empty result renames that span.
+	NameTemplate string `yaml:"name_template"`
+	// Kind is the span kind: server, client or internal. Omitted, or the node's own span kind,
+	// merges this declaration's name and attributes into the node's own span; any other kind adds
+	// a child span.
+	Kind string `yaml:"kind"`
+	// Attributes are extra span attributes, one value model per key. Any value model is allowed,
+	// including a high-cardinality correlation ref; keys the workload stamps itself are rejected.
+	Attributes map[string]ValueModel `yaml:"attributes"`
 }
 
 // Validate enforces the span's structure + the capability matrix on its attributes.
@@ -636,10 +678,14 @@ func (s SpanSpec) Validate() error {
 // Profile is a named, reusable bundle of metrics+logs+spans (the catalog ships generic, real-named
 // profiles; blueprints compose them on a node and/or add inline custom declarations).
 type Profile struct {
-	Name    string       `yaml:"name"`
+	// Name identifies the profile; required and non-blank.
+	Name string `yaml:"name"`
+	// Metrics are the metric families the profile adds to a node.
 	Metrics []MetricSpec `yaml:"metrics"`
-	Logs    []LogSpec    `yaml:"logs"`
-	Spans   []SpanSpec   `yaml:"spans"`
+	// Logs are the log lines the profile adds to a node.
+	Logs []LogSpec `yaml:"logs"`
+	// Spans are the spans the profile adds to a node.
+	Spans []SpanSpec `yaml:"spans"`
 }
 
 // Validate enforces the profile names something and every contained spec validates.

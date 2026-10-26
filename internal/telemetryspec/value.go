@@ -103,17 +103,32 @@ const z95 = 1.6448536269514722
 // It is a typed Go struct (NOT yaml.Node) so it strict-decodes with loud load errors and appears
 // in the reflected authoring schema (BLUEPRINT-SCHEMA.md / TestSchemaCurrent).
 type ValueModel struct {
-	Const      *float64    `yaml:"const"`       // fixed numeric
-	ConstStr   *string     `yaml:"const_str"`   // fixed string
-	Enum       []EnumEntry `yaml:"enum"`        // weighted categorical; EnumDomain() = the full ordered value set
-	IntRange   *IntRange   `yaml:"int_range"`   // bounded integer (with optional p_zero)
-	FloatRange *FloatRange `yaml:"float_range"` // bounded float
-	Normal     *Normal     `yaml:"normal"`      // gaussian (mean, stddev)
-	Bool       *BoolModel  `yaml:"bool"`        // weighted boolean
-	Shape      *ShapeModel `yaml:"shape"`       // base × the shape/incident engine reading (incident-aware)
-	Ref        string      `yaml:"ref"`         // pulls a correlation field by name (the correlation glue)
-	Lognormal  *Lognormal  `yaml:"lognormal"`   // right-skewed positive draw (median, p95)
-	Now        *NowModel   `yaml:"now"`         // the tick timestamp in Unix seconds (gauge value only)
+	// Const is a fixed numeric value.
+	Const *float64 `yaml:"const"`
+	// ConstStr is a fixed string value.
+	ConstStr *string `yaml:"const_str"`
+	// Enum is a weighted categorical value drawn from a fixed set of strings. On a metric label it
+	// expands to every value on every tick.
+	Enum []EnumEntry `yaml:"enum"`
+	// IntRange is a bounded integer draw, with an optional probability of forcing 0.
+	IntRange *IntRange `yaml:"int_range"`
+	// FloatRange is a bounded uniform float draw.
+	FloatRange *FloatRange `yaml:"float_range"`
+	// Normal is a gaussian draw; negative draws are clamped to 0.
+	Normal *Normal `yaml:"normal"`
+	// Bool is a boolean that is true with the given probability.
+	Bool *BoolModel `yaml:"bool"`
+	// Shape is a base value scaled by the load curve and, when a mode is named, by an incident.
+	Shape *ShapeModel `yaml:"shape"`
+	// Ref pulls a request correlation field by name (for example a trace ID, route or status).
+	// A high-cardinality ref is rejected on a metric or stream label.
+	Ref string `yaml:"ref"`
+	// Lognormal is a right-skewed positive draw given its median and 95th percentile, as latency
+	// and dwell times are.
+	Lognormal *Lognormal `yaml:"lognormal"`
+	// Now reads the tick time in Unix seconds, for a last-success or heartbeat timestamp
+	// (gauge metric value only).
+	Now *NowModel `yaml:"now"`
 	// Resource reads a field of a declared resource's model state (metric value only).
 	Resource *ResourceValue `yaml:"resource"`
 	// Outcomes reads the service node's hop outcomes in the metric window (metric value only).
@@ -142,9 +157,15 @@ type ValueModel struct {
 // Enum is a weighted categorical draw with the same entries as an `enum` value model (weights
 // select the share of requests; rate_scale, value_scale and shape_profile do not apply).
 type RequestDraw struct {
-	Key    string      `yaml:"key"`
-	Format string      `yaml:"format"`
-	Enum   []EnumEntry `yaml:"enum"`
+	// Key names the draw: every log line of one request that declares the same key repeats the
+	// same drawn value. Required.
+	Key string `yaml:"key"`
+	// Format draws a generated ID from literal text with runs written {digits:N}, {hex:N} or
+	// {upper:N}, for example ORD-{digits:10}. Set exactly one of format and enum.
+	Format string `yaml:"format"`
+	// Enum draws one of a weighted set of values; weights select the share of requests. Set
+	// exactly one of format and enum.
+	Enum []EnumEntry `yaml:"enum"`
 }
 
 // drawRun is one parsed piece of a Format: literal text, or n generated characters drawn from
@@ -276,7 +297,12 @@ func (d RequestDraw) eval(u func(string) float64) string {
 // fields (rejected, admitted, failed) are window sums valid on a counter metric only. The
 // provider supplies the reading; without one, or for an unknown resource, the value reads 0.
 type ResourceValue struct {
-	Name  string `yaml:"name"`
+	// Name is the declared resource whose model state is read.
+	Name string `yaml:"name"`
+	// Field is the state field read: a gauge field (demand_rps, capacity, utilization, in_use,
+	// waiting, wait_seconds, backlog, oldest_age_seconds, latency_factor, hold_seconds,
+	// served_rps, failed_share) on a gauge metric, or a counter field (rejected, admitted,
+	// failed) on a counter metric.
 	Field string `yaml:"field"`
 }
 
@@ -286,9 +312,15 @@ type ResourceValue struct {
 // metric, the default), share (a gauge metric) or latency (a histogram metric: each matching hop
 // duration, in seconds, is one observation).
 type OutcomeValue struct {
-	Status      []string `yaml:"status"`
-	StatusLabel string   `yaml:"status_label"`
-	Measure     string   `yaml:"measure"`
+	// Status lists the hop statuses that match: success, 4xx, 5xx or an exact three-digit HTTP
+	// status such as 503. Set exactly one of status and status_label.
+	Status []string `yaml:"status"`
+	// StatusLabel names an enum label of the same metric whose value selects the matching status
+	// per series. Set exactly one of status and status_label.
+	StatusLabel string `yaml:"status_label"`
+	// Measure is count (a counter metric, the default), share (a gauge metric) or latency (a
+	// histogram metric: each matching hop duration, in seconds, is one observation).
+	Measure string `yaml:"measure"`
 }
 
 // EffectiveMeasure returns Measure with the omitted default (count) applied.
@@ -323,15 +355,25 @@ func (o OutcomeValue) EffectiveMeasure() string {
 // Period turns the gauge into the last success of a job declared on a schedule: the reading is the
 // most recent schedule boundary at or before the tick time (epoch-aligned multiples of Period,
 // shifted by Phase), so a job that runs every 15 minutes reads a step every 15 minutes, not every
-// tick. Period is in (0, 24h] and Phase in [0, Period); both default to 0, which reads the tick
-// time. A run that falls inside a stall (StallMode active) or a quiet source (ArrivalsOnly) is a
+// tick. Period is at most 24h (0 or omitted means no schedule) and Phase is in [0, Period)
+// and needs a Period; both default to 0, which reads the tick time. A run that falls inside a stall (StallMode active) or a quiet source (ArrivalsOnly) is a
 // missed run: the gauge keeps its last reading until the first boundary after the stall ends. No
 // randomness and no clock beyond the tick time are read.
 type NowModel struct {
-	StallMode    string        `yaml:"stall_mode"`
-	ArrivalsOnly bool          `yaml:"arrivals_only"`
-	Period       time.Duration `yaml:"period"`
-	Phase        time.Duration `yaml:"phase"`
+	// StallMode names the incident mode that stalls the producer: while it is active for the
+	// service, the gauge holds its last reading and resumes at the tick time when it ends. Omitted
+	// means the gauge always advances. An enum label value may override it for its own series.
+	StallMode string `yaml:"stall_mode"`
+	// ArrivalsOnly makes the gauge a source-event time: it advances only on a tick where the
+	// source had arrivals and holds its last reading otherwise, so a quiet source reads old.
+	ArrivalsOnly bool `yaml:"arrivals_only"`
+	// Period makes the gauge the last success of a job on a schedule: the reading is the most
+	// recent epoch-aligned multiple of Period (shifted by Phase) at or before the tick time. At
+	// most 24h; omitted or 0 reads the tick time.
+	Period time.Duration `yaml:"period"`
+	// Phase shifts the schedule boundaries from the epoch-aligned grid, in [0, Period), and needs
+	// a Period. Default 0.
+	Phase time.Duration `yaml:"phase"`
 }
 
 // maxNowPeriod bounds a now schedule: a daily job is the longest cadence a last-success gauge models.
@@ -367,9 +409,15 @@ func (n NowModel) Boundary(at time.Time) time.Time {
 // read_failures needs a stall mode (here or on an enum value). The model reads no metric name:
 // the blueprint names the counter.
 type SourceReadModel struct {
-	Measure   string  `yaml:"measure"`
-	PerTick   float64 `yaml:"per_tick"`
-	StallMode string  `yaml:"stall_mode"`
+	// Measure selects the counter: records_inspected or checkpoint (advance while the collector is
+	// not stalled) or read_failures (advances only while it is stalled).
+	Measure string `yaml:"measure"`
+	// PerTick is the increment per metric tick, not per second; records_inspected and checkpoint
+	// scale it by the node's load factor. Must be finite and above 0.
+	PerTick float64 `yaml:"per_tick"`
+	// StallMode names the incident mode that stalls the collector, resolved per service. Required
+	// for read_failures unless an enum label value declares its own.
+	StallMode string `yaml:"stall_mode"`
 }
 
 // validate enforces the model's own invariants; the instrument and per-value stall rules need
@@ -401,9 +449,16 @@ func (r SourceReadModel) validate() error {
 //   - ValueScale multiplies each observed value of a histogram (so its mean and p95 move
 //     together) or a gauge reading. Rejected on a counter, whose increment is a rate.
 type EnumEntry struct {
-	Value      string   `yaml:"value"`
-	Weight     float64  `yaml:"weight"`
-	RateScale  *float64 `yaml:"rate_scale"`
+	// Value is the categorical value, emitted as a string.
+	Value string `yaml:"value"`
+	// Weight is the value's share of per-request draws (log body field, span attribute or stream
+	// label). It never divides traffic among metric series.
+	Weight float64 `yaml:"weight"`
+	// RateScale (metric labels only) multiplies a counter's per-tick increment or a histogram's
+	// observations per tick for series carrying this value. Rejected on a gauge. Omitted means 1.
+	RateScale *float64 `yaml:"rate_scale"`
+	// ValueScale (metric labels only) multiplies each observed histogram value or gauge reading
+	// for series carrying this value. Rejected on a counter. Omitted means 1.
 	ValueScale *float64 `yaml:"value_scale"`
 	// ShapeProfile gives this value's series its own business clock and curve, laid field by
 	// field over the metric's and the node's profile (METRIC labels only; the metric's value must
@@ -424,33 +479,43 @@ func (e EnumEntry) Scaled() bool { return e.RateScale != nil || e.ValueScale != 
 // exceeds the median and the tail is long, as real latency and dwell-time distributions are.
 // Median > 0 and P95 >= Median; P95 == Median degenerates to a constant Median.
 type Lognormal struct {
+	// Median is the distribution's median; must be above 0.
 	Median float64 `yaml:"median"`
-	P95    float64 `yaml:"p95"`
+	// P95 is the 95th percentile; at least Median (equal degenerates to a constant).
+	P95 float64 `yaml:"p95"`
 }
 
 // IntRange is a bounded integer draw; PZero is the probability the draw is forced to 0 (e.g.
 // retry_count is 0 ~95% of the time). PZero in [0,1]; Min<=Max.
 type IntRange struct {
-	Min   int     `yaml:"min"`
-	Max   int     `yaml:"max"`
+	// Min is the smallest value drawn.
+	Min int `yaml:"min"`
+	// Max is the largest value drawn; at least Min.
+	Max int `yaml:"max"`
+	// PZero is the probability, in [0,1], that the draw is forced to 0.
 	PZero float64 `yaml:"p_zero"`
 }
 
 // FloatRange is a bounded uniform float draw (Min<=Max).
 type FloatRange struct {
+	// Min is the lower bound of the uniform draw.
 	Min float64 `yaml:"min"`
+	// Max is the upper bound; at least Min.
 	Max float64 `yaml:"max"`
 }
 
 // Normal is a gaussian draw (Stddev>=0). Negative draws are clamped to 0 by Eval (telemetry
 // magnitudes are non-negative).
 type Normal struct {
-	Mean   float64 `yaml:"mean"`
+	// Mean is the distribution's mean.
+	Mean float64 `yaml:"mean"`
+	// Stddev is the standard deviation; at least 0.
 	Stddev float64 `yaml:"stddev"`
 }
 
 // BoolModel is a weighted boolean; PTrue in [0,1].
 type BoolModel struct {
+	// PTrue is the probability, in [0,1], that the value is true.
 	PTrue float64 `yaml:"p_true"`
 }
 
@@ -467,10 +532,17 @@ type BoolModel struct {
 // reads 0). Meant for durations and latencies, where an outage reads the
 // same whatever the traffic. It changes nothing unless set.
 type ShapeModel struct {
-	Base             float64  `yaml:"base"`
-	Mode             string   `yaml:"mode"`
-	IncidentValue    *float64 `yaml:"incident_value"`    // metric-only endpoint at intensity 1, before load scaling
-	IncidentAbsolute bool     `yaml:"incident_absolute"` // incident share of the value is not multiplied by load; needs incident_value
+	// Base is the value at full load with no incident.
+	Base float64 `yaml:"base"`
+	// Mode names the incident mode whose scoped intensity moves the value; required with
+	// incident_value. Omitted means the value follows load only.
+	Mode string `yaml:"mode"`
+	// IncidentValue (metric values only) is the value at incident intensity 1, before load
+	// scaling; the value interpolates from base to it as intensity rises. Needs mode.
+	IncidentValue *float64 `yaml:"incident_value"`
+	// IncidentAbsolute makes the incident share of the value independent of load, so an outage
+	// reads the same at night or on a weekend. Needs incident_value.
+	IncidentAbsolute bool `yaml:"incident_absolute"`
 	// Batch makes a counter's source deliver in batches: the per-tick arrivals accumulate and are
 	// released at the cadence (zero between releases), conserving the smooth curve's total. Counter
 	// metric values only, and not with incident_value or on a metric that declares stock_of or
@@ -798,7 +870,7 @@ func (v ValueModel) Validate() error {
 			return fmt.Errorf("now: stall_mode %q must be a nonblank incident mode name without surrounding whitespace", m)
 		}
 		if p, ph := v.Now.Period, v.Now.Phase; p < 0 || p > maxNowPeriod {
-			return fmt.Errorf("now: period %v must be in (0, %v]", p, maxNowPeriod)
+			return fmt.Errorf("now: period %v must be 0 (reads the tick time) or in (0, %v]", p, maxNowPeriod)
 		} else if ph < 0 || (p == 0 && ph != 0) || (p > 0 && ph >= p) {
 			return fmt.Errorf("now: phase %v must be in [0, period) and needs a period", ph)
 		}

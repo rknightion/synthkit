@@ -141,3 +141,46 @@ func TestCustomDecodeKeysPresent(t *testing.T) {
 		}
 	}
 }
+
+// TestTelemetrySpecFieldsDescribed pins that the custom-telemetry DSL (internal/telemetryspec) feeds
+// the generated schema: its field doc comments reach the committed index, so a DSL field such as
+// stock_of.residence is described rather than blank. Removing the package from the generator's
+// sources empties these descriptions and fails here.
+func TestTelemetrySpecFieldsDescribed(t *testing.T) {
+	root := moduleRoot(t)
+	docs, err := blueprintschema.ExtractDocs(root)
+	if err != nil {
+		t.Fatalf("extract docs: %v", err)
+	}
+	d := blueprintschema.Build(runner.Catalog(), docs)
+
+	described := map[string]string{}
+	var walk func(prefix string, fs []blueprintschema.Field)
+	walk = func(prefix string, fs []blueprintschema.Field) {
+		for _, f := range fs {
+			k := prefix + f.Key
+			if f.Repeated {
+				k += "[]"
+			}
+			if f.Doc != "" {
+				described[k] = f.Doc
+			}
+			walk(k+".", f.Fields)
+		}
+	}
+	for _, s := range d.Sections {
+		walk("", s.Fields)
+	}
+
+	for _, want := range []string{
+		"services[].metrics[].stock_of.residence",
+		"services[].metrics[].stock_of.dwell_seconds",
+		"services[].metrics[].value.now.period",
+		"services[].logs[].dwell_seconds",
+		"services[].logs[].when",
+	} {
+		if described[want] == "" {
+			t.Errorf("telemetry DSL field %q has no description in the generated schema", want)
+		}
+	}
+}

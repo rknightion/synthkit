@@ -1652,308 +1652,308 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].signals.logs` | bool | yes | This service's log streams; nil = enabled. |
 | `services[].signals.metrics` | bool | yes | This service's app metrics; nil = enabled. |
 | `services[].custom_metrics[]` | object |  | CustomMetrics are blueprint-owned metric names with mandatory config-only source citations. They reuse the inline metric interpreter, state and optional native OTLP lane. |
-| `services[].custom_metrics[].name` | string |  |  |
-| `services[].custom_metrics[].source` | string |  |  |
-| `services[].custom_metrics[].instrument` | string |  |  |
-| `services[].custom_metrics[].unit` | string |  |  |
-| `services[].custom_metrics[].scope` | string |  |  |
-| `services[].custom_metrics[].labels` | map[string]ValueModel |  |  |
-| `services[].custom_metrics[].value` | object |  |  |
-| `services[].custom_metrics[].value.const` | float | yes |  |
-| `services[].custom_metrics[].value.const_str` | string | yes |  |
-| `services[].custom_metrics[].value.enum[]` | object |  |  |
-| `services[].custom_metrics[].value.enum[].value` | string |  |  |
-| `services[].custom_metrics[].value.enum[].weight` | float |  |  |
-| `services[].custom_metrics[].value.enum[].rate_scale` | float | yes |  |
-| `services[].custom_metrics[].value.enum[].value_scale` | float | yes |  |
-| `services[].custom_metrics[].value.enum[].shape_profile` | object | yes |  |
-| `services[].custom_metrics[].value.enum[].shape_profile.timezone` | string |  |  |
-| `services[].custom_metrics[].value.enum[].shape_profile.floor` | float | yes |  |
-| `services[].custom_metrics[].value.enum[].shape_profile.ramp_up_start_hour` | float | yes |  |
-| `services[].custom_metrics[].value.enum[].shape_profile.plateau_start_hour` | float | yes |  |
-| `services[].custom_metrics[].value.enum[].shape_profile.plateau_end_hour` | float | yes |  |
-| `services[].custom_metrics[].value.enum[].shape_profile.ramp_down_end_hour` | float | yes |  |
-| `services[].custom_metrics[].value.enum[].shape_profile.weekend_factor` | float | yes |  |
-| `services[].custom_metrics[].value.enum[].stall_mode` | string |  |  |
-| `services[].custom_metrics[].value.int_range` | object | yes |  |
-| `services[].custom_metrics[].value.int_range.min` | int |  |  |
-| `services[].custom_metrics[].value.int_range.max` | int |  |  |
-| `services[].custom_metrics[].value.int_range.p_zero` | float |  |  |
-| `services[].custom_metrics[].value.float_range` | object | yes |  |
-| `services[].custom_metrics[].value.float_range.min` | float |  |  |
-| `services[].custom_metrics[].value.float_range.max` | float |  |  |
-| `services[].custom_metrics[].value.normal` | object | yes |  |
-| `services[].custom_metrics[].value.normal.mean` | float |  |  |
-| `services[].custom_metrics[].value.normal.stddev` | float |  |  |
-| `services[].custom_metrics[].value.bool` | object | yes |  |
-| `services[].custom_metrics[].value.bool.p_true` | float |  |  |
-| `services[].custom_metrics[].value.shape` | object | yes |  |
-| `services[].custom_metrics[].value.shape.base` | float |  |  |
-| `services[].custom_metrics[].value.shape.mode` | string |  |  |
-| `services[].custom_metrics[].value.shape.incident_value` | float | yes |  |
-| `services[].custom_metrics[].value.shape.incident_absolute` | bool |  |  |
-| `services[].custom_metrics[].value.shape.batch` | object | yes |  |
-| `services[].custom_metrics[].value.shape.batch.period` | duration |  |  |
-| `services[].custom_metrics[].value.shape.batch.phase` | duration |  |  |
-| `services[].custom_metrics[].value.ref` | string |  |  |
-| `services[].custom_metrics[].value.lognormal` | object | yes |  |
-| `services[].custom_metrics[].value.lognormal.median` | float |  |  |
-| `services[].custom_metrics[].value.lognormal.p95` | float |  |  |
-| `services[].custom_metrics[].value.now` | object | yes |  |
-| `services[].custom_metrics[].value.now.stall_mode` | string |  |  |
-| `services[].custom_metrics[].value.now.arrivals_only` | bool |  |  |
-| `services[].custom_metrics[].value.now.period` | duration |  |  |
-| `services[].custom_metrics[].value.now.phase` | duration |  |  |
-| `services[].custom_metrics[].value.resource` | object | yes |  |
-| `services[].custom_metrics[].value.resource.name` | string |  |  |
-| `services[].custom_metrics[].value.resource.field` | string |  |  |
-| `services[].custom_metrics[].value.outcomes` | object | yes |  |
-| `services[].custom_metrics[].value.outcomes.status[]` | string |  |  |
-| `services[].custom_metrics[].value.outcomes.status_label` | string |  |  |
-| `services[].custom_metrics[].value.outcomes.measure` | string |  |  |
-| `services[].custom_metrics[].value.request_draw` | object | yes |  |
-| `services[].custom_metrics[].value.request_draw.key` | string |  |  |
-| `services[].custom_metrics[].value.request_draw.format` | string |  |  |
-| `services[].custom_metrics[].value.request_draw.enum[]` | object |  |  |
-| `services[].custom_metrics[].value.request_draw.enum[].value` | string |  |  |
-| `services[].custom_metrics[].value.request_draw.enum[].weight` | float |  |  |
-| `services[].custom_metrics[].value.request_draw.enum[].rate_scale` | float | yes |  |
-| `services[].custom_metrics[].value.request_draw.enum[].value_scale` | float | yes |  |
-| `services[].custom_metrics[].value.request_draw.enum[].shape_profile` | object | yes |  |
-| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.timezone` | string |  |  |
-| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.floor` | float | yes |  |
-| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.ramp_up_start_hour` | float | yes |  |
-| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.plateau_start_hour` | float | yes |  |
-| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.plateau_end_hour` | float | yes |  |
-| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.ramp_down_end_hour` | float | yes |  |
-| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.weekend_factor` | float | yes |  |
-| `services[].custom_metrics[].value.request_draw.enum[].stall_mode` | string |  |  |
-| `services[].custom_metrics[].value.source_read` | object | yes |  |
-| `services[].custom_metrics[].value.source_read.measure` | string |  |  |
-| `services[].custom_metrics[].value.source_read.per_tick` | float |  |  |
-| `services[].custom_metrics[].value.source_read.stall_mode` | string |  |  |
-| `services[].custom_metrics[].buckets[]` | float |  |  |
-| `services[].custom_metrics[].le_style` | string |  |  |
-| `services[].custom_metrics[].stock_of` | object | yes |  |
-| `services[].custom_metrics[].stock_of.metric` | string |  |  |
-| `services[].custom_metrics[].stock_of.dwell_seconds` | float |  |  |
-| `services[].custom_metrics[].stock_of.residence` | object | yes |  |
-| `services[].custom_metrics[].stock_of.residence.median` | float |  |  |
-| `services[].custom_metrics[].stock_of.residence.p95` | float |  |  |
-| `services[].custom_metrics[].stock_of.stall_mode` | string |  |  |
-| `services[].custom_metrics[].stock_of.field` | string |  |  |
-| `services[].custom_metrics[].count_of` | string |  |  |
-| `services[].custom_metrics[].count_of_service` | string |  |  |
-| `services[].custom_metrics[].shape_profile` | object | yes |  |
-| `services[].custom_metrics[].shape_profile.timezone` | string |  |  |
-| `services[].custom_metrics[].shape_profile.floor` | float | yes |  |
-| `services[].custom_metrics[].shape_profile.ramp_up_start_hour` | float | yes |  |
-| `services[].custom_metrics[].shape_profile.plateau_start_hour` | float | yes |  |
-| `services[].custom_metrics[].shape_profile.plateau_end_hour` | float | yes |  |
-| `services[].custom_metrics[].shape_profile.ramp_down_end_hour` | float | yes |  |
-| `services[].custom_metrics[].shape_profile.weekend_factor` | float | yes |  |
+| `services[].custom_metrics[].name` | string |  | Name is the metric family name, emitted as declared. |
+| `services[].custom_metrics[].source` | string |  | Source cites where the metric's name and behaviour come from (documentation or an observed capture). It is required on a blueprint-owned custom metric and is never emitted. |
+| `services[].custom_metrics[].instrument` | string |  | Instrument is the metric kind: gauge, counter or histogram. |
+| `services[].custom_metrics[].unit` | string |  | Unit is the unit string carried on a native OTLP metric; it does not rename the series. |
+| `services[].custom_metrics[].scope` | string |  | Scope selects whether the series carries the blueprint selector (blueprint) or is a shared substrate series with none (substrate). Omitted uses the owning node's default. |
+| `services[].custom_metrics[].labels` | map[string]ValueModel |  | Labels are the series dimensions, one value model per label name. Only constant and enum values are allowed, and a label's enum expands to every value on every tick. |
+| `services[].custom_metrics[].value` | object |  | Value is the value model: the reading of a gauge, the per-tick increment of a counter or one observation of a histogram. Omit it only on a stock_of gauge. |
+| `services[].custom_metrics[].value.const` | float | yes | Const is a fixed numeric value. |
+| `services[].custom_metrics[].value.const_str` | string | yes | ConstStr is a fixed string value. |
+| `services[].custom_metrics[].value.enum[]` | object |  | Enum is a weighted categorical value drawn from a fixed set of strings. On a metric label it expands to every value on every tick. |
+| `services[].custom_metrics[].value.enum[].value` | string |  | Value is the categorical value, emitted as a string. |
+| `services[].custom_metrics[].value.enum[].weight` | float |  | Weight is the value's share of per-request draws (log body field, span attribute or stream label). It never divides traffic among metric series. |
+| `services[].custom_metrics[].value.enum[].rate_scale` | float | yes | RateScale (metric labels only) multiplies a counter's per-tick increment or a histogram's observations per tick for series carrying this value. Rejected on a gauge. Omitted means 1. |
+| `services[].custom_metrics[].value.enum[].value_scale` | float | yes | ValueScale (metric labels only) multiplies each observed histogram value or gauge reading for series carrying this value. Rejected on a counter. Omitted means 1. |
+| `services[].custom_metrics[].value.enum[].shape_profile` | object | yes | ShapeProfile gives this value's series its own business clock and curve, laid field by field over the metric's and the node's profile (METRIC labels only; the metric's value must be a `shape`). The label value is unchanged, so the series set is identical. Omitted means the series follows the inherited profile. |
+| `services[].custom_metrics[].value.enum[].shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty keeps the inherited zone. |
+| `services[].custom_metrics[].value.enum[].shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `services[].custom_metrics[].value.enum[].shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `services[].custom_metrics[].value.enum[].shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `services[].custom_metrics[].value.enum[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `services[].custom_metrics[].value.enum[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `services[].custom_metrics[].value.enum[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the default of the reading consumer. |
+| `services[].custom_metrics[].value.enum[].stall_mode` | string |  | StallMode gives this value's series its own stall incident mode in place of the metric's (METRIC labels only; the metric's value must be a `now` or `source_read`). At most one label of a metric may declare it. Omitted means the series follows the metric's stall_mode. |
+| `services[].custom_metrics[].value.int_range` | object | yes | IntRange is a bounded integer draw, with an optional probability of forcing 0. |
+| `services[].custom_metrics[].value.int_range.min` | int |  | Min is the smallest value drawn. |
+| `services[].custom_metrics[].value.int_range.max` | int |  | Max is the largest value drawn; at least Min. |
+| `services[].custom_metrics[].value.int_range.p_zero` | float |  | PZero is the probability, in [0,1], that the draw is forced to 0. |
+| `services[].custom_metrics[].value.float_range` | object | yes | FloatRange is a bounded uniform float draw. |
+| `services[].custom_metrics[].value.float_range.min` | float |  | Min is the lower bound of the uniform draw. |
+| `services[].custom_metrics[].value.float_range.max` | float |  | Max is the upper bound; at least Min. |
+| `services[].custom_metrics[].value.normal` | object | yes | Normal is a gaussian draw; negative draws are clamped to 0. |
+| `services[].custom_metrics[].value.normal.mean` | float |  | Mean is the distribution's mean. |
+| `services[].custom_metrics[].value.normal.stddev` | float |  | Stddev is the standard deviation; at least 0. |
+| `services[].custom_metrics[].value.bool` | object | yes | Bool is a boolean that is true with the given probability. |
+| `services[].custom_metrics[].value.bool.p_true` | float |  | PTrue is the probability, in [0,1], that the value is true. |
+| `services[].custom_metrics[].value.shape` | object | yes | Shape is a base value scaled by the load curve and, when a mode is named, by an incident. |
+| `services[].custom_metrics[].value.shape.base` | float |  | Base is the value at full load with no incident. |
+| `services[].custom_metrics[].value.shape.mode` | string |  | Mode names the incident mode whose scoped intensity moves the value; required with incident_value. Omitted means the value follows load only. |
+| `services[].custom_metrics[].value.shape.incident_value` | float | yes | IncidentValue (metric values only) is the value at incident intensity 1, before load scaling; the value interpolates from base to it as intensity rises. Needs mode. |
+| `services[].custom_metrics[].value.shape.incident_absolute` | bool |  | IncidentAbsolute makes the incident share of the value independent of load, so an outage reads the same at night or on a weekend. Needs incident_value. |
+| `services[].custom_metrics[].value.shape.batch` | object | yes | Batch makes a counter's source deliver in batches: the per-tick arrivals accumulate and are released at the cadence (zero between releases), conserving the smooth curve's total. Counter metric values only, and not with incident_value or on a metric that declares stock_of or count_of (those follow the batched counter instead); the workload resolves the release against the series' own clock. Period is in (0, 24h] and Phase in [0, Period). |
+| `services[].custom_metrics[].value.shape.batch.period` | duration |  | Period is the release cadence (for example 15m or 30m). Required, in (0, 24h]. |
+| `services[].custom_metrics[].value.shape.batch.phase` | duration |  | Phase offsets the release boundaries from the epoch-aligned Period grid, in [0, Period). Default 0: releases land on the wall-clock multiples of Period. |
+| `services[].custom_metrics[].value.ref` | string |  | Ref pulls a request correlation field by name (for example a trace ID, route or status). A high-cardinality ref is rejected on a metric or stream label. |
+| `services[].custom_metrics[].value.lognormal` | object | yes | Lognormal is a right-skewed positive draw given its median and 95th percentile, as latency and dwell times are. |
+| `services[].custom_metrics[].value.lognormal.median` | float |  | Median is the distribution's median; must be above 0. |
+| `services[].custom_metrics[].value.lognormal.p95` | float |  | P95 is the 95th percentile; at least Median (equal degenerates to a constant). |
+| `services[].custom_metrics[].value.now` | object | yes | Now reads the tick time in Unix seconds, for a last-success or heartbeat timestamp (gauge metric value only). |
+| `services[].custom_metrics[].value.now.stall_mode` | string |  | StallMode names the incident mode that stalls the producer: while it is active for the service, the gauge holds its last reading and resumes at the tick time when it ends. Omitted means the gauge always advances. An enum label value may override it for its own series. |
+| `services[].custom_metrics[].value.now.arrivals_only` | bool |  | ArrivalsOnly makes the gauge a source-event time: it advances only on a tick where the source had arrivals and holds its last reading otherwise, so a quiet source reads old. |
+| `services[].custom_metrics[].value.now.period` | duration |  | Period makes the gauge the last success of a job on a schedule: the reading is the most recent epoch-aligned multiple of Period (shifted by Phase) at or before the tick time. At most 24h; omitted or 0 reads the tick time. |
+| `services[].custom_metrics[].value.now.phase` | duration |  | Phase shifts the schedule boundaries from the epoch-aligned grid, in [0, Period), and needs a Period. Default 0. |
+| `services[].custom_metrics[].value.resource` | object | yes | Resource reads a field of a declared resource's model state (metric value only). |
+| `services[].custom_metrics[].value.resource.name` | string |  | Name is the declared resource whose model state is read. |
+| `services[].custom_metrics[].value.resource.field` | string |  | Field is the state field read: a gauge field (demand_rps, capacity, utilization, in_use, waiting, wait_seconds, backlog, oldest_age_seconds, latency_factor, hold_seconds, served_rps, failed_share) on a gauge metric, or a counter field (rejected, admitted, failed) on a counter metric. |
+| `services[].custom_metrics[].value.outcomes` | object | yes | Outcomes reads the service node's hop outcomes in the metric window (metric value only). |
+| `services[].custom_metrics[].value.outcomes.status[]` | string |  | Status lists the hop statuses that match: success, 4xx, 5xx or an exact three-digit HTTP status such as 503. Set exactly one of status and status_label. |
+| `services[].custom_metrics[].value.outcomes.status_label` | string |  | StatusLabel names an enum label of the same metric whose value selects the matching status per series. Set exactly one of status and status_label. |
+| `services[].custom_metrics[].value.outcomes.measure` | string |  | Measure is count (a counter metric, the default), share (a gauge metric) or latency (a histogram metric: each matching hop duration, in seconds, is one observation). |
+| `services[].custom_metrics[].value.request_draw` | object | yes | RequestDraw draws a formatted ID or an enum value once per request and repeats it on every log line of that request that names the same key (log body field only). |
+| `services[].custom_metrics[].value.request_draw.key` | string |  | Key names the draw: every log line of one request that declares the same key repeats the same drawn value. Required. |
+| `services[].custom_metrics[].value.request_draw.format` | string |  | Format draws a generated ID from literal text with runs written {digits:N}, {hex:N} or {upper:N}, for example ORD-{digits:10}. Set exactly one of format and enum. |
+| `services[].custom_metrics[].value.request_draw.enum[]` | object |  | Enum draws one of a weighted set of values; weights select the share of requests. Set exactly one of format and enum. |
+| `services[].custom_metrics[].value.request_draw.enum[].value` | string |  | Value is the categorical value, emitted as a string. |
+| `services[].custom_metrics[].value.request_draw.enum[].weight` | float |  | Weight is the value's share of per-request draws (log body field, span attribute or stream label). It never divides traffic among metric series. |
+| `services[].custom_metrics[].value.request_draw.enum[].rate_scale` | float | yes | RateScale (metric labels only) multiplies a counter's per-tick increment or a histogram's observations per tick for series carrying this value. Rejected on a gauge. Omitted means 1. |
+| `services[].custom_metrics[].value.request_draw.enum[].value_scale` | float | yes | ValueScale (metric labels only) multiplies each observed histogram value or gauge reading for series carrying this value. Rejected on a counter. Omitted means 1. |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile` | object | yes | ShapeProfile gives this value's series its own business clock and curve, laid field by field over the metric's and the node's profile (METRIC labels only; the metric's value must be a `shape`). The label value is unchanged, so the series set is identical. Omitted means the series follows the inherited profile. |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty keeps the inherited zone. |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the default of the reading consumer. |
+| `services[].custom_metrics[].value.request_draw.enum[].stall_mode` | string |  | StallMode gives this value's series its own stall incident mode in place of the metric's (METRIC labels only; the metric's value must be a `now` or `source_read`). At most one label of a metric may declare it. Omitted means the series follows the metric's stall_mode. |
+| `services[].custom_metrics[].value.source_read` | object | yes | SourceRead is a collector's own read work, a counter increment that advances with reads and stops (or turns to failures) while its stall_mode incident is active (counter metric value only). |
+| `services[].custom_metrics[].value.source_read.measure` | string |  | Measure selects the counter: records_inspected or checkpoint (advance while the collector is not stalled) or read_failures (advances only while it is stalled). |
+| `services[].custom_metrics[].value.source_read.per_tick` | float |  | PerTick is the increment per metric tick, not per second; records_inspected and checkpoint scale it by the node's load factor. Must be finite and above 0. |
+| `services[].custom_metrics[].value.source_read.stall_mode` | string |  | StallMode names the incident mode that stalls the collector, resolved per service. Required for read_failures unless an enum label value declares its own. |
+| `services[].custom_metrics[].buckets[]` | float |  | Buckets are the histogram's upper bounds in increasing order (histogram only). |
+| `services[].custom_metrics[].le_style` | string |  | LEStyle renders the histogram's le bucket-bound label: bare (default) or dotzero, which writes a whole bound with a trailing .0 as the OTLP to Prometheus translation does. |
+| `services[].custom_metrics[].stock_of` | object | yes | StockOf makes a gauge a derived stock (a level such as items in progress or a queue depth) of a counter on the same service node, instead of reading its own value model. Gauge only; value must be omitted. Without labels the gauge inherits the counter's label combinations (across every same-named counter spec on the node); with labels it is a projection: each label must be a counter label, each value one the counter takes, and a gauge series stocks the arrivals of every counter series that matches it. Labels may not declare value_scale. |
+| `services[].custom_metrics[].stock_of.metric` | string |  | Metric is the name of the counter, declared on the same service node, whose arrivals the stock holds. |
+| `services[].custom_metrics[].stock_of.dwell_seconds` | float |  | DwellSeconds selects the fluid stock: the mean seconds an item stays, so the level settles at the counter rate times this value. Must be finite and above 0; set exactly one of dwell_seconds and residence. |
+| `services[].custom_metrics[].stock_of.residence` | object | yes | Residence selects the item stock: each arriving item stays for its own residence draw (median and 95th percentile, in seconds), so the gauge is a whole-number count. |
+| `services[].custom_metrics[].stock_of.residence.median` | float |  | Median is the distribution's median; must be above 0. |
+| `services[].custom_metrics[].stock_of.residence.p95` | float |  | P95 is the 95th percentile; at least Median (equal degenerates to a constant). |
+| `services[].custom_metrics[].stock_of.stall_mode` | string |  | StallMode (item stock only) names the incident mode that slows completions: at intensity i every item's residence advances at (1 - i) of real time, so intensity 1 stops completions. |
+| `services[].custom_metrics[].stock_of.field` | string |  | Field (item stock only) selects the reading: count (default) or oldest_age_seconds, the seconds since the oldest item still in the stock arrived (0 when empty). |
+| `services[].custom_metrics[].count_of` | string |  | CountOf makes a histogram observe, per label combination and tick, as many values as the named counter on the same service node incremented (fractions carry deterministically), so the histogram's _count tracks the counter. Histogram only; its labels must be a subset of the counter's, each value one the counter takes, and a series observes the summed increments of the counter series that match it (the whole counter when it has no labels). Its labels may not declare rate_scale (the counter owns the rate). A histogram label may select a subset of a counter label's values, so a blueprint that declares one counter spec per series can pair each histogram spec with its own counter series (every combination must match at least one counter series). |
+| `services[].custom_metrics[].count_of_service` | string |  | CountOfService names the service node whose counter count_of reads, for a counter declared on another node of the same app workload (for example a counter a scenario targets by its own service). Omitted reads the histogram's own node. The named service must be declared before the histogram's service in the workload, so its increments are recorded the same tick; there is no reference across workloads. Valid only with count_of. |
+| `services[].custom_metrics[].shape_profile` | object | yes | ShapeProfile gives every series of this metric its own business clock and curve, laid over the node's inherited profile field by field (an enum value's shape_profile lays over this in turn). It moves only a `shape` value, so any other value model rejects it; stock_of and count_of read the counter's series and take none of their own. Omitted keeps the node's load profile and the output unchanged. |
+| `services[].custom_metrics[].shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty keeps the inherited zone. |
+| `services[].custom_metrics[].shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `services[].custom_metrics[].shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `services[].custom_metrics[].shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `services[].custom_metrics[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `services[].custom_metrics[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `services[].custom_metrics[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the default of the reading consumer. |
 | `services[].metrics[]` | object |  | legacy inline metrics (the DSL escape hatch) |
-| `services[].metrics[].name` | string |  |  |
-| `services[].metrics[].source` | string |  |  |
-| `services[].metrics[].instrument` | string |  |  |
-| `services[].metrics[].unit` | string |  |  |
-| `services[].metrics[].scope` | string |  |  |
-| `services[].metrics[].labels` | map[string]ValueModel |  |  |
-| `services[].metrics[].value` | object |  |  |
-| `services[].metrics[].value.const` | float | yes |  |
-| `services[].metrics[].value.const_str` | string | yes |  |
-| `services[].metrics[].value.enum[]` | object |  |  |
-| `services[].metrics[].value.enum[].value` | string |  |  |
-| `services[].metrics[].value.enum[].weight` | float |  |  |
-| `services[].metrics[].value.enum[].rate_scale` | float | yes |  |
-| `services[].metrics[].value.enum[].value_scale` | float | yes |  |
-| `services[].metrics[].value.enum[].shape_profile` | object | yes |  |
-| `services[].metrics[].value.enum[].shape_profile.timezone` | string |  |  |
-| `services[].metrics[].value.enum[].shape_profile.floor` | float | yes |  |
-| `services[].metrics[].value.enum[].shape_profile.ramp_up_start_hour` | float | yes |  |
-| `services[].metrics[].value.enum[].shape_profile.plateau_start_hour` | float | yes |  |
-| `services[].metrics[].value.enum[].shape_profile.plateau_end_hour` | float | yes |  |
-| `services[].metrics[].value.enum[].shape_profile.ramp_down_end_hour` | float | yes |  |
-| `services[].metrics[].value.enum[].shape_profile.weekend_factor` | float | yes |  |
-| `services[].metrics[].value.enum[].stall_mode` | string |  |  |
-| `services[].metrics[].value.int_range` | object | yes |  |
-| `services[].metrics[].value.int_range.min` | int |  |  |
-| `services[].metrics[].value.int_range.max` | int |  |  |
-| `services[].metrics[].value.int_range.p_zero` | float |  |  |
-| `services[].metrics[].value.float_range` | object | yes |  |
-| `services[].metrics[].value.float_range.min` | float |  |  |
-| `services[].metrics[].value.float_range.max` | float |  |  |
-| `services[].metrics[].value.normal` | object | yes |  |
-| `services[].metrics[].value.normal.mean` | float |  |  |
-| `services[].metrics[].value.normal.stddev` | float |  |  |
-| `services[].metrics[].value.bool` | object | yes |  |
-| `services[].metrics[].value.bool.p_true` | float |  |  |
-| `services[].metrics[].value.shape` | object | yes |  |
-| `services[].metrics[].value.shape.base` | float |  |  |
-| `services[].metrics[].value.shape.mode` | string |  |  |
-| `services[].metrics[].value.shape.incident_value` | float | yes |  |
-| `services[].metrics[].value.shape.incident_absolute` | bool |  |  |
-| `services[].metrics[].value.shape.batch` | object | yes |  |
-| `services[].metrics[].value.shape.batch.period` | duration |  |  |
-| `services[].metrics[].value.shape.batch.phase` | duration |  |  |
-| `services[].metrics[].value.ref` | string |  |  |
-| `services[].metrics[].value.lognormal` | object | yes |  |
-| `services[].metrics[].value.lognormal.median` | float |  |  |
-| `services[].metrics[].value.lognormal.p95` | float |  |  |
-| `services[].metrics[].value.now` | object | yes |  |
-| `services[].metrics[].value.now.stall_mode` | string |  |  |
-| `services[].metrics[].value.now.arrivals_only` | bool |  |  |
-| `services[].metrics[].value.now.period` | duration |  |  |
-| `services[].metrics[].value.now.phase` | duration |  |  |
-| `services[].metrics[].value.resource` | object | yes |  |
-| `services[].metrics[].value.resource.name` | string |  |  |
-| `services[].metrics[].value.resource.field` | string |  |  |
-| `services[].metrics[].value.outcomes` | object | yes |  |
-| `services[].metrics[].value.outcomes.status[]` | string |  |  |
-| `services[].metrics[].value.outcomes.status_label` | string |  |  |
-| `services[].metrics[].value.outcomes.measure` | string |  |  |
-| `services[].metrics[].value.request_draw` | object | yes |  |
-| `services[].metrics[].value.request_draw.key` | string |  |  |
-| `services[].metrics[].value.request_draw.format` | string |  |  |
-| `services[].metrics[].value.request_draw.enum[]` | object |  |  |
-| `services[].metrics[].value.request_draw.enum[].value` | string |  |  |
-| `services[].metrics[].value.request_draw.enum[].weight` | float |  |  |
-| `services[].metrics[].value.request_draw.enum[].rate_scale` | float | yes |  |
-| `services[].metrics[].value.request_draw.enum[].value_scale` | float | yes |  |
-| `services[].metrics[].value.request_draw.enum[].shape_profile` | object | yes |  |
-| `services[].metrics[].value.request_draw.enum[].shape_profile.timezone` | string |  |  |
-| `services[].metrics[].value.request_draw.enum[].shape_profile.floor` | float | yes |  |
-| `services[].metrics[].value.request_draw.enum[].shape_profile.ramp_up_start_hour` | float | yes |  |
-| `services[].metrics[].value.request_draw.enum[].shape_profile.plateau_start_hour` | float | yes |  |
-| `services[].metrics[].value.request_draw.enum[].shape_profile.plateau_end_hour` | float | yes |  |
-| `services[].metrics[].value.request_draw.enum[].shape_profile.ramp_down_end_hour` | float | yes |  |
-| `services[].metrics[].value.request_draw.enum[].shape_profile.weekend_factor` | float | yes |  |
-| `services[].metrics[].value.request_draw.enum[].stall_mode` | string |  |  |
-| `services[].metrics[].value.source_read` | object | yes |  |
-| `services[].metrics[].value.source_read.measure` | string |  |  |
-| `services[].metrics[].value.source_read.per_tick` | float |  |  |
-| `services[].metrics[].value.source_read.stall_mode` | string |  |  |
-| `services[].metrics[].buckets[]` | float |  |  |
-| `services[].metrics[].le_style` | string |  |  |
-| `services[].metrics[].stock_of` | object | yes |  |
-| `services[].metrics[].stock_of.metric` | string |  |  |
-| `services[].metrics[].stock_of.dwell_seconds` | float |  |  |
-| `services[].metrics[].stock_of.residence` | object | yes |  |
-| `services[].metrics[].stock_of.residence.median` | float |  |  |
-| `services[].metrics[].stock_of.residence.p95` | float |  |  |
-| `services[].metrics[].stock_of.stall_mode` | string |  |  |
-| `services[].metrics[].stock_of.field` | string |  |  |
-| `services[].metrics[].count_of` | string |  |  |
-| `services[].metrics[].count_of_service` | string |  |  |
-| `services[].metrics[].shape_profile` | object | yes |  |
-| `services[].metrics[].shape_profile.timezone` | string |  |  |
-| `services[].metrics[].shape_profile.floor` | float | yes |  |
-| `services[].metrics[].shape_profile.ramp_up_start_hour` | float | yes |  |
-| `services[].metrics[].shape_profile.plateau_start_hour` | float | yes |  |
-| `services[].metrics[].shape_profile.plateau_end_hour` | float | yes |  |
-| `services[].metrics[].shape_profile.ramp_down_end_hour` | float | yes |  |
-| `services[].metrics[].shape_profile.weekend_factor` | float | yes |  |
+| `services[].metrics[].name` | string |  | Name is the metric family name, emitted as declared. |
+| `services[].metrics[].source` | string |  | Source cites where the metric's name and behaviour come from (documentation or an observed capture). It is required on a blueprint-owned custom metric and is never emitted. |
+| `services[].metrics[].instrument` | string |  | Instrument is the metric kind: gauge, counter or histogram. |
+| `services[].metrics[].unit` | string |  | Unit is the unit string carried on a native OTLP metric; it does not rename the series. |
+| `services[].metrics[].scope` | string |  | Scope selects whether the series carries the blueprint selector (blueprint) or is a shared substrate series with none (substrate). Omitted uses the owning node's default. |
+| `services[].metrics[].labels` | map[string]ValueModel |  | Labels are the series dimensions, one value model per label name. Only constant and enum values are allowed, and a label's enum expands to every value on every tick. |
+| `services[].metrics[].value` | object |  | Value is the value model: the reading of a gauge, the per-tick increment of a counter or one observation of a histogram. Omit it only on a stock_of gauge. |
+| `services[].metrics[].value.const` | float | yes | Const is a fixed numeric value. |
+| `services[].metrics[].value.const_str` | string | yes | ConstStr is a fixed string value. |
+| `services[].metrics[].value.enum[]` | object |  | Enum is a weighted categorical value drawn from a fixed set of strings. On a metric label it expands to every value on every tick. |
+| `services[].metrics[].value.enum[].value` | string |  | Value is the categorical value, emitted as a string. |
+| `services[].metrics[].value.enum[].weight` | float |  | Weight is the value's share of per-request draws (log body field, span attribute or stream label). It never divides traffic among metric series. |
+| `services[].metrics[].value.enum[].rate_scale` | float | yes | RateScale (metric labels only) multiplies a counter's per-tick increment or a histogram's observations per tick for series carrying this value. Rejected on a gauge. Omitted means 1. |
+| `services[].metrics[].value.enum[].value_scale` | float | yes | ValueScale (metric labels only) multiplies each observed histogram value or gauge reading for series carrying this value. Rejected on a counter. Omitted means 1. |
+| `services[].metrics[].value.enum[].shape_profile` | object | yes | ShapeProfile gives this value's series its own business clock and curve, laid field by field over the metric's and the node's profile (METRIC labels only; the metric's value must be a `shape`). The label value is unchanged, so the series set is identical. Omitted means the series follows the inherited profile. |
+| `services[].metrics[].value.enum[].shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty keeps the inherited zone. |
+| `services[].metrics[].value.enum[].shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `services[].metrics[].value.enum[].shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `services[].metrics[].value.enum[].shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `services[].metrics[].value.enum[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `services[].metrics[].value.enum[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `services[].metrics[].value.enum[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the default of the reading consumer. |
+| `services[].metrics[].value.enum[].stall_mode` | string |  | StallMode gives this value's series its own stall incident mode in place of the metric's (METRIC labels only; the metric's value must be a `now` or `source_read`). At most one label of a metric may declare it. Omitted means the series follows the metric's stall_mode. |
+| `services[].metrics[].value.int_range` | object | yes | IntRange is a bounded integer draw, with an optional probability of forcing 0. |
+| `services[].metrics[].value.int_range.min` | int |  | Min is the smallest value drawn. |
+| `services[].metrics[].value.int_range.max` | int |  | Max is the largest value drawn; at least Min. |
+| `services[].metrics[].value.int_range.p_zero` | float |  | PZero is the probability, in [0,1], that the draw is forced to 0. |
+| `services[].metrics[].value.float_range` | object | yes | FloatRange is a bounded uniform float draw. |
+| `services[].metrics[].value.float_range.min` | float |  | Min is the lower bound of the uniform draw. |
+| `services[].metrics[].value.float_range.max` | float |  | Max is the upper bound; at least Min. |
+| `services[].metrics[].value.normal` | object | yes | Normal is a gaussian draw; negative draws are clamped to 0. |
+| `services[].metrics[].value.normal.mean` | float |  | Mean is the distribution's mean. |
+| `services[].metrics[].value.normal.stddev` | float |  | Stddev is the standard deviation; at least 0. |
+| `services[].metrics[].value.bool` | object | yes | Bool is a boolean that is true with the given probability. |
+| `services[].metrics[].value.bool.p_true` | float |  | PTrue is the probability, in [0,1], that the value is true. |
+| `services[].metrics[].value.shape` | object | yes | Shape is a base value scaled by the load curve and, when a mode is named, by an incident. |
+| `services[].metrics[].value.shape.base` | float |  | Base is the value at full load with no incident. |
+| `services[].metrics[].value.shape.mode` | string |  | Mode names the incident mode whose scoped intensity moves the value; required with incident_value. Omitted means the value follows load only. |
+| `services[].metrics[].value.shape.incident_value` | float | yes | IncidentValue (metric values only) is the value at incident intensity 1, before load scaling; the value interpolates from base to it as intensity rises. Needs mode. |
+| `services[].metrics[].value.shape.incident_absolute` | bool |  | IncidentAbsolute makes the incident share of the value independent of load, so an outage reads the same at night or on a weekend. Needs incident_value. |
+| `services[].metrics[].value.shape.batch` | object | yes | Batch makes a counter's source deliver in batches: the per-tick arrivals accumulate and are released at the cadence (zero between releases), conserving the smooth curve's total. Counter metric values only, and not with incident_value or on a metric that declares stock_of or count_of (those follow the batched counter instead); the workload resolves the release against the series' own clock. Period is in (0, 24h] and Phase in [0, Period). |
+| `services[].metrics[].value.shape.batch.period` | duration |  | Period is the release cadence (for example 15m or 30m). Required, in (0, 24h]. |
+| `services[].metrics[].value.shape.batch.phase` | duration |  | Phase offsets the release boundaries from the epoch-aligned Period grid, in [0, Period). Default 0: releases land on the wall-clock multiples of Period. |
+| `services[].metrics[].value.ref` | string |  | Ref pulls a request correlation field by name (for example a trace ID, route or status). A high-cardinality ref is rejected on a metric or stream label. |
+| `services[].metrics[].value.lognormal` | object | yes | Lognormal is a right-skewed positive draw given its median and 95th percentile, as latency and dwell times are. |
+| `services[].metrics[].value.lognormal.median` | float |  | Median is the distribution's median; must be above 0. |
+| `services[].metrics[].value.lognormal.p95` | float |  | P95 is the 95th percentile; at least Median (equal degenerates to a constant). |
+| `services[].metrics[].value.now` | object | yes | Now reads the tick time in Unix seconds, for a last-success or heartbeat timestamp (gauge metric value only). |
+| `services[].metrics[].value.now.stall_mode` | string |  | StallMode names the incident mode that stalls the producer: while it is active for the service, the gauge holds its last reading and resumes at the tick time when it ends. Omitted means the gauge always advances. An enum label value may override it for its own series. |
+| `services[].metrics[].value.now.arrivals_only` | bool |  | ArrivalsOnly makes the gauge a source-event time: it advances only on a tick where the source had arrivals and holds its last reading otherwise, so a quiet source reads old. |
+| `services[].metrics[].value.now.period` | duration |  | Period makes the gauge the last success of a job on a schedule: the reading is the most recent epoch-aligned multiple of Period (shifted by Phase) at or before the tick time. At most 24h; omitted or 0 reads the tick time. |
+| `services[].metrics[].value.now.phase` | duration |  | Phase shifts the schedule boundaries from the epoch-aligned grid, in [0, Period), and needs a Period. Default 0. |
+| `services[].metrics[].value.resource` | object | yes | Resource reads a field of a declared resource's model state (metric value only). |
+| `services[].metrics[].value.resource.name` | string |  | Name is the declared resource whose model state is read. |
+| `services[].metrics[].value.resource.field` | string |  | Field is the state field read: a gauge field (demand_rps, capacity, utilization, in_use, waiting, wait_seconds, backlog, oldest_age_seconds, latency_factor, hold_seconds, served_rps, failed_share) on a gauge metric, or a counter field (rejected, admitted, failed) on a counter metric. |
+| `services[].metrics[].value.outcomes` | object | yes | Outcomes reads the service node's hop outcomes in the metric window (metric value only). |
+| `services[].metrics[].value.outcomes.status[]` | string |  | Status lists the hop statuses that match: success, 4xx, 5xx or an exact three-digit HTTP status such as 503. Set exactly one of status and status_label. |
+| `services[].metrics[].value.outcomes.status_label` | string |  | StatusLabel names an enum label of the same metric whose value selects the matching status per series. Set exactly one of status and status_label. |
+| `services[].metrics[].value.outcomes.measure` | string |  | Measure is count (a counter metric, the default), share (a gauge metric) or latency (a histogram metric: each matching hop duration, in seconds, is one observation). |
+| `services[].metrics[].value.request_draw` | object | yes | RequestDraw draws a formatted ID or an enum value once per request and repeats it on every log line of that request that names the same key (log body field only). |
+| `services[].metrics[].value.request_draw.key` | string |  | Key names the draw: every log line of one request that declares the same key repeats the same drawn value. Required. |
+| `services[].metrics[].value.request_draw.format` | string |  | Format draws a generated ID from literal text with runs written {digits:N}, {hex:N} or {upper:N}, for example ORD-{digits:10}. Set exactly one of format and enum. |
+| `services[].metrics[].value.request_draw.enum[]` | object |  | Enum draws one of a weighted set of values; weights select the share of requests. Set exactly one of format and enum. |
+| `services[].metrics[].value.request_draw.enum[].value` | string |  | Value is the categorical value, emitted as a string. |
+| `services[].metrics[].value.request_draw.enum[].weight` | float |  | Weight is the value's share of per-request draws (log body field, span attribute or stream label). It never divides traffic among metric series. |
+| `services[].metrics[].value.request_draw.enum[].rate_scale` | float | yes | RateScale (metric labels only) multiplies a counter's per-tick increment or a histogram's observations per tick for series carrying this value. Rejected on a gauge. Omitted means 1. |
+| `services[].metrics[].value.request_draw.enum[].value_scale` | float | yes | ValueScale (metric labels only) multiplies each observed histogram value or gauge reading for series carrying this value. Rejected on a counter. Omitted means 1. |
+| `services[].metrics[].value.request_draw.enum[].shape_profile` | object | yes | ShapeProfile gives this value's series its own business clock and curve, laid field by field over the metric's and the node's profile (METRIC labels only; the metric's value must be a `shape`). The label value is unchanged, so the series set is identical. Omitted means the series follows the inherited profile. |
+| `services[].metrics[].value.request_draw.enum[].shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty keeps the inherited zone. |
+| `services[].metrics[].value.request_draw.enum[].shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `services[].metrics[].value.request_draw.enum[].shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `services[].metrics[].value.request_draw.enum[].shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `services[].metrics[].value.request_draw.enum[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `services[].metrics[].value.request_draw.enum[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `services[].metrics[].value.request_draw.enum[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the default of the reading consumer. |
+| `services[].metrics[].value.request_draw.enum[].stall_mode` | string |  | StallMode gives this value's series its own stall incident mode in place of the metric's (METRIC labels only; the metric's value must be a `now` or `source_read`). At most one label of a metric may declare it. Omitted means the series follows the metric's stall_mode. |
+| `services[].metrics[].value.source_read` | object | yes | SourceRead is a collector's own read work, a counter increment that advances with reads and stops (or turns to failures) while its stall_mode incident is active (counter metric value only). |
+| `services[].metrics[].value.source_read.measure` | string |  | Measure selects the counter: records_inspected or checkpoint (advance while the collector is not stalled) or read_failures (advances only while it is stalled). |
+| `services[].metrics[].value.source_read.per_tick` | float |  | PerTick is the increment per metric tick, not per second; records_inspected and checkpoint scale it by the node's load factor. Must be finite and above 0. |
+| `services[].metrics[].value.source_read.stall_mode` | string |  | StallMode names the incident mode that stalls the collector, resolved per service. Required for read_failures unless an enum label value declares its own. |
+| `services[].metrics[].buckets[]` | float |  | Buckets are the histogram's upper bounds in increasing order (histogram only). |
+| `services[].metrics[].le_style` | string |  | LEStyle renders the histogram's le bucket-bound label: bare (default) or dotzero, which writes a whole bound with a trailing .0 as the OTLP to Prometheus translation does. |
+| `services[].metrics[].stock_of` | object | yes | StockOf makes a gauge a derived stock (a level such as items in progress or a queue depth) of a counter on the same service node, instead of reading its own value model. Gauge only; value must be omitted. Without labels the gauge inherits the counter's label combinations (across every same-named counter spec on the node); with labels it is a projection: each label must be a counter label, each value one the counter takes, and a gauge series stocks the arrivals of every counter series that matches it. Labels may not declare value_scale. |
+| `services[].metrics[].stock_of.metric` | string |  | Metric is the name of the counter, declared on the same service node, whose arrivals the stock holds. |
+| `services[].metrics[].stock_of.dwell_seconds` | float |  | DwellSeconds selects the fluid stock: the mean seconds an item stays, so the level settles at the counter rate times this value. Must be finite and above 0; set exactly one of dwell_seconds and residence. |
+| `services[].metrics[].stock_of.residence` | object | yes | Residence selects the item stock: each arriving item stays for its own residence draw (median and 95th percentile, in seconds), so the gauge is a whole-number count. |
+| `services[].metrics[].stock_of.residence.median` | float |  | Median is the distribution's median; must be above 0. |
+| `services[].metrics[].stock_of.residence.p95` | float |  | P95 is the 95th percentile; at least Median (equal degenerates to a constant). |
+| `services[].metrics[].stock_of.stall_mode` | string |  | StallMode (item stock only) names the incident mode that slows completions: at intensity i every item's residence advances at (1 - i) of real time, so intensity 1 stops completions. |
+| `services[].metrics[].stock_of.field` | string |  | Field (item stock only) selects the reading: count (default) or oldest_age_seconds, the seconds since the oldest item still in the stock arrived (0 when empty). |
+| `services[].metrics[].count_of` | string |  | CountOf makes a histogram observe, per label combination and tick, as many values as the named counter on the same service node incremented (fractions carry deterministically), so the histogram's _count tracks the counter. Histogram only; its labels must be a subset of the counter's, each value one the counter takes, and a series observes the summed increments of the counter series that match it (the whole counter when it has no labels). Its labels may not declare rate_scale (the counter owns the rate). A histogram label may select a subset of a counter label's values, so a blueprint that declares one counter spec per series can pair each histogram spec with its own counter series (every combination must match at least one counter series). |
+| `services[].metrics[].count_of_service` | string |  | CountOfService names the service node whose counter count_of reads, for a counter declared on another node of the same app workload (for example a counter a scenario targets by its own service). Omitted reads the histogram's own node. The named service must be declared before the histogram's service in the workload, so its increments are recorded the same tick; there is no reference across workloads. Valid only with count_of. |
+| `services[].metrics[].shape_profile` | object | yes | ShapeProfile gives every series of this metric its own business clock and curve, laid over the node's inherited profile field by field (an enum value's shape_profile lays over this in turn). It moves only a `shape` value, so any other value model rejects it; stock_of and count_of read the counter's series and take none of their own. Omitted keeps the node's load profile and the output unchanged. |
+| `services[].metrics[].shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty keeps the inherited zone. |
+| `services[].metrics[].shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `services[].metrics[].shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `services[].metrics[].shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `services[].metrics[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `services[].metrics[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `services[].metrics[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the default of the reading consumer. |
 | `services[].logs[]` | object |  | inline custom log streams |
-| `services[].logs[].source` | string |  |  |
-| `services[].logs[].stream_labels` | map[string]ValueModel |  |  |
-| `services[].logs[].body` | map[string]ValueModel |  |  |
-| `services[].logs[].when` | object | yes |  |
-| `services[].logs[].when.request_draw` | object |  |  |
-| `services[].logs[].when.request_draw.key` | string |  |  |
-| `services[].logs[].when.request_draw.format` | string |  |  |
-| `services[].logs[].when.request_draw.enum[]` | object |  |  |
-| `services[].logs[].when.request_draw.enum[].value` | string |  |  |
-| `services[].logs[].when.request_draw.enum[].weight` | float |  |  |
-| `services[].logs[].when.request_draw.enum[].rate_scale` | float | yes |  |
-| `services[].logs[].when.request_draw.enum[].value_scale` | float | yes |  |
-| `services[].logs[].when.request_draw.enum[].shape_profile` | object | yes |  |
-| `services[].logs[].when.request_draw.enum[].shape_profile.timezone` | string |  |  |
-| `services[].logs[].when.request_draw.enum[].shape_profile.floor` | float | yes |  |
-| `services[].logs[].when.request_draw.enum[].shape_profile.ramp_up_start_hour` | float | yes |  |
-| `services[].logs[].when.request_draw.enum[].shape_profile.plateau_start_hour` | float | yes |  |
-| `services[].logs[].when.request_draw.enum[].shape_profile.plateau_end_hour` | float | yes |  |
-| `services[].logs[].when.request_draw.enum[].shape_profile.ramp_down_end_hour` | float | yes |  |
-| `services[].logs[].when.request_draw.enum[].shape_profile.weekend_factor` | float | yes |  |
-| `services[].logs[].when.request_draw.enum[].stall_mode` | string |  |  |
-| `services[].logs[].when.in[]` | string |  |  |
-| `services[].logs[].dwell_seconds` | object | yes |  |
-| `services[].logs[].dwell_seconds.const` | float | yes |  |
-| `services[].logs[].dwell_seconds.const_str` | string | yes |  |
-| `services[].logs[].dwell_seconds.enum[]` | object |  |  |
-| `services[].logs[].dwell_seconds.enum[].value` | string |  |  |
-| `services[].logs[].dwell_seconds.enum[].weight` | float |  |  |
-| `services[].logs[].dwell_seconds.enum[].rate_scale` | float | yes |  |
-| `services[].logs[].dwell_seconds.enum[].value_scale` | float | yes |  |
-| `services[].logs[].dwell_seconds.enum[].shape_profile` | object | yes |  |
-| `services[].logs[].dwell_seconds.enum[].shape_profile.timezone` | string |  |  |
-| `services[].logs[].dwell_seconds.enum[].shape_profile.floor` | float | yes |  |
-| `services[].logs[].dwell_seconds.enum[].shape_profile.ramp_up_start_hour` | float | yes |  |
-| `services[].logs[].dwell_seconds.enum[].shape_profile.plateau_start_hour` | float | yes |  |
-| `services[].logs[].dwell_seconds.enum[].shape_profile.plateau_end_hour` | float | yes |  |
-| `services[].logs[].dwell_seconds.enum[].shape_profile.ramp_down_end_hour` | float | yes |  |
-| `services[].logs[].dwell_seconds.enum[].shape_profile.weekend_factor` | float | yes |  |
-| `services[].logs[].dwell_seconds.enum[].stall_mode` | string |  |  |
-| `services[].logs[].dwell_seconds.int_range` | object | yes |  |
-| `services[].logs[].dwell_seconds.int_range.min` | int |  |  |
-| `services[].logs[].dwell_seconds.int_range.max` | int |  |  |
-| `services[].logs[].dwell_seconds.int_range.p_zero` | float |  |  |
-| `services[].logs[].dwell_seconds.float_range` | object | yes |  |
-| `services[].logs[].dwell_seconds.float_range.min` | float |  |  |
-| `services[].logs[].dwell_seconds.float_range.max` | float |  |  |
-| `services[].logs[].dwell_seconds.normal` | object | yes |  |
-| `services[].logs[].dwell_seconds.normal.mean` | float |  |  |
-| `services[].logs[].dwell_seconds.normal.stddev` | float |  |  |
-| `services[].logs[].dwell_seconds.bool` | object | yes |  |
-| `services[].logs[].dwell_seconds.bool.p_true` | float |  |  |
-| `services[].logs[].dwell_seconds.shape` | object | yes |  |
-| `services[].logs[].dwell_seconds.shape.base` | float |  |  |
-| `services[].logs[].dwell_seconds.shape.mode` | string |  |  |
-| `services[].logs[].dwell_seconds.shape.incident_value` | float | yes |  |
-| `services[].logs[].dwell_seconds.shape.incident_absolute` | bool |  |  |
-| `services[].logs[].dwell_seconds.shape.batch` | object | yes |  |
-| `services[].logs[].dwell_seconds.shape.batch.period` | duration |  |  |
-| `services[].logs[].dwell_seconds.shape.batch.phase` | duration |  |  |
-| `services[].logs[].dwell_seconds.ref` | string |  |  |
-| `services[].logs[].dwell_seconds.lognormal` | object | yes |  |
-| `services[].logs[].dwell_seconds.lognormal.median` | float |  |  |
-| `services[].logs[].dwell_seconds.lognormal.p95` | float |  |  |
-| `services[].logs[].dwell_seconds.now` | object | yes |  |
-| `services[].logs[].dwell_seconds.now.stall_mode` | string |  |  |
-| `services[].logs[].dwell_seconds.now.arrivals_only` | bool |  |  |
-| `services[].logs[].dwell_seconds.now.period` | duration |  |  |
-| `services[].logs[].dwell_seconds.now.phase` | duration |  |  |
-| `services[].logs[].dwell_seconds.resource` | object | yes |  |
-| `services[].logs[].dwell_seconds.resource.name` | string |  |  |
-| `services[].logs[].dwell_seconds.resource.field` | string |  |  |
-| `services[].logs[].dwell_seconds.outcomes` | object | yes |  |
-| `services[].logs[].dwell_seconds.outcomes.status[]` | string |  |  |
-| `services[].logs[].dwell_seconds.outcomes.status_label` | string |  |  |
-| `services[].logs[].dwell_seconds.outcomes.measure` | string |  |  |
-| `services[].logs[].dwell_seconds.request_draw` | object | yes |  |
-| `services[].logs[].dwell_seconds.request_draw.key` | string |  |  |
-| `services[].logs[].dwell_seconds.request_draw.format` | string |  |  |
-| `services[].logs[].dwell_seconds.request_draw.enum[]` | object |  |  |
-| `services[].logs[].dwell_seconds.request_draw.enum[].value` | string |  |  |
-| `services[].logs[].dwell_seconds.request_draw.enum[].weight` | float |  |  |
-| `services[].logs[].dwell_seconds.request_draw.enum[].rate_scale` | float | yes |  |
-| `services[].logs[].dwell_seconds.request_draw.enum[].value_scale` | float | yes |  |
-| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile` | object | yes |  |
-| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.timezone` | string |  |  |
-| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.floor` | float | yes |  |
-| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.ramp_up_start_hour` | float | yes |  |
-| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.plateau_start_hour` | float | yes |  |
-| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.plateau_end_hour` | float | yes |  |
-| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.ramp_down_end_hour` | float | yes |  |
-| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.weekend_factor` | float | yes |  |
-| `services[].logs[].dwell_seconds.request_draw.enum[].stall_mode` | string |  |  |
-| `services[].logs[].dwell_seconds.source_read` | object | yes |  |
-| `services[].logs[].dwell_seconds.source_read.measure` | string |  |  |
-| `services[].logs[].dwell_seconds.source_read.per_tick` | float |  |  |
-| `services[].logs[].dwell_seconds.source_read.stall_mode` | string |  |  |
+| `services[].logs[].source` | string |  | Source names the log line's stream within the service node; required and non-blank. |
+| `services[].logs[].stream_labels` | map[string]ValueModel |  | StreamLabels are the log stream's indexed labels. Only constant and enum values are allowed, and a high-cardinality correlation ref is rejected here. |
+| `services[].logs[].body` | map[string]ValueModel |  | Body holds the fields of the JSON log line, one value model per field. Any value model is allowed, including a high-cardinality correlation ref. |
+| `services[].logs[].when` | object | yes | When, when set, writes this line only for the requests whose per-request draw falls in the listed values, so one bundle's line set follows a drawn route or outcome. Omitted writes the line for every request. |
+| `services[].logs[].when.request_draw` | object |  | RequestDraw is the per-request enum draw the gate reads, declared exactly as the bundle's body fields declare the same key. |
+| `services[].logs[].when.request_draw.key` | string |  | Key names the draw: every log line of one request that declares the same key repeats the same drawn value. Required. |
+| `services[].logs[].when.request_draw.format` | string |  | Format draws a generated ID from literal text with runs written {digits:N}, {hex:N} or {upper:N}, for example ORD-{digits:10}. Set exactly one of format and enum. |
+| `services[].logs[].when.request_draw.enum[]` | object |  | Enum draws one of a weighted set of values; weights select the share of requests. Set exactly one of format and enum. |
+| `services[].logs[].when.request_draw.enum[].value` | string |  | Value is the categorical value, emitted as a string. |
+| `services[].logs[].when.request_draw.enum[].weight` | float |  | Weight is the value's share of per-request draws (log body field, span attribute or stream label). It never divides traffic among metric series. |
+| `services[].logs[].when.request_draw.enum[].rate_scale` | float | yes | RateScale (metric labels only) multiplies a counter's per-tick increment or a histogram's observations per tick for series carrying this value. Rejected on a gauge. Omitted means 1. |
+| `services[].logs[].when.request_draw.enum[].value_scale` | float | yes | ValueScale (metric labels only) multiplies each observed histogram value or gauge reading for series carrying this value. Rejected on a counter. Omitted means 1. |
+| `services[].logs[].when.request_draw.enum[].shape_profile` | object | yes | ShapeProfile gives this value's series its own business clock and curve, laid field by field over the metric's and the node's profile (METRIC labels only; the metric's value must be a `shape`). The label value is unchanged, so the series set is identical. Omitted means the series follows the inherited profile. |
+| `services[].logs[].when.request_draw.enum[].shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty keeps the inherited zone. |
+| `services[].logs[].when.request_draw.enum[].shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `services[].logs[].when.request_draw.enum[].shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `services[].logs[].when.request_draw.enum[].shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `services[].logs[].when.request_draw.enum[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `services[].logs[].when.request_draw.enum[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `services[].logs[].when.request_draw.enum[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the default of the reading consumer. |
+| `services[].logs[].when.request_draw.enum[].stall_mode` | string |  | StallMode gives this value's series its own stall incident mode in place of the metric's (METRIC labels only; the metric's value must be a `now` or `source_read`). At most one label of a metric may declare it. Omitted means the series follows the metric's stall_mode. |
+| `services[].logs[].when.in[]` | string |  | In lists the drawn values for which the line is written; at least one, each one of the draw's enum values, none repeated. |
+| `services[].logs[].dwell_seconds` | object | yes | DwellSeconds, when set, gives the line its own event time. It is the seconds the request spent before this line: the line's time is the previous written line's time plus its dwell, and the bundle's last written line keeps the request's completion time, so earlier lines are backdated and none is future-dated. The first written line's dwell places nothing (no line precedes it). A line without a dwell shares the time of the line before it, and a bundle with no dwell on any line keeps every line at the request's completion. A gated-out line adds no dwell. A negative or NaN draw counts as 0 and a draw above 86400 (including +Inf) is capped at 86400. The model is evaluated after the line's body, so it never shifts a body draw. Numeric models only (const, int_range, float_range, normal, lognormal); it is a separate draw from any body field that reports the same figure. A bundle is the lines of one request on the legacy path and one node's attempt on a causal request. Only log timestamps move: spans and metric durations are unchanged. The bundle's summed dwell is not validated; keep it well inside the log backend's out-of-order acceptance window (about an hour by default for Loki), since the 86400 cap only stops a runaway model. |
+| `services[].logs[].dwell_seconds.const` | float | yes | Const is a fixed numeric value. |
+| `services[].logs[].dwell_seconds.const_str` | string | yes | ConstStr is a fixed string value. |
+| `services[].logs[].dwell_seconds.enum[]` | object |  | Enum is a weighted categorical value drawn from a fixed set of strings. On a metric label it expands to every value on every tick. |
+| `services[].logs[].dwell_seconds.enum[].value` | string |  | Value is the categorical value, emitted as a string. |
+| `services[].logs[].dwell_seconds.enum[].weight` | float |  | Weight is the value's share of per-request draws (log body field, span attribute or stream label). It never divides traffic among metric series. |
+| `services[].logs[].dwell_seconds.enum[].rate_scale` | float | yes | RateScale (metric labels only) multiplies a counter's per-tick increment or a histogram's observations per tick for series carrying this value. Rejected on a gauge. Omitted means 1. |
+| `services[].logs[].dwell_seconds.enum[].value_scale` | float | yes | ValueScale (metric labels only) multiplies each observed histogram value or gauge reading for series carrying this value. Rejected on a counter. Omitted means 1. |
+| `services[].logs[].dwell_seconds.enum[].shape_profile` | object | yes | ShapeProfile gives this value's series its own business clock and curve, laid field by field over the metric's and the node's profile (METRIC labels only; the metric's value must be a `shape`). The label value is unchanged, so the series set is identical. Omitted means the series follows the inherited profile. |
+| `services[].logs[].dwell_seconds.enum[].shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty keeps the inherited zone. |
+| `services[].logs[].dwell_seconds.enum[].shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `services[].logs[].dwell_seconds.enum[].shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `services[].logs[].dwell_seconds.enum[].shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `services[].logs[].dwell_seconds.enum[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `services[].logs[].dwell_seconds.enum[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `services[].logs[].dwell_seconds.enum[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the default of the reading consumer. |
+| `services[].logs[].dwell_seconds.enum[].stall_mode` | string |  | StallMode gives this value's series its own stall incident mode in place of the metric's (METRIC labels only; the metric's value must be a `now` or `source_read`). At most one label of a metric may declare it. Omitted means the series follows the metric's stall_mode. |
+| `services[].logs[].dwell_seconds.int_range` | object | yes | IntRange is a bounded integer draw, with an optional probability of forcing 0. |
+| `services[].logs[].dwell_seconds.int_range.min` | int |  | Min is the smallest value drawn. |
+| `services[].logs[].dwell_seconds.int_range.max` | int |  | Max is the largest value drawn; at least Min. |
+| `services[].logs[].dwell_seconds.int_range.p_zero` | float |  | PZero is the probability, in [0,1], that the draw is forced to 0. |
+| `services[].logs[].dwell_seconds.float_range` | object | yes | FloatRange is a bounded uniform float draw. |
+| `services[].logs[].dwell_seconds.float_range.min` | float |  | Min is the lower bound of the uniform draw. |
+| `services[].logs[].dwell_seconds.float_range.max` | float |  | Max is the upper bound; at least Min. |
+| `services[].logs[].dwell_seconds.normal` | object | yes | Normal is a gaussian draw; negative draws are clamped to 0. |
+| `services[].logs[].dwell_seconds.normal.mean` | float |  | Mean is the distribution's mean. |
+| `services[].logs[].dwell_seconds.normal.stddev` | float |  | Stddev is the standard deviation; at least 0. |
+| `services[].logs[].dwell_seconds.bool` | object | yes | Bool is a boolean that is true with the given probability. |
+| `services[].logs[].dwell_seconds.bool.p_true` | float |  | PTrue is the probability, in [0,1], that the value is true. |
+| `services[].logs[].dwell_seconds.shape` | object | yes | Shape is a base value scaled by the load curve and, when a mode is named, by an incident. |
+| `services[].logs[].dwell_seconds.shape.base` | float |  | Base is the value at full load with no incident. |
+| `services[].logs[].dwell_seconds.shape.mode` | string |  | Mode names the incident mode whose scoped intensity moves the value; required with incident_value. Omitted means the value follows load only. |
+| `services[].logs[].dwell_seconds.shape.incident_value` | float | yes | IncidentValue (metric values only) is the value at incident intensity 1, before load scaling; the value interpolates from base to it as intensity rises. Needs mode. |
+| `services[].logs[].dwell_seconds.shape.incident_absolute` | bool |  | IncidentAbsolute makes the incident share of the value independent of load, so an outage reads the same at night or on a weekend. Needs incident_value. |
+| `services[].logs[].dwell_seconds.shape.batch` | object | yes | Batch makes a counter's source deliver in batches: the per-tick arrivals accumulate and are released at the cadence (zero between releases), conserving the smooth curve's total. Counter metric values only, and not with incident_value or on a metric that declares stock_of or count_of (those follow the batched counter instead); the workload resolves the release against the series' own clock. Period is in (0, 24h] and Phase in [0, Period). |
+| `services[].logs[].dwell_seconds.shape.batch.period` | duration |  | Period is the release cadence (for example 15m or 30m). Required, in (0, 24h]. |
+| `services[].logs[].dwell_seconds.shape.batch.phase` | duration |  | Phase offsets the release boundaries from the epoch-aligned Period grid, in [0, Period). Default 0: releases land on the wall-clock multiples of Period. |
+| `services[].logs[].dwell_seconds.ref` | string |  | Ref pulls a request correlation field by name (for example a trace ID, route or status). A high-cardinality ref is rejected on a metric or stream label. |
+| `services[].logs[].dwell_seconds.lognormal` | object | yes | Lognormal is a right-skewed positive draw given its median and 95th percentile, as latency and dwell times are. |
+| `services[].logs[].dwell_seconds.lognormal.median` | float |  | Median is the distribution's median; must be above 0. |
+| `services[].logs[].dwell_seconds.lognormal.p95` | float |  | P95 is the 95th percentile; at least Median (equal degenerates to a constant). |
+| `services[].logs[].dwell_seconds.now` | object | yes | Now reads the tick time in Unix seconds, for a last-success or heartbeat timestamp (gauge metric value only). |
+| `services[].logs[].dwell_seconds.now.stall_mode` | string |  | StallMode names the incident mode that stalls the producer: while it is active for the service, the gauge holds its last reading and resumes at the tick time when it ends. Omitted means the gauge always advances. An enum label value may override it for its own series. |
+| `services[].logs[].dwell_seconds.now.arrivals_only` | bool |  | ArrivalsOnly makes the gauge a source-event time: it advances only on a tick where the source had arrivals and holds its last reading otherwise, so a quiet source reads old. |
+| `services[].logs[].dwell_seconds.now.period` | duration |  | Period makes the gauge the last success of a job on a schedule: the reading is the most recent epoch-aligned multiple of Period (shifted by Phase) at or before the tick time. At most 24h; omitted or 0 reads the tick time. |
+| `services[].logs[].dwell_seconds.now.phase` | duration |  | Phase shifts the schedule boundaries from the epoch-aligned grid, in [0, Period), and needs a Period. Default 0. |
+| `services[].logs[].dwell_seconds.resource` | object | yes | Resource reads a field of a declared resource's model state (metric value only). |
+| `services[].logs[].dwell_seconds.resource.name` | string |  | Name is the declared resource whose model state is read. |
+| `services[].logs[].dwell_seconds.resource.field` | string |  | Field is the state field read: a gauge field (demand_rps, capacity, utilization, in_use, waiting, wait_seconds, backlog, oldest_age_seconds, latency_factor, hold_seconds, served_rps, failed_share) on a gauge metric, or a counter field (rejected, admitted, failed) on a counter metric. |
+| `services[].logs[].dwell_seconds.outcomes` | object | yes | Outcomes reads the service node's hop outcomes in the metric window (metric value only). |
+| `services[].logs[].dwell_seconds.outcomes.status[]` | string |  | Status lists the hop statuses that match: success, 4xx, 5xx or an exact three-digit HTTP status such as 503. Set exactly one of status and status_label. |
+| `services[].logs[].dwell_seconds.outcomes.status_label` | string |  | StatusLabel names an enum label of the same metric whose value selects the matching status per series. Set exactly one of status and status_label. |
+| `services[].logs[].dwell_seconds.outcomes.measure` | string |  | Measure is count (a counter metric, the default), share (a gauge metric) or latency (a histogram metric: each matching hop duration, in seconds, is one observation). |
+| `services[].logs[].dwell_seconds.request_draw` | object | yes | RequestDraw draws a formatted ID or an enum value once per request and repeats it on every log line of that request that names the same key (log body field only). |
+| `services[].logs[].dwell_seconds.request_draw.key` | string |  | Key names the draw: every log line of one request that declares the same key repeats the same drawn value. Required. |
+| `services[].logs[].dwell_seconds.request_draw.format` | string |  | Format draws a generated ID from literal text with runs written {digits:N}, {hex:N} or {upper:N}, for example ORD-{digits:10}. Set exactly one of format and enum. |
+| `services[].logs[].dwell_seconds.request_draw.enum[]` | object |  | Enum draws one of a weighted set of values; weights select the share of requests. Set exactly one of format and enum. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].value` | string |  | Value is the categorical value, emitted as a string. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].weight` | float |  | Weight is the value's share of per-request draws (log body field, span attribute or stream label). It never divides traffic among metric series. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].rate_scale` | float | yes | RateScale (metric labels only) multiplies a counter's per-tick increment or a histogram's observations per tick for series carrying this value. Rejected on a gauge. Omitted means 1. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].value_scale` | float | yes | ValueScale (metric labels only) multiplies each observed histogram value or gauge reading for series carrying this value. Rejected on a counter. Omitted means 1. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile` | object | yes | ShapeProfile gives this value's series its own business clock and curve, laid field by field over the metric's and the node's profile (METRIC labels only; the metric's value must be a `shape`). The label value is unchanged, so the series set is identical. Omitted means the series follows the inherited profile. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty keeps the inherited zone. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the default of the reading consumer. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].stall_mode` | string |  | StallMode gives this value's series its own stall incident mode in place of the metric's (METRIC labels only; the metric's value must be a `now` or `source_read`). At most one label of a metric may declare it. Omitted means the series follows the metric's stall_mode. |
+| `services[].logs[].dwell_seconds.source_read` | object | yes | SourceRead is a collector's own read work, a counter increment that advances with reads and stops (or turns to failures) while its stall_mode incident is active (counter metric value only). |
+| `services[].logs[].dwell_seconds.source_read.measure` | string |  | Measure selects the counter: records_inspected or checkpoint (advance while the collector is not stalled) or read_failures (advances only while it is stalled). |
+| `services[].logs[].dwell_seconds.source_read.per_tick` | float |  | PerTick is the increment per metric tick, not per second; records_inspected and checkpoint scale it by the node's load factor. Must be finite and above 0. |
+| `services[].logs[].dwell_seconds.source_read.stall_mode` | string |  | StallMode names the incident mode that stalls the collector, resolved per service. Required for read_failures unless an enum label value declares its own. |
 | `services[].spans[]` | object |  | inline custom spans (extra attrs on this node's span) |
-| `services[].spans[].name_template` | string |  |  |
-| `services[].spans[].kind` | string |  |  |
-| `services[].spans[].attributes` | map[string]ValueModel |  |  |
+| `services[].spans[].name_template` | string |  | NameTemplate is the span name; {{attr.key}} placeholders are filled from the span's own evaluated attributes. Required and non-blank. When the span merges into the node's own span (see Kind) a non-empty result renames that span. |
+| `services[].spans[].kind` | string |  | Kind is the span kind: server, client or internal. Omitted, or the node's own span kind, merges this declaration's name and attributes into the node's own span; any other kind adds a child span. |
+| `services[].spans[].attributes` | map[string]ValueModel |  | Attributes are extra span attributes, one value model per key. Any value model is allowed, including a high-cardinality correlation ref; keys the workload stamps itself are rejected. |
 | `services[].calls[]` | string |  | downstream node names (the graph edges / propagation) |
 | `services[].db_instance` | string |  | DBInstance (db/cache leaf nodes only) names the BASE blueprint database this node represents (e.g. "orders-pg"); the workload resolves it per-env against the binding's Databases to the concrete RDS instance "<db_instance>-<lower(env)>" (case-insensitive env suffix; exact name is the primary match). The resolved RDS identity decorates this node's db-CLIENT span (db.system.name / db.namespace / server.address) so the trace links to the env's RDS instance — faithful to real OTel/Beyla DB instrumentation. Empty ⇒ the leaf carries no DB identity (back-compatible: the edge stays the bare node name). |
 | `services[].pages[]` | object |  | RUM navigation inventory (frontend entry only; empty ⇒ single-page behavior). RUM-only page-views, never backend-traced. |

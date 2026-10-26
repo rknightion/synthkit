@@ -47,11 +47,13 @@ func FindModuleRoot(start string) (string, error) {
 }
 
 // schemaSourceDirs are the package directories (module-relative) whose struct doc comments
-// feed the schema: the blueprint surface + every construct/workload Config.
+// feed the schema: the blueprint surface, the shared mechanic libraries, the shape profile, the
+// custom-telemetry DSL (internal/telemetryspec) and every construct/workload Config.
 func schemaSourceDirs(moduleRoot string) ([]string, error) {
 	var dirs []string
 	dirs = append(dirs, filepath.Join(moduleRoot, "internal", "blueprint"), filepath.Join(moduleRoot, "internal", "agento11yprovision"),
-		filepath.Join(moduleRoot, "internal", "causal"), filepath.Join(moduleRoot, "internal", "pipelinerun"))
+		filepath.Join(moduleRoot, "internal", "causal"), filepath.Join(moduleRoot, "internal", "pipelinerun"),
+		filepath.Join(moduleRoot, "internal", "shape"), filepath.Join(moduleRoot, "internal", "telemetryspec"))
 	for _, glob := range []string{
 		filepath.Join(moduleRoot, "internal", "construct", "*"),
 		filepath.Join(moduleRoot, "internal", "workload", "*"),
