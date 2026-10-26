@@ -57,6 +57,11 @@ Three tiers, mandatory:
   Anything in `blueprints/` is loadable by `BLUEPRINT_NAMES=*` and deployable by an operator, so a
   test-shaped value there reaches production.
 
+Shared-legacy timeout/resend evaluation is offline-only for individually measured, isolated inputs;
+generic fixtures do not admit deadline-driven ticks or continuous emission. Follow the
+[canonical operating-use limit](https://github.com/rknightion/synthkit/blob/main/docs/blueprints.md#shared-legacy-operating-limit)
+and prove the actual whole caller's cold/catch-up/dynamic cost and peak memory before a separate envelope.
+
 ## Construct boundaries and identity
 
 Use the smallest boundary that is independently declarable in a blueprint and has a distinct shared
