@@ -47,12 +47,17 @@ func (c *compiled) admittedWait() acquisitionWait {
 // atom separately. Optional cuts split cells at observable fixed-work deadlines, so
 // deterministic work is not misclassified by a cell straddling the timeout.
 func (w acquisitionWait) atoms(bins int, cuts ...float64) []elapsed {
+	return w.atomsScratch(bins, nil, cuts...)
+}
+
+func (w acquisitionWait) atomsScratch(bins int, scratch *timingScratch, cuts ...float64) []elapsed {
 	maxMS := float64(w.quantile(1)) / float64(time.Millisecond)
 	if maxMS == 0 {
 		return []elapsed{{p: 1}}
 	}
 	continuous := w.cdf(maxMS - 1/float64(time.Millisecond))
-	boundaries := []float64{0, continuous}
+	var boundaryStorage [13]float64
+	boundaries := append(boundaryStorage[:0], 0, continuous)
 	for _, ms := range cuts {
 		u := w.cdf(ms)
 		if u > 0 && u < continuous {
@@ -61,7 +66,8 @@ func (w acquisitionWait) atoms(bins int, cuts ...float64) []elapsed {
 	}
 	// Only the small cut list is sorted; each interval has its own bounded cells.
 	slices.Sort(boundaries)
-	out := make([]elapsed, 0, bins+len(cuts)+1)
+	oi, out := scratch.take()
+	defer func() { scratch.keep(oi, out) }()
 	for i := 1; i < len(boundaries); i++ {
 		lo, hi := boundaries[i-1], boundaries[i]
 		if hi <= lo {
@@ -90,6 +96,10 @@ type waitTiming struct {
 }
 
 func (w *waitTiming) add(next acquisitionWait, bins int) {
+	w.addScratch(next, bins, nil)
+}
+
+func (w *waitTiming) addScratch(next acquisitionWait, bins int, scratch *timingScratch) {
 	if next.quantile(1) == 0 {
 		return
 	}
@@ -97,49 +107,83 @@ func (w *waitTiming) add(next acquisitionWait, bins int) {
 		w.earlier = []elapsed{{p: 1}}
 	}
 	if w.last.quantile(1) > 0 {
-		var sum []elapsed
+		si, sum := scratch.take()
+		atoms := w.last.atomsScratch(bins, scratch)
 		for _, a := range w.earlier {
-			for _, b := range w.last.atoms(bins) {
+			for _, b := range atoms {
 				sum = append(sum, elapsed{p: a.p * b.p, ms: a.ms + b.ms})
 			}
 		}
-		w.earlier = compactElapsed(sum, bins)
+		scratch.keep(si, sum)
+		w.earlier = scratch.compact(sum, bins)
 	}
 	w.last = next
 }
 
 func (w waitTiming) emit(out []elapsed, key outcomeKey, p float64, terms []durationTerm, timeout float64, transport, materialize bool, bins int, law workLaw) []elapsed {
+	return w.emitScratch(out, key, p, terms, timeout, transport, materialize, bins, law, nil)
+}
+
+func (w waitTiming) emitScratch(out []elapsed, key outcomeKey, p float64, terms []durationTerm, timeout float64, transport, materialize bool, bins int, law workLaw, scratch *timingScratch) []elapsed {
 	if p <= 0 {
 		return out
 	}
-	if w.earlier == nil || transport {
-		return emitElapsedLaw(out, key, p, terms, timeout, transport, materialize, bins, law)
+	var memo *timingMemo
+	if scratch != nil {
+		memo = scratch.memo
 	}
-	var added []elapsed
+	if w.earlier == nil || transport {
+		return emitElapsedLawMemo(out, key, p, terms, timeout, transport, materialize, bins, law, memo)
+	}
+	ai, added := scratch.take()
+	defer func() { scratch.keep(ai, added) }()
 	shifted := make([]durationTerm, len(terms))
+	var bases [11]float64
+	if timeout > 0 {
+		for i, u := range [...]float64{1e-12, 1e-6, .001, .01, .1, .5, .9, .99, .999, 1 - 1e-6, 1 - 1e-12} {
+			x := law.quantile(u)
+			for _, t := range terms {
+				bases[i] = math.Max(bases[i], float64(t.a*x)+t.b)
+			}
+		}
+	}
 	for _, prior := range w.earlier {
-		var cuts []float64
+		var cutStorage [11]float64
+		cuts := cutStorage[:0]
 		if timeout > 0 {
 			// Resolve the transition where the own-work CDF changes, even when
 			// its scale is tiny compared with the acquisition wait. Fixed work
 			// (including zero work) gets an exact deadline split. These are
 			// integration breakpoints, not new sampler draws.
-			for _, u := range []float64{1e-12, 1e-6, .001, .01, .1, .5, .9, .99, .999, 1 - 1e-6, 1 - 1e-12} {
-				x, base := law.quantile(u), 0.0
-				for _, t := range terms {
-					base = math.Max(base, float64(t.a*x)+t.b)
-				}
+			for _, base := range bases {
 				cuts = append(cuts, timeout-base-prior.ms)
 			}
 		}
-		for _, a := range w.last.atoms(bins, cuts...) {
+		var programStorage [128]timingEmissionCell
+		program := programStorage[:0]
+		useProgram := !materialize && memo != nil
+		for _, a := range w.last.atomsScratch(bins, scratch, cuts...) {
 			for i, t := range terms {
 				shifted[i] = durationTerm{t.a, t.b + prior.ms + a.ms}
 			}
-			added = emitElapsedLaw(added, key, p*prior.p*a.p, shifted, timeout, transport, materialize, bins, law)
+			if useProgram {
+				mass := p * prior.p * a.p
+				cdf, pending := 1.0, false
+				if mass > 0 {
+					cdf, pending = elapsedLawInput(shifted, timeout, transport, law)
+				}
+				program = append(program, timingEmissionCell{p: mass, cdf: cdf, pending: pending})
+			} else {
+				added = emitElapsedLawMemo(added, key, p*prior.p*a.p, shifted, timeout, transport, materialize, bins, law, memo)
+			}
 		}
 		// Bound temporary storage between prior cells, not just at the end of a node.
-		added = compactElapsed(added, bins)
+		if useProgram {
+			added = scratch.emitProgram(added, program, key, timeout, bins, law, memo)
+		} else {
+			compacted := scratch.compact(added, bins)
+			added = append(added[:0], compacted...)
+		}
 	}
 	return append(out, added...)
 }

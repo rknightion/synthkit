@@ -215,8 +215,9 @@ type flowNode struct {
 	// latency, the stretch factor and the hop error share.
 	mean, shift, storm, hop float64
 	// covered is the direct child supplying dur's held-across latency, -1 otherwise.
-	covered      int
-	elapsedCache struct {
+	covered       int
+	childrenCache timedChildrenCache
+	elapsedCache  struct {
 		inputs      []float64
 		bins        int
 		materialize bool
@@ -226,10 +227,13 @@ type flowNode struct {
 
 // cflow is a compiled Flow, shared by every load that names it.
 type cflow struct {
-	nodes           []flowNode
-	legacy          *LegacyTiming
-	needsLegacy     bool
-	legacyRootScale float64
+	nodes                []flowNode
+	legacy               *LegacyTiming
+	needsLegacy          bool
+	legacyRootScale      float64
+	planSlots, planAtoms int
+	timingMemos          [2]timingMemo
+	runMode              *legacyRunMode // package-private proof seam; nil in production
 }
 
 // gate places one load in its compiled flow: the path from the entry to the node and the index
@@ -472,15 +476,46 @@ type elapsed struct {
 // At most bins+1 atoms remain per outcome (the last can be a roundoff remainder).
 // Stable sorting and encounter-ordered keys keep the quadrature deterministic.
 func compactElapsed(in []elapsed, bins int) []elapsed {
-	var keys []outcomeKey
+	return (*timingScratch)(nil).compact(in, bins)
+}
+
+func (scratch *timingScratch) compact(in []elapsed, bins int) []elapsed {
+	if len(in) == 0 {
+		return nil
+	}
+	if len(in) <= bins {
+		single := true
+		for _, e := range in {
+			single = single && e.p > 0 && e.key == in[0].key
+		}
+		if single {
+			return in
+		}
+	}
+	var memo *timingMemo
+	if scratch != nil && len(in) > bins {
+		memo = scratch.memo
+	}
+	cached, hash, hit := memo.compactLookup(in, bins)
+	if hit {
+		i, owned := scratch.take()
+		owned = append(owned, cached...)
+		scratch.keep(i, owned)
+		return owned
+	}
+	var keyStorage [8]outcomeKey
+	keys := keyStorage[:0]
 	for _, e := range in {
 		if e.p > 0 && !slices.Contains(keys, e.key) {
 			keys = append(keys, e.key)
 		}
 	}
-	var out []elapsed
+	oi, out := scratch.take()
+	defer func() { scratch.keep(oi, out) }()
+	gi, group := scratch.take()
+	defer func() { scratch.keep(gi, group) }()
 	for _, key := range keys {
-		var group []elapsed
+		group = group[:0]
 		total := 0.0
 		for _, e := range in {
 			if e.key == key && e.p > 0 {
@@ -492,15 +527,7 @@ func compactElapsed(in []elapsed, bins int) []elapsed {
 			out = append(out, group...)
 			continue
 		}
-		slices.SortStableFunc(group, func(a, b elapsed) int {
-			if a.ms < b.ms {
-				return -1
-			}
-			if a.ms > b.ms {
-				return 1
-			}
-			return 0
-		})
+		scratch.sortElapsed(group)
 		cell := 0
 		width := total * probabilityCell(0, bins)
 		bucket := elapsed{key: key}
@@ -527,6 +554,7 @@ func compactElapsed(in []elapsed, bins int) []elapsed {
 			out = append(out, bucket)
 		}
 	}
+	memo.compactKeep(in, out, bins, hash)
 	return out
 }
 
@@ -580,20 +608,15 @@ func (law workLaw) quantile(u float64) float64 {
 }
 
 func emitElapsedLaw(out []elapsed, key outcomeKey, p float64, terms []durationTerm, timeout float64, transport, materialize bool, bins int, law workLaw) []elapsed {
+	return emitElapsedLawMemo(out, key, p, terms, timeout, transport, materialize, bins, law, nil)
+}
+
+func emitElapsedLawMemo(out []elapsed, key outcomeKey, p float64, terms []durationTerm, timeout float64, transport, materialize bool, bins int, law workLaw, memo *timingMemo) []elapsed {
 	if p <= 0 {
 		return out
 	}
-	cdf := 1.0
+	cdf := elapsedLawCDF(terms, timeout, transport, law, memo)
 	if timeout > 0 && !transport {
-		for _, term := range terms {
-			q := 1.0
-			if term.a > 0 {
-				q = law.cdf((timeout - term.b) / term.a)
-			} else if term.b > timeout {
-				q = 0
-			}
-			cdf = math.Min(cdf, q)
-		}
 		if cdf < 1 {
 			out = append(out, elapsed{key: outcomeKey{class: ClassTimeout}, p: p * (1 - cdf), ms: timeout})
 		}
@@ -615,7 +638,12 @@ func emitElapsedLaw(out []elapsed, key outcomeKey, p float64, terms []durationTe
 	for j := range count {
 		lo, hi := probabilityBoundary(j, count), probabilityBoundary(j+1, count)
 		u := cdf * (lo + hi) / 2
-		x := law.quantile(u)
+		x := 0.0
+		if cdf == 1 && count <= elapsedBins {
+			x = timingUnitQuantiles[law][count][j]
+		} else {
+			x = law.quantile(u)
+		}
 		ms := 0.0
 		for _, term := range terms {
 			ms = math.Max(ms, float64(term.a*x)+term.b)
@@ -625,13 +653,68 @@ func emitElapsedLaw(out []elapsed, key outcomeKey, p float64, terms []durationTe
 	return out
 }
 
+// Return an exact CDF input, or a known constant. The hard support endpoints
+// already exist in the laws; no probability is rounded/quantized for this key.
+func elapsedLawInput(terms []durationTerm, timeout float64, transport bool, law workLaw) (float64, bool) {
+	if timeout <= 0 || transport {
+		return 1, false
+	}
+	// min(F(x_i)) = F(min(x_i)); probability products/sums remain untouched.
+	bound := math.Inf(1)
+	for _, term := range terms {
+		x := math.Inf(1)
+		if term.a > 0 {
+			x = (timeout - term.b) / term.a
+		} else if term.b > timeout {
+			x = math.Inf(-1)
+		}
+		if math.IsNaN(x) {
+			return elapsedLawCDF(terms, timeout, transport, law, nil), false
+		}
+		bound = math.Min(bound, x)
+	}
+	if law == workFixed || law == workJitter {
+		return law.cdf(bound), false
+	}
+	if bound <= 0 {
+		return 0, false
+	}
+	if math.IsInf(bound, 1) {
+		return 1, false
+	}
+	return bound, true
+}
+
+func elapsedLawCDF(terms []durationTerm, timeout float64, transport bool, law workLaw, memo *timingMemo) float64 {
+	if memo != nil {
+		input, pending := elapsedLawInput(terms, timeout, transport, law)
+		if pending {
+			return memo.cdfValue(law, input)
+		}
+		return input
+	}
+	cdf := 1.0
+	if timeout > 0 && !transport {
+		for _, term := range terms {
+			q := 1.0
+			if term.a > 0 {
+				q = memo.cdfValue(law, (timeout-term.b)/term.a)
+			} else if term.b > timeout {
+				q = 0
+			}
+			cdf = math.Min(cdf, q)
+		}
+	}
+	return cdf
+}
+
 // Cosine-spaced probability cells resolve the small tail masses that an ordinary equal-mass
 // grid loses when two slow children's sum is almost certain to exceed the parent's timeout.
 func probabilityBoundary(i, bins int) float64 {
-	if i >= bins {
-		return 1
+	if bins > 0 && bins <= elapsedBins && i >= 0 && i < bins {
+		return timingProbabilityGrids[bins][i]
 	}
-	return (1 - math.Cos(math.Pi*float64(i)/float64(bins))) / 2
+	return rawProbabilityBoundary(i, bins)
 }
 
 func probabilityCell(i, bins int) float64 {
@@ -681,11 +764,16 @@ func (cf *cflow) computeTimed(n int, rej rejectFn, bins int, materialize bool, l
 			law = workJitter
 		}
 	}
+	var scratch *timingScratch
+	if legacy != nil {
+		scratch = legacy.scratch
+	}
 	var waits waitTiming
 	emit := func(out []elapsed, key outcomeKey, p float64, terms []durationTerm, timeout float64, transport, materialize bool, bins int) []elapsed {
-		return waits.emit(out, key, p, terms, timeout, transport, materialize, bins, law)
+		return waits.emitScratch(out, key, p, terms, timeout, transport, materialize, bins, law, scratch)
 	}
-	var out []elapsed
+	oi, out := scratch.take()
+	defer func() { scratch.keep(oi, out) }()
 	remaining := 1.0
 	for _, u := range fn.uses {
 		p := rej(u)
@@ -702,7 +790,7 @@ func (cf *cflow) computeTimed(n int, rej rejectFn, bins int, materialize bool, l
 				fn.policy.TimeoutMS, u.transport, materialize, bins)
 			remaining *= 1 - p
 		}
-		waits.add(u.admittedWait(), bins)
+		waits.addScratch(u.admittedWait(), bins, scratch)
 	}
 	pre, preShift, own := work, fn.shift, work
 	if fn.covered >= 0 {
@@ -710,19 +798,51 @@ func (cf *cflow) computeTimed(n int, rej rejectFn, bins int, materialize bool, l
 		preShift = 0
 		own = math.Max(fn.dur.r.HoldMS-fn.dur.ref.r.LatencyMS, PreWorkFraction*fn.dur.r.HoldMS) * fn.storm
 	}
+	var children *timedChildren
+	if legacy != nil {
+		children = legacy.childPlan(n, fresh)
+	}
+	if children == nil {
+		built := cf.computeChildren(n, remaining, rej, bins, legacy, fresh, scratch)
+		children = &built
+		if legacy != nil && len(fn.kids) > 0 {
+			legacy.keepChildPlan(n, fresh, built)
+		}
+	}
+	for _, failure := range children.failures {
+		out = emit(out, failure.key, failure.p,
+			[]durationTerm{{PreWorkFraction * pre, float64(PreWorkFraction*preShift) + failure.ms}},
+			fn.policy.TimeoutMS, false, materialize, bins)
+	}
+	for _, path := range children.paths {
+		terms := []durationTerm{
+			{own, fn.shift + path.held},
+			{PreWorkFraction * pre, float64(PreWorkFraction*preShift) + path.ms},
+		}
+		out = emit(out, outcomeKey{}, path.p*(1-fn.hop), terms, fn.policy.TimeoutMS, false, materialize, bins)
+		out = emit(out, fn.hopKey, path.p*fn.hop, terms, fn.policy.TimeoutMS, false, materialize, bins)
+	}
+	return scratch.compact(out, bins)
+}
+
+// computeChildren retains the original nested traversal, probability products,
+// compression boundaries and encounter order. Only the caller's own-work/wait
+// integration is deferred, so immutable child convolutions can be reused exactly.
+func (cf *cflow) computeChildren(n int, remaining float64, rej rejectFn, bins int, legacy *legacyEval, fresh bool, scratch *timingScratch) timedChildren {
+	fn := &cf.nodes[n]
 	paths := []elapsed{{p: remaining}}
+	fi, failures := scratch.take()
+	defer func() { scratch.keep(fi, failures) }()
 	for _, k := range fn.kids {
 		edge := cf.computeEdge(k, rej, bins, legacy, fresh)
-		var next []elapsed
+		ni, next := scratch.take()
 		for _, path := range paths {
 			for _, e := range edge {
 				p := path.p * e.p
 				ms := path.ms + e.ms
 				if e.key != (outcomeKey{}) {
 					status, class := CallerStatus(cf.nodes[k].policy, e.key.class, e.key.status, n == 0)
-					out = emit(out, outcomeKey{class: class, status: status}, p,
-						[]durationTerm{{PreWorkFraction * pre, float64(PreWorkFraction*preShift) + ms}},
-						fn.policy.TimeoutMS, false, materialize, bins)
+					failures = append(failures, elapsed{key: outcomeKey{class: class, status: status}, p: p, ms: ms})
 				} else {
 					held := path.held
 					if fn.covered >= 0 && cf.nodes[k].dur == fn.dur.ref {
@@ -732,17 +852,10 @@ func (cf *cflow) computeTimed(n int, rej rejectFn, bins int, materialize bool, l
 				}
 			}
 		}
-		paths = compactElapsed(next, bins)
+		scratch.keep(ni, next)
+		paths = scratch.compact(next, bins)
 	}
-	for _, path := range paths {
-		terms := []durationTerm{
-			{own, fn.shift + path.held},
-			{PreWorkFraction * pre, float64(PreWorkFraction*preShift) + path.ms},
-		}
-		out = emit(out, outcomeKey{}, path.p*(1-fn.hop), terms, fn.policy.TimeoutMS, false, materialize, bins)
-		out = emit(out, fn.hopKey, path.p*fn.hop, terms, fn.policy.TimeoutMS, false, materialize, bins)
-	}
-	return compactElapsed(out, bins)
+	return timedChildren{failures: failures, paths: paths}
 }
 
 // elapsedEdge keeps the elapsed duration of all failed attempts and exponential backoffs,
@@ -754,8 +867,13 @@ func (cf *cflow) elapsedEdge(n int, rej rejectFn, bins int) []elapsed {
 
 func (cf *cflow) computeEdge(n int, rej rejectFn, bins int, legacy *legacyEval, fresh bool) []elapsed {
 	pol := cf.nodes[n].policy
+	var scratch *timingScratch
+	if legacy != nil {
+		scratch = legacy.scratch
+	}
 	active := []elapsed{{p: 1}}
-	var out []elapsed
+	oi, out := scratch.take()
+	defer func() { scratch.keep(oi, out) }()
 	for j := 0; j <= pol.Retries; j++ {
 		var attempt []elapsed
 		if legacy == nil {
@@ -767,7 +885,7 @@ func (cf *cflow) computeEdge(n int, rej rejectFn, bins int, legacy *legacyEval, 
 		if j > 0 {
 			backoff = pol.BackoffMS * math.Pow(2, float64(j-1))
 		}
-		var next []elapsed
+		ni, next := scratch.take()
 		for _, prefix := range active {
 			for _, a := range attempt {
 				e := elapsed{key: a.key, p: prefix.p * a.p, ms: prefix.ms + backoff + a.ms}
@@ -779,9 +897,10 @@ func (cf *cflow) computeEdge(n int, rej rejectFn, bins int, legacy *legacyEval, 
 				}
 			}
 		}
-		active = compactElapsed(next, bins)
+		scratch.keep(ni, next)
+		active = scratch.compact(next, bins)
 	}
-	return compactElapsed(out, bins)
+	return scratch.compact(out, bins)
 }
 
 // timedOut is the share of the node's evaluations rejected at u that run past timeout: a rule
@@ -890,11 +1009,14 @@ const (
 )
 
 type legacyEval struct {
-	flow  *cflow
-	rej   rejectFn
-	base  []float64
-	bins  int
-	cache [][4][]elapsed // first/fresh x outcome-only/materialized
+	flow    *cflow
+	rej     rejectFn
+	base    []float64
+	bins    int
+	cache   [][4][]elapsed // first/fresh x outcome-only/materialized
+	scratch *timingScratch
+	plans   *legacyPlanShard
+	point   int
 }
 
 func (e *legacyEval) serve(n int, fresh, materialize bool) []elapsed {
@@ -1074,25 +1196,20 @@ func (cf *cflow) legacyBase(point int, primes []int, reflection, points int) []f
 // request/hop coordinates are independently reflected (four deterministic folds).
 func (g *gate) legacyArrivals(rej rejectFn, points, bins int) float64 {
 	cf := g.flow
+	mode := legacyRunMode{}
+	if cf.runMode != nil {
+		mode = *cf.runMode
+	}
+	if mode.reference {
+		return g.evaluateConditional(rej, points, bins, mode)
+	}
 	inputs := cf.elapsedInputs(0, rej, []float64{cf.legacyRootScale})
 	for _, c := range g.legacyCache {
 		if c.points == points && c.bins == bins && slices.Equal(c.inputs, inputs) {
 			return c.value
 		}
 	}
-	primes := timingPrimes(len(cf.nodes))
-	value := 0.0
-	for point := 1; point <= points; point++ {
-		for reflection := range 4 {
-			e := &legacyEval{flow: cf, rej: rej, base: cf.legacyBase(point, primes, reflection, points), bins: bins, cache: make([][4][]elapsed, len(cf.nodes))}
-			memo := make([][2]float64, len(g.path))
-			for i := range memo {
-				memo[i] = [2]float64{math.NaN(), math.NaN()}
-			}
-			value += g.conditionalArrivals(e, 0, false, memo)
-		}
-	}
-	value /= float64(4 * points)
+	value := g.evaluateConditional(rej, points, bins, mode)
 	entry := legacyCacheEntry{inputs: inputs, points: points, bins: bins, value: value}
 	// Retain solver iterates too: otherwise every steady grid step would repeat the same
 	// expensive quadrature from its initial capacity guess. Bound memory independently of time.

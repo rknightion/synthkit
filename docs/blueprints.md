@@ -432,10 +432,30 @@ retains these shared variables while integrating timeout and resend demand. Reso
 uses its lognormal distribution. Conditional duration sums and legacy timing are integrated with bounded
 deterministic numerical quadrature: these are expected arrivals, not an exact replay of sampled app
 requests, and compression can lose timing detail near a timeout boundary. There is no global error
-bound for arbitrary tree depth or sharp boundaries. Caches reuse identical numerical inputs, not
-changing waits, storms or reject shares: a novel legacy-sibling input can take more than a five-second
-step for one gate evaluation alone, before further fixed-point iterations. This is not a real-time
-performance guarantee for dynamic or large-fanout trees. Work that fails
+bound for arbitrary tree depth or sharp boundaries. Quadrature retains its point/bin counts,
+compression boundaries, stable tie order and probability summation order. Evaluator-local scratch
+retains at most 262144 atom slots; exact child-convolution caches retain at most 1048576 atom slots
+and 32768 pairs of conditional entries per flow. Per-flow exact subproblem memos additionally keep
+4096 normalized CDF entries, plus separate 256-slot compaction and outcome-emission tables retaining
+at most 262144 atom-capacity slots each (smaller emission-program cells count conservatively as atoms).
+CDF arguments, ordered atom/program values, prior emission prefixes and resolutions are compared
+exactly; slot collisions cause recomputation, never approximate reuse. Program lookup precedes
+expensive CDF evaluation; hard law support endpoints remain exact constants. Monotone CDF constraints
+are normalized before lookup without changing probability products, summation order or quadrature.
+At most two conditional evaluations run concurrently across the process, including concurrent
+models. Each uses a fixed half-budget memo/scratch shard; aggregate limits above do not increase.
+Inputs are frozen serially, child-plan slot regions have exclusive owners, and every worker joins
+before cache accounting, the next solver epoch or model unlock. Conditional results fold serially
+in the original point/reflection order, never as worker-local sums. Scalar staging is bounded to
+1 MiB per admitted call (at most 2 MiB process-wide); larger diagnostic resolutions stream serially.
+These are retention limits, not limits on total transient memory or evaluation time.
+Child convolutions may be reused when only the caller's own
+work or acquisition waits change; changed child inputs, shared legacy scale, admission mass or
+resolution invalidate them. Full answers still require identical numerical inputs. Novel inputs
+and further fixed-point iterations can exceed a five-second tick. Cold starts integrate the full
+24-hour horizon, and catch-up integrates every due grid point (or restarts after a longer gap);
+neither is an ordinary single-step budget. There is no real-time performance guarantee for dynamic
+or large-fanout trees. Work that fails
 at the dependency it is held across (unavailable, a failed handshake, a refused token) holds a pool
 connection or a concurrency slot only until it fails: a tenth of `hold_ms` of work before the call,
 then each attempt of that call (a tenth of the dependency's `latency_ms`, with the holder's
