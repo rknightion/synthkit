@@ -153,30 +153,45 @@ const incidentAmplification = 3.0
 // with different stall modes hold independently. It advances only on ticks the series is not held,
 // so it is deterministic and never reads the wall clock. A hold that is already due on the first
 // evaluation has no earlier reading, so that tick reads the tick time and becomes the held value.
-// Every other value model gets the tick time unchanged. The hold is not persisted: after a
-// process restart inside an incident the gauge re-holds from the first tick it sees. n is the
-// node, for the arrivals read; nil counts as arrivals.
+// A now model with a period (a declared schedule) reads its last schedule boundary instead of the
+// tick time, and a boundary that falls inside a hold is a missed run that keeps the held reading
+// until the next boundary (see telemetryspec.NowModel). Every other value model gets the tick time
+// unchanged. The hold is not persisted: after a process restart inside an incident the gauge
+// re-holds from the first tick it sees. n is the node, for the arrivals read; nil counts as
+// arrivals.
 func (w *Workload) heartbeatNow(now time.Time, world *core.World, id nodeIdentity, n *node, spec telemetryspec.MetricSpec, labels map[string]string) time.Time {
 	if spec.Value.Kind() != telemetryspec.KindNow {
 		return now
 	}
 	mode := spec.SeriesStallMode(labels)
 	arrivalsOnly := spec.Value.Now.ArrivalsOnly
+	sched := spec.Value.Now
 	if mode == "" && !arrivalsOnly {
-		return now
+		return sched.Boundary(now)
 	}
 	key := id.service + "\x00" + incKey(spec.Name, labels) + "\x00" + mode
 	held := stallActive(now, world, id, mode) || (arrivalsOnly && !w.hadArrivals(now, world, n))
-	if held {
-		if at, ok := w.nowHold[key]; ok {
-			return at
-		}
-	}
+	at := sched.Boundary(now)
 	if w.nowHold == nil {
 		w.nowHold = make(map[string]time.Time)
 	}
-	w.nowHold[key] = now
-	return now
+	if sched.Period > 0 {
+		// A run on the schedule that falls in a hold is missed: remember the boundary in force
+		// at the last held tick, and keep the reading until a later boundary arrives.
+		missKey := key + "\x00missed"
+		if held {
+			w.nowHold[missKey] = at
+		} else if missed, ok := w.nowHold[missKey]; ok && !at.After(missed) {
+			held = true
+		}
+	}
+	if held {
+		if prev, ok := w.nowHold[key]; ok {
+			return prev
+		}
+	}
+	w.nowHold[key] = at
+	return at
 }
 
 // stallActive reports whether the incident mode is active for the service at intensity above 0.

@@ -1702,6 +1702,8 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].custom_metrics[].value.now` | object | yes |  |
 | `services[].custom_metrics[].value.now.stall_mode` | string |  |  |
 | `services[].custom_metrics[].value.now.arrivals_only` | bool |  |  |
+| `services[].custom_metrics[].value.now.period` | duration |  |  |
+| `services[].custom_metrics[].value.now.phase` | duration |  |  |
 | `services[].custom_metrics[].value.resource` | object | yes |  |
 | `services[].custom_metrics[].value.resource.name` | string |  |  |
 | `services[].custom_metrics[].value.resource.field` | string |  |  |
@@ -1800,6 +1802,8 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].metrics[].value.now` | object | yes |  |
 | `services[].metrics[].value.now.stall_mode` | string |  |  |
 | `services[].metrics[].value.now.arrivals_only` | bool |  |  |
+| `services[].metrics[].value.now.period` | duration |  |  |
+| `services[].metrics[].value.now.phase` | duration |  |  |
 | `services[].metrics[].value.resource` | object | yes |  |
 | `services[].metrics[].value.resource.name` | string |  |  |
 | `services[].metrics[].value.resource.field` | string |  |  |
@@ -1914,6 +1918,8 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].logs[].dwell_seconds.now` | object | yes |  |
 | `services[].logs[].dwell_seconds.now.stall_mode` | string |  |  |
 | `services[].logs[].dwell_seconds.now.arrivals_only` | bool |  |  |
+| `services[].logs[].dwell_seconds.now.period` | duration |  |  |
+| `services[].logs[].dwell_seconds.now.phase` | duration |  |  |
 | `services[].logs[].dwell_seconds.resource` | object | yes |  |
 | `services[].logs[].dwell_seconds.resource.name` | string |  |  |
 | `services[].logs[].dwell_seconds.resource.field` | string |  |  |

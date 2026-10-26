@@ -319,9 +319,38 @@ func (o OutcomeValue) EffectiveMeasure() string {
 //
 // The hold is kept per series: an enum label value that declares its own stall_mode (EnumEntry)
 // stalls and holds independently of its siblings; every other series follows StallMode.
+//
+// Period turns the gauge into the last success of a job declared on a schedule: the reading is the
+// most recent schedule boundary at or before the tick time (epoch-aligned multiples of Period,
+// shifted by Phase), so a job that runs every 15 minutes reads a step every 15 minutes, not every
+// tick. Period is in (0, 24h] and Phase in [0, Period); both default to 0, which reads the tick
+// time. A run that falls inside a stall (StallMode active) or a quiet source (ArrivalsOnly) is a
+// missed run: the gauge keeps its last reading until the first boundary after the stall ends. No
+// randomness and no clock beyond the tick time are read.
 type NowModel struct {
-	StallMode    string `yaml:"stall_mode"`
-	ArrivalsOnly bool   `yaml:"arrivals_only"`
+	StallMode    string        `yaml:"stall_mode"`
+	ArrivalsOnly bool          `yaml:"arrivals_only"`
+	Period       time.Duration `yaml:"period"`
+	Phase        time.Duration `yaml:"phase"`
+}
+
+// maxNowPeriod bounds a now schedule: a daily job is the longest cadence a last-success gauge models.
+const maxNowPeriod = 24 * time.Hour
+
+// Boundary is the most recent schedule boundary at or before at: the largest k*Period+Phase (k an
+// integer, counted from the Unix epoch) not after it. With no Period it is at itself, so the
+// default reads the tick time. Boundary of a boundary is itself.
+func (n NowModel) Boundary(at time.Time) time.Time {
+	if n.Period <= 0 || at.IsZero() {
+		return at
+	}
+	p, ph := int64(n.Period), int64(n.Phase)
+	d := at.UnixNano() - ph
+	k := d / p
+	if d%p < 0 {
+		k-- // floor, not truncate, for times before the epoch
+	}
+	return time.Unix(0, k*p+ph)
 }
 
 // SourceReadModel is one counter of a collector's own read loop, so records inspected, checkpoint
@@ -562,6 +591,7 @@ func (v ValueModel) Eval(ctx EvalCtx) (float64, string) {
 		if at.IsZero() {
 			return 0, ""
 		}
+		at = v.Now.Boundary(at)
 		return float64(at.Unix()) + float64(at.Nanosecond())/1e9, ""
 	case KindSourceRead:
 		stalled := ctx.Stalled != nil && ctx.Stalled(ctx.Labels)
@@ -762,6 +792,11 @@ func (v ValueModel) Validate() error {
 	case KindNow:
 		if m := v.Now.StallMode; m != "" && strings.TrimSpace(m) != m {
 			return fmt.Errorf("now: stall_mode %q must be a nonblank incident mode name without surrounding whitespace", m)
+		}
+		if p, ph := v.Now.Period, v.Now.Phase; p < 0 || p > maxNowPeriod {
+			return fmt.Errorf("now: period %v must be in (0, %v]", p, maxNowPeriod)
+		} else if ph < 0 || (p == 0 && ph != 0) || (p > 0 && ph >= p) {
+			return fmt.Errorf("now: phase %v must be in [0, period) and needs a period", ph)
 		}
 	case KindResource:
 		if strings.TrimSpace(v.Resource.Name) == "" {
