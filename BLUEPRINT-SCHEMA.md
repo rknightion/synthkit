@@ -1870,6 +1870,78 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].logs[].when.request_draw.enum[].shape_profile.weekend_factor` | float | yes |  |
 | `services[].logs[].when.request_draw.enum[].stall_mode` | string |  |  |
 | `services[].logs[].when.in[]` | string |  |  |
+| `services[].logs[].dwell_seconds` | object | yes |  |
+| `services[].logs[].dwell_seconds.const` | float | yes |  |
+| `services[].logs[].dwell_seconds.const_str` | string | yes |  |
+| `services[].logs[].dwell_seconds.enum[]` | object |  |  |
+| `services[].logs[].dwell_seconds.enum[].value` | string |  |  |
+| `services[].logs[].dwell_seconds.enum[].weight` | float |  |  |
+| `services[].logs[].dwell_seconds.enum[].rate_scale` | float | yes |  |
+| `services[].logs[].dwell_seconds.enum[].value_scale` | float | yes |  |
+| `services[].logs[].dwell_seconds.enum[].shape_profile` | object | yes |  |
+| `services[].logs[].dwell_seconds.enum[].shape_profile.timezone` | string |  |  |
+| `services[].logs[].dwell_seconds.enum[].shape_profile.floor` | float | yes |  |
+| `services[].logs[].dwell_seconds.enum[].shape_profile.ramp_up_start_hour` | float | yes |  |
+| `services[].logs[].dwell_seconds.enum[].shape_profile.plateau_start_hour` | float | yes |  |
+| `services[].logs[].dwell_seconds.enum[].shape_profile.plateau_end_hour` | float | yes |  |
+| `services[].logs[].dwell_seconds.enum[].shape_profile.ramp_down_end_hour` | float | yes |  |
+| `services[].logs[].dwell_seconds.enum[].shape_profile.weekend_factor` | float | yes |  |
+| `services[].logs[].dwell_seconds.enum[].stall_mode` | string |  |  |
+| `services[].logs[].dwell_seconds.int_range` | object | yes |  |
+| `services[].logs[].dwell_seconds.int_range.min` | int |  |  |
+| `services[].logs[].dwell_seconds.int_range.max` | int |  |  |
+| `services[].logs[].dwell_seconds.int_range.p_zero` | float |  |  |
+| `services[].logs[].dwell_seconds.float_range` | object | yes |  |
+| `services[].logs[].dwell_seconds.float_range.min` | float |  |  |
+| `services[].logs[].dwell_seconds.float_range.max` | float |  |  |
+| `services[].logs[].dwell_seconds.normal` | object | yes |  |
+| `services[].logs[].dwell_seconds.normal.mean` | float |  |  |
+| `services[].logs[].dwell_seconds.normal.stddev` | float |  |  |
+| `services[].logs[].dwell_seconds.bool` | object | yes |  |
+| `services[].logs[].dwell_seconds.bool.p_true` | float |  |  |
+| `services[].logs[].dwell_seconds.shape` | object | yes |  |
+| `services[].logs[].dwell_seconds.shape.base` | float |  |  |
+| `services[].logs[].dwell_seconds.shape.mode` | string |  |  |
+| `services[].logs[].dwell_seconds.shape.incident_value` | float | yes |  |
+| `services[].logs[].dwell_seconds.shape.incident_absolute` | bool |  |  |
+| `services[].logs[].dwell_seconds.shape.batch` | object | yes |  |
+| `services[].logs[].dwell_seconds.shape.batch.period` | duration |  |  |
+| `services[].logs[].dwell_seconds.shape.batch.phase` | duration |  |  |
+| `services[].logs[].dwell_seconds.ref` | string |  |  |
+| `services[].logs[].dwell_seconds.lognormal` | object | yes |  |
+| `services[].logs[].dwell_seconds.lognormal.median` | float |  |  |
+| `services[].logs[].dwell_seconds.lognormal.p95` | float |  |  |
+| `services[].logs[].dwell_seconds.now` | object | yes |  |
+| `services[].logs[].dwell_seconds.now.stall_mode` | string |  |  |
+| `services[].logs[].dwell_seconds.now.arrivals_only` | bool |  |  |
+| `services[].logs[].dwell_seconds.resource` | object | yes |  |
+| `services[].logs[].dwell_seconds.resource.name` | string |  |  |
+| `services[].logs[].dwell_seconds.resource.field` | string |  |  |
+| `services[].logs[].dwell_seconds.outcomes` | object | yes |  |
+| `services[].logs[].dwell_seconds.outcomes.status[]` | string |  |  |
+| `services[].logs[].dwell_seconds.outcomes.status_label` | string |  |  |
+| `services[].logs[].dwell_seconds.outcomes.measure` | string |  |  |
+| `services[].logs[].dwell_seconds.request_draw` | object | yes |  |
+| `services[].logs[].dwell_seconds.request_draw.key` | string |  |  |
+| `services[].logs[].dwell_seconds.request_draw.format` | string |  |  |
+| `services[].logs[].dwell_seconds.request_draw.enum[]` | object |  |  |
+| `services[].logs[].dwell_seconds.request_draw.enum[].value` | string |  |  |
+| `services[].logs[].dwell_seconds.request_draw.enum[].weight` | float |  |  |
+| `services[].logs[].dwell_seconds.request_draw.enum[].rate_scale` | float | yes |  |
+| `services[].logs[].dwell_seconds.request_draw.enum[].value_scale` | float | yes |  |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile` | object | yes |  |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.timezone` | string |  |  |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.floor` | float | yes |  |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.ramp_up_start_hour` | float | yes |  |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.plateau_start_hour` | float | yes |  |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.plateau_end_hour` | float | yes |  |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.ramp_down_end_hour` | float | yes |  |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.weekend_factor` | float | yes |  |
+| `services[].logs[].dwell_seconds.request_draw.enum[].stall_mode` | string |  |  |
+| `services[].logs[].dwell_seconds.source_read` | object | yes |  |
+| `services[].logs[].dwell_seconds.source_read.measure` | string |  |  |
+| `services[].logs[].dwell_seconds.source_read.per_tick` | float |  |  |
+| `services[].logs[].dwell_seconds.source_read.stall_mode` | string |  |  |
 | `services[].spans[]` | object |  | inline custom spans (extra attrs on this node's span) |
 | `services[].spans[].name_template` | string |  |  |
 | `services[].spans[].kind` | string |  |  |

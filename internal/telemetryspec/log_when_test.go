@@ -91,3 +91,40 @@ func TestValidateLogBundleMatchesGateToItsKey(t *testing.T) {
 		t.Errorf("profile with a mismatched gate: err = %v", err)
 	}
 }
+
+func dwellLog(d *ValueModel) LogSpec {
+	return LogSpec{Source: "app.step", Body: map[string]ValueModel{"msg": {ConstStr: dwellStr("step")}}, DwellSeconds: d}
+}
+
+// TestLogDwellValidationAndClamp: a dwell must be a numeric model; draws are clamped to
+// [0, MaxLogDwellSeconds] and an undeclared dwell draws nothing.
+func TestLogDwellValidationAndClamp(t *testing.T) {
+	five := ValueModel{Const: dwellConst(5)}
+	if err := dwellLog(&five).Validate(); err != nil {
+		t.Fatalf("numeric dwell rejected: %v", err)
+	}
+	if n, ok := dwellLog(&five).DwellSecondsOf(EvalCtx{}); !ok || n != 5 {
+		t.Fatalf("dwell = %v (%v), want 5", n, ok)
+	}
+	if _, ok := dwellLog(nil).DwellSecondsOf(EvalCtx{}); ok {
+		t.Fatal("an undeclared dwell reported a draw")
+	}
+	for name, vm := range map[string]ValueModel{
+		"const_str": {ConstStr: dwellStr("5")},
+		"enum":      {Enum: []EnumEntry{{Value: "5", Weight: 1}}},
+		"ref":       {Ref: "trace_id"},
+	} {
+		vm := vm
+		if err := dwellLog(&vm).Validate(); err == nil || !strings.Contains(err.Error(), "dwell_seconds") {
+			t.Errorf("%s dwell: err = %v, want a dwell_seconds rejection", name, err)
+		}
+	}
+	for in, want := range map[float64]float64{-3: 0, 1e12: MaxLogDwellSeconds, 90: 90} {
+		c := ValueModel{Const: dwellConst(in)}
+		if n, _ := dwellLog(&c).DwellSecondsOf(EvalCtx{}); n != want {
+			t.Errorf("dwell %v clamped to %v, want %v", in, n, want)
+		}
+	}
+}
+func dwellStr(s string) *string     { return &s }
+func dwellConst(f float64) *float64 { return &f }

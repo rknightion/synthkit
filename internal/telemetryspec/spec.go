@@ -413,6 +413,34 @@ type LogSpec struct {
 	// listed values, so one bundle's line set follows a drawn route or outcome. Omitted writes the
 	// line for every request.
 	When *LogCondition `yaml:"when"`
+	// DwellSeconds, when set, gives the line its own event time. It is the seconds the request spent
+	// before this line: the line's time is the previous written line's time plus its dwell, and the
+	// bundle's last written line keeps the request's completion time, so earlier lines are
+	// backdated and none is future-dated. The first written line's dwell places nothing (no line
+	// precedes it). A line without a dwell shares the time of the line before it, and a bundle with
+	// no dwell on any line keeps every line at the request's completion. A gated-out line adds no
+	// dwell. A negative or NaN draw counts as 0 and a draw above 86400 (including +Inf) is capped at 86400. The model is
+	// evaluated after the line's body, so it never shifts a body draw. Numeric models only
+	// (const, int_range, float_range, normal, lognormal); it is a separate draw from any body field
+	// that reports the same figure.
+	DwellSeconds *ValueModel `yaml:"dwell_seconds"`
+}
+
+// MaxLogDwellSeconds caps one log line's dwell draw, so a runaway model cannot backdate a line out
+// of any backend's accepted time window.
+const MaxLogDwellSeconds = 86400
+
+// DwellSecondsOf evaluates the line's dwell for ctx and returns it clamped to
+// [0, MaxLogDwellSeconds] seconds. A line without a dwell reports (0, false) and draws nothing.
+func (l LogSpec) DwellSecondsOf(ctx EvalCtx) (float64, bool) {
+	if l.DwellSeconds == nil {
+		return 0, false
+	}
+	n, _ := l.DwellSeconds.Eval(ctx)
+	if math.IsNaN(n) || n < 0 {
+		return 0, true
+	}
+	return math.Min(n, MaxLogDwellSeconds), true
 }
 
 // LogCondition gates one log line on a per-request draw. RequestDraw is an enum request_draw
@@ -542,6 +570,17 @@ func (l LogSpec) Validate() error {
 	if l.When != nil {
 		if err := l.When.validate(); err != nil {
 			return fmt.Errorf("log %q %w", l.Source, err)
+		}
+	}
+	if d := l.DwellSeconds; d != nil {
+		where := fmt.Sprintf("log %q dwell_seconds", l.Source)
+		if err := checkValue(*d, posBody, where); err != nil {
+			return err
+		}
+		switch d.Kind() {
+		case KindConst, KindIntRange, KindFloatRange, KindNormal, KindLognormal:
+		default:
+			return fmt.Errorf("%s: must be numeric (const|int_range|float_range|normal|lognormal), got %q", where, d.Kind())
 		}
 	}
 	return nil

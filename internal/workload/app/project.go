@@ -378,10 +378,53 @@ func (w *Workload) projectLogs(ctx context.Context, world *core.World, batch []*
 	type key struct{ node, source, level string }
 	streams := map[key]*loki.Stream{}
 	var order []key
+	// pending holds one bundle's written lines until flush gives them their event times: a bundle
+	// is the lines of one request (the whole request on the legacy path, one node's attempt on the
+	// causal path). Streams take the lines only at flush.
+	type pendingLine struct {
+		n      *node
+		spec   telemetryspec.LogSpec
+		level  string
+		at     time.Time
+		dwell  time.Duration
+		body   string
+		meta   map[string]string
+		dwells bool
+	}
+	var pending []pendingLine
+	// flush stamps and writes the pending bundle. A bundle with no dwell keeps every line at its
+	// own base time. Otherwise the last written line keeps its base time (the request's completion)
+	// and each earlier line is its successor's time minus the successor's dwell, so the dwells are
+	// the gaps between consecutive lines and nothing lands after the completion.
+	flush := func() {
+		anyDwell := false
+		for _, p := range pending {
+			anyDwell = anyDwell || p.dwells
+		}
+		if anyDwell {
+			t := pending[len(pending)-1].at
+			for i := len(pending) - 1; i >= 0; i-- {
+				pending[i].at = t
+				t = t.Add(-pending[i].dwell)
+			}
+		}
+		for _, p := range pending {
+			k := key{p.n.decl.Name, p.spec.Source, p.level}
+			stream := streams[k]
+			if stream == nil {
+				stream = &loki.Stream{Labels: w.streamLabels(w.identity(p.n), p.spec, p.level)}
+				streams[k] = stream
+				order = append(order, k)
+			}
+			stream.Lines = append(stream.Lines, loki.Line{T: p.at, Body: p.body, Meta: p.meta})
+		}
+		pending = pending[:0]
+	}
 	// emit evaluates one log spec into its (node, source, level) stream. failStatus is the node's
 	// own failing status on a causal request that failed through it (0 = the node did not fail).
-	// at is this line's own timestamp. A line whose when gate the request's draw does not meet
-	// still evaluates its body (so its draws never shift a later line's) but is not written.
+	// at is this line's base timestamp (its bundle's flush moves it back by the bundle's dwells). A
+	// line whose when gate the request's draw does not meet still evaluates its body and dwell (so
+	// its draws never shift a later line's) but is not written and adds no dwell.
 	emit := func(n *node, spec telemetryspec.LogSpec, level string, at time.Time, ctxEval telemetryspec.EvalCtx, failStatus int) {
 		body := map[string]any{}
 		meta := map[string]string{}
@@ -406,17 +449,12 @@ func (w *Workload) projectLogs(ctx context.Context, world *core.World, batch []*
 			}
 			body[bk] = v
 		}
+		secs, dwells := spec.DwellSecondsOf(ctxEval)
 		if !n.decl.logsEnabled() || !spec.Writes(ctxEval) {
 			return
 		}
-		k := key{n.decl.Name, spec.Source, level}
-		stream := streams[k]
-		if stream == nil {
-			stream = &loki.Stream{Labels: w.streamLabels(w.identity(n), spec, level)}
-			streams[k] = stream
-			order = append(order, k)
-		}
-		stream.Lines = append(stream.Lines, loki.Line{T: at, Body: jsonBody(body), Meta: meta})
+		pending = append(pending, pendingLine{n: n, spec: spec, level: level, at: at,
+			dwell: time.Duration(secs * float64(time.Second)), body: jsonBody(body), meta: meta, dwells: dwells})
 	}
 
 	for _, r := range batch {
@@ -434,6 +472,7 @@ func (w *Workload) projectLogs(ctx context.Context, world *core.World, batch []*
 				for _, spec := range n.logs {
 					emit(n, spec, level, t, ctxEval, failStatus)
 				}
+				flush()
 			})
 			continue
 		}
@@ -450,6 +489,7 @@ func (w *Workload) projectLogs(ctx context.Context, world *core.World, batch []*
 				emit(n, spec, level, completedAt, ctxEval, 0)
 			}
 		}
+		flush()
 	}
 
 	out := make([]loki.Stream, 0, len(order))
