@@ -71,6 +71,8 @@ type projected struct {
 	all   []otlp.Resource        // raw resources
 	logs  []loki.Stream          // raw streams
 	byReq map[string][]otlp.Span // trace id -> spans
+	// bySpan indexes each service's lines by span_id: positions into lines[service], ascending.
+	bySpan map[string]map[string][]int
 }
 
 type logLine struct {
@@ -96,7 +98,7 @@ func project(t *testing.T, w *Workload, eng *shape.Engine, reqs []*ledger.Reques
 	if err := w.ProjectBatch(context.Background(), causalNow, world, reqs); err != nil {
 		t.Fatalf("ProjectBatch: %v", err)
 	}
-	p := projected{spans: map[string]otlp.Span{}, owner: map[string]string{}, lines: map[string][]logLine{}, all: tc.Resources, logs: lc.Streams, byReq: map[string][]otlp.Span{}}
+	p := projected{spans: map[string]otlp.Span{}, owner: map[string]string{}, lines: map[string][]logLine{}, all: tc.Resources, logs: lc.Streams, byReq: map[string][]otlp.Span{}, bySpan: map[string]map[string][]int{}}
 	for _, res := range tc.Resources {
 		for _, sp := range res.Spans {
 			p.spans[sp.SpanID] = sp
@@ -115,7 +117,13 @@ func project(t *testing.T, w *Workload, eng *shape.Engine, reqs []*ledger.Reques
 				body[k], _ = v.(string)
 			}
 			svc := st.Labels["service_name"]
-			p.lines[svc] = append(p.lines[svc], logLine{level: st.Labels["level"], t: ln.T, body: body, meta: ln.Meta})
+			l := logLine{level: st.Labels["level"], t: ln.T, body: body, meta: ln.Meta}
+			if p.bySpan[svc] == nil {
+				p.bySpan[svc] = map[string][]int{}
+			}
+			id := l.field("span_id")
+			p.bySpan[svc][id] = append(p.bySpan[svc][id], len(p.lines[svc]))
+			p.lines[svc] = append(p.lines[svc], l)
 		}
 	}
 	return p
@@ -130,11 +138,16 @@ func (p projected) linesFor(svc string, r *ledger.Request) []logLine {
 			ids[c.PeerSpanID] = true
 		}
 	}
+	// The index keeps this a lookup per span id instead of a scan of every line per request; the
+	// sorted positions keep emission order.
+	var pos []int
+	for id := range ids {
+		pos = append(pos, p.bySpan[svc][id]...)
+	}
+	sort.Ints(pos)
 	var out []logLine
-	for _, l := range p.lines[svc] {
-		if ids[l.field("span_id")] {
-			out = append(out, l)
-		}
+	for _, i := range pos {
+		out = append(out, p.lines[svc][i])
 	}
 	return out
 }

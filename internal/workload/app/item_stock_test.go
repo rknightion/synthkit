@@ -16,9 +16,11 @@ import (
 
 // itemStockDoc declares a counter of 60 arrivals per 60 s tick (1/s) on api, an item-stock count
 // gauge and an oldest-age gauge over it (one shared population), and a normal-valued gauge on a
-// later node whose draws must not move when the stock is declared. %s is the stock gauges.
+// later node whose draws must not move when the stock is declared. %s is the stock gauges. The
+// stock reads the const counter, not the request rate, so traffic is a trickle: minted requests
+// only add span-metric work over these 40 to 120 tick runs that no assertion reads.
 const itemStockDoc = `
-traffic: {off_peak_rps: 0, peak_rps: 10}
+traffic: {off_peak_rps: 0, peak_rps: 0.01}
 services:
   - name: api
     type: web

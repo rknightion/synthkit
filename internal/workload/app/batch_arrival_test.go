@@ -3,17 +3,22 @@
 package app
 
 import (
+	"context"
 	"math"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/rknightion/synthkit/internal/core/coretest"
 )
 
 // batchDoc declares one shape-driven counter. The workload clock is UTC and the shape base is
-// 100, so one smooth tick adds 100 x the load percentage.
+// 100, so one smooth tick adds 100 x the load percentage. The counter reads the load factor, not
+// the request rate, so the traffic is kept to a trickle: these tests tick a whole day (8,641 ticks
+// at ten seconds), and minted requests only add span-metric work no assertion reads.
 const batchDoc = `
 shape_profile: {timezone: UTC}
-traffic: {off_peak_rps: 0, peak_rps: 10}
+traffic: {off_peak_rps: 0, peak_rps: 0.01}
 services:
   - name: api
     type: web
@@ -41,13 +46,32 @@ func counterDay(t *testing.T, doc, metric string) map[string][]float64 {
 	w := buildApp(t, decodeStrict(t, doc))
 	out := map[string][]float64{}
 	day := time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
+	tick := worldTicker(t, w)
 	for m := 0; m <= 24*60; m++ {
-		mc := tickN(t, w, day.Add(time.Duration(m)*time.Minute), 1, 1)
+		mc := tick(day.Add(time.Duration(m) * time.Minute))
 		for _, s := range mc.Find(metric) {
 			out[s.Labels["site"]] = append(out[s.Labels["site"]], s.Value)
 		}
 	}
 	return out
+}
+
+// worldTicker ticks w once per call at the given time and returns that tick's capture. Unlike
+// tickN per tick, it builds the world (and its shape engine, which loads the timezone database)
+// once for the whole run: a day of ticks otherwise spends most of its time rebuilding it.
+func worldTicker(t *testing.T, w *Workload) func(time.Time) *coretest.MetricCapture {
+	t.Helper()
+	mc := &coretest.MetricCapture{}
+	world := coretest.World(mc, nil, nil)
+	world.Shape.SetVolumeMultiplier(1)
+	return func(at time.Time) *coretest.MetricCapture {
+		t.Helper()
+		mc.Batches = nil // keep only this tick's cumulative batch
+		if err := w.Tick(context.Background(), at, world); err != nil {
+			t.Fatalf("Tick: %v", err)
+		}
+		return mc
+	}
 }
 
 // increments is the per-tick counter delta (the first reading is its own delta).
@@ -156,9 +180,10 @@ func TestBatchedCounterFollowsTickSpacing(t *testing.T) {
 	day := time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
 	run := func(doc string) []float64 {
 		w := buildApp(t, decodeStrict(t, doc))
+		tick := worldTicker(t, w)
 		var cum []float64
 		for k := 0; k <= int(24*time.Hour/step); k++ {
-			mc := tickN(t, w, day.Add(time.Duration(k)*step), 1, 1)
+			mc := tick(day.Add(time.Duration(k) * step))
 			for _, s := range mc.Find("records_received_total") {
 				if s.Labels["site"] == "emea" {
 					cum = append(cum, s.Value)
