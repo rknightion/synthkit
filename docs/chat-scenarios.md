@@ -65,6 +65,16 @@ print with a `[dm]` tag.
    (HTTP Basic `control:<token>`); a scenario that is already active at launch never fires.
    `-trigger manual` starts immediately instead.
 
+### In the Helm chart
+
+Set `chatsim.enabled` to run `synthkit-chat run` as a second container in the emitter pod. It
+reaches the control plane on the pod's loopback, so set the bindings' `control.url` to
+`http://127.0.0.1:8088` and leave the control plane closed. Put the scenario, bindings and
+optional seed in a ConfigMap (`chatsim.configMap`, keys `chatsim.scenarioKey`, `bindingsKey`,
+`seedKey`) and the tokens the bindings name in a Secret (`chatsim.existingSecret`). The files are
+read at start, so restart the pod after changing them. The chart refuses chatsim with `ha`: two
+Socket Mode connections would post every line twice.
+
 The kill switch is `/chatsim <command>`, accepted only from `operator_user_id` and answered
 privately. The same commands work on the terminal's stdin and in the control DM.
 

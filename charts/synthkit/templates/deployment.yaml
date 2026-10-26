@@ -1,5 +1,6 @@
 {{- include "synthkit.validate" . -}}
 {{- include "synthkit.validateBlueprintSources" . -}}
+{{- include "synthkit.validateChatsim" . -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -165,6 +166,39 @@ spec:
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+        {{- if .Values.chatsim.enabled }}
+        # synthkit-chat reaches the control plane on this pod's loopback; see values.yaml.
+        - name: chatsim
+          image: {{ include "synthkit.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/app/synthkit-chat"]
+          args:
+            - run
+            - -scenario
+            - {{ printf "/etc/synthkit/chat/%s" .Values.chatsim.scenarioKey | quote }}
+            - -bindings
+            - {{ printf "/etc/synthkit/chat/%s" .Values.chatsim.bindingsKey | quote }}
+            {{- with .Values.chatsim.seedKey }}
+            - -seed
+            - {{ printf "/etc/synthkit/chat/%s" . | quote }}
+            {{- end }}
+          # The bindings' journal_dir is relative to the working directory, and the root
+          # filesystem is read-only.
+          workingDir: /tmp
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.chatsim.existingSecret | quote }}
+          resources:
+            {{- toYaml .Values.chatsim.resources | nindent 12 }}
+          volumeMounts:
+            - name: chatsim-config
+              mountPath: /etc/synthkit/chat
+              readOnly: true
+            - name: chatsim-tmp
+              mountPath: /tmp
+        {{- end }}
       volumes:
         {{- if .Values.blueprintSources.enabled }}
         - name: git-source-input
@@ -187,6 +221,13 @@ spec:
         {{- end }}
         - name: tmp
           emptyDir: {}
+        {{- if .Values.chatsim.enabled }}
+        - name: chatsim-config
+          configMap:
+            name: {{ .Values.chatsim.configMap | quote }}
+        - name: chatsim-tmp
+          emptyDir: {}
+        {{- end }}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

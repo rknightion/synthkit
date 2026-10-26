@@ -21,7 +21,8 @@ ARG VERSION=dev
 ARG REVISION=unknown
 RUN CGO_ENABLED=0 go build -ldflags "-X main.version=${VERSION} -X main.revision=${REVISION}" -o /out/synthkit ./cmd/synthkit && \
     CGO_ENABLED=0 go build -ldflags "-X main.version=${VERSION}" -o /out/sm-provision ./cmd/sm-provision && \
-    CGO_ENABLED=0 go build -o /out/synthkit-dash ./cmd/synthkit-dash
+    CGO_ENABLED=0 go build -o /out/synthkit-dash ./cmd/synthkit-dash && \
+    CGO_ENABLED=0 go build -o /out/synthkit-chat ./cmd/synthkit-chat
 
 # Debian security carries the patched trust store before the distroless rebuild.
 FROM debian:bookworm-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8 AS trust
@@ -39,6 +40,7 @@ WORKDIR /app
 COPY --from=build /out/synthkit /app/synthkit
 COPY --from=build /out/sm-provision /app/sm-provision
 COPY --from=build /out/synthkit-dash /app/synthkit-dash
+COPY --from=build /out/synthkit-chat /app/synthkit-chat
 COPY blueprints/ /app/blueprints/
 # Control-plane state (Phase 6) persists under /data — mount a DIRECTORY owned by
 # uid 65532 (distroless nonroot); a single-FILE mount breaks atomic save (I25).

@@ -301,6 +301,7 @@ for configuration and handoff limits.
 | `smProvision.runId` | `"1"` | Bump to re-run on a later upgrade |
 | `smProvision.cleanup.enabled` | `false` | Run ownership-bound cleanup instead of reconciliation; preview with `apply: false` |
 | `smProvision.cleanup.confirm` | `""` | The plan hash a cleanup preview printed; required with `apply: true` |
+| `chatsim.enabled` | `false` | Run synthkit-chat beside the emitter; needs `chatsim.configMap` and `chatsim.existingSecret`, refused with `ha` |
 
 ---
 

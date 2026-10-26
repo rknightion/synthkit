@@ -445,3 +445,28 @@ extraEnv: []
 
 extraVolumes: []
 extraVolumeMounts: []
+
+# ── Chat simulation (off by default) ─────────────────────────────────────────────────────────
+# Runs synthkit-chat (docs/chat-scenarios.md) as a second container in the emitter pod, so it
+# reaches the control plane on the pod's own loopback and nothing is exposed for it. Point the
+# bindings' control.url at http://127.0.0.1:8088. Single-pod only: a second Slack Socket Mode
+# connection would post every line twice, so HA fails the render.
+chatsim:
+  enabled: false
+  # Operator-created ConfigMap holding the scenario, the bindings and, optionally, a seed. The
+  # files are read at start, so a change needs a pod restart (bump a podAnnotations hash).
+  configMap: ""
+  scenarioKey: scenario.chat.yaml
+  bindingsKey: bindings.yaml
+  # Empty runs without a seed, and the control panel then has no Reset button.
+  seedKey: ""
+  # Operator-created Secret projected as environment variables: every *_env name the bindings use
+  # (by default SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_USER_TOKEN for a seed, the model API key,
+  # and GRAFANA_IRM_TOKEN when the seed resets IRM).
+  existingSecret: ""
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi

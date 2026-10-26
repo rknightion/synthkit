@@ -553,6 +553,19 @@
       "items": {
         "type": "object"
       }
+    },
+    "chatsim": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"type":"boolean"},
+        "configMap": {"type":"string","maxLength":253,"pattern":"^$|^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$"},
+        "scenarioKey": {"type":"string","minLength":1,"maxLength":253,"pattern":"^[A-Za-z0-9_-][A-Za-z0-9_.-]*$"},
+        "bindingsKey": {"type":"string","minLength":1,"maxLength":253,"pattern":"^[A-Za-z0-9_-][A-Za-z0-9_.-]*$"},
+        "seedKey": {"type":"string","maxLength":253,"pattern":"^$|^[A-Za-z0-9_-][A-Za-z0-9_.-]*$"},
+        "existingSecret": {"type":"string","maxLength":253,"pattern":"^$|^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$"},
+        "resources": {"$ref":"#/$defs/resources"}
+      }
     }
   },
   "$defs": {

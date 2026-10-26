@@ -494,3 +494,24 @@ misbehaves once it is running.
   {{- end -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Chat simulation sidecar. It shares the emitter pod's loopback, so it is single-pod only.
+*/}}
+{{- define "synthkit.validateChatsim" -}}
+{{- if .Values.chatsim.enabled -}}
+  {{- if .Values.ha.enabled -}}
+    {{- fail "chatsim runs in a single pod; a second replica would post every chat line twice. Disable ha or chatsim" -}}
+  {{- end -}}
+  {{- if not .Values.chatsim.configMap -}}
+    {{- fail "chatsim.enabled requires chatsim.configMap holding the scenario and bindings" -}}
+  {{- end -}}
+  {{- if not .Values.chatsim.existingSecret -}}
+    {{- fail "chatsim.enabled requires chatsim.existingSecret holding the Slack and model tokens" -}}
+  {{- end -}}
+  {{- $keys := compact (list .Values.chatsim.scenarioKey .Values.chatsim.bindingsKey .Values.chatsim.seedKey) -}}
+  {{- if ne (len $keys) (len (uniq $keys)) -}}
+    {{- fail "chatsim scenarioKey, bindingsKey and seedKey must be distinct" -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
