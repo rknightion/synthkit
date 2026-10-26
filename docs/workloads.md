@@ -817,6 +817,9 @@ counter spec on the node, so one histogram spec per series (each with its own `v
 count from the matching counter series, and `_count` equals that series' increase each tick.
 A histogram label the counter lacks, a value it never takes, or a combination no counter series
 carries is rejected. Its own enum values may declare `value_scale` but not `rate_scale`.
+Two histogram specs of one name whose label selections overlap the same counter series each
+observe that series, so its arrivals are counted twice; this is not rejected, so give each counter
+series at most one matching histogram spec.
 `count_of_service: <service>` reads the counter on another node of the same workload (for
 example a counter a scenario targets through its own service): the named service must be
 declared before the histogram's service, an unknown or later service is rejected at load, and
