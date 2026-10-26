@@ -769,9 +769,14 @@ Omit `value`; `value_scale` is rejected on its labels (the stock counts items). 
   (`median > 0`, `p95 >= median`, both finite) and then completes, so the gauge is an integer that
   settles near `counter rate × the residence mean` (the mean sits above the median). Draws hash the
   series and the arrival tick, never the shape engine or the wall clock, so a run is a function of
-  its tick sequence. The first tick seeds the steady-state population for that tick's rate (no ramp
-  after a restart), and a paused workload adds no items so completions drain the stock. One series
-  holds at most 100,000 items; arrivals above that are dropped, never carried.
+  its tick sequence. The first tick seeds the population the stock would hold had its arrivals
+  followed the counter's shape curve over the residence window before it (no ramp after a restart,
+  at the plateau or at night): the curve is integrated over that window in at most 4,096 steps, each
+  seeded item gets an age from that arrival density and a remaining residence drawn consistently with
+  it. A counter that is not shape-valued (a constant, a random draw) is held flat at that tick's
+  rate, which seeds rate x the residence mean as before. A paused workload adds no items so
+  completions drain the stock. One series holds at most 100,000 items; arrivals above that are
+  dropped, never carried.
     - `stall_mode` (item stock only): an incident mode name. While it is active on the service at
       intensity `i`, every item's residence advances at `(1 - i)` of real time. Intensity 1 stops
       completions, so the count and the oldest age grow, and recovery drains the frozen items as

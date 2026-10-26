@@ -162,8 +162,10 @@ func MaxRateScale(labels map[string]ValueModel) float64 {
 // deterministically), each item stays for its own residence draw and then completes, so the
 // gauge is an integer count that settles near counter rate × the residence mean. Draws hash the
 // series and arrival tick, never the shape engine or the wall clock, so a run is a function of
-// its tick sequence. The first tick seeds the steady-state population for that tick's rate (no
-// ramp after a restart). A paused workload adds no items and completions drain the stock.
+// its tick sequence. The first tick seeds the population still resident from the arrival curve
+// over the residence window before it, when every counter source is shape-valued, else from that
+// tick's rate (no ramp after a restart). A paused workload adds no items and completions drain the
+// stock.
 //
 // StallMode and Field apply to the item stock only (a fluid stock rejects both). StallMode names
 // an incident mode that slows completions: while it is active on the service at intensity i,
