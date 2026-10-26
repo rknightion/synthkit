@@ -65,14 +65,13 @@ services:
 `
 
 type projected struct {
-	spans map[string]otlp.Span   // by span id
-	owner map[string]string      // span id -> service.name of its resource
-	lines map[string][]logLine   // service_name -> lines in emission order
-	all   []otlp.Resource        // raw resources
-	logs  []loki.Stream          // raw streams
-	byReq map[string][]otlp.Span // trace id -> spans
-	// bySpan indexes each service's lines by span_id: positions into lines[service], ascending.
-	bySpan map[string]map[string][]int
+	spans     map[string]otlp.Span        // by span id
+	owner     map[string]string           // span id -> service.name of its resource
+	lines     map[string][]logLine        // service_name -> lines in emission order
+	lineIndex map[string]map[string][]int // service_name -> effective span_id -> emission positions
+	all       []otlp.Resource             // raw resources
+	logs      []loki.Stream               // raw streams
+	byReq     map[string][]otlp.Span      // trace id -> spans
 }
 
 type logLine struct {
@@ -98,7 +97,7 @@ func project(t *testing.T, w *Workload, eng *shape.Engine, reqs []*ledger.Reques
 	if err := w.ProjectBatch(context.Background(), causalNow, world, reqs); err != nil {
 		t.Fatalf("ProjectBatch: %v", err)
 	}
-	p := projected{spans: map[string]otlp.Span{}, owner: map[string]string{}, lines: map[string][]logLine{}, all: tc.Resources, logs: lc.Streams, byReq: map[string][]otlp.Span{}, bySpan: map[string]map[string][]int{}}
+	p := projected{spans: map[string]otlp.Span{}, owner: map[string]string{}, lines: map[string][]logLine{}, lineIndex: map[string]map[string][]int{}, all: tc.Resources, logs: lc.Streams, byReq: map[string][]otlp.Span{}}
 	for _, res := range tc.Resources {
 		for _, sp := range res.Spans {
 			p.spans[sp.SpanID] = sp
@@ -117,16 +116,35 @@ func project(t *testing.T, w *Workload, eng *shape.Engine, reqs []*ledger.Reques
 				body[k], _ = v.(string)
 			}
 			svc := st.Labels["service_name"]
-			l := logLine{level: st.Labels["level"], t: ln.T, body: body, meta: ln.Meta}
-			if p.bySpan[svc] == nil {
-				p.bySpan[svc] = map[string][]int{}
-			}
-			id := l.field("span_id")
-			p.bySpan[svc][id] = append(p.bySpan[svc][id], len(p.lines[svc]))
-			p.lines[svc] = append(p.lines[svc], l)
+			p.appendLine(svc, logLine{level: st.Labels["level"], t: ln.T, body: body, meta: ln.Meta})
 		}
 	}
 	return p
+}
+
+// appendLine indexes each decoded captured row once. field retains metadata presence
+// precedence, including an explicitly empty metadata value overriding the body.
+func (p *projected) appendLine(svc string, line logLine) {
+	position := len(p.lines[svc])
+	p.lines[svc] = append(p.lines[svc], line)
+	if p.lineIndex[svc] == nil {
+		p.lineIndex[svc] = map[string][]int{}
+	}
+	id := line.field("span_id")
+	p.lineIndex[svc][id] = append(p.lineIndex[svc][id], position)
+}
+
+func (p projected) linesAt(svc string, positions []int) []logLine {
+	var out []logLine
+	for _, position := range positions {
+		out = append(out, p.lines[svc][position])
+	}
+	return out
+}
+
+// linesForSpan keeps root-only callers distinct from request-wide membership.
+func (p projected) linesForSpan(svc, id string) []logLine {
+	return p.linesAt(svc, p.lineIndex[svc][id])
 }
 
 // linesFor are a service's log lines for one request, matched by the request's span ids.
@@ -138,18 +156,114 @@ func (p projected) linesFor(svc string, r *ledger.Request) []logLine {
 			ids[c.PeerSpanID] = true
 		}
 	}
-	// The index keeps this a lookup per span id instead of a scan of every line per request; the
-	// sorted positions keep emission order.
-	var pos []int
+	var positions []int
 	for id := range ids {
-		pos = append(pos, p.bySpan[svc][id]...)
+		positions = append(positions, p.lineIndex[svc][id]...)
 	}
-	sort.Ints(pos)
-	var out []logLine
-	for _, i := range pos {
-		out = append(out, p.lines[svc][i])
+	// Different request spans may interleave in a service's captured stream. Merge
+	// positions, not rows keyed by payload: duplicate rows must remain distinct.
+	sort.Ints(positions)
+	return p.linesAt(svc, positions)
+}
+
+// Compare actual ProjectBatch output with the former full-scan predicate. Copied
+// captured rows add interleaving/duplicates and metadata-presence edge cases without
+// changing any existing proof's fixture, request population or assertions.
+func TestProjectedLogLookupPreservesCapturedCorpus(t *testing.T) {
+	w := causalApps(t, `- {name: lookup-dep, kind: dependency, latency_ms: 10}`, `
+traffic: {off_peak_rps: 2, peak_rps: 2}
+services:
+  - name: lookup-front
+    entry: true
+    error_rate: 0
+    calls: [lookup-child]`+causalLogBody+`
+  - name: lookup-child
+    error_rate: 0
+    uses: [lookup-dep]`+causalLogBody)[0]
+	eng := shape.New("UTC", nil)
+	reqs := mintAt(w, eng, causalNow)
+	p := project(t, w, eng, reqs)
+	if len(reqs) < 2 || len(p.lines["lookup-front"]) == 0 || len(p.lines["lookup-child"]) == 0 {
+		t.Fatal("missing real request/log corpus")
 	}
-	return out
+	// Build the oracle independently from raw LogCapture streams, not from the
+	// appendLine-populated corpus: dropping a row from both corpus and index
+	// must not make their agreement a false pass.
+	captured := map[string][]logLine{}
+	for _, stream := range p.logs {
+		for _, line := range stream.Lines {
+			var raw map[string]any
+			if err := json.Unmarshal([]byte(line.Body), &raw); err != nil {
+				t.Fatal(err)
+			}
+			body := map[string]string{}
+			for k, value := range raw {
+				body[k], _ = value.(string)
+			}
+			svc := stream.Labels["service_name"]
+			captured[svc] = append(captured[svc], logLine{level: stream.Labels["level"], t: line.T, body: body, meta: line.Meta})
+		}
+	}
+	if !reflect.DeepEqual(p.lines, captured) {
+		t.Fatal("decoded corpus differs from raw captured rows")
+	}
+	r := reqs[0]
+	if len(r.Calls) == 0 || r.Calls[0].PeerSpanID == "" {
+		t.Fatal("missing real child span membership")
+	}
+	front, child := p.lines["lookup-front"][0], p.lines["lookup-child"][0]
+	withSpanMetadata := func(line logLine, id string) logLine {
+		meta := map[string]string{}
+		for k, v := range line.meta {
+			meta[k] = v
+		}
+		meta["span_id"] = id
+		line.meta = meta
+		return line
+	}
+	appendCaptured := func(svc string, line logLine) {
+		captured[svc] = append(captured[svc], line)
+		p.appendLine(svc, line)
+	}
+	appendCaptured("lookup-front", front)
+	appendCaptured("lookup-front", child)
+	appendCaptured("lookup-front", withSpanMetadata(front, r.Calls[0].PeerSpanID))
+	appendCaptured("lookup-front", withSpanMetadata(front, ""))
+	appendCaptured("lookup-front", front)
+	appendCaptured("lookup-child", front) // same span key under another service
+
+	// Repeated IDs in a request are membership, not multiplicity. Empty root IDs
+	// still match empty effective IDs, as the former full scan did.
+	repeated := *r
+	repeated.Calls = append(append([]ledger.Call(nil), r.Calls...), r.Calls...)
+	probes := append(append([]*ledger.Request(nil), reqs...), &repeated, &ledger.Request{})
+	scan := func(svc string, ids map[string]bool) []logLine {
+		var out []logLine
+		for _, line := range captured[svc] {
+			if ids[line.field("span_id")] {
+				out = append(out, line)
+			}
+		}
+		return out
+	}
+	for _, svc := range []string{"lookup-front", "lookup-child", "absent-service"} {
+		for i, req := range probes {
+			ids := map[string]bool{req.SpanID: true}
+			for _, call := range req.Calls {
+				ids[call.SpanID] = true
+				if call.PeerSpanID != "" {
+					ids[call.PeerSpanID] = true
+				}
+			}
+			if got, want := p.linesFor(svc, req), scan(svc, ids); !reflect.DeepEqual(got, want) {
+				t.Fatalf("service %s request %d: indexed corpus differs from full scan (%d/%d rows)", svc, i, len(got), len(want))
+			}
+			if got, want := p.linesForSpan(svc, req.SpanID), scan(svc, map[string]bool{req.SpanID: true}); !reflect.DeepEqual(got, want) {
+				t.Fatalf("service %s root %d: indexed corpus differs from root-only full scan (%d/%d rows)", svc, i, len(got), len(want))
+			}
+		}
+	}
+	t.Logf("compared %d real requests plus repeated/empty membership controls over %d captured/copied rows", len(reqs), len(p.lines["lookup-front"])+len(p.lines["lookup-child"]))
 }
 
 func noEvents(t *testing.T, p projected) {

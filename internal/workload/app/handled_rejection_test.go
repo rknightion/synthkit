@@ -90,7 +90,7 @@ func TestHandledRuleWorkerProjection(t *testing.T) {
 					}
 				}
 				if tc.active {
-					lines := p.lines["validation-worker"]
+					lines := p.linesForSpan("validation-worker", r.SpanID)
 					found := false
 					for _, l := range lines {
 						if l.field("span_id") == r.SpanID {
