@@ -359,8 +359,7 @@ func runAppParityCase(t *testing.T, cfg *Config, now time.Time, seed string) (ap
 		t.Logf("fixed request route=%q outcome=%q trace=%q logs=%s", r.Route, r.Outcome, r.TraceID, encoded)
 	}
 
-	sortedMetrics := sortedMetricBatch(t, metrics.batch)
-	wire := appParityWire{Metrics: parityJSON(t, sortedMetrics), Logs: parityJSON(t, logs.batch)}
+	wire := appParityWire{Metrics: canonicalMetricJSON(t, metrics.batch), Logs: parityJSON(t, logs.batch)}
 	// Diagnostic only: retain canonical sink batches for cross-platform investigation.
 	if dir := os.Getenv("APP_PARITY_DUMP_DIR"); dir != "" {
 		if err := os.MkdirAll(dir, 0755); err != nil {
@@ -413,6 +412,34 @@ func parityJSON(t *testing.T, batch any) []byte {
 	return encoded
 }
 
+// canonicalMetricJSON reuses the complete encoded records used for lexical ordering.
+// Joining those records preserves the old sort-then-marshal array bytes, including
+// duplicates and the non-nil empty array returned for a nil input batch.
+func canonicalMetricJSON(t *testing.T, batch []promrw.Series) []byte {
+	t.Helper()
+	records := make([]string, len(batch))
+	size := 2 + max(0, len(batch)-1)
+	for i, series := range batch {
+		encoded, err := json.Marshal(series)
+		if err != nil {
+			t.Fatalf("encode metric series: %v", err)
+		}
+		records[i] = string(encoded)
+		size += len(encoded)
+	}
+	sort.Strings(records)
+	out := make([]byte, 0, size)
+	out = append(out, '[')
+	for i, record := range records {
+		if i > 0 {
+			out = append(out, ',')
+		}
+		out = append(out, record...)
+	}
+	return append(out, ']')
+}
+
+// sortedMetricBatch is the unchanged independent full-series reference for byte proofs.
 func sortedMetricBatch(t *testing.T, batch []promrw.Series) []promrw.Series {
 	t.Helper()
 	count := len(batch)
