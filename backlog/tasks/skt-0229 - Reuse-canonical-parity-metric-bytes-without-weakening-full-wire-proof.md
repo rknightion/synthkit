@@ -1,9 +1,10 @@
 ---
 id: SKT-0229
 title: Reuse canonical parity metric bytes without weakening full wire proof
-status: In Progress
+status: Parked
 assignee: []
 created_date: '2026-10-26T04:57:00Z'
+updated_date: '2026-10-26T05:55:00Z'
 labels:
   - performance
 dependencies: []
@@ -37,3 +38,9 @@ Exact-source race profiles of the integrated app candidate measured material old
 <!-- SECTION:PLAN:BEGIN -->
 Read exact existing helper/comparator and preserved race profiles; retain the original serializer as an independent oracle, reuse complete already-encoded records in identical lexical order, prove full raw-byte equivalence and semantic omission/value negatives, then focused real parity validation and representative helper cost. One bounded correction only; root owns native review, CodeRabbit delta and final exact full gate. Comparator/tree decoding optimization is excluded. Original aggregate-cost lineage and convergence clock are not reset by this prerequisite task.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Closeout: exact two-file0dbd correction committed locally asaf34, not published. Native and DS PASS; CodeRabbit complete2of2/no findings; all13 declarations/52 actual executions raw-byte equal with semantic negatives, focused parity racePASS82.72s. Representative encoder CPU/allocation savings are scoped only. Exact final full gate still fails app-race600.139s, so DoD/landing remain blocked by aggregate owner stop. No further correction or comparator shortcut; retain candidate/proofs for owner-approved resumption.
+<!-- SECTION:NOTES:END -->
