@@ -1,14 +1,13 @@
 ---
 id: SKT-0224
 title: Bound dynamic legacy timing evaluation cost before broad live use
-status: Parked
+status: In Progress
 assignee: []
 created_date: '2026-10-25T22:00:00Z'
-updated_date: '2026-10-26T03:26:00Z'
+updated_date: '2026-10-26T03:31:00Z'
 labels:
   - causal
   - performance
-  - needs-owner
 dependencies: []
 ordinal: 430000
 ---
@@ -46,4 +45,6 @@ Owner closeout: Runtime-cost blocker remains: observed 6.29s per gate and 13.93G
 Second loop60 convergence stop: latest unlanded two-worker candidate remains unapproved. First fresh confirmation measured 4.140158258s above the unchanged four-second margin; remaining calls/processes stopped unmeasured. Ordered cold still exceeds 300s. Independent native review found an uncontained helper-goroutine panic and a caller-panic path that skips retained-plan recount. No more algorithm, lifecycle or repeated confirmation repair without owner reopening. Prior serial correctness verdicts remain scoped to their original bytes; no timed, concurrent, private or whole-runner admission. Candidate, failure evidence and offline-only limit proposal retained; private deployment stays held.
 
 Loop60 closeout: Second convergence stop remains binding: fresh4.140158258s exceeds4s, ordered cold exceeds300s and native worker panic/accounting findings remain open. No algorithm/lifecycle repair, confirmations, private-runtime admission or renamed bypass without explicit owner reopening; unsupported operating-limit proposal remains unapplied.
+
+Owner explicitly reopens up to TWO bounded defect-repair rounds on senior/Astra, limited to helper panic containment, complete join and post-panic accounting. Preserve all prior failure evidence, numerical semantics, four-second margin and operating limits; no general optimization/reset. After correctness, exact whole-private-runner startup/catch-up/fault/RSS and integration gates decide admission; no deployment by approval alone.
 <!-- SECTION:NOTES:END -->
