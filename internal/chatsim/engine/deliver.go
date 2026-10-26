@@ -315,6 +315,13 @@ func (m *Machine) control(now time.Time, ev Event) {
 	case "stop":
 		m.finish(now, "stopped by operator")
 		reply("chatsim: stopped")
+	case "reset":
+		if !m.opt.Resettable {
+			reply("chatsim: reset needs a seed (run with -seed)")
+			return
+		}
+		m.finish(now, EndReasonReset)
+		reply("chatsim: resetting the workspace to its seed")
 	case "status":
 		reply("%s", m.status(now))
 	case "skip":

@@ -36,6 +36,17 @@ oauth_config:
       - pins:read              # find and retire an earlier run's control panel
       - pins:write             # pin the live control panel in the DM
       - users:read
+    # Only for `synthkit-chat reset`: the workspace owner authorises these when installing, and
+    # the "User OAuth Token" (xoxp-) deletes everyone's messages, archives old incident rooms and
+    # posts the operator's seeded lines. Leave them out if you never reset.
+    user:
+      - channels:read
+      - channels:history
+      - channels:write
+      - groups:read
+      - groups:history
+      - groups:write
+      - chat:write
 settings:
   event_subscriptions:
     bot_events:

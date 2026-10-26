@@ -146,3 +146,31 @@ func TestPanelVerbsAreControlVerbs(t *testing.T) {
 		t.Error("direction modal has duplicate block ids")
 	}
 }
+
+// TestPanelOffersResetOnlyWithASeed: the confirmed Reset button appears when the host can
+// reseed, maps onto the reset verb, and an ended reset panel says a fresh run follows.
+func TestPanelOffersResetOnlyWithASeed(t *testing.T) {
+	s := engine.Snapshot{State: engine.StateWaiting, Resettable: true}
+	got := actionIDs(PanelBlocks(s))
+	if !slices.Equal(got, []string{"chatsim_start", "chatsim_stop", "chatsim_reset"}) {
+		t.Fatalf("actions = %v", got)
+	}
+	for _, b := range PanelBlocks(s) {
+		if a, ok := b.(*slack.ActionBlock); ok {
+			last := a.Elements.ElementSet[len(a.Elements.ElementSet)-1].(*slack.ButtonBlockElement)
+			if last.Confirm == nil {
+				t.Fatal("reset has no confirmation")
+			}
+		}
+	}
+	id := Identities{OperatorID: "U1"}
+	cb := slack.InteractionCallback{Type: slack.InteractionTypeBlockActions, User: slack.User{ID: "U1"}}
+	cb.ActionCallback.BlockActions = []*slack.BlockAction{{ActionID: "chatsim_reset"}}
+	if in := id.TranslateInteraction(cb); len(in.Events) != 1 || in.Events[0].Command != "reset" {
+		t.Fatalf("interaction = %+v", in)
+	}
+	ended, _ := json.Marshal(PanelBlocks(engine.Snapshot{State: engine.StateEnded, EndReason: engine.EndReasonReset}))
+	if !strings.Contains(string(ended), "fresh run") {
+		t.Fatalf("ended reset panel: %s", ended)
+	}
+}

@@ -18,6 +18,9 @@ const (
 	StateEnded    = "ended"
 )
 
+// EndReasonReset is the end reason of a run the operator ended with reset.
+const EndReasonReset = "reset by operator"
+
 // Snapshot is the run's state for the operator's control panel. It holds no wall-clock reading
 // that changes on its own, so two snapshots are equal exactly when something happened.
 type Snapshot struct {
@@ -38,6 +41,8 @@ type Snapshot struct {
 	MaxCalls   int    `json:"max_llm_calls"`
 	LastNotice string `json:"last_notice,omitempty"`
 	EndReason  string `json:"end_reason,omitempty"`
+	// Resettable says the reset verb is available.
+	Resettable bool `json:"resettable,omitempty"`
 }
 
 // PersonaStatus is one persona and the channels it is in.
@@ -64,7 +69,7 @@ func (m *Machine) Snapshot() Snapshot {
 		Scenario: m.sc.Name, SynthkitScenario: m.sc.Trigger.SynthkitScenario,
 		RunID: m.runID, StartedAt: m.t0, Fired: m.fired, Paused: m.paused,
 		Queued: len(m.queue), LLMCalls: m.calls, MaxCalls: m.sc.LLM.MaxLLMCalls,
-		LastNotice: m.lastNotice, EndReason: m.endReason,
+		LastNotice: m.lastNotice, EndReason: m.endReason, Resettable: m.opt.Resettable,
 	}
 	switch {
 	case m.ended:

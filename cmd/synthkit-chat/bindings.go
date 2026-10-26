@@ -33,6 +33,9 @@ type Bindings struct {
 	Slack struct {
 		BotTokenEnv string `yaml:"bot_token_env"`
 		AppTokenEnv string `yaml:"app_token_env"`
+		// UserTokenEnv names the workspace owner's user token (xoxp-) a reset uses to delete
+		// everyone's messages, archive channels and post the operator's seeded lines.
+		UserTokenEnv string `yaml:"user_token_env"`
 	} `yaml:"slack"`
 	OpenRouter struct {
 		APIKeyEnv     string   `yaml:"api_key_env"`
@@ -50,11 +53,12 @@ type Bindings struct {
 
 // Default secret variable names.
 const (
-	defaultBotTokenEnv = "SLACK_BOT_TOKEN"
-	defaultAppTokenEnv = "SLACK_APP_TOKEN"
-	defaultAPIKeyEnv   = "OPENROUTER_API_KEY"
-	defaultControlEnv  = "CONTROL_TOKEN"
-	defaultJournalDir  = "chatsim-runs"
+	defaultBotTokenEnv  = "SLACK_BOT_TOKEN"
+	defaultAppTokenEnv  = "SLACK_APP_TOKEN"
+	defaultUserTokenEnv = "SLACK_USER_TOKEN"
+	defaultAPIKeyEnv    = "OPENROUTER_API_KEY"
+	defaultControlEnv   = "CONTROL_TOKEN"
+	defaultJournalDir   = "chatsim-runs"
 )
 
 var (
@@ -91,6 +95,7 @@ func (b *Bindings) defaults() {
 	}
 	set(&b.Slack.BotTokenEnv, defaultBotTokenEnv)
 	set(&b.Slack.AppTokenEnv, defaultAppTokenEnv)
+	set(&b.Slack.UserTokenEnv, defaultUserTokenEnv)
 	set(&b.OpenRouter.APIKeyEnv, defaultAPIKeyEnv)
 	set(&b.Control.TokenEnv, defaultControlEnv)
 	set(&b.JournalDir, defaultJournalDir)
@@ -119,7 +124,7 @@ func (b *Bindings) validate() error {
 			errs = append(errs, fmt.Sprintf("irm.app_ids: %q is not a Slack app id", id))
 		}
 	}
-	for _, n := range []string{b.Slack.BotTokenEnv, b.Slack.AppTokenEnv, b.OpenRouter.APIKeyEnv, b.Control.TokenEnv} {
+	for _, n := range []string{b.Slack.BotTokenEnv, b.Slack.AppTokenEnv, b.Slack.UserTokenEnv, b.OpenRouter.APIKeyEnv, b.Control.TokenEnv} {
 		if !envNameRe.MatchString(n) {
 			errs = append(errs, fmt.Sprintf("%q is not an environment variable name (bindings hold names, never secrets)", n))
 		}

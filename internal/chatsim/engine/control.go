@@ -5,14 +5,14 @@ package engine
 import "strings"
 
 // ControlVerbs are the kill-switch and control-DM commands.
-var ControlVerbs = []string{"start", "pause", "resume", "stop", "status", "fire", "heal", "skip", "say", "summon", "direct", "help"}
+var ControlVerbs = []string{"start", "pause", "resume", "stop", "status", "fire", "heal", "skip", "say", "summon", "direct", "reset", "help"}
 
 // argVerbs need arguments; the other verbs take none, so ordinary chat such as "stop the pods"
 // is not a command.
 var argVerbs = map[string]bool{"skip": true, "say": true, "summon": true, "direct": true}
 
 // ControlHelp lists the verbs for a help reply.
-const ControlHelp = "start | fire | heal | pause | resume | stop | status | skip <beat> | say <persona> <text> | summon <persona> [channel] | direct <stage direction>"
+const ControlHelp = "start | fire | heal | pause | resume | stop | status | skip <beat> | say <persona> <text> | summon <persona> [channel] | direct <stage direction> | reset"
 
 // ParseControl recognises "/chatsim <verb> [args]" or a bare "<verb> [args]".
 func ParseControl(line string) (verb, args string, ok bool) {

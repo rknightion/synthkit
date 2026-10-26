@@ -103,6 +103,40 @@ still works, unpinned.
 operator's first message matching `start_phrase` in a static channel starts the chat, and the first
 matching `fire_phrase` after that fires the scenario. Each is optional.
 
+### Resetting the workspace
+
+For a workspace dedicated to the drill, a seed file (`kind: ChatSeed`) is the known state to
+return to between rehearsals: a short history in each channel, written once and posted verbatim
+(no model). `synthkit-chat reset -scenario s.chat.yaml -bindings b.yaml -seed s.seed.yaml` deletes
+every message in every channel the user token's user belongs to (thread replies first), archives
+channels matching `wipe.archive_match` (an earlier run's incident rooms; bound channels never),
+leaves `wipe.keep` alone, then posts the seed. `-dry-run` lists what it would do and changes
+nothing. Seed channels are checked first, so a seed naming a missing channel changes nothing.
+
+Run `synthkit-chat run` with `-seed` to add a Reset Slack button (with a confirmation) to the
+panel, and the bare `reset` verb in the DM. It ends the current run at once, deactivates the
+failure scenario if this run fired it, resets, discards the events the reset caused, and arms a
+fresh run, so the start phrase works again.
+
+A bot token can delete only the bot's own messages, so a reset needs a workspace owner's or
+admin's user token (`slack.user_token_env`, default `SLACK_USER_TOKEN`): add the manifest's `user`
+scopes, reinstall, and copy the User OAuth Token. Owners and admins can delete members' and apps'
+messages in channels they are in; anything Slack still refuses is counted in the report. Seeded
+lines post now, since Slack cannot backdate a message: `pace` (default `4s..10s`) or a line's
+`after` spreads them out. A line is `from` a persona id, `operator` (posted as the user token's
+user) or `app`, in a logical channel or `#name`; `key` and `reply_to` make a thread.
+
+```yaml
+apiVersion: synthkit.chatsim/v1
+kind: ChatSeed
+name: monday-morning
+wipe: { archive_match: "^incident-" }
+pace: 5s..12s
+messages:
+  - { channel: ops, from: alex, text: "handover: quiet night, nothing open", key: handover }
+  - { channel: ops, from: operator, text: "thanks, I have it from here", reply_to: handover }
+```
+
 ## Freestyle
 
 The operator does not have to follow the beats:

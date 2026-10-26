@@ -61,6 +61,9 @@ type Options struct {
 	// OperatorID is the operator's transport user id (mention lint).
 	OperatorID string
 	Journal    *Journal
+	// Resettable says the host can reset the workspace to a seed: the reset verb then ends
+	// the run with EndReasonReset, and the host wipes, seeds and starts a fresh run.
+	Resettable bool
 }
 
 type beatStatus int

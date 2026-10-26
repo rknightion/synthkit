@@ -4,9 +4,10 @@
 // around a SynthKit failure scenario and the real alert it raises. It is offline tooling, never
 // linked into the emit binary.
 //
-//	synthkit-chat validate -scenario story.chat.yaml [-bindings bindings.yaml]
+//	synthkit-chat validate -scenario story.chat.yaml [-bindings bindings.yaml] [-seed story.seed.yaml]
 //	synthkit-chat console  -scenario story.chat.yaml [-llm fake|openrouter] [-trigger wait|manual]
-//	synthkit-chat run      -scenario story.chat.yaml -bindings bindings.yaml [-trigger synthkit|manual]
+//	synthkit-chat run      -scenario story.chat.yaml -bindings bindings.yaml [-trigger synthkit|manual] [-seed story.seed.yaml]
+//	synthkit-chat reset    -scenario story.chat.yaml -bindings bindings.yaml -seed story.seed.yaml [-dry-run]
 //	synthkit-chat tap      -bindings bindings.yaml -out events.jsonl [-join-match '^incident-']
 package main
 
@@ -33,10 +34,11 @@ import (
 	"github.com/rknightion/synthkit/internal/chatsim/trigger/synthkit"
 )
 
-const usage = `usage: synthkit-chat <validate|console|run|tap> [flags]
+const usage = `usage: synthkit-chat <validate|console|run|reset|tap> [flags]
   validate  check a scenario (and optionally its bindings) without connecting anywhere
   console   rehearse in the terminal: you are the operator, :help lists injections
   run       live: Slack Socket Mode, the SynthKit trigger, the /chatsim kill switch
+  reset     wipe every channel the user token's user is in and post the seed history
   tap       connect to Slack and append every event envelope to a JSONL file; posts nothing
 run "synthkit-chat <command> -h" for flags; docs/chat-scenarios.md has the walkthrough`
 
@@ -62,6 +64,8 @@ type flags struct {
 	out        string
 	joinMatch  string
 	controlURL string
+	seed       string
+	dryRun     bool
 }
 
 func newFlags(name, defLLM, defTrigger string, stderr io.Writer) *flags {
@@ -78,6 +82,8 @@ func newFlags(name, defLLM, defTrigger string, stderr io.Writer) *flags {
 	f.fs.StringVar(&f.out, "out", "", "tap: output JSONL file")
 	f.fs.StringVar(&f.joinMatch, "join-match", "", "tap: join new channels whose name matches this regex")
 	f.fs.StringVar(&f.controlURL, "control-url", "", "override control.url (SynthKit control plane root)")
+	f.fs.StringVar(&f.seed, "seed", "", "seed file (*.seed.yaml): run offers Reset Slack; reset posts it")
+	f.fs.BoolVar(&f.dryRun, "dry-run", false, "reset: list what would be deleted, archived and posted; change nothing")
 	return f
 }
 
@@ -105,6 +111,12 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 			return err
 		}
 		return liveMode(ctx, f, stdin, stdout, stderr)
+	case "reset":
+		f := newFlags(cmd, "fake", "synthkit", stderr)
+		if err := f.fs.Parse(rest); err != nil {
+			return err
+		}
+		return resetMode(ctx, f, stdout)
 	case "tap":
 		f := newFlags(cmd, "fake", "synthkit", stderr)
 		if err := f.fs.Parse(rest); err != nil {
@@ -145,6 +157,13 @@ func validate(f *flags, stdout io.Writer) error {
 		if err := b.forScenario(sc); err != nil {
 			return err
 		}
+	}
+	if f.seed != "" {
+		seed, err := script.LoadSeed(f.seed, sc)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(stdout, "ok: seed %s (%d lines)\n", seed.Name, len(seed.Messages))
 	}
 	fmt.Fprintf(stdout, "ok: %s (%d personas, %d beats, %d facts); trigger %q after %s; model %s\n",
 		sc.Name, len(sc.Personas), len(sc.Beats), len(sc.Facts), sc.Trigger.SynthkitScenario, sc.Trigger.Delay.Duration, sc.LLM.Model)
@@ -355,9 +374,17 @@ func liveMode(ctx context.Context, f *flags, stdin io.Reader, stdout, stderr io.
 	if err != nil {
 		return err
 	}
-	m, err := engine.NewMachine(sc, engine.Options{Channels: b.Channels, OperatorID: b.OperatorUserID, Journal: j})
-	if err != nil {
-		return err
+	var seed *script.Seed
+	var user slackt.ResetAPI
+	if f.seed != "" {
+		if seed, err = script.LoadSeed(f.seed, sc); err != nil {
+			return err
+		}
+		ut, err := secret(b.Slack.UserTokenEnv)
+		if err != nil {
+			return fmt.Errorf("-seed needs the workspace owner's user token: %w", err)
+		}
+		user = slackt.WebClient(ut)
 	}
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
@@ -369,16 +396,121 @@ func liveMode(ctx context.Context, f *flags, stdin io.Reader, stdout, stderr io.
 	if err != nil {
 		return err
 	}
-	logf("run: %s armed on %q (+%s); journal %s; control DM, /chatsim or stdin: %s",
-		sc.Name, sc.Trigger.SynthkitScenario, sc.Trigger.Delay.Duration, jpath, engine.ControlHelp)
-	tr.Hello(ctx, fmt.Sprintf("Ready: %s. Use the pinned control panel, or DM me start, fire, heal, status, or a stage direction. help lists everything.", sc.Name))
-	err = engine.Run(ctx, m, engine.RealClock{}, events, dir, tr, act)
-	logf("run: ended (%s); %s", m.EndReason(), usageFn())
+	hello := fmt.Sprintf("Ready: %s. Use the pinned control panel, or DM me start, fire, heal, status, or a stage direction. help lists everything.", sc.Name)
+	for {
+		m, err := engine.NewMachine(sc, engine.Options{Channels: b.Channels, OperatorID: b.OperatorUserID, Journal: j, Resettable: seed != nil})
+		if err != nil {
+			return err
+		}
+		logf("run: %s armed on %q (+%s); journal %s; control DM, /chatsim or stdin: %s",
+			sc.Name, sc.Trigger.SynthkitScenario, sc.Trigger.Delay.Duration, jpath, engine.ControlHelp)
+		tr.Hello(ctx, hello)
+		err = engine.Run(ctx, m, engine.RealClock{}, events, dir, tr, act)
+		logf("run: ended (%s); %s", m.EndReason(), usageFn())
+		if m.EndReason() != engine.EndReasonReset || ctx.Err() != nil {
+			return liveExit(ctx, err)
+		}
+		if m.Snapshot().Fired && act != nil {
+			if err := act.SetActive(ctx, false); err != nil {
+				tr.Hello(ctx, fmt.Sprintf("Reset: could not heal %s: %v", sc.Trigger.SynthkitScenario, err))
+			}
+		}
+		rep, err := slackt.Reset(ctx, resetConfig(sc, b, user, tr.ResetAPI(), false, func(line string) { logf("reset: %s", line) }, logf), seed)
+		if err != nil {
+			tr.Hello(ctx, fmt.Sprintf("Reset stopped: %v (%s so far)", err, rep))
+		} else {
+			tr.Hello(ctx, "Reset done: "+rep.String())
+		}
+		drain(ctx, events, logf)
+		if dir, usageFn, err = newDirector(f, sc, b); err != nil {
+			return err
+		}
+		if f.trigger == "manual" {
+			events <- engine.Event{Kind: engine.EvControl, Command: "start", Reply: logTo.Say}
+		}
+		hello = fmt.Sprintf("Ready again: %s, fresh run. Say good morning when you are.", sc.Name)
+	}
+}
+
+// liveExit maps the end of a live run onto the command's error.
+func liveExit(ctx context.Context, err error) error {
 	if cause := context.Cause(ctx); cause != nil && !errors.Is(cause, context.Canceled) {
 		return cause
 	}
 	if errors.Is(err, context.Canceled) {
 		return nil
+	}
+	return err
+}
+
+// drain discards the events a reset caused (deletions, the seeded lines, the heal) so the
+// fresh run starts on a quiet workspace: it returns after 5 s without an event, or after 60 s.
+func drain(ctx context.Context, events <-chan engine.Event, logf func(string, ...any)) {
+	quiet := time.NewTimer(5 * time.Second)
+	defer quiet.Stop()
+	limit := time.NewTimer(60 * time.Second)
+	defer limit.Stop()
+	n := 0
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-limit.C:
+			logf("reset: discarded %d events (still busy after 60s)", n)
+			return
+		case <-quiet.C:
+			logf("reset: discarded %d events", n)
+			return
+		case <-events:
+			n++
+			if !quiet.Stop() {
+				<-quiet.C
+			}
+			quiet.Reset(5 * time.Second)
+		}
+	}
+}
+
+// resetConfig builds a reset of the bound workspace with the scenario's cast.
+func resetConfig(sc *script.Scenario, b *Bindings, user, bot slackt.ResetAPI, dry bool, progress func(string), logf func(string, ...any)) slackt.ResetConfig {
+	ids := map[string]engine.Identity{}
+	for _, p := range sc.Personas {
+		ids[p.ID] = engine.Identity{PersonaID: p.ID, Name: p.Name, Emoji: p.Avatar.Emoji}
+	}
+	return slackt.ResetConfig{User: user, Bot: bot, Channels: b.Channels, Personas: ids,
+		AppName: b.ControlDM.Name, AppEmoji: b.ControlDM.Emoji, DryRun: dry, Progress: progress, Logf: logf}
+}
+
+func resetMode(ctx context.Context, f *flags, stdout io.Writer) error {
+	sc, err := loadScenario(f)
+	if err != nil {
+		return err
+	}
+	if f.bindings == "" || f.seed == "" {
+		return errors.New("reset needs -bindings and -seed")
+	}
+	b, err := loadBindings(f.bindings)
+	if err != nil {
+		return err
+	}
+	seed, err := script.LoadSeed(f.seed, sc)
+	if err != nil {
+		return err
+	}
+	bot, err := secret(b.Slack.BotTokenEnv)
+	if err != nil {
+		return err
+	}
+	ut, err := secret(b.Slack.UserTokenEnv)
+	if err != nil {
+		return err
+	}
+	logf := func(format string, a ...any) { fmt.Fprintf(stdout, format+"\n", a...) }
+	rep, err := slackt.Reset(ctx, resetConfig(sc, b, slackt.WebClient(ut), slackt.WebClient(bot), f.dryRun,
+		func(line string) { fmt.Fprintln(stdout, "reset:", line) }, logf), seed)
+	fmt.Fprintln(stdout, "reset:", rep)
+	for _, p := range rep.Problems {
+		fmt.Fprintln(stdout, "reset: problem:", p)
 	}
 	return err
 }

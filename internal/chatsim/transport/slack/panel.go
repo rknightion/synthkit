@@ -27,7 +27,7 @@ const (
 )
 
 // panelVerbs are the buttons that map one to one onto a control verb.
-var panelVerbs = map[string]bool{"start": true, "fire": true, "heal": true, "pause": true, "resume": true, "stop": true}
+var panelVerbs = map[string]bool{"start": true, "fire": true, "heal": true, "pause": true, "resume": true, "stop": true, "reset": true}
 
 func mrkdwn(s string) *slack.TextBlockObject {
 	return slack.NewTextBlockObject(slack.MarkdownType, s, false, false)
@@ -115,8 +115,11 @@ func PanelBlocks(s engine.Snapshot) []slack.Block {
 		blocks = append(blocks, slack.NewContextBlock("chatsim_panel_last", mrkdwn("Last: "+clip(s.LastNotice, 500))))
 	}
 	if s.State == engine.StateEnded {
-		blocks = append(blocks, slack.NewContextBlock("chatsim_panel_end",
-			mrkdwn(fmt.Sprintf("Run ended: %s. Restart synthkit-chat for a new run.", s.EndReason))))
+		end := fmt.Sprintf("Run ended: %s. Restart synthkit-chat for a new run.", s.EndReason)
+		if s.EndReason == engine.EndReasonReset {
+			end = "Resetting the workspace to its seed; a fresh run arms when it is done."
+		}
+		blocks = append(blocks, slack.NewContextBlock("chatsim_panel_end", mrkdwn(end)))
 		return blocks
 	}
 
@@ -139,6 +142,11 @@ func PanelBlocks(s engine.Snapshot) []slack.Block {
 	run = append(run, button("stop", "Stop").WithStyle(slack.StyleDanger).WithConfirm(slack.NewConfirmationBlockObject(
 		plain("End the run?"), plain("The cast goes silent and the engine exits. Restart synthkit-chat for a new run."),
 		plain("Stop"), plain("Keep going"))))
+	if s.Resettable {
+		run = append(run, button("reset", "Reset Slack").WithConfirm(slack.NewConfirmationBlockObject(
+			plain("Reset the workspace?"), plain("Ends this run, heals the failure if it is active, deletes every message in every channel, archives old incident channels, posts the seed history, then waits for a fresh start."),
+			plain("Reset"), plain("Cancel")).WithStyle(slack.StyleDanger)))
+	}
 	blocks = append(blocks, slack.NewActionBlock("chatsim_panel_run", run...))
 
 	if started {
