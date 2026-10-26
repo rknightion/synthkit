@@ -455,7 +455,28 @@ resolution invalidate them. Full answers still require identical numerical input
 and further fixed-point iterations can exceed a five-second tick. Cold starts integrate the full
 24-hour horizon, and catch-up integrates every due grid point (or restarts after a longer gap);
 neither is an ordinary single-step budget. There is no real-time performance guarantee for dynamic
-or large-fanout trees. Work that fails
+or large-fanout trees.
+
+<a id="shared-legacy-operating-limit"></a>
+
+**Operating-use limit for shared-legacy timeout/resend evaluation:** use only for offline,
+isolated evaluation of individually measured inputs, with one model/caller at a time and an
+external process timeout and memory limit. Treat an exceeded limit as an incomplete evaluation,
+not a successful simulation. This is an operational restriction, not a loader-enforced admission
+check or a universal completion guarantee. Do not use this path for deadline-driven ticks,
+concurrent-model throughput, or unattended continuous emission on the strength of generic
+fixture results. Measure the actual complete caller, including cold start, changing inputs,
+catch-up/reset and whole-process peak memory, before considering a separate operating envelope.
+
+The public sibling fixture passed one twelve-call series against a four-second per-call check,
+but a fresh process then failed its first call at 4.140 s; repeatable margin is not established.
+Its remaining eleven calls and four further processes were not run. The ordered two-pool,
+later-rejection fixture exceeded its 300-second cold-start bound; its later surfaces remain
+unmeasured and that shape is outside this supported-use envelope. Neither observation defines
+a safe replacement deadline. Cache retention caps do not bound transient allocation or whole
+process memory. Generic fixture checks do not establish private-input or whole-runner admission.
+
+Work that fails
 at the dependency it is held across (unavailable, a failed handshake, a refused token) holds a pool
 connection or a concurrency slot only until it fails: a tenth of `hold_ms` of work before the call,
 then each attempt of that call (a tenth of the dependency's `latency_ms`, with the holder's

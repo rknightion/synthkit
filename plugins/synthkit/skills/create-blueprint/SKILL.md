@@ -110,6 +110,11 @@ survive scheduler parsing unchanged; malformed or whitespace-altered names are r
 unbound deployments. See the [cloud-axis contract](https://github.com/rknightion/synthkit/blob/main/docs/incidents.md#cloud-axis)
 for scope rules and the raw runtime escape-hatch boundary.
 
+Before using shared-legacy timeout/resend evaluation, follow the
+[canonical operating-use limit](https://github.com/rknightion/synthkit/blob/main/docs/blueprints.md#shared-legacy-operating-limit).
+This path is offline-only for individually measured, isolated inputs; generic fixture results do
+not admit deadline-driven ticks, concurrent-model throughput or unattended continuous emission.
+
 Follow the [Declaring causes guide](https://github.com/rknightion/synthkit/blob/main/docs/blueprints.md#declaring-causes)
 for the worked example (a connection pool held across a slow database, loaded from
 `e2e/fixtures/causal-example.yaml`) and the
