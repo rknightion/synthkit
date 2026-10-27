@@ -58,9 +58,17 @@ type Transport struct {
 	tapM sync.Mutex
 	dmMu sync.Mutex
 	dm   string // the operator's DM channel with the app, opened on first use
-	// panelMu guards panelTS, the live control panel's message in the DM.
-	panelMu sync.Mutex
-	panelTS string
+	// panelMu guards panelTS, the live control panel's message in the DM, and panelSnap, the
+	// state it last showed (Notify re-posts it below each notice so it stays in view).
+	panelMu   sync.Mutex
+	panelTS   string
+	panelSnap *engine.Snapshot
+	// bumpPending is set while a panel move is scheduled, so a burst of notices moves it once
+	// (Slack allows about one message per second per channel). bumpDelay overrides the
+	// default wait; bumpWG lets tests wait for a scheduled move.
+	bumpPending bool
+	bumpDelay   time.Duration
+	bumpWG      sync.WaitGroup
 }
 
 // New authenticates (auth.test) to learn our own bot id.
@@ -278,6 +286,7 @@ func (t *Transport) Notify(ctx context.Context, text string) error {
 	if err != nil {
 		return fmt.Errorf("slack chat.postMessage to the control DM: %w", err)
 	}
+	t.scheduleBump(dm)
 	return nil
 }
 

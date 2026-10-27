@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/slack-go/slack"
@@ -230,7 +231,7 @@ func (id Identities) TranslateInteraction(cb slack.InteractionCallback) Interact
 }
 
 // Panel implements engine.Paneller: the first call retires earlier runs' pinned panels, then
-// posts and pins this run's; later calls edit it in place.
+// posts and pins this run's; later calls edit it in place. Notify moves it below each notice.
 func (t *Transport) Panel(ctx context.Context, s engine.Snapshot) error {
 	t.panelMu.Lock()
 	defer t.panelMu.Unlock()
@@ -244,6 +245,7 @@ func (t *Transport) Panel(ctx context.Context, s engine.Snapshot) error {
 		var se slack.SlackErrorResponse
 		switch {
 		case err == nil:
+			t.panelSnap = &s
 			return nil
 		case errors.As(err, &se) && (se.Err == "message_not_found" || se.Err == "cant_update_message"):
 			t.panelTS = "" // deleted by hand: post a fresh one
@@ -252,6 +254,17 @@ func (t *Transport) Panel(ctx context.Context, s engine.Snapshot) error {
 		}
 	}
 	t.retirePanels(ctx, dm)
+	ts, err := t.postPanel(ctx, dm, s)
+	if err != nil {
+		return err
+	}
+	t.panelTS, t.panelSnap = ts, &s
+	return nil
+}
+
+// postPanel posts and pins a fresh panel showing s. The caller holds panelMu.
+func (t *Transport) postPanel(ctx context.Context, dm string, s engine.Snapshot) (string, error) {
+	opts := []slack.MsgOption{slack.MsgOptionText(PanelText(s), false), slack.MsgOptionBlocks(PanelBlocks(s)...)}
 	if t.cfg.ControlName != "" {
 		opts = append(opts, slack.MsgOptionUsername(t.cfg.ControlName))
 	}
@@ -260,13 +273,65 @@ func (t *Transport) Panel(ctx context.Context, s engine.Snapshot) error {
 	}
 	_, ts, err := t.api.PostMessageContext(ctx, dm, opts...)
 	if err != nil {
-		return fmt.Errorf("slack chat.postMessage of the control panel: %w", err)
+		return "", fmt.Errorf("slack chat.postMessage of the control panel: %w", err)
 	}
-	t.panelTS = ts
 	if err := t.api.AddPinContext(ctx, dm, slack.NewRefToMessage(dm, ts)); err != nil {
 		t.cfg.Logf("slack: could not pin the control panel (needs pins:write): %v", err)
 	}
-	return nil
+	return ts, nil
+}
+
+// defaultBumpDelay is how long a notice waits before the panel moves below it, so a burst of
+// notices moves the panel once.
+const defaultBumpDelay = 1500 * time.Millisecond
+
+// scheduleBump moves the live panel below the latest notice after a short wait, once per
+// burst. A notice that arrives while a move is posting schedules another.
+func (t *Transport) scheduleBump(dm string) {
+	t.panelMu.Lock()
+	if t.bumpPending || t.panelTS == "" {
+		t.panelMu.Unlock()
+		return
+	}
+	t.bumpPending = true
+	delay := t.bumpDelay
+	t.panelMu.Unlock()
+	if delay <= 0 {
+		delay = defaultBumpDelay
+	}
+	t.bumpWG.Add(1)
+	go func() {
+		defer t.bumpWG.Done()
+		time.Sleep(delay)
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		t.bumpPanel(ctx, dm)
+	}()
+}
+
+// bumpPanel keeps the live panel the newest message in the DM: it posts the panel again
+// below the notices, then deletes the old copy, so the buttons never scroll out of view.
+// A pin cannot do that, since Slack shows pins only in the channel header. Failures are
+// logged: the old panel still works if the new one cannot be posted, and the next notice
+// tries again.
+func (t *Transport) bumpPanel(ctx context.Context, dm string) {
+	t.panelMu.Lock()
+	defer t.panelMu.Unlock()
+	t.bumpPending = false
+	if t.panelTS == "" || t.panelSnap == nil {
+		return
+	}
+	old := t.panelTS
+	ts, err := t.postPanel(ctx, dm, *t.panelSnap)
+	if err != nil {
+		t.cfg.Logf("slack: could not move the control panel below a notice: %v", err)
+		return
+	}
+	t.panelTS = ts
+	if _, _, err := t.api.DeleteMessageContext(ctx, dm, old); err != nil {
+		t.cfg.Logf("slack: could not delete the previous control panel, retiring it: %v", err)
+		t.retirePanel(ctx, dm, old)
+	}
 }
 
 // retirePanels unpins our earlier panels in the DM and strips their buttons, so only the
@@ -282,14 +347,18 @@ func (t *Transport) retirePanels(ctx context.Context, dm string) {
 		if msg == nil || msg.BotID != t.ids.OwnBotID || !isPanel(msg.Blocks) {
 			continue
 		}
-		ts := msg.Timestamp
-		if err := t.api.RemovePinContext(ctx, dm, slack.NewRefToMessage(dm, ts)); err != nil {
-			t.cfg.Logf("slack: could not unpin an old panel: %v", err)
-		}
-		if _, _, _, err := t.api.UpdateMessageContext(ctx, dm, ts, slack.MsgOptionText("Retired control panel", false),
-			slack.MsgOptionBlocks(slack.NewContextBlock("chatsim_panel_retired", mrkdwn("_Control panel from an earlier run; the live one is pinned below._")))); err != nil {
-			t.cfg.Logf("slack: could not retire an old panel: %v", err)
-		}
+		t.retirePanel(ctx, dm, msg.Timestamp)
+	}
+}
+
+// retirePanel unpins one old panel and strips its buttons, so it can no longer drive the run.
+func (t *Transport) retirePanel(ctx context.Context, dm, ts string) {
+	if err := t.api.RemovePinContext(ctx, dm, slack.NewRefToMessage(dm, ts)); err != nil {
+		t.cfg.Logf("slack: could not unpin an old panel: %v", err)
+	}
+	if _, _, _, err := t.api.UpdateMessageContext(ctx, dm, ts, slack.MsgOptionText("Retired control panel", false),
+		slack.MsgOptionBlocks(slack.NewContextBlock("chatsim_panel_retired", mrkdwn("_Old control panel; the live one is below._")))); err != nil {
+		t.cfg.Logf("slack: could not retire an old panel: %v", err)
 	}
 }
 
