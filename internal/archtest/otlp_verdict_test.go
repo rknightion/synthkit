@@ -119,7 +119,19 @@ func sourceDirOfConstruct(t *testing.T, reg core.ConstructReg) string {
 	if file == "" {
 		t.Fatalf("construct %q: could not resolve Build source file", reg.Kind)
 	}
-	return filepath.Dir(file)
+	return sourceDirOnDisk(t, filepath.Dir(file))
+}
+
+// sourceDirOnDisk maps a compiled source directory to a real one. Under -trimpath the
+// compiler records module-relative paths ("github.com/rknightion/synthkit/internal/..."),
+// which are rebased onto the repo root; untrimmed absolute paths pass through unchanged.
+func sourceDirOnDisk(t *testing.T, dir string) string {
+	t.Helper()
+	const modulePrefix = "github.com/rknightion/synthkit/"
+	if rel, ok := strings.CutPrefix(filepath.ToSlash(dir), modulePrefix); ok {
+		return filepath.Join(repoRoot(t), filepath.FromSlash(rel))
+	}
+	return dir
 }
 
 // sourceDirOfWorkload is sourceDirOfConstruct for workloads.
@@ -134,7 +146,7 @@ func sourceDirOfWorkload(t *testing.T, reg core.WorkloadReg) string {
 	if file == "" {
 		t.Fatalf("workload %q: could not resolve Build source file", reg.Kind)
 	}
-	return filepath.Dir(file)
+	return sourceDirOnDisk(t, filepath.Dir(file))
 }
 
 // dirDeclaresOTLPMetrics scans every non-test .go file directly in dir for a reference

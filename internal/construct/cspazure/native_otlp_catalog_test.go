@@ -6,9 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
-	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -237,11 +235,7 @@ func (c *catalogOTLPCapture) Write(_ context.Context, resources []otlp.MetricRes
 
 func documentedAzureReceiverNames(t *testing.T) map[string]bool {
 	t.Helper()
-	_, source, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller failed")
-	}
-	path := filepath.Join(filepath.Dir(source), "../../../signals/cspazure.md")
+	path := "../../../signals/cspazure.md"
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)

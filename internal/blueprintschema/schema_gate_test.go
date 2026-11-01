@@ -5,21 +5,21 @@ package blueprintschema_test
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/rknightion/synthkit/internal/blueprintschema"
 	"github.com/rknightion/synthkit/internal/runner"
 )
 
-// moduleRoot locates the repo root from this test file's location.
+// moduleRoot locates the repo root by walking up from the test's working directory (go test
+// runs with cwd = the package directory; runtime.Caller is module-relative under -trimpath).
 func moduleRoot(t *testing.T) string {
 	t.Helper()
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller failed")
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
 	}
-	root, err := blueprintschema.FindModuleRoot(filepath.Dir(file))
+	root, err := blueprintschema.FindModuleRoot(wd)
 	if err != nil {
 		t.Fatalf("find module root: %v", err)
 	}
