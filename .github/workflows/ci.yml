@@ -184,7 +184,7 @@ jobs:
   helm-validate:
     permissions:
       contents: read
-    uses: rknightion/.github/.github/workflows/helm-validate.yml@2c2a3771006d75783f612a61a2bd406449a3410f # v1.25.11
+    uses: rknightion/.github/.github/workflows/helm-validate.yml@2f92fb6f256e55936a3b08ec5e891edc6a2d110e # v1.25.15
     with:
       chart-path: charts/synthkit
       release-name: synthkit
@@ -199,7 +199,7 @@ jobs:
     needs: [helm-validate]
     permissions:
       contents: read
-    uses: rknightion/.github/.github/workflows/helm-validate.yml@2c2a3771006d75783f612a61a2bd406449a3410f # v1.25.11
+    uses: rknightion/.github/.github/workflows/helm-validate.yml@2f92fb6f256e55936a3b08ec5e891edc6a2d110e # v1.25.15
     with:
       chart-path: charts/synthkit
       release-name: synthkit
