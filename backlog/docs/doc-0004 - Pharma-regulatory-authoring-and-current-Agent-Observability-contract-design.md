@@ -3,7 +3,7 @@ id: doc-0004
 title: Pharma regulatory authoring and current Agent Observability contract design
 type: specification
 created_date: '2026-10-20T22:20:00Z'
-updated_date: '2026-10-21T01:11:00Z'
+updated_date: '2026-11-06T20:31:00Z'
 ---
 Status: approved direction, reviewed (adversarial review FAIL on v1, corrections folded in here).
 Owner decisions are in "Decisions". Engineering choices inside that scope are in "Shape".
@@ -145,7 +145,7 @@ each incident changes `-dump`.
 `just gen`; docs and the create-blueprint skill; cantfind entries; signals fidelity list decision;
 `.env`/`.env.example` + `TestEnvSurfaceAligned` for new knobs; selfobs push observers for new
 endpoints; e2e routes for hooks, ratings and experiments; forced-emission duplicate-series test;
-CodeRabbit once per wave; `just race` and `gaterun -- just check` on the final candidate; live push
+Combined maintainer Kodus and independent local exact-candidate review with pinned central rules once per wave; `just race` and `gaterun -- just check` on the final candidate; live push
 to the customer stack inside the volume budget with read-back of conversations, guard steps, scores, hook
 metrics and experiments.
 

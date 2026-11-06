@@ -209,7 +209,7 @@ Use the relevant operational skill as well when the change falls within its scop
 Record the commands actually run and their outcomes. A skill invocation, unavailable tool, skipped
 check or owner waiver is not passing evidence. CI checks the resulting change; it cannot prove that
 an agent read a skill. Public contributors need no maintainer-local paths or private review service
-credentials. Maintainer CodeRabbit review requirements remain applicable to code changes.
+credentials. The combined maintainer code-review gate below applies to code changes.
 
 When behavior changes, reconcile its canonical contract, user guide and relevant skill together.
 Prefer links to canonical instructions over copied command sequences. Keep generated schema and
@@ -270,6 +270,10 @@ evidence. Provenance never reaches the wire; captured reality and the sole exemp
   snapshot/restore, takeover and backfill disabled. Cancelled publications retain evidence and may
   require explicit recovery; do not silently reinitialize unbound storage.
 
+- Private-file provisioning command proofs need a process umask of `0022` and a canonical,
+  private temporary root. Go creates fixture children using the process umask; a group-writable
+  fixture is correctly refused by the unchanged private-parent admission check.
+
 - HA-loss subprocess proofs synchronize on the real HTTP handler's recorded observation before
   revocation; sender entry or an elapsed sleep is not a delivery receipt. Keep the five-second
   subprocess bound, partial-batch exclusion, admission fence and hard-exit assertions intact.
@@ -324,3 +328,25 @@ imported or renumbered.
 
 Slow tier: `just lab` (disposable k3d collector-egress fidelity capture) took about 35 minutes in CI; run it once on the final candidate when that capture surface changes, not in the inner loop.
 `just race` is also slow tier (about 10 minutes in CI): keep focused package checks in the inner loop and run the full race tier once on the final candidate.
+
+## Maintainer code review
+
+Enrolled Personal maintainers use the centrally managed `kodus-review` skill and authenticated
+adapter plus a separate independent local agent review before committing code. Freeze the exact
+base and candidate trees (including new files), sanitized intent and applicable central rules in
+the review evidence. Pin the central rules source by full commit, selected rule IDs and rendered
+SHA-256 in the local brief; verify that pin and the brief hash in the local review. Private rule
+context stays local and must not be copied into this repository or assumed to reach Kodus.
+
+Both components must pass for the same candidate identity. The independent agent inspects the
+full frozen candidate and base context against the intent and pinned rules; Kodus context is
+partial/unknown. Adapter exit zero alone is not combined approval. Missing, incomplete, unknown,
+unsupported or oversized reviews are no verdict: resolve or split into fully covered candidates,
+never omit changed files or substitute one component. Resolve verified findings and record their
+dispositions; unresolved critical, high or major findings block landing. Root-authored additions
+need their own exact-candidate review. Hosted reviews are supplementary and do not replace either
+local component, required tests, deployment authority or human approvals.
+
+Public contributors need no private maintainer configuration or paid review account; normal
+contribution and hosted-check requirements still apply. Never submit backup repositories,
+credentials, private fixtures or customer identifiers to an external reviewer.

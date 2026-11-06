@@ -45,6 +45,11 @@ handshake. The `lint` recipe runs `go vet`; no unused linter
 installation is required. Run `just ui` before building a binary whose operator UI you will use. You do not need to configure
 a live `.env` to contribute. Preserve any existing `.env` and never commit credentials.
 
+Run private-file provisioning proofs with a process umask of `0022` and a canonical temporary
+root with mode `0700`. Go creates fixture children using the process umask; a group-writable
+fixture is correctly refused by the private-parent admission check. Preserve that refusal rather
+than changing the command to accept writable parents.
+
 ## Work in a focused loop
 
 Read [the architecture contract](https://github.com/rknightion/synthkit/blob/main/ARCHITECTURE.md) before changing tiers, the runner, or sinks.
@@ -138,7 +143,8 @@ to this guide and the same recipes. The repository agent instructions define whe
 apply. Skill usage alone is not evidence: include actual command outcomes and remaining gaps.
 
 Public contributors submit a focused pull request and use the project's hosted checks and review
-process. Maintainers also use CodeRabbit CLI review under their own configured policy; contributors
+process. Maintainers also use the combined Kodus and independent local exact-candidate review defined in
+the repository agent instructions, with pinned centrally managed rules; contributors
 are not required to obtain a personal paid CLI account or reproduce private maintainer tooling.
 Do not upload credentials or customer identifiers to any review service. Review and correct the
 final diff before reporting completion, and use the PR template to summarize the evidence.
