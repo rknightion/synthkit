@@ -202,7 +202,7 @@ curl -fsS "${control_auth[@]}" -X POST http://localhost:8088/control/scaling \
 
 See the [construct catalogue](docs/constructs.md), [workloads](docs/workloads.md) and
 [signal contracts](SIGNALS.md) for supported telemetry. Vendor-specific gaps are recorded in
-[cantfind.md](cantfind.md); implementation work is tracked in [Backlog](backlog/tasks/).
+[cantfind.md](cantfind.md); implementation work is tracked in [GitHub issues](https://github.com/rknightion/synthkit/issues).
 A modelled topology does not imply that every vendor telemetry profile is available.
 
 The [verification runbook](docs/RUNBOOK.md) explains how to prove delivery in your own stack.
