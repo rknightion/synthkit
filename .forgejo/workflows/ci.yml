@@ -9,7 +9,9 @@
 # Assumptions (adjust for your runner): a Forgejo Actions runner labelled `ubuntu-latest`
 # with the standard actions (checkout/setup-go/setup-node) reachable. setup-just is the second
 # documented divergence from GitHub: Forgejo needs its full GitHub URL; GitHub can use a bare name.
-# The first is the omitted secret-scan job. The `docker` job needs a docker-capable runner (DinD or
+# The first is the omitted secret-scan job. The GitHub-only `ac-evidence`, `privacy-sweep` and
+# `backlog-freeze` pull request jobs (and the `ci-success` sentinel that waits on them) are omitted too.
+# The `docker` job needs a docker-capable runner (DinD or
 # a mounted socket) — drop it if your runner can't build images.
 name: ci
 

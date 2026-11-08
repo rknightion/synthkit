@@ -500,3 +500,18 @@ forge *args:
 [group("check")]
 signals-conformance dump_file:
     go run ./internal/conformance -signals signals -dump {{ quote(dump_file) }}
+
+# GitHub issues and the rknightion Project; maintainers only (needs the tracker tools and credentials)
+[group('tracker')]
+[positional-arguments]
+tracker *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export TRACKER_REPO=rknightion/synthkit TRACKER_PROJECT_OWNER=rknightion TRACKER_PROJECT=7
+    export TRACKER_ISSUE_IDENTITY=app TRACKER_PROJECT_IDENTITY=user
+    exec tracker-with-token "$@"
+
+# print the issue a legacy board id (SKT-0001) became
+[group('tracker')]
+issue id:
+    TRACKER_REPO=rknightion/synthkit tracker legacy {{ quote(id) }}

@@ -76,6 +76,25 @@ if [ "${#skills[@]}" -eq 0 ]; then
   note "no skills found under $canon (nothing to sync)"
 fi
 
+# Skills vended by the contributor kit (rknightion/.github `vended/`) live as real directories in
+# .agents/skills/ with .claude/skills/<name> links, and are recorded in .vended.json. They are not
+# canonical here, so the stale scan must not flag them.
+vended=()
+if [ -f .vended.json ]; then
+  while IFS= read -r line; do
+    [ -n "$line" ] && vended+=("$line")
+  done < <(python3 - <<'PY'
+import json
+seen = set()
+for path in json.load(open(".vended.json")).get("files", {}):
+    parts = path.split("/")
+    if len(parts) > 3 and parts[0] == ".agents" and parts[1] == "skills" and parts[2] not in seen:
+        seen.add(parts[2])
+        print(parts[2])
+PY
+)
+fi
+
 want_link() {
   # $1 = link path, $2 = canonical dir (relative to repo root)
   local link="$1" dest="$2"
@@ -102,13 +121,13 @@ for base in "${targets[@]}"; do
       want_link "$base/$s" "$canon/$s"
     done
   fi
-  # detect stale entries (present in farm, absent in canon)
+  # detect stale entries (present in farm, absent in canon and not vended)
   if [ -d "$base" ]; then
     for existing in "$base"/*; do
       [ -e "$existing" ] || continue
       name="$(basename "$existing")"
       # canon list may be empty; build a newline list safely under `set -u`
-      canon_list="$(printf '%s\n' ${skills[@]+"${skills[@]}"})"
+      canon_list="$(printf '%s\n' ${skills[@]+"${skills[@]}"} ${vended[@]+"${vended[@]}"})"
       if ! printf '%s\n' "$canon_list" | grep -qx "$name"; then
         note "STALE: $existing has no canonical source"; [ "$check" -eq 1 ] && fail=1
       fi
