@@ -309,13 +309,24 @@ and never pass `--yes` or `JUST_YES=1`. Run `just` with stdin from `/dev/null`.
 Run `just check` and `just ci` off the Mac with `gaterun -- just check` when the remote gate runner is
 installed (`which gaterun`); `.gaterunner.yaml` is its contract. Run one test or package locally.
 
-## Tracker
+## Tracking work
 
-New work uses `SKT-NNNN`. Do not use the Backlog MCP surface here. Do not recreate retired external
-issue history in another tracker.
+Work is tracked in this repository's GitHub issues; they are the only queue. Do not add a checklist
+file such as `ROADMAP.md` beside them.
 
-`cantfind.md` is not the tracker: its `SK-N` IDs are stable, separate from `SKT-NNNN`, and must not be
-imported or renumbered.
+- A pull request body says how it relates to an issue, on a line of its own: `Closes #N` with the
+  `Acceptance evidence` table from `.github/pull_request_template.md` (one row for each acceptance
+  criterion of that issue), `Refs #N` when it only relates to one, or `Task: none, <reason>`.
+- A pull request that changes `.github/workflows/` or `.github/actions/` carries no closing keyword:
+  write `Task: none, <reason>`, with `Refs #N` beside it if you like.
+- Contributors never need the project board or the tracker tooling; a maintainer handles both.
+- Issues and pull requests are public, so they carry no real identifiers: no email addresses,
+  handles, tenant or account ids, host or device names, addresses. Write the shape, not the
+  instance.
+- Older commits, docs and tests cite legacy board ids such as `SKT-0123`. `just issue <ID>` prints
+  the issue each one became; `.github/tracker/id-map.json` is the map.
+- `cantfind.md` is not the tracker: its `SK-N` ids are stable, separate from issue numbers and
+  legacy ids, and must not be imported or renumbered.
 
 ## Deeper references
 
@@ -323,7 +334,7 @@ imported or renumbered.
   seam.
 - `SIGNALS.md` and `signals/<area>.md` - read before adding or renaming any metric, label or field.
 - `BLUEPRINT-SCHEMA.md` - generated; read for the current blueprint field surface, never hand-edit.
-- Loops: the protocol lives in `~/repos/agent-docs/sources/loop/` (this board's "Loop protocol pointer" doc points there); this repository's loop facts are in `LOOP.md`. These are not prerequisites for an ordinary public contribution; never assume a contributor has a maintainer checkout.
+- `LOOP.md` - the maintainers' agent-loop facts for this repository. Not a prerequisite for an ordinary contribution.
 - `dashboards/AGENTS.md` - read before touching anything under `dashboards/`.
 
 Slow tier: `just lab` (disposable k3d collector-egress fidelity capture) took about 35 minutes in CI; run it once on the final candidate when that capture surface changes, not in the inner loop.

@@ -5,9 +5,23 @@ ci-required: ci-success
 release-on-push: yes
 deploy-on-push: no
 grafana-stack: none
+tracker: github
+landing: pr
+
+Issues are public: no tenant id, hostname, address or email in any issue, pull request or doc.
+The tracker working model is `~/repos/agent-docs/docs/github-tracker.md` (maintainers only).
+
+## Queue
+- The queue is `just tracker queue`: open issues at Project Status Ready on the rknightion Project.
+- A charter selects by labels (`type:*`, `priority:*`, `needs-owner`, `needs-triage`) and Project
+  fields (Status, Priority, Effort, Lane). Never queue a `needs-owner` or `needs-triage` issue.
+- Only the root writes issues and the Project, through `just tracker`. A lane returns the status and
+  the AC ticks it wants.
+- A queue row names the issue as `#N`. A legacy board id (`SKT-0123`) resolves with `just issue <ID>`;
+  `.github/tracker/id-map.json` is the map. `SK-N` ids in `cantfind.md` are not issue ids.
 
 ## Credentials
-- Secrets live only in the ignored `.env`, never in YAML, a blueprint, a doc or a backlog task. A new
+- Secrets live only in the ignored `.env`, never in YAML, a blueprint, a doc or an issue. A new
   variable goes in both `.env` and `.env.example`.
 - The self-observability path uses a separate credential triplet and stack, never `GC_TOKEN`.
 - A lane never needs a live credential: gate legs run offline, and live-stack recipes belong to the root.
@@ -17,7 +31,7 @@ grafana-stack: none
   `[confirm]`-gated. Stop and ask; never pass `--yes` or `JUST_YES=1`. Run `just` with stdin from
   `/dev/null`.
 - Never invent a metric, label or field name: source `signals/<area>.md` or vendor docs, else add a
-  PENDING to `cantfind.md`. `cantfind.md` `SK-N` ids are stable and separate from `SKT-NNNN` tasks.
+  PENDING to `cantfind.md`.
 - A shipped blueprint carries plausible real-world rates only. Never raise a rate to force emission;
   a lane that must fire inside one tick belongs in `e2e/fixtures/`. Anything under `blueprints/` is
   deployable by an operator.
@@ -31,7 +45,7 @@ grafana-stack: none
   never `""` or `"NA"`. Metrics go out by `sink/promrw` Remote-Write v2; OTLP carries traces only.
 - When synthetic output diverges from observed reality, correct the synth, never the captured data.
   Record new observed signals in `signals/<area>.md` with provenance in the same run, and resolve a
-  PENDING out of `cantfind.md`. Do not import `SK-N` items into the tracker or renumber them.
+  PENDING out of `cantfind.md`. Never import or renumber `SK-N` items.
 - Every environment read in `internal/config` uses `get("LIT")` or `getInt("LIT")` with a string-literal
   key (`TestEnvSurfaceAligned` parses for them); put `.env` comments on their own line.
 - Renderer changes are verified by inventory diff (`just dump` against `signals/`), not unit test.
@@ -39,23 +53,13 @@ grafana-stack: none
   file needs the AGPL SPDX header (`just spdx-check`).
 - `just race` excludes `internal/integration` on purpose (OOMs a 16 GB runner); `just test` covers it.
   Do not "fix" the exclusion.
-- The three teardown-forecast tests in `scripts/race-isolated.txt` run in the isolated package
-  invocation (hosted aggregate exceeded 600 s). Keep every case, `-race`, caller bound and the
-  default 600 s timeout in both invocations; other forecast tests stay in the sweep. Prove
-  exactly-once selection before final gates and hosted CI.
-- Slow tier: `just lab` (about 35 minutes in CI) and `just race` (about 10 minutes). Run once on the
-  final candidate, never in the inner loop.
-- `cmd/synthkit-control-dash` under `just race` runs against Go's default 600 s test timeout (562 s in
-  CI, one 600.953 s failure). Host load above about 10 logical CPUs confounds it: a local timeout
-  under load proves nothing, and never relax the timeout or an assertion to get green.
-- Keep scratch on a canonical path, never macOS's symlinked `/tmp`: private snapshot path validation
-  fails under it.
+- Slow tier: `just lab` (about 35 minutes in CI) and `just race` (about 10 minutes): run once on the
+  final candidate. Never relax a timeout or assertion, or drop a `scripts/race-isolated.txt` case, to
+  get green; a local timeout under host load proves nothing.
+- Keep scratch off macOS's symlinked `/tmp`: private snapshot path validation fails under it.
 - Docker `just secret-scan` from a linked worktree cannot read the worktree's git metadata: "0 commits
   scanned" is not a pass. Mount the metadata and confirm the commit count, or leave it to CI.
-- The tree is habitually dirty with unrelated work: stage explicit paths, never `git add -A` or
-  `git add .`.
-- `backlog task edit --notes` / `--plan` bare silently replace the whole section; use
-  `--append-notes` / `--append-plan`.
+- The tree is habitually dirty: stage explicit paths, never `git add -A` or `git add .`.
 - Release automation is release-please on push to main; the publish workflow also pushes the edge
   `:main` image on every push.
 
