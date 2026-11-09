@@ -266,6 +266,16 @@ jobs:
           fi
           echo "No file under backlog/ is added or changed."
 
+  # zizmor fails a pull request on any finding (enforce); push runs upload SARIF instead.
+  zizmor:
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    uses: rknightion/.github/.github/workflows/zizmor.yml@3d332ffa11827d468db8de6d323288c4a48a595f # v1.29.3
+    with:
+      enforce: true
+
   # Single aggregator the branch ruleset gates on (`ci-success` required status check). Keeping the
   # ruleset pinned to one check means the job list above can change without touching branch
   # protection. GitHub-only — not mirrored to .forgejo (no fleet ruleset there; documented divergence). The
@@ -274,7 +284,7 @@ jobs:
     name: ci-success
     runs-on: ubuntu-latest
     if: always()
-    needs: [go, hygiene, secret-scan, ui, docker, e2e, signal-fidelity, helm, ac-evidence, privacy-sweep, backlog-freeze, helm-validate, helm-validate-ha]
+    needs: [go, hygiene, secret-scan, ui, docker, e2e, signal-fidelity, helm, zizmor, ac-evidence, privacy-sweep, backlog-freeze, helm-validate, helm-validate-ha]
     steps:
       - name: Fail if any required job did not pass
         if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
