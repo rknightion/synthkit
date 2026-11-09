@@ -290,6 +290,14 @@ Shared CSS values live in `internal/control/ui/design-tokens/tokens.css`; the co
 file is a compatibility and layout adapter. Tokens follow the approved design-board artifact
 version `1791408283-0027`; preserve its light/dark contract when adding consumers.
 
+## Dashboard export contracts
+
+Dashboard generation is offline. Keep native OTLP semantic-instrument inventory separate from
+Prometheus receiver-projected names and source each template's projection and units. The operational
+exporter uses stable deployment resource identity separately from its process picker; unsupported
+backend-derived dimensions require explicit omissions rather than global queries. Query filtering
+is not datasource authorization. See [dashboard tooling](docs/tools.md) and the dashboard source guides.
+
 ## Operational entrypoints
 
 `plugins/synthkit/skills/` holds the operational procedures; `just skills-sync` regenerates the

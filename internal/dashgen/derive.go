@@ -4,6 +4,7 @@ package dashgen
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -22,6 +23,9 @@ import (
 // warmupCycles is how many dry cycles to run so trace/log lanes (which depend on minted
 // traffic) populate. Metrics appear on the first tick; spans need a minted batch.
 const warmupCycles = 12
+
+// Match the runner's delivery shutdown budget for this short-lived offline owner.
+const deriveDrainTimeout = 30 * time.Second
 
 // peakInstant is a deterministic weekday-midday instant used for derivation so diurnal
 // shapes are at/near peak (off-peak ticks can mint zero traffic → empty span inventory).
@@ -45,7 +49,7 @@ func Derive(path string) (*dashboard.Manifest, error) {
 // counter fed by a low-rate lane) first appear in a later cycle. A caller that runs fewer cycles
 // must prove its inventories equal Derive's on every blueprint it derives. Each cycle replays the
 // whole blueprint, so the cost is linear in cycles.
-func DeriveWarm(path string, cycles int) (*dashboard.Manifest, error) {
+func DeriveWarm(path string, cycles int) (manifest *dashboard.Manifest, resultErr error) {
 	if cycles < 1 {
 		return nil, fmt.Errorf("%s: derive needs at least one warmup cycle, got %d", path, cycles)
 	}
@@ -66,7 +70,16 @@ func DeriveWarm(path string, cycles int) (*dashboard.Manifest, error) {
 	prom := promrw.New("", "", "", true, nil)
 	lokiSink := loki.New("", "", "", true)
 	otlpSink := otlp.New("", "", "", true)
-	r := runner.New(runner.Sinks{Metrics: prom, Logs: lokiSink, Traces: otlpSink}, reg, runner.Options{})
+	nativeMetrics := otlp.NewMetrics("", "", "", true)
+	r := runner.New(runner.Sinks{Metrics: prom, Logs: lokiSink, Traces: otlpSink, OTLPMetrics: nativeMetrics}, reg, runner.Options{SendDrainDeadline: deriveDrainTimeout})
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), deriveDrainTimeout)
+		defer cancel()
+		if err := r.JoinQueues(ctx); err != nil {
+			manifest = nil
+			resultErr = errors.Join(resultErr, fmt.Errorf("join derivation senders: %w", err))
+		}
+	}()
 	if err := r.AddBlueprint(res); err != nil {
 		return nil, err
 	}
@@ -88,6 +101,17 @@ func DeriveWarm(path string, cycles int) (*dashboard.Manifest, error) {
 	m := &dashboard.Manifest{Blueprint: res.Name, Label: res.Label}
 	buildTopology(m, res)
 	m.Metrics = ClassifyMetrics(prom.Inventory(), prom.Kinds(), prom.Natives())
+	resourceKeys, metricNames := nativeMetrics.Inventory()
+	services := make([]string, 0, len(metricNames))
+	for service := range metricNames {
+		services = append(services, service)
+	}
+	sort.Strings(services)
+	for _, service := range services {
+		m.OTLPMetrics = append(m.OTLPMetrics, dashboard.OTLPMetricSource{
+			Service: service, MetricNames: metricNames[service], ResourceKeys: resourceKeys[service],
+		})
+	}
 	m.LogSources = logSources(lokiSink)
 	m.Spans = spanSources(otlpSink)
 	return m, nil

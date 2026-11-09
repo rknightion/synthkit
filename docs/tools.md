@@ -208,6 +208,11 @@ just dashgen \
 
 For blueprints that define recording/alert rules, `synthkit-dash` also emits a `<blueprint>-rules.json` file.
 
+The bundled `otlp-native` blueprint includes a native HTTP operations template. Its coverage and
+receiver prerequisites are documented with the
+[template source](https://github.com/rknightion/synthkit/tree/main/dashboards/examples/otlp_native).
+Generation is offline; a generated dashboard does not establish that telemetry reached a backend.
+
 Push the generated Folder and Dashboard resources with `gcx`. The output directory also holds the rules and
 panel-inventory files, which are not dashboards, so push file by file by resource `kind` as
 `dashboards/examples/README.md` shows, not the whole directory.
@@ -257,6 +262,22 @@ both flags together, reads the inventory and observations files, and prints its 
 just dashgen -verify-inventory dashboards/my-service/my-service-panel-inventory.json \
   -observations observations.json > verification.json
 ```
+
+## Operational dashboard export
+
+The process operational dashboard has a separate offline exporter. Use it when several synthkit
+deployments share observability backends: dashboard resource identities and telemetry deployment
+scope are separate inputs. The exporter scopes supported queries and reports omitted panels when
+their backend-derived telemetry cannot be attributed to a deployment.
+
+```bash
+just selfobs-export --namespace demo --deployment demo --out dashboards/operations-demo
+```
+
+See the [operational dashboard guide](https://github.com/rknightion/synthkit/blob/main/dashboards/internal/README.md)
+for the command, required resource tags, receiver projections and query inventory. Exporting files
+requires no tenant credentials and does not publish them. Dashboard filtering does not grant or
+restrict datasource access.
 
 ## synthkit-control-dash — control dashboard generator
 
