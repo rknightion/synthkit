@@ -284,7 +284,7 @@ jobs:
     name: ci-success
     runs-on: ubuntu-latest
     if: always()
-    needs: [go, hygiene, secret-scan, ui, docker, e2e, signal-fidelity, helm, ac-evidence, privacy-sweep, backlog-freeze, helm-validate, helm-validate-ha, zizmor]
+    needs: [go, hygiene, secret-scan, ui, docker, e2e, signal-fidelity, helm, zizmor, ac-evidence, privacy-sweep, backlog-freeze, helm-validate, helm-validate-ha]
     steps:
       - name: Fail if any required job did not pass
         if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
