@@ -125,6 +125,13 @@ labels. A blueprint-scoped identity includes `blueprint`; a substrate identity d
 not, and is queried with its declared cluster/account/database identity instead. This avoids a
 hand-built family-to-blueprint table and never promotes high-cardinality values into selectors.
 
+For generated views, follow the [dashboard tooling guide](../../../../docs/tools.md):
+the bundled `otlp-native` template covers its native HTTP metrics, while process telemetry uses the
+separate [operational exporter](../../../../docs/tools.md#operational-dashboard-export).
+Check each export's query inventory and omissions before collecting backend observations.
+Generation is offline and does not establish delivery; deployment filtering is not datasource
+authorization.
+
 In the same two-interval window, read `/control/status`, `/control/health`, and
 `/control/diagnostics`: status identifies a blocked delivery lane, health identifies a failing
 blueprint/construct tick, and diagnostics identifies a rejected load. A mutation returning `200`

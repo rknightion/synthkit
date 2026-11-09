@@ -78,6 +78,10 @@ per-stack targets from `integrations.yaml` (copy `integrations.example.yaml`; th
 per-deploy — add it to `.gitignore` so live UIDs are never committed). The index seeds `$cluster`/
 `$account` template variables from the resolved estate and interpolates them into the deep-links.
 
+The [`otlp_native/`](./otlp_native) template completes the Quick Start blueprint with a focused HTTP
+service view. Its documentation distinguishes the native HTTP gateway projection from the
+remote-write inventory view and records the offline query proof and deployed verification limits.
+
 ## Control dashboard (self-serve knobs)
 
 [`control/synthkit-customer-control.json`](./control) is a different kind of dashboard: not a view of

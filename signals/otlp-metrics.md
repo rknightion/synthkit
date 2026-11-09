@@ -10,6 +10,12 @@ promotion, resource-attribute → Prometheus label promotion, unit suffix).
 > correct and must NOT be pre-mangled. All shapes documented here are the expected
 > post-gateway Prometheus forms per the OTel → Prom translation spec.
 
+The August dual-ingest capture in [Expected post-gateway Prometheus shape](#expected-post-gateway-prometheus-shape-slug-otlp-gateway-prom)
+supersedes the June resource-promotion annotations elsewhere on this page for application
+datapoint series. Resource attributes remain available on `target_info`; their presence on the
+OTLP wire does not imply promotion onto each application series. Queries that filter by environment
+must use the captured identity projection rather than assuming a datapoint environment label.
+
 ---
 
 ## Kubernetes native receiver metrics [slug: k8s-native-otlp-metrics]
@@ -295,8 +301,9 @@ metrics:
 
 *Provenance: v: ok — captured on a live Grafana Cloud stack 2026-06-18*
 
-These are the OTLP **resource attributes** on the emitted ResourceMetrics. The gateway
-promotes them onto every Prometheus series it produces (plus `target_info`).
+These are the OTLP **resource attributes** on the emitted ResourceMetrics. Their post-gateway
+placement is defined by [the current captured projection](#expected-post-gateway-prometheus-shape-slug-otlp-gateway-prom); this list alone
+does not establish labels on application datapoint series.
 
 ### naked mode
 

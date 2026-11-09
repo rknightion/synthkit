@@ -109,11 +109,12 @@ race:
 race-split-check:
     python3 scripts/race_split.py check
 
-# initial-setup skill helper tests
+# deployment and operational dashboard helper tests
 [group('check')]
 [no-exit-message]
 test-helpers:
     bash plugins/synthkit/skills/initial-setup/scripts/test_helpers.sh all
+    python3 -m unittest discover -s dashboards/internal -p 'test_export_selfobs_dashboard.py'
 
 # deployment-helper safety and identity tests
 [group('check')]
@@ -430,6 +431,12 @@ gen: blueprint-schema skills-sync
 [group('gen')]
 dashgen *args:
     go run ./cmd/synthkit-dash {{ args }}
+
+# export deployment-scoped process dashboards offline
+[group('gen')]
+[positional-arguments]
+selfobs-export *args:
+    python3 dashboards/internal/export_selfobs_dashboard.py "$@"
 
 # regenerate BLUEPRINT-SCHEMA.md and internal/blueprintschema/fielddocs.json from the live Go types
 [group('gen')]
