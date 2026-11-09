@@ -300,6 +300,12 @@ is not datasource authorization. See [dashboard tooling](docs/tools.md) and the 
 
 ## Operational entrypoints
 
+The public first-run path is Docker Compose with a normal shell/browser. Keep its required knowledge
+in the checkout and bundled skills; do not introduce a documentation-query plugin or private home
+as an operator prerequisite. Capability claims follow the selected immutable image, not the host
+checkout's Dockerfile or blueprint name. Strict identity proof remains distinct from basic startup
+and backend readback. See the canonical [Quick Start](docs/quickstart.md).
+
 `plugins/synthkit/skills/` holds the operational procedures; `just skills-sync` regenerates the
 `.agents/skills/` and `.claude/skills/` symlink farms from it. Documentation fallback per job:
 

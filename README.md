@@ -40,16 +40,20 @@ cardinality per construct.
 
 ## Start here
 
-Follow the **[Quick Start](docs/quickstart.md)** for one focused blueprint: inspect its inventory
-without credentials, configure your destination, run preflight, then verify metrics, logs and traces.
-The [installation guide](docs/installation.md) covers source builds and prebuilt containers.
+Start with Git, a running Docker Engine with Compose, a shell and a browser:
 
-![First-run workflow: build, inspect offline, configure credentials, preflight, run live and verify delivery](docs/assets/diagrams/onboarding.svg)
+```bash
+git clone https://github.com/rknightion/synthkit.git
+cd synthkit
+```
 
-[Open the diagram at full size](docs/assets/diagrams/onboarding.html).
+Follow the **[Docker Quick Start](docs/quickstart.md)** to create local configuration, prepare private
+storage, preview the `otlp-native` blueprint without credentials, then connect Grafana Cloud and
+verify fresh metrics, logs and traces. The published image includes the operator UI. You do not
+need Go, Node.js, `just`, `gcx` or an AI assistant for this path.
 
-A source build needs the frontend assets built before the Go binary to include the operator UI.
-The Quick Start includes both steps; published containers already include the UI.
+The [installation guide](docs/installation.md) covers optional source builds. The
+[deployment guide](docs/deployment.md) covers persistent hosts and image identity.
 
 For other starting points:
 
@@ -59,7 +63,8 @@ For other starting points:
 
 ## LLM-assisted setup (Claude Code / Codex / OpenCode)
 
-synthkit ships agent skills for deployment and operation. In **Claude Code**, open this repo and enter
+synthkit ships optional agent skills for deployment and operation. The bundled documentation is
+sufficient for setup; no external documentation-query plugin is required. In **Claude Code**, open this repo and enter
 `/initial-setup` (also `/verify-deployment`, `/create-blueprint`,
 `/setup-fleet-management`) in the chat input. To install as a plugin from anywhere, enter these in
 Claude Code chat; they are not shell commands:
@@ -71,132 +76,42 @@ The same skills work in **Codex** (`.agents/skills/`) and **OpenCode** (reads `.
 Skills are authored once under `plugins/synthkit/skills/`; `.claude/skills` and `.agents/skills` are
 symlinks kept in sync by `just skills-sync` (verified by `just skills-check`).
 
-## Synthetic Monitoring — two-phase startup
+## Customise the demo
 
-Blueprints with `synthetic_monitoring` blocks use a snapshot-bound one-shot control-plane step.
-Start the emitter once to write the private snapshot, preview/apply the version-matched Docker job,
-then restart the emitter to activate the matching registration:
+A blueprint declares a model of the infrastructure and applications you want to observe. It does
+not deploy pods, databases or application code. Select exact blueprint names with `BLUEPRINT_NAMES`;
+an empty selection starts setup mode without synthetic emission, and `*` explicitly selects the
+available catalogue.
 
-```bash
-docker compose up -d synthkit
-docker compose --profile sm-provision run --rm sm-provision
-```
+Published containers carry their own bundled YAML. Editing a blueprint in the checkout does not
+change the running image. Use the operator UI's upload or Git-source flow in
+[Custom Blueprints](docs/custom-blueprints.md), then select the effective namespaced name and
+follow its apply/restart rules. The default Compose file does not mount host blueprint files.
+Source development can change the bundled set before building a new image.
 
-Review the printed preview plan. Only then authorise the remote changes and restart the emitter:
+The [blueprint guide](docs/blueprints.md) explains composition and validation. The
+[generated schema](BLUEPRINT-SCHEMA.md) and [signal catalogue](SIGNALS.md) define the supported
+configuration and emitted data.
 
-```bash
-SM_PROVISION_APPLY=true docker compose --profile sm-provision run --rm sm-provision
-docker compose restart synthkit
-```
+## Run incident demos
 
-The first v2 activation-format upgrade also needs this explicit apply/restart. Later release-only
-bumps retain activation when specification, target and schema match; the write tool must still match
-the current snapshot version. The standalone in-cluster tool supports a dedicated named SM Lease and
-ConfigMap without shared disk. Helm also supports named SM state with HA; select a matching
-engine image (at least `1.6.0-rc.176`). See [Synthetic Monitoring](docs/synthetic-monitoring.md).
+Named scenarios apply related failures across declared constructs so dashboards and alerts can
+be rehearsed against correlated signals. Use the operator UI to activate and clear a supported
+scenario; [Incidents and scenarios](docs/incidents.md) explains targets, effects and scheduling.
+A modelled topology does not establish vendor telemetry coverage for every component.
 
-Preview is the default and makes no remote mutation. `DRY_RUN` does not authorise the provisioner.
-Foreign collisions and ambiguous/pending operations fail closed; ordinary apply never deletes.
-Removal is the separate, previewed `sm-provision cleanup` (see [Synthetic Monitoring](docs/synthetic-monitoring.md)).
-Probe name, region and paired optional latitude/longitude resolve once for both planes. Omitted
-coordinates retain Frankfurt; all checks sharing a probe name must agree on its location.
+The [control plane](docs/control-plane.md) exposes live volume controls, workload scaling,
+incident activation and per-construct inventory. The local Docker walkthrough serves the UI at
+[http://127.0.0.1:8088/control/ui](http://127.0.0.1:8088/control/ui). Keep its loopback default for a
+workstation demo; use the deployment guide for shared access and authentication.
 
-## Authoring a blueprint
+## Optional Grafana control-plane integrations
 
-Copy `blueprints/k8s-minimal.yaml`, rename it, and declare the environments, clusters, databases,
-and synthetic workloads you want to model. This is a telemetry model, not a deployment manifest:
-synthkit does not create pods, databases, or application code. The schema is documented in
-ARCHITECTURE.md §3; unknown constructs or fields fail loudly at load. Deleting your blueprint file
-removes its telemetry and affects nothing else.
-
-A fresh synthkit process selects no blueprints and emits no synthetic telemetry. Set
-`BLUEPRINT_NAMES` to one or more exact names before starting (for example,
-`BLUEPRINT_NAMES=otlp-native`); `BLUEPRINT_NAMES=*` is the explicit all-catalog opt-in.
-
-```yaml
-name: mine
-environments:
-  - name: prod
-    cloud:   { provider: aws, account_id: "210987654321", region: eu-west-1, vpc_id: vpc-0mine01 }
-    cluster: { type: eks, name: mine-prod-euw1, addons: [core_dns, ebs_csi] }
-    databases: [{ engine: postgres, version: "16.2", name: mine-db, observability: { mode: dbo11y } }]
-workloads:
-  - { type: web_service, name: mine-api, runs_on: mine-prod-euw1,
-      traffic: { off_peak_rps: 5, peak_rps: 40 },
-      endpoints: [{ route: "GET /v1/ping", error_rate: 0.01, p95_ms: 80 }] }
-```
-
-## Incident scenarios
-
-Declare named, reusable failure bundles in a blueprint, then fire them on a schedule or live via
-the control plane. Each effect names a mode, an optional target (instance name, `<axis>:*` wildcard,
-or omitted for a single-axis mode), and an intensity in [0,1].
-
-```yaml
-scenarios:
-  - name: db-pressure
-    title: "Database under load"
-    summary: "Connection saturation + slow queries hitting the production DB"
-    effects:
-      - { mode: connection_saturation, target: mine-db, intensity: 0.7 }
-      - { mode: slow_query_storm,      target: mine-db, intensity: 0.5 }
-
-incidents:
-  # Schedule the whole scenario:
-  - { scenario: db-pressure, at: "2026-06-19T14:00", for: 30m }
-  # Or fire a single mode directly:
-  - { kind: oom_kill, target: mine-prod-euw1, at: "2026-06-20T10:00", for: 10m, intensity: 0.6 }
-```
-
-Scenarios can also be activated or deactivated live without a restart — see **Control plane** below.
-
-## Control plane
-
-The control plane (`GET /control/ui`, `GET /control/schema`, `GET /control/state`) is available
-by default. Mutation routes require `CONTROL_TOKEN` when set.
-
-For the mutation examples below, run this once in Bash or Zsh. When `CONTROL_TOKEN` is set it writes
-credentials to a mode-0600 temporary netrc file, keeping the token out of process arguments. When
-the token is unset, requests remain unauthenticated:
-
-```bash
-control_auth=()
-control_netrc=
-if [ -n "${CONTROL_TOKEN:-}" ]; then
-  control_netrc="$(mktemp)"
-  chmod 600 "$control_netrc"
-  printf 'machine localhost login control password %s\n' "$CONTROL_TOKEN" > "$control_netrc"
-  control_auth=(--netrc-file "$control_netrc")
-  trap 'test -z "$control_netrc" || rm -f "$control_netrc"' EXIT
-fi
-```
-
-| Route | Method | Description |
-|---|---|---|
-| `/control/schema` | GET | Blueprint-derived schema: all modes, addressable targets, scenarios, live scaling state. |
-| `/control/state` | GET | Current control snapshot (volume multiplier, active scenarios, failures, scaling). |
-| `/control/scenarios` | POST | Replace the active scenario list using qualified `blueprint/scenario` IDs. Prefer the item routes for ordinary activation/deactivation. |
-| `/control/scaling` | POST | Set live workload pod counts using qualified `blueprint/workload` IDs, within blueprint-declared bounds. Node count cascades automatically. |
-| `/control/failures` | POST | Ad-hoc `{mode → {enabled, intensity, scope}}` override (escape hatch; unknown modes warned, not rejected). |
-| `/control/load` | POST | Master volume multiplier: scales the shape-driven synthetic volume; `0` pauses `web_service`, `app` and `ai_agent` traffic (see `docs/control-plane.md`). |
-
-**Example — activate a scenario:**
-
-```bash
-curl -fsS "${control_auth[@]}" -X POST http://localhost:8088/control/scenarios/activate \
-  -H "Content-Type: application/json" \
-  -d '{"scenario": "mine/db-pressure"}'
-```
-
-**Example — scale workload pods live:**
-
-```bash
-curl -fsS "${control_auth[@]}" -X POST http://localhost:8088/control/scaling \
-  -H "Content-Type: application/json" \
-  -d '{"mine/mine-api": 8}'
-# Node count cascades: k8scluster + ec2 both re-derive via fixture.DeriveNodes.
-# Scale-down retires old pod/node series automatically (state.DropWhere).
-```
+Synthetic Monitoring and Fleet Management have their own credentials and explicit setup paths.
+They are separate from sending metrics, logs and traces. Synthetic Monitoring uses a previewed,
+version-matched one-shot provisioner and an apply/restart handoff; ordinary dry-run is not
+permission to change remote resources. Follow [Synthetic Monitoring](docs/synthetic-monitoring.md)
+and [Fleet Management](docs/fleet-management.md) when choosing those integrations.
 
 ## Capabilities and support
 

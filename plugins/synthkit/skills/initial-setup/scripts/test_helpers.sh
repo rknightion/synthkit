@@ -413,12 +413,13 @@ test_secret_recipes() {
   if grep -Eq 'grep -v .*CONTROL_TOKEN|\.env\.tmp' "$skill_file"; then
     fail 'SKILL.md still contains the unsafe CONTROL_TOKEN .env.tmp recipe'
   fi
-  grep -Fq 'set -o pipefail; openssl rand -hex 24 | bash "${CLAUDE_PLUGIN_ROOT}/skills/initial-setup/scripts/add-secret.sh" CONTROL_TOKEN "$SYNTHKIT_CHECKOUT/.env"' "$skill_file" ||
+  grep -Fq '(set -o pipefail; openssl rand -hex 24 | bash "$SYNTHKIT_CHECKOUT/plugins/synthkit/skills/initial-setup/scripts/add-secret.sh" CONTROL_TOKEN "$SYNTHKIT_CHECKOUT/.env")' "$skill_file" ||
     fail 'SKILL.md does not use a pipefail-protected add-secret.sh CONTROL_TOKEN pipeline'
   grep -Fq 'bash "$SYNTHKIT_CHECKOUT/plugins/synthkit/skills/initial-setup/scripts/add-secret.sh" GC_TOKEN "$SYNTHKIT_CHECKOUT/.env"' "$skill_file" ||
     fail 'SKILL.md does not provide a checkout-relative operator GC_TOKEN helper path'
-  grep -Fq 'bash "${CLAUDE_PLUGIN_ROOT}/skills/initial-setup/scripts/add-secret.sh" GC_TOKEN "$SYNTHKIT_CHECKOUT/.env"' "$skill_file" ||
-    fail 'SKILL.md does not provide a separate plugin-relative agent GC_TOKEN helper path'
+  if grep -Fq '${CLAUDE_PLUGIN_ROOT}' "$skill_file"; then
+    fail 'SKILL.md requires a harness-specific plugin root instead of the verified checkout'
+  fi
   if grep -Fq 'printf '\''GC_TOKEN=%s\n'\'' "$V" >> "$SYNTHKIT_CHECKOUT/.env"' "$skill_file"; then
     fail 'SKILL.md still appends operator GC_TOKEN directly to .env'
   fi
@@ -430,7 +431,7 @@ test_secret_recipes() {
     fail 'SKILL.md does not create .env with mode 0600'
   grep -Fq 'chmod 600 "$SYNTHKIT_CHECKOUT/.env"' "$skill_file" ||
     fail 'SKILL.md does not tighten an existing .env'
-  state_block="$(sed -n '/^## Step 5 /,/^## Step 6 /p' "$skill_file")"
+  state_block="$(sed -n '/^## Step 5[: ]/,/^## Step 6[: ]/p' "$skill_file")"
   symlink_line="$(printf '%s\n' "$state_block" | grep -nF '[ -L "$state_dir" ]' | cut -d: -f1)"
   nondir_line="$(printf '%s\n' "$state_block" | grep -nF '[ ! -d "$state_dir" ]' | cut -d: -f1)"
   mkdir_line="$(printf '%s\n' "$state_block" | grep -nF 'mkdir -p "$state_dir"' | cut -d: -f1)"

@@ -43,7 +43,7 @@ RUN tar -xzf /tmp/kubernetes-src.tar.gz -C /kubectl-src
 # Disable the upstream workspace and authenticate downloaded modules via sumdb.
 ENV GOWORK=off GOSUMDB=sum.golang.org
 RUN cp go.mod kubectl-build.mod && cp go.sum kubectl-build.sum && \
-    go get -modfile=kubectl-build.mod golang.org/x/net@v0.60.0
+    go get -modfile=kubectl-build.mod golang.org/x/net@v0.62.0
 
 ARG TARGETARCH
 RUN case "$TARGETARCH" in amd64|arm64) ;; *) echo "unsupported architecture: $TARGETARCH" >&2; exit 1 ;; esac && \

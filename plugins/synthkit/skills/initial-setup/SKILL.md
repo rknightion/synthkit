@@ -5,14 +5,16 @@ description: "Deploy synthkit for first use: safely configure its .env and Docke
 
 # synthkit initial setup
 
-Guide a Grafana staff user from a fresh checkout to a running, verified synthkit deployment.
-Ask the right questions, collect every required credential **safely**, write `.env`, deploy with
-docker-compose, and validate. Full variable reference: [references/credentials.md](references/credentials.md).
+Guide an operator from a public checkout to a running synthkit deployment with Docker Compose,
+then verify its declared signals in Grafana. Use the bundled skills and the verified checkout's
+local docs; ordinary startup and browser readback require no specialised documentation or query
+tool. Credential reference: [references/credentials.md](references/credentials.md).
 
 ## Locate the synthkit checkout
 
 Plugin installation provides guidance and helpers only; it does not install synthkit or create a
-checkout. Before any repository command, establish and verify the checkout root:
+checkout. If none exists, clone `https://github.com/rknightion/synthkit.git` into a new directory.
+Before any repository command, establish and verify the checkout root:
 
 ```bash
 SYNTHKIT_CHECKOUT="/absolute/path/to/synthkit"
@@ -23,47 +25,57 @@ test -f "$SYNTHKIT_CHECKOUT/AGENTS.md" && \
 cd "$SYNTHKIT_CHECKOUT"
 ```
 
-Use `$SYNTHKIT_CHECKOUT` for every repository file and command. Invoke plugin-owned helpers through
-`${CLAUDE_PLUGIN_ROOT}` and pass them absolute targets under `$SYNTHKIT_CHECKOUT`.
+Use `$SYNTHKIT_CHECKOUT` for every repository file and command, including bundled helper scripts.
+Do not require a harness-specific plugin-root variable. The first-run docs are
+`$SYNTHKIT_CHECKOUT/docs/quickstart.md`, `$SYNTHKIT_CHECKOUT/docs/installation.md` and
+`$SYNTHKIT_CHECKOUT/docs/credentials.md`; resolve these paths in the checkout rather than a plugin
+cache. Retain the checkout revision and selected image identity: current source documentation does
+not establish which features an older published image contains.
 
-## Host tools (before the checkout path)
+## Host tools for Docker-first startup
 
-The supported clean Linux host has Git 2.39+, Docker Engine 24.0+, and Docker Compose 2.24.4+.
-Install Bash 5.0+, Python 3.11+, and `just` 1.58.0+ before following this skill. In the supported
-clean Go 1.27 container, this bootstraps the missing tools without `sudo`:
+The Docker-first path needs Git 2.39+, Docker Engine 24.0+, Docker Compose 2.24.4+, a normal shell
+and text editor, and a browser signed in to the intended Grafana Cloud stack. Confirm the daemon
+is running and these commands succeed:
 
 ```bash
-apt-get update
-apt-get install -y --no-install-recommends bash ca-certificates curl python3
-curl --proto '=https' --tlsv1.2 -fsSL https://just.systems/install.sh \
-  | bash -s -- --tag 1.58.0 --to "$HOME/.local/bin"
-export PATH="$HOME/.local/bin:$PATH"
-bash --version && python3 --version && just --version && docker --version && docker compose version
+git --version
+docker --version
+docker compose version
+docker info >/dev/null
 ```
 
-Remote Grafana verification additionally needs `gcx` 1.2.0+ and an explicitly selected context;
-it is not required for local Compose deployment.
+The published image includes the binary and operator UI. Host Go, Node.js, `just`, `gcx` and
+third-party documentation tools are not prerequisites for ordinary startup or browser readback.
+Bash 5+ helpers and source-build tools are optional paths. Full immutable deployment identity
+verification additionally requires Python 3.11+ and the existing checkout helper; without that
+prerequisite, startup/browser observations can proceed but the deployment is not fully verified.
+Keep that verification requirement separate from the tools needed to start Compose.
 
 **Core rules**
-- NEVER invent an env-var name. Use only the vars in `references/credentials.md` (they are gate-enforced).
+- NEVER invent an env-var name. Use the bundled credential reference and the verified checkout's
+  `.env.example` and configuration docs for supported keys.
 - The customer/synthetic stack and the staff stack NEVER share a token.
 - Default to the **secure** secret path (below). `.env` is gitignored — keep it that way.
 - `DRY_RUN` stays `true` until the dry-run gate passes.
 - Empty `BLUEPRINT_NAMES` is the safe setup-mode default and emits nothing. Never substitute `*`
   without the operator explicitly choosing the complete catalog.
-- NEVER run a command that prints secret values into context: no `cat .env`, no
-  `docker compose config` (it interpolates and echoes env values), and no `echo` of a secret. Inspect
+- NEVER run a command that prints secret values into context: no `cat .env`, no rendered
+  `docker compose config` output, and no `echo` of a secret. Parser-only `docker compose config --quiet`
+  validates without displaying values. Inspect
   `.env` only with presence/shape checks like
   `grep -q '^KEY=.\+' "$SYNTHKIT_CHECKOUT/.env"`.
 
-## Step 1 — Preflight
+## Step 1: Preflight
 Run (report failures, don't proceed past them):
 - `docker --version && docker compose version` — both must exist.
 - `test -f "$SYNTHKIT_CHECKOUT/.env" && echo "EXISTS — do NOT clobber; offer to review/extend" || echo "no .env yet"`.
 
-## Step 2 — Scope questions (ask before collecting creds)
-Ask the user (use AskUserQuestion):
-1. Customer/synthetic-data stack details ready? (mandatory)
+## Step 2: Resolve scope before collecting credentials
+Use the user's existing answers and authorisation. Ask only for missing decisions, using the
+harness's available question tool; do not assume a Claude-specific tool. Establish:
+1. For live delivery, which synthetic-data stack and are its seven ingest fields available?
+   Offline dry-run or intentional setup mode needs no ingest credentials.
 2. Also ship synthkit's own telemetry to a **staff** stack? → self-observability and/or profiling.
 3. Optional lanes to enable now: RUM, Fleet metrics, Fleet API registration, Synthetic Monitoring,
    self-observability, process profiling, Sigil, private Git, and synthetic profiles.
@@ -71,25 +83,30 @@ Ask the user (use AskUserQuestion):
 5. Network exposure: loopback `127.0.0.1` (default, safest) or `0.0.0.0`?
 6. Initial blueprint selection: no selection (setup mode), one or more exact runtime names
    (`otlp-native` is the focused first-workload recommendation), or the complete catalog (`*`)?
-Their answers select which credential groups Step 3 collects.
+Their answers select which credential groups Step 3 collects. For an ordinary first run, recommend
+one exact `otlp-native` selection, loopback exposure, and no optional provisioning. If the user has
+already requested live deployment to a named destination, carry out its necessary configuration,
+dry-run, preflight and startup without asking again at each step. Separate optional provisioning,
+remote exposure and new credential creation still require their actual scope decisions.
 
-## Step 3 — Collect credentials (per chosen lane)
+## Step 3: Collect credentials for the chosen lanes
 For each selected lane, look up its exact vars + where to generate them in
 [references/credentials.md](references/credentials.md). Tell the user the precise scopes for each token.
 
 ### Secret handling
-**Why it matters:** the agent's Bash tool runs in a *separate, non-interactive* shell. A secret you
-`export` in your own terminal is invisible to the agent; and any command the agent writes that
-contains the secret value puts that value in model context. The only way that is BOTH out-of-context
-AND readable by docker-compose is **you writing the secret into `.env` from your own shell**.
+After Step 4 creates the private `.env`, have the operator enter secrets directly in their local
+editor or terminal without sending them through chat or agent command arguments. An export in
+the operator's terminal need not be visible to a separate agent process. Use an already authorised
+private credential source through the harness's supported secret-safe mechanism when available;
+do not ask the operator to re-enter a credential that is already supplied safely.
 
-- **Secure (required):** after Step 4 has created `.env`, have the operator run this in their own
-  terminal and type the value at its hidden prompt:
+- **Optional hidden-prompt helper (Bash 5+):** the operator can run:
   `bash "$SYNTHKIT_CHECKOUT/plugins/synthkit/skills/initial-setup/scripts/add-secret.sh" GC_TOKEN "$SYNTHKIT_CHECKOUT/.env"`
   The helper atomically replaces every existing `GC_TOKEN` entry, publishes a mode-0600 file, and
   never prints the value. Substitute another secret key when adding that key.
-- When an agent is authorised to write, invoke the same helper; it must not receive the secret in
-  an argument or chat: `bash "${CLAUDE_PLUGIN_ROOT}/skills/initial-setup/scripts/add-secret.sh" GC_TOKEN "$SYNTHKIT_CHECKOUT/.env"`.
+- When an agent is authorised to use that helper, invoke it from the verified checkout; the secret
+  must arrive through its input stream, never an argument or chat:
+  `bash "$SYNTHKIT_CHECKOUT/plugins/synthkit/skills/initial-setup/scripts/add-secret.sh" GC_TOKEN "$SYNTHKIT_CHECKOUT/.env"`.
   Verify **presence only** with
   `grep -q '^GC_TOKEN=.\+' "$SYNTHKIT_CHECKOUT/.env" && echo ok`.
 
@@ -98,15 +115,18 @@ AND readable by docker-compose is **you writing the secret into `.env` from your
 `GC_SELF_OTLP_PASSWORD`, `GC_PYROSCOPE_PASSWORD`, `GC_FM_TOKEN`, `GC_SM_TOKEN`, `GC_SIGIL_TOKEN`,
 `GIT_TOKEN`, and `CONTROL_TOKEN`. A custom blueprint source's operator-defined `token_env_var` is
 also a secret private-git token; do not add its value to a blueprint or print it.
-Everything else is non-secret config, written by the agent with
-`bash "${CLAUDE_PLUGIN_ROOT}/skills/initial-setup/scripts/set-env.sh" KEY VALUE "$SYNTHKIT_CHECKOUT/.env"`
-(it *upserts* — replaces any existing line, so re-runs don't duplicate).
+Other values are non-secret configuration. Edit them in `.env`, or use the optional Bash helper
+`bash "$SYNTHKIT_CHECKOUT/plugins/synthkit/skills/initial-setup/scripts/set-env.sh" KEY VALUE "$SYNTHKIT_CHECKOUT/.env"`.
+It replaces existing entries rather than adding duplicates. Put `.env` comments on separate lines;
+do not append comments to credential or endpoint values.
 
-## Step 4 — Assemble .env
-- If absent: `install -m 600 "$SYNTHKIT_CHECKOUT/.env.example" "$SYNTHKIT_CHECKOUT/.env"`.
+## Step 4: Assemble the private .env
+- Reject a symlink or non-file `.env` before reading or writing it. If absent:
+  `install -m 600 "$SYNTHKIT_CHECKOUT/.env.example" "$SYNTHKIT_CHECKOUT/.env"`.
   If it already exists, tighten it before inspection or mutation:
   `chmod 600 "$SYNTHKIT_CHECKOUT/.env"`.
-- Write the **non-secret** config with `set-env.sh` (it upserts). This includes the six mandatory
+- Set the **non-secret** config in the editor or with the optional `set-env.sh`. This includes the
+  six mandatory
   customer-sink endpoints/users — `GC_PROM_RW`, `GC_PROM_USER`, `GC_OTLP_ENDPOINT`, `GC_OTLP_USER`,
   `GC_LOKI`, `GC_LOKI_USER` — plus `DRY_RUN true`, `SYNTHKIT_BIND <choice>`, and the `*_ENABLED`
   flags for chosen lanes (e.g. `SELFOBS_ENABLED true` + `GC_SELF_OTLP_ENDPOINT`,
@@ -117,12 +137,17 @@ Everything else is non-secret config, written by the agent with
 - For non-loopback `SYNTHKIT_BIND`, also set `CONTROL_EXPOSURE_ACK` to exactly `trusted-network`
   for an isolated plaintext path or `tls-proxy` for a trusted HTTPS proxy. Startup fails closed
   unless both that acknowledgement and `CONTROL_TOKEN` are present.
-- Generate the control token idempotently (value never printed; strips any prior line first):
-  `set -o pipefail; openssl rand -hex 24 | bash "${CLAUDE_PLUGIN_ROOT}/skills/initial-setup/scripts/add-secret.sh" CONTROL_TOKEN "$SYNTHKIT_CHECKOUT/.env"`
+- Loopback-only deployment may leave `CONTROL_TOKEN` empty. If a control token was selected, enter
+  a strong random value through the same private secret path and preserve it on repeat runs. The
+  optional Bash 5+/OpenSSL recipe pipes a generated value into the atomic helper without printing
+  it; the subshell's `pipefail` reports a failed generator as a failed command:
+  `(set -o pipefail; openssl rand -hex 24 | bash "$SYNTHKIT_CHECKOUT/plugins/synthkit/skills/initial-setup/scripts/add-secret.sh" CONTROL_TOKEN "$SYNTHKIT_CHECKOUT/.env")`
+  Use this only when a new token or rotation was selected, require exit zero, and retain an
+  already configured token on ordinary repeat setup.
 - Collect the **secret** vars via the secure path. Confirm `.env` is gitignored:
   `git -C "$SYNTHKIT_CHECKOUT" check-ignore .env` → prints `.env`.
 
-## Step 5 — Host prep (once per host)
+## Step 5: Prepare persistent state once per host
 
 Reject path surprises, then create or tighten only the dedicated directory through the pinned
 helper container:
@@ -145,10 +170,10 @@ performs ownership setup through Docker, so this works without `sudo` on a socke
 container and a normal Docker host. Do not use a recursive ownership change here; runtime manages
 the files beneath this dedicated directory.
 
-## Step 6 — Dry-run gate (before any live push)
-First run `just compose-check`. It requires Compose 2.24.4 or later and renders the default and
-`sm-provision` profile with `.env.example` fake inputs; never substitute the real credential file or
-run raw `docker compose config` against it.
+## Step 6: Dry-run before any live push
+Use the committed Compose file directly. Contributor validation includes `just compose-check`;
+it is not a prerequisite for an operator with Docker only. It renders fake `.env.example` inputs;
+never substitute real credentials or run raw `docker compose config` against them.
 
 `docker compose run --rm --no-deps -e DRY_RUN=true -e SELFOBS_ENABLED=false synthkit -env /dev/null -once -dump`
 (`pull_policy: always` pulls the selected image automatically; the emitter uses `.env` by default or
@@ -158,17 +183,22 @@ later Compose command. Confirm the config parses and the series inventory looks
 right. `just dump` is an equivalent **only if Go is installed locally** — the docker form is the
 no-toolchain path. With exact names, require a non-empty selected inventory. With intentional setup
 mode, require the actionable `no blueprints selected` warning and an empty inventory; do not claim
-signal verification. Only then set `DRY_RUN false` via `set-env.sh` when live delivery was requested.
+signal verification. Keep `DRY_RUN=true` until both this inventory check and the connection preflight
+below succeed. Then set `DRY_RUN=false` in the private `.env` when live delivery was
+requested, using the editor or optional helper. Leave `SELFOBS_ENABLED=false` for the ordinary
+synthetic-data first run; process telemetry requires its separately selected destination and
+credentials.
 
-Also run `docker compose run --rm synthkit -preflight` and inspect every `optional <lane>` line. For a
-bounded one-shot job, pass `-one-shot-deadline <RFC3339-expiry>` to exactly one of `-validate` or
+Also run `docker compose run --rm --no-deps synthkit -preflight` and inspect every `optional <lane>`
+line supported by the selected image. For a bounded one-shot job on an image verified to support
+it, pass `-one-shot-deadline <RFC3339-expiry>` to exactly one of `-validate` or
 `-preflight`, and require a successful exit before proceeding. Expired entry is refused before
 configuration loading; live probes inherit the absolute context budget. Output printed before a
 later failure is not a successful check. This does not roll back receiver-side processing.
 Resolve requested `partial` dispositions before deployment; `unsupported` is a hard stop. Disabled
 Fleet registration is valid when the operator chose metrics-only mode.
 
-## Step 7 — Deploy
+## Step 7: Deploy the selected image
 The image is pulled from `ghcr.io/rknightion/synthkit`. Keep the eligible published
 `SYNTHKIT_IMAGE_REF` copied from `.env.example`, or replace it only with a release that has already
 passed `scripts/synthkit-deploy.py verify-image`. Prefer the exact index digest.
@@ -193,6 +223,11 @@ source instead, use
   during an upgrade. Set `SYNTHKIT_BIND` deliberately. Loopback + SSH tunnel needs no
   acknowledgement; any non-loopback bind needs `CONTROL_TOKEN` plus
   `CONTROL_EXPOSURE_ACK=trusted-network|tls-proxy`.
+
+The running checkout and the selected image can be different revisions. A failed main publication
+does not make newer source features available in the pinned image. In particular, do not promise
+the source checkout's new dashboard commands or startup-only probe in an older published binary.
+Read `$SYNTHKIT_CHECKOUT/docs/deployment.md` for image capabilities and identity limits.
 
 When Synthetic Monitoring was selected, the first start writes a private snapshot and intentionally
 suppresses SM. Preview, explicitly apply, then restart the same image:
@@ -223,9 +258,13 @@ plus-apply command; do not bypass it with a normal reconciliation. Target migrat
 unchanged, fully registered resource set and makes no remote API writes; reconcile configuration
 changes in a separate normal apply.
 
-## Step 8 — Verify
-**REQUIRED SUB-SKILL:** Use verify-deployment to confirm the control plane is healthy and data is
-landing in the right stack(s). Do not hand-roll verification here.
+## Step 8: Verify startup and delivery separately
+**REQUIRED SUB-SKILL:** Read
+`$SYNTHKIT_CHECKOUT/plugins/synthkit/skills/verify-deployment/SKILL.md` to verify the immutable
+running identity, local control plane and actual backend readback. Its browser-first route needs
+no Grafana query plugin. If the Python 3.11+ identity prerequisite is unavailable, report basic
+startup/readback observations separately and full verification as blocked; do not replace the
+required helper proof with weaker Docker observations or call setup fully verified.
 
 ## Common mistakes
 - Pasting a secret into the chat (use the secure path).

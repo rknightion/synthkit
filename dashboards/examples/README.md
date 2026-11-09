@@ -1,7 +1,8 @@
 # dashboards/examples — synthetic-telemetry dashboards (target stack)
 
-Dashboards that visualise the **synthetic telemetry synthkit emits** (the modelled estate) — pushed
-to the **target stack** via `GC_TOKEN`. This is the counterpart to
+Dashboards that visualise the **synthetic telemetry synthkit emits** (the modelled estate).
+Synthetic telemetry goes to the **target stack** using `GC_TOKEN`; publishing dashboards requires
+separate Grafana permissions. This is the counterpart to
 [`../internal/`](../internal), which monitors the generator process itself on a separate staff stack.
 
 These dashboards are **generated, never hand-edited.** The generator (`cmd/synthkit-dash`) resolves a
@@ -11,6 +12,16 @@ blueprint, derives the *actual emitted signal surface* by running one dry cycle 
 composes its own cross-construct views.
 
 ## Generate → validate → push → verify
+
+For a Docker-only workstation, use the
+[container generation path](../../docs/tools.md#synthkit-dash-grafana-dashboard-generator).
+It runs the generator from a verified compatible image and writes files through an output mount;
+an image's bundled templates can differ from the current checkout. Generation needs no tenant
+credentials and does not publish a dashboard.
+
+The following source-development and automation path additionally uses Go, `gcx` and `jq`.
+Neither these tools nor a generated dashboard are prerequisites for the
+[Docker Quick Start](../../docs/quickstart.md), which verifies signals through Grafana Explore.
 
 ```bash
 # 1. Generate (offline; dry-run derive, no creds needed). Datasource names are

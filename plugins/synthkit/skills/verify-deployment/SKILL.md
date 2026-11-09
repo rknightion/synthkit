@@ -5,9 +5,12 @@ description: "Verify a synthkit deployment's control plane and declared signals;
 
 # Verify a synthkit deployment
 
-Confirm control-plane health first, then check only signals that the enabled blueprints and
-configured lanes declare. This skill is read-only. Stop before a remote query when credentials or
-the target Grafana context are absent; never solicit or print a token in order to “verify”.
+Verify deployment identity and control-plane health, then check only signals that the enabled
+blueprints and configured lanes declare. This skill is read-only. Use the bundled instructions
+and local checkout docs; a normal signed-in Grafana browser is sufficient for remote readback.
+No Grafana query plugin or specialised documentation service is required. Stop before a remote
+request when its destination or authorised browser/API access is absent; never solicit or print
+a token merely to verify.
 
 ## Locate the synthkit checkout
 
@@ -20,25 +23,43 @@ test -f "$SYNTHKIT_CHECKOUT/AGENTS.md" && \
 cd "$SYNTHKIT_CHECKOUT"
 ```
 
+Resolve documentation and helpers under `$SYNTHKIT_CHECKOUT`, not a harness-specific plugin root
+or cache. Ordinary Docker startup needs no host Go, Node.js, `just` or `gcx`. Full identity
+verification below additionally needs Python 3.11+ and the existing checkout helper. If that
+prerequisite is absent, basic Docker/control-plane/browser observations may still be collected,
+but record identity as unverified and full verification as blocked. Do not mark this skill complete
+or substitute those observations for its required identity proof.
+
 ## 1. Immutable deployment identity
 
-For Compose, require the intended verified release reference, version, and complete source revision.
-Do not infer them from a mutable tag. Run the closed read-only cross-check before health or Grafana
-queries:
+For Compose, require the intended verified immutable reference, expected binary version and full
+source revision from that exact artifact's public publication metadata or an approved deployment
+record. The committed `.env.example` supplies the approved default reference; the image's
+publication/provenance and `$SYNTHKIT_CHECKOUT/docs/deployment.md` supply its identity context.
+Do not use the running binary's output as its own expected identity, infer identity from a mutable
+tag, or assume the image matches the current checkout. Run the closed read-only cross-check:
 
 ```bash
-python3 scripts/synthkit-deploy.py inspect-running \
+python3 "$SYNTHKIT_CHECKOUT/scripts/synthkit-deploy.py" inspect-running \
   --container "$(docker compose ps -q synthkit)" \
   --expected-reference "ghcr.io/rknightion/synthkit@sha256:<index>" \
-  --expected-version "X.Y.Z" \
+  --expected-version "<published-binary-version>" \
   --expected-revision "<40-hex-source-sha>"
 ```
 
 Require the configured index reference, discovered registry index, selected platform manifest, OCI
-config/running image ID, binary version, and revision to agree. Docker's image ID normally equals
-the config digest but remains a separate runtime observation. Stop if the expected release is not
-available; this skill never changes the selector, snapshots/restores state, or prints private
-deployment records.
+config/running image identity, binary version and revision to agree. Retain the helper's closed
+classic-Docker config-ID or containerd index-plus-platform-descriptor path; an index digest is not
+generally a config digest. `inspect-running` binds the running identity and does not verify a
+signature or provenance. Replacement artifacts still require the appropriate artifact verification
+in `$SYNTHKIT_CHECKOUT/docs/deployment.md`, including the distinct release versus main-build rules.
+Stop on missing expected inputs or contradictory identity evidence; do not change selectors,
+snapshot/restore state or print private deployment records to get past the check.
+
+Docker may retain both index and platform digest aliases for one local image. The helper selects
+the explicitly expected index and verifies its registry, platform, config and running binary.
+Aliases alone neither establish identity nor invalidate an otherwise matching image. Preserve
+evidence on any refusal; do not remove shared cache entries or relax identity checks to pass.
 
 ## 2. Preflight context and credentials
 
@@ -46,21 +67,14 @@ deployment records.
    `DRY_RUN=false` before expecting landing data. Record the declared `TICK_DEFAULT` value; if it
    is absent, use the documented default `5s`. Check whether `BLUEPRINT_NAMES` is empty, exact names,
    or `*` without printing any secret values. Empty means intentional setup mode and no synthetic data.
-2. For a CLI query, confirm `gcx` exists and that its active contexts are visible without exposing
-   credentials:
-
-   ```bash
-   command -v gcx
-   gcx config list-contexts
-   gcx config current-context
-   gcx config check
-   ```
-
-   Select the named customer or staff context deliberately. If gcx is unavailable, use the Grafana
-   UI or an operator-authenticated HTTP API fallback below.
-3. A no-credential stop is a successful safety outcome: report “control-plane checks may proceed;
-   remote data landing is unverified because no Grafana context/credential was supplied” and stop
-   before any remote request.
+2. Use the browser's normal signed-in session for the intended Grafana stack. Confirm the stack
+   identity before opening Explore, and keep synthetic-data and process-self-observability
+   destinations separate. An ingest token is write access, not a query credential; browser
+   readback needs no extra API token. A `gcx` context is optional, not a browser prerequisite.
+3. If neither an authorised browser session nor an explicitly supplied query context is
+   available, collect only the local observations and report remote data landing as unverified.
+   An unavailable access prerequisite is not a remote-readback pass. Do not make remote requests
+   or ask for another token when the existing signed-in browser is sufficient.
 
 ## 3. Control plane health
 
@@ -68,11 +82,16 @@ Resolve `SYNTHKIT_BIND` from `.env` (default `127.0.0.1`) and detect only whethe
 `CONTROL_TOKEN` is non-empty. Never print its value. Use Basic auth for protected routes when set,
 and call the public readiness probe without credentials. On an exact image verified to support
 `-startupcheck`, `GET /control/startup` (or that CLI command inside the container) separately proves
-boot completion only. See [startup versus delivery readiness](../../../../docs/control-plane.md#startup-versus-delivery-readiness).
+boot completion only. Read the startup-versus-delivery-readiness section in
+`$SYNTHKIT_CHECKOUT/docs/control-plane.md`.
 A selected dry-run or sparse lane can pass startup while delivery readiness remains 503; do not
 replace readiness with startup, inflate traffic, or claim source admission, HA authority or live
 landing from startup success. Chart startup defaults retain `-healthcheck` for older pinned images;
-opt into the new command only after image compatibility is verified:
+opt into the new command only after image compatibility is verified. For the browser-first path,
+open the deployment's `/control/ui`, `/control/readiness` and authenticated `/control/status` on
+the host's loopback port 8088. If Basic auth is enabled, use username `control` and enter its
+configured token directly in the browser's local prompt, not in chat or a URL. The following CLI
+commands are optional alternatives when `curl` is already available:
 
 ```bash
 curl -fsS "http://<bind>:8088/control/readiness"
@@ -92,13 +111,16 @@ tunnel, rather than opening the bind casually.
 Read `setup_required`, `ready`, and `live_ready` from the readiness/status response. When
 `setup_required=true`, require HTTP `200`, `ready=true`, `live_ready=false`, and zero loaded/active
 blueprints. Search the retained service log, not only the 50-line sample above, for the actionable
-warning with `docker compose logs --no-color synthkit | rg -F 'WARNING: no blueprints selected'`.
+warning in `docker compose logs --no-color synthkit`; do not require a separate search tool.
 Report that the control plane is healthy but no synthetic telemetry is intended, and stop before
 remote landing queries. When `setup_required=false`, continue with the selected blueprint checks below.
 
-Inspect authenticated `optional_lanes` immediately after health. Require exactly the nine documented
-lanes and report each state/reason/verification. Stop before claiming an optional lane when it is
-`unsupported` or unresolved `partial`; missing fields are names only and must never be expanded to
+On a selected image that implements the current optional-lane diagnostics, inspect authenticated
+`optional_lanes` immediately after health. Require exactly the nine documented lanes and report
+each state/reason/verification. An older image without that surface has unverified optional-lane
+capabilities; current source documentation does not supply its missing evidence. Stop before
+claiming an optional lane when it is `unsupported` or unresolved `partial`; missing fields are
+names only and must never be expanded to
 values. An SM partial state is a successful diagnostic boundary: report that snapshot provisioning
 and/or the required emitter restart remains. This read-only skill does not run the provisioner.
 
@@ -106,7 +128,10 @@ Inspect each sink-history `last_acknowledgement` in `/control/status`. `accepted
 protocol-level receiver acceptance; `partial`/`rejected` indicates explicit loss, while
 `unverified`/`deferred` is not complete acceptance evidence. Counts use the declared unit,
 which differs between logical series and RW2 wire elements. Continue with backend readback;
-no receipt or readiness field proves checkpoint takeover/backfill. See `docs/checkpoint-foundations.md`.
+no receipt or readiness field proves checkpoint takeover/backfill. See
+`$SYNTHKIT_CHECKOUT/docs/checkpoint-foundations.md`. If the selected older image lacks an
+acknowledgement field, report it as unavailable rather than accepted and continue to actual
+backend readback for the supported signals.
 
 ## 4. Wait for declared cadence, then query
 
@@ -118,6 +143,12 @@ Use the per-construct/workload interval from the schema/catalogue, or 60 seconds
 metric lane below that floor; add `SEND_BATCH_DEADLINE` (default `5s`). A master tick is not an
 emission proof.
 
+For an ordinary 60-second metric lane with the default five-second delivery deadline, this is a
+125-second warmup. Use a bounded recent Explore range that includes this run, such as the last
+15 minutes, and require observations newer than deployment startup. A slower declared lane needs
+its own calculated window. At the end of the window, inspect diagnostics and the selected query;
+do not poll indefinitely, increase traffic to force data, or count old results as this run's proof.
+
 Before building a query, read authenticated `GET /control/inventory`. It is the mapping source:
 each construct lists the metric names it has emitted and, when available, a low-cardinality
 `identity` object with its explicit `scope` plus query labels. Use the exact metric name with those
@@ -125,12 +156,12 @@ labels. A blueprint-scoped identity includes `blueprint`; a substrate identity d
 not, and is queried with its declared cluster/account/database identity instead. This avoids a
 hand-built family-to-blueprint table and never promotes high-cardinality values into selectors.
 
-For generated views, follow the [dashboard tooling guide](../../../../docs/tools.md):
-the bundled `otlp-native` template covers its native HTTP metrics, while process telemetry uses the
-separate [operational exporter](../../../../docs/tools.md#operational-dashboard-export).
-Check each export's query inventory and omissions before collecting backend observations.
-Generation is offline and does not establish delivery; deployment filtering is not datasource
-authorization.
+For generated views, read `$SYNTHKIT_CHECKOUT/docs/tools.md`. A current source checkout provides
+the `otlp-native` template and separate process operational exporter, but a pinned older published
+image need not contain those commands. Check the exact image's capabilities before choosing that
+optional path. Browser Explore does not depend on a generated dashboard. Each export's query
+inventory and omissions describe its coverage; offline generation does not establish delivery,
+and deployment filtering is not datasource authorization.
 
 In the same two-interval window, read `/control/status`, `/control/health`, and
 `/control/diagnostics`: status identifies a blocked delivery lane, health identifies a failing
@@ -157,8 +188,48 @@ For staff self-observability, query the known family selector after its own cade
 {__name__=~"synthkit_.*"}
 ```
 
-Run the exact parameterized command below after replacing the bracketed values; `--context` avoids
-silently using the wrong default context and `--since` bounds the observation window:
+### Browser Explore (default)
+
+Open the selected stack's Grafana Explore in its normal signed-in browser session. Choose each
+signal's datasource deliberately and use the same bounded recent range. For the ordinary
+`otlp-native` first run, use the sourced selectors in
+`$SYNTHKIT_CHECKOUT/docs/quickstart.md`:
+
+```promql
+http_server_request_duration_seconds_count{service_name="otlp-api-enriched"}
+```
+
+```logql
+{source="app",service_name="otlp-api-enriched",cluster="otlp-native-prod-euw1"}
+```
+
+```traceql
+{ resource.service.name = "otlp-api-enriched" }
+```
+
+Require non-empty results with fresh sample/log/trace timestamps after this deployment started.
+Open a returned trace and inspect its HTTP root span. The native OTLP duration histogram is
+receiver-projected into classic `_bucket`, `_sum` and `_count` series on the documented path;
+do not infer a Prometheus native histogram solely from OTLP input. Use the actual inventory and
+local signal contract for another selected blueprint rather than substituting fabricated names.
+An empty successful query, green sink strip or successful preflight is not proof that all signals
+arrived. If the agent cannot inspect the browser result, report the exact query and verification
+gap without requiring an extra plugin or claiming success.
+
+### Optional query CLI and API paths
+
+Use `gcx` only when it is already available and explicitly configured for the intended stack.
+Confirm its context without exposing credentials:
+
+```bash
+command -v gcx
+gcx config list-contexts
+gcx config current-context
+gcx config check
+```
+
+Then replace the bracketed values in the following commands. `--context` avoids silently using
+the wrong default context, and `--since` bounds the observation window:
 
 ```bash
 gcx --context <customer-context> metrics query \
@@ -181,15 +252,8 @@ gcx --context <staff-context> metrics query '{__name__=~"synthkit_.*"}' \
   --since '<selfobs-emission-interval-plus-delivery-deadline>'
 ```
 
-Do not invent a metric name or hard-code a stack URL. Verify traces/logs through their Explore
-query editors using a service/resource attribute from the active blueprint and the same bounded
-time range.
-
-### UI and API fallback
-
-If gcx is unavailable, open the selected stack's Grafana **Explore**, choose Prometheus, set the
-same parameterized query, and inspect the last `emission interval + delivery deadline`. For an
-operator-authenticated Prometheus API client, make only a GET to:
+Do not invent a metric name or hard-code a stack URL. For an already authorised Prometheus API
+client, make only a GET to:
 
 ```text
 https://<prometheus-api-host>/api/v1/query?query=<url-encoded-promql>
@@ -220,7 +284,7 @@ failure.
   match. The write tool still must equal the current snapshot version. Kubernetes standby never
   produces data. HA chart deployments can use named Kubernetes state with separate emitter and
   provisioner Lease authority; verify the matching image and configuration against
-  `docs/synthetic-monitoring.md`. The default file-mode Job still requires shared storage.
+  `$SYNTHKIT_CHECKOUT/docs/synthetic-monitoring.md`. The default file-mode Job still requires shared storage.
 - An SM credential or endpoint change requires an explicit `SM_PROVISION_MIGRATE_TARGET=true`
   preview and matching apply within 15 minutes before the restart; never treat a new snapshot alone
   as migrated ownership.
@@ -231,7 +295,7 @@ failure.
 
 | Symptom | Likely cause | Safe next step |
 |---|---|---|
-| Status healthy, no data | `DRY_RUN=true` | Change it only after the dry-run gate is accepted, then redeploy. |
+| Status healthy, no data | `DRY_RUN=true` | After the dry-run passes and live delivery is authorised, set it false and recreate; do not ask again when that authorisation already exists. |
 | Empty query before its wait window | Interval/phase/delivery delay | Wait the calculated interval; do not retest every master tick. |
 | 401/403 | Wrong token scope or user/stack ID | Compare presence and documented scopes; never print values. |
 | Container restart loop | Control-state directory is not writable | Check ownership; container uid is 65532. |

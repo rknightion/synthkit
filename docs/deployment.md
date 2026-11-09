@@ -25,29 +25,15 @@ from outside the process.
 
 === "Docker Compose (canonical)"
 
+    Follow the [Docker Quick Start](quickstart.md) for a fresh public clone. It contains the complete configuration, private state-directory preparation, offline preview, preflight and browser readback path without a host Go/Node/just installation.
+
+    For an already configured first deployment:
+
     ```bash
-    # 1. Clone the repo
-    git clone https://github.com/rknightion/synthkit.git
-    cd synthkit
-
-    # 2. Follow Installation's clean-host state preparation exactly. It uses a pinned helper
-    #    container and works without sudo, including through a mounted Docker socket.
-    #    https://github.com/rknightion/synthkit/blob/main/docs/installation.md#clean-public-clone-to-healthy-compose
-
-    # 3. Configure credentials
-    install -m 600 .env.example .env
-    # Edit .env: set BLUEPRINT_NAMES=otlp-native (or other exact names), set
-    # DRY_RUN=false, and fill GC_TOKEN, GC_PROM_RW/USER, GC_OTLP_ENDPOINT/USER,
-    # GC_LOKI/USER at minimum. Empty BLUEPRINT_NAMES emits nothing.
-
-    # 4. Validate the committed pin and start it, waiting for delivery readiness
-    just compose-check
-    docker compose up -d --wait
-
-    # 5. Verify
-    open http://127.0.0.1:8088/control/ui
-    curl -s -u control http://127.0.0.1:8088/control/status | jq
+    docker compose up -d --wait --wait-timeout 180 synthkit
     ```
+
+    Replacing an existing deployment is a different operation: use the [snapshot/CAS upgrade and rollback procedure](#reproducible-upgrade). Do not overwrite its `.env` or clear its state to restart onboarding.
 
 === "Kubernetes (Helm)"
 
@@ -120,7 +106,7 @@ The `/data` directory holds:
   ledger, adoption-preview marker, lock, and pending journal used by the version-matched one-shot
   provisioner.
 
-The container image runs as **uid 65532** (distroless nonroot). The bind-mount directory must be owned by this uid or state saves fail. Use the pinned helper command in [Installation](installation.md#clean-public-clone-to-healthy-compose), which avoids `sudo` and works when Docker owns the bind-mount filesystem:
+The container image runs as **uid 65532** (distroless nonroot). The bind-mount directory must be owned by this uid or state saves fail. Use the pinned helper command in the [Docker Quick Start](quickstart.md#2-prepare-private-storage-and-preview-offline), which avoids `sudo` and works when Docker owns the bind-mount filesystem:
 
 ```bash
 state_dir="$PWD/control-state-data"
@@ -269,7 +255,19 @@ with SBOM and provenance attestations.
 
 `SYNTHKIT_IMAGE_REF` is the preferred Compose selector and may contain a release tag or complete
 index-digest reference. The committed `.env.example` selects a published, healthcheck-capable image;
-copying it preserves that known-good pin. `SYNTHKIT_IMAGE_TAG` is legacy compatibility for a bare
+copying it preserves that known-good pin. Its independent publication inputs are:
+
+| Reference | Binary version | Full source revision | Publication |
+| --- | --- | --- | --- |
+| `ghcr.io/rknightion/synthkit@sha256:0ddf2e621d7a0023c058d39e366de4aa00fc947ca748cf31f6a4399a2069525f` | `1.3.1` | `bcf9a1e6dfe099bfd04bd7b69e4cb75c0a9999de` | [v1.3.1 release](https://github.com/rknightion/synthkit/releases/tag/v1.3.1), Git ref `refs/tags/v1.3.1`; OCI version label `v1.3.1` |
+
+This pin predates some current-source features. In particular, it does not contain the `synthkit-dash` binary or the new native HTTP template. A current Dockerfile or a blueprint with the same name does not establish what an older image contains. Use the image's actual version and supported commands; use a deliberately built or verified newer image for newer tools rather than silently changing the standing selector.
+
+The running-image inspector selects the explicitly expected index from Docker's local digest
+aliases. It still verifies the selected registry platform, config identity and running binary;
+additional index or platform aliases do not replace those checks.
+
+`SYNTHKIT_IMAGE_TAG` is legacy compatibility for a bare
 tag and is consulted only when `SYNTHKIT_IMAGE_REF` is absent or empty. A malformed or unavailable
 preferred reference fails: Compose and the deployment helper never fall back silently.
 
