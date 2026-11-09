@@ -5,16 +5,18 @@ import argparse
 import copy
 import hashlib
 import json
-from pathlib import Path
 import re
 import sys
+from pathlib import Path
 
 from build_selfobs_dashboard import dashboard as source_dashboard
 
-
 UID = re.compile(r"[A-Za-z0-9_-]{1,40}\Z")
 DEPLOYMENT = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\Z")
-SELECTOR = re.compile(r'([A-Za-z_:][A-Za-z0-9_:]*)\{((?:[^"{}]|"(?:\\.|[^"\\])*")*)\}')
+# One attempt per metric token; quoted labels keep escaped quotes and braces together.
+SELECTOR = re.compile(
+    r'(?<![A-Za-z0-9_:])([A-Za-z_:][A-Za-z0-9_:]*+)\{((?:[^"{}]|"(?:\\.|[^"\\])*+")*+)\}'
+)
 SIGNALS = {"prometheus": "metrics", "loki": "logs", "tempo": "traces",
            "grafana-pyroscope-datasource": "profiles"}
 LANGUAGES = {"metrics": "PromQL", "logs": "LogQL", "traces": "TraceQL", "profiles": "Pyroscope"}
@@ -76,9 +78,8 @@ def prune_layout(value, removed):
         return [item for child in value if (item := prune_layout(child, removed)) is not None]
     if not isinstance(value, dict):
         return value
-    if value.get("kind") == "GridLayoutItem":
-        if value["spec"]["element"]["name"] in removed:
-            return None
+    if value.get("kind") == "GridLayoutItem" and value["spec"]["element"]["name"] in removed:
+        return None
     value = {key: prune_layout(child, removed) for key, child in value.items()}
     if value.get("kind") == "GridLayout" and value["spec"]["items"]:
         top = min(item["spec"]["y"] for item in value["spec"]["items"])

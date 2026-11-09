@@ -2,14 +2,13 @@
 
 import json
 import os
-from pathlib import Path
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
-
+from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 EXPORTER = HERE / "export_selfobs_dashboard.py"
@@ -20,7 +19,7 @@ class ExportCLITest(unittest.TestCase):
         return subprocess.run(
             [sys.executable, str(EXPORTER), "--namespace", "demo-a",
              "--deployment", "alpha", "--out", str(directory), *extra],
-            text=True, capture_output=True, timeout=15,
+            text=True, capture_output=True, timeout=15, check=False,
         )
 
     def test_exports_scoped_resources_and_complete_query_inventory(self):
@@ -129,7 +128,7 @@ class ExportCLITest(unittest.TestCase):
             generator = Path(tmp) / "build_selfobs_dashboard.py"
             shutil.copy2(HERE / generator.name, generator)
             result = subprocess.run([sys.executable, str(generator)], cwd=tmp,
-                                    text=True, capture_output=True, timeout=10)
+                                    text=True, capture_output=True, timeout=10, check=False)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual((Path(tmp) / "synthkit-selfobs.json").read_bytes(),
                              (HERE / "synthkit-selfobs.json").read_bytes())
@@ -189,8 +188,38 @@ class ExportCLITest(unittest.TestCase):
             path = Path(tmp) / "queries.test.json"
             path.write_text(json.dumps(fixture))
             proof = subprocess.run([promtool, "test", "rules", str(path)],
-                                   text=True, capture_output=True, timeout=30)
+                                   text=True, capture_output=True, timeout=30, check=False)
             self.assertEqual(proof.returncode, 0, proof.stdout + proof.stderr)
+
+    def test_selector_scan_preserves_quoted_labels_and_bounds_unmatched_work(self):
+        # Expressions are generator-owned. This bound catches repeated suffix scans of one
+        # malformed token; it is not an operational emission or backend latency budget.
+        script = r'''
+import json
+import sys
+
+sys.path.insert(0, sys.argv[1])
+from export_selfobs_dashboard import scope_metrics
+
+for value in ("{braces}", 'quote " and backslash \\', 'literal job="synthkit"'):
+    labels = 'job="synthkit",note=' + json.dumps(value)
+    expression = 'sum(rate(first_total{' + labels + '}[2m])) / count(second{' + labels + '})'
+    expected = expression.replace('job="synthkit"', 'job="alpha/synthkit"')
+    assert scope_metrics(expression, "alpha") == expected
+    labels = 'service_name="synthkit",note=' + json.dumps(value)
+    assert scope_metrics('target_info{' + labels + '}', "alpha") == (
+        'target_info{' + labels + ', job="alpha/synthkit"}')
+
+try:
+    scope_metrics("a" * 200_000, "alpha")
+except ValueError:
+    pass
+else:
+    raise AssertionError("an unmatched metric token was accepted")
+'''
+        result = subprocess.run([sys.executable, "-c", script, str(HERE)],
+                                text=True, capture_output=True, timeout=5, check=False)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

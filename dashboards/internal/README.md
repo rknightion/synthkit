@@ -13,7 +13,7 @@ This folder visualises that self-telemetry.
 Use the offline exporter when several synthkit deployments share observability backends, or when
 dashboard resources need deployment-specific identities and datasource bindings. It imports the
 same generator as the staff dashboard, writes local resources only, and needs no credentials or
-network access:
+network access. It requires Python 3.11 or newer, matching the repository's contributor prerequisites:
 
 ```bash
 just selfobs-export \
