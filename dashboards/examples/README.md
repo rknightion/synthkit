@@ -15,21 +15,22 @@ composes its own cross-construct views.
 
 For a Docker-only workstation, use the
 [container generation path](../../docs/tools.md#synthkit-dash-grafana-dashboard-generator).
-It runs the generator from a verified compatible image and writes files through an output mount;
-an image's bundled templates can differ from the current checkout. Generation needs no tenant
-credentials and does not publish a dashboard.
+It selects the current stable image from `.env.example` and writes files through an output mount.
+That image includes the generator and native HTTP template; an older image's bundled templates
+can differ from the current checkout. Generation needs no tenant credentials and does not publish
+a dashboard.
 
 The following source-development and automation path additionally uses Go, `gcx` and `jq`.
 Neither these tools nor a generated dashboard are prerequisites for the
 [Docker Quick Start](../../docs/quickstart.md), which verifies signals through Grafana Explore.
 
 ```bash
-# 1. Generate (offline; dry-run derive, no creds needed). Datasource names are
+# 1. Generate (offline; dry-run derive, no creds needed). Datasource UIDs are
 # explicit so a stack with multiple same-type datasources cannot choose one by accident.
 go run ./cmd/synthkit-dash -blueprint blueprints/acme-ai-platform.yaml -out dashboards/examples/acme_ai_platform \
-  -datasource prometheus='<target Prometheus datasource name>' \
-  -datasource loki='<target Loki datasource name>' \
-  -datasource tempo='<target Tempo datasource name>'
+  -datasource prometheus='<Prometheus datasource UID>' \
+  -datasource loki='<Loki datasource UID>' \
+  -datasource tempo='<Tempo datasource UID>'
 # Optional thin-index deep-link targets:
 #   -integrations dashboards/examples/integrations.yaml
 
@@ -50,6 +51,11 @@ push_kind "$out" Dashboard
 GCX_AGENT_MODE=true gcx dashboards snapshot acme_ai_platform-index --context <target-stack> \
   --output-dir dashboards/examples/acme_ai_platform/snapshots --since 3h --width 1600 --theme dark
 ```
+
+Find these UIDs in the destination Grafana's datasource settings or its
+`/connections/datasources/edit/<uid>` URL. Grafana v2's `DataQuery.datasource.name` property carries
+the resource UID. The [datasource binding guide](../../docs/tools.md#find-the-datasource-uids)
+explains the distinction from a display label.
 
 Synthetic data is **forward-only** (no backfill): snapshot with a bounded recent window (`--since 3h`)
 during the modelled peak. Overnight volume is low by design (the diurnal shape engine).

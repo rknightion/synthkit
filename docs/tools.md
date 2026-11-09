@@ -184,22 +184,14 @@ See [custom-blueprints.md](custom-blueprints.md) for how to add custom blueprint
 
 `synthkit-dash` generates Grafana v2 dashboard JSON for a blueprint's synthetic telemetry. It resolves the blueprint, derives the signal manifest (via `internal/dashgen`), runs registered per-blueprint templates, and writes dashboard JSON files to an output directory.
 
-```bash
-just dashgen \
-  -blueprint blueprints/my-service.yaml \
-  -out dashboards/my-service/ \
-  -datasource prometheus=target-prometheus \
-  -datasource loki=target-loki \
-  -datasource tempo=target-tempo
-```
-
-For a Docker-only workstation, select an independently verified image that contains
-`/app/synthkit-dash` and the required template. The older default pin documented in
-[Container image](deployment.md#container-image) does not contain this command. Replace the
-placeholder below with the compatible image's full index reference:
+The current stable image bundles `/app/synthkit-dash` and the `otlp-native` HTTP template. Use
+the canonical public reference in `.env.example` for a Docker-only workstation; its verified
+release identity is recorded in [Container image](deployment.md#container-image). Older images
+may predate the generator or a required template, even when they contain the same blueprint.
 
 ```bash
-image='ghcr.io/rknightion/synthkit@sha256:<verified-index>'
+image="$(sed -n 's/^SYNTHKIT_IMAGE_REF=//p' .env.example)"
+test -n "$image" || { echo "no image reference in .env.example" >&2; exit 1; }
 mkdir -p generated-dashboards
 docker run --rm --network none \
   --user "$(id -u):$(id -g)" \
@@ -207,15 +199,45 @@ docker run --rm --network none \
   --entrypoint /app/synthkit-dash "$image" \
   -blueprint /app/blueprints/otlp-native.yaml \
   -namespace demo -out /out \
-  -datasource prometheus='<target Prometheus datasource name>'
+  -datasource prometheus='<Prometheus datasource UID>'
 ```
 
 Run this from the checkout root using a POSIX shell. The output directory stays owned by your
 local user; no privileged container or recursive ownership change is needed. Use a fresh directory
 for a separate export because matching generated file names are overwritten. The blueprint and
-template in this example both come from the selected image. The datasource value is the actual
-name shown in Grafana, not a URL or credential. This command receives no `.env` or token and has no
-network access. It generates files only; it does not import them into Grafana.
+template in this example both come from the selected image. The datasource value is its Grafana
+resource UID, not its display label, URL or credential. This command receives no `.env` or token
+and has no network access. It generates files only; it does not import them into Grafana.
+
+### Optional source development
+
+Developers with the source toolchain can generate from checkout YAML and templates instead:
+
+```bash
+just dashgen \
+  -blueprint blueprints/my-service.yaml \
+  -out dashboards/my-service/ \
+  -datasource prometheus=target-prometheus-uid \
+  -datasource loki=target-loki-uid \
+  -datasource tempo=target-tempo-uid
+```
+
+This path needs the [contributor toolchain](contributing.md). The Docker path above does not
+require host Go, Node.js or `just`.
+
+### Find the datasource UIDs
+
+In the destination Grafana instance, open **Connections → Data sources** and select the
+Prometheus, Loki or Tempo datasource you intend to query. Copy its UID from the settings page or
+the edit URL, whose path is `/connections/datasources/edit/<uid>`. Repeat for each required query
+group: `prometheus`, `loki` and `tempo`.
+
+Pass those UIDs as the values in `-datasource group=value`. Grafana v2 calls the reference
+property `DataQuery.datasource.name`, but its canonical value is the datasource's resource UID,
+as shown by the [v2 serializer](https://github.com/grafana/grafana/blob/9c93fc1d2e0be4723bf626efbddd6014d9a3c37f/public/app/features/dashboard-scene/serialization/transformSceneToSaveModelSchemaV2.ts#L511-L519).
+A display label can resolve through compatibility handling; use the UID for exported resources.
+
+### Command options
 
 | Flag | Required | Description |
 |---|---|---|
@@ -224,7 +246,7 @@ network access. It generates files only; it does not import them into Grafana.
 | `-integrations <path>` | no | Optional integrations config YAML for thin-index deep-links. |
 | `-folder <uid>` | no | UID for the generated Folder resource (defaults to `<blueprint>-dashboards`). |
 | `-namespace <name>` | no | Derive every generated identity from `(namespace, legacy UID)` so independent installs of one blueprint do not collide. 1 to 12 characters of `a-z`, `0-9` and `_`, starting with a letter or digit. See [Namespacing dashboard UIDs](#namespacing-dashboard-uids). |
-| `-datasource <group=name>` | yes, repeated | Explicit datasource name for every rendered query group. Generation fails if any group is unmapped. |
+| `-datasource <group=value>` | yes, repeated | Grafana datasource UID for every rendered query group. Generation fails if any group is unmapped. |
 | `-verify-inventory <path>` | no | Generated panel inventory JSON to verify. Replaces generation: supply it with `-observations` and without `-blueprint`, `-out` or `-namespace`. |
 | `-observations <path>` | with `-verify-inventory` | Read-only live query observations JSON, one normalized observation per inventory query. |
 
@@ -232,9 +254,9 @@ network access. It generates files only; it does not import them into Grafana.
 
 For blueprints that define recording/alert rules, `synthkit-dash` also emits a `<blueprint>-rules.json` file.
 
-The current source includes a native HTTP operations template for `otlp-native`. Template
-availability follows the generator's image or source revision, not the host checkout's YAML.
-An older published image can emit the blueprint without containing this newer template. Its
+The current stable image and source include a native HTTP operations template for `otlp-native`.
+Template availability follows the generator's image or source revision, not the host checkout's
+YAML. Older images can emit the blueprint without containing the HTTP template. Its
 coverage and receiver prerequisites are documented with the
 [template source](https://github.com/rknightion/synthkit/tree/main/dashboards/examples/otlp_native).
 Generation is offline; a generated dashboard does not establish that telemetry reached a backend.
@@ -251,7 +273,7 @@ organisation still share every dashboard UID, so the second push overwrites the 
 
 ```bash
 just dashgen -blueprint blueprints/my-service.yaml -out dashboards/team-a/ -namespace team_a \
-  -datasource prometheus=target-prometheus -datasource loki=target-loki
+  -datasource prometheus=target-prometheus-uid -datasource loki=target-loki-uid
 ```
 
 Without `-namespace` the output is byte-identical to earlier releases. With it, one pure function of

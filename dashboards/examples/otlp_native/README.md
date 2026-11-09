@@ -4,27 +4,31 @@ This template compares the reference blueprint's Kubernetes-enriched and SDK-onl
 It uses their shared service identity and the deployment environment on `target_info`, so the
 SDK-only service does not need Kubernetes labels to appear.
 
-This template is available in the current source. A published image must contain the matching
-generator revision; the presence of the `otlp-native` blueprint alone does not establish that it
-contains the HTTP template. See the [dashboard generation guide](../../../docs/tools.md#synthkit-dash-grafana-dashboard-generator)
-for container tooling and image-version requirements. Grafana Explore in the
+The current stable image includes the generator and this template. Follow the
+[Docker generation guide](../../../docs/tools.md#synthkit-dash-grafana-dashboard-generator), which
+selects the canonical image reference from `.env.example` and writes resources through an output
+mount. Older images may contain the `otlp-native` blueprint without this template. Grafana Explore in the
 [Docker Quick Start](../../../docs/quickstart.md) verifies the emitted signals without requiring
 a generated dashboard.
 
-From a source development checkout, generate the resources offline with no tenant credential:
+As an optional alternative, a source development checkout can generate the resources offline
+with no tenant credential:
 
 ```bash
 go run ./cmd/synthkit-dash \
   -blueprint blueprints/otlp-native.yaml \
-  -datasource prometheus=target-prometheus \
+  -datasource prometheus='<Prometheus datasource UID>' \
   -namespace demo \
   -out /tmp/otlp-native-dashboards
 ```
 
 The native HTTP view is `demo-otlp-native-http.json`. The command also writes the folder, thin
 index, existing remote-write metrics view and complete panel inventory. Omitting `-namespace`
-keeps the default resource identities. The datasource value is the actual Prometheus datasource
-name in the destination, not a URL or credential. Follow the shared
+keeps the default resource identities. The datasource value is the Prometheus datasource's
+resource UID in the destination, not its display label, URL or credential. Copy the UID from
+its Grafana settings or `/connections/datasources/edit/<uid>` URL; see
+[datasource bindings](../../../docs/tools.md#find-the-datasource-uids).
+Follow the shared
 [generation and verification procedure](../README.md) to validate, publish and record observations;
 generation itself does not contact Grafana or publish anything.
 

@@ -49,11 +49,13 @@ cd synthkit
 
 Follow the **[Docker Quick Start](docs/quickstart.md)** to create local configuration, prepare private
 storage, preview the `otlp-native` blueprint without credentials, then connect Grafana Cloud and
-verify fresh metrics, logs and traces. The published image includes the operator UI. You do not
-need Go, Node.js, `just`, `gcx` or an AI assistant for this path.
+verify fresh metrics, logs and traces. The current stable image includes the operator UI and
+dashboard generator. You do not need Go, Node.js, `just`, `gcx` or an AI assistant for this path.
 
-The [installation guide](docs/installation.md) covers optional source builds. The
-[deployment guide](docs/deployment.md) covers persistent hosts and image identity.
+The [dashboard tools guide](docs/tools.md#synthkit-dash-grafana-dashboard-generator) covers optional
+Docker-contained exports. The [installation guide](docs/installation.md) covers source builds;
+the [deployment guide](docs/deployment.md#container-image) records the default image's release,
+digest and provenance.
 
 For other starting points:
 

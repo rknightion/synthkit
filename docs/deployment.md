@@ -255,13 +255,19 @@ with SBOM and provenance attestations.
 
 `SYNTHKIT_IMAGE_REF` is the preferred Compose selector and may contain a release tag or complete
 index-digest reference. The committed `.env.example` selects a published, healthcheck-capable image;
-copying it preserves that known-good pin. Its independent publication inputs are:
+copying it preserves that known-good pin. The current default is 1.6.1. The previous pin is retained
+below so its historical identity can still be checked. Independent publication inputs are:
 
-| Reference | Binary version | Full source revision | Publication |
-| --- | --- | --- | --- |
-| `ghcr.io/rknightion/synthkit@sha256:0ddf2e621d7a0023c058d39e366de4aa00fc947ca748cf31f6a4399a2069525f` | `1.3.1` | `bcf9a1e6dfe099bfd04bd7b69e4cb75c0a9999de` | [v1.3.1 release](https://github.com/rknightion/synthkit/releases/tag/v1.3.1), Git ref `refs/tags/v1.3.1`; OCI version label `v1.3.1` |
+| Selection | Reference | Binary version | Full source revision | Publication |
+| --- | --- | --- | --- | --- |
+| Current Compose default | `ghcr.io/rknightion/synthkit@sha256:098eda6ae8bc36b72cffe7e1e81c3b809345e4680d404910fecb7e8d2a4eecf9` | `1.6.1` | `975f1bbe000e30ca3fd578e8872adfc3cc037fdd` | [v1.6.1 release](https://github.com/rknightion/synthkit/releases/tag/v1.6.1), Git ref `refs/tags/v1.6.1`; OCI version label `1.6.1` |
+| Previous Compose default | `ghcr.io/rknightion/synthkit@sha256:0ddf2e621d7a0023c058d39e366de4aa00fc947ca748cf31f6a4399a2069525f` | `1.3.1` | `bcf9a1e6dfe099bfd04bd7b69e4cb75c0a9999de` | [v1.3.1 release](https://github.com/rknightion/synthkit/releases/tag/v1.3.1), Git ref `refs/tags/v1.3.1`; OCI version label `v1.3.1` |
 
-This pin predates some current-source features. In particular, it does not contain the `synthkit-dash` binary or the new native HTTP template. A current Dockerfile or a blueprint with the same name does not establish what an older image contains. Use the image's actual version and supported commands; use a deliberately built or verified newer image for newer tools rather than silently changing the standing selector.
+The 1.6.1 default includes `/app/synthkit-dash` and the native HTTP template for `otlp-native`;
+use the [Docker dashboard export](tools.md#synthkit-dash-grafana-dashboard-generator) without a
+host development toolchain. The previous 1.3.1 pin contains neither. A current Dockerfile or a
+blueprint with the same name does not establish what an older image contains: check its independent
+publication inputs and supported commands before selecting it.
 
 The running-image inspector selects the explicitly expected index from Docker's local digest
 aliases. It still verifies the selected registry platform, config identity and running binary;
