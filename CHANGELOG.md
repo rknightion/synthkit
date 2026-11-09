@@ -2,6 +2,13 @@
 
 All notable changes to synthkit. Generated from Conventional Commits.
 
+## [1.6.1](https://github.com/rknightion/synthkit/compare/v1.6.0...v1.6.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* enforce stable publication identity checks ([#722](https://github.com/rknightion/synthkit/issues/722)) ([4368add](https://github.com/rknightion/synthkit/commit/4368add50a1d1e7a830a06b27acf7b11186a4aae))
+
 ## [1.6.0](https://github.com/rknightion/synthkit/compare/v1.5.1...v1.6.0) (2026-11-09)
 
 
