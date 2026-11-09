@@ -53,6 +53,8 @@ classic-Docker config-ID or containerd index-plus-platform-descriptor path; an i
 generally a config digest. `inspect-running` binds the running identity and does not verify a
 signature or provenance. Replacement artifacts still require the appropriate artifact verification
 in `$SYNTHKIT_CHECKOUT/docs/deployment.md`, including the distinct release versus main-build rules.
+Use that publication record's independent OCI label input; its spelling can differ from the Git
+tag. Never fill an expected input from the candidate's own observed metadata.
 Stop on missing expected inputs or contradictory identity evidence; do not change selectors,
 snapshot/restore state or print private deployment records to get past the check.
 

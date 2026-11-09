@@ -130,7 +130,13 @@ jobs:
           PUBLISHED_DIGESTS: ${{ runner.temp }}/published-main-digests
           PUBLISHED_INDEX: ${{ runner.temp }}/published-main-index.json
         run: |
+          set -euo pipefail
           version="${RELEASE_TAG#v}"
+          # The pinned publisher strips v only from stable OCI version labels.
+          oci_version="${RELEASE_TAG}"
+          if [[ "${RELEASE_TAG}" != *-* ]]; then
+            oci_version="${version}"
+          fi
           shopt -s nullglob
           digest_files=()
           for digest_file in "${PUBLISHED_DIGESTS}"/*; do
@@ -163,7 +169,7 @@ jobs:
           python3 scripts/synthkit-deploy.py verify-image \
             --reference "${reference}" \
             --expected-version "${version}" \
-            --expected-oci-version "${RELEASE_TAG}" \
+            --expected-oci-version "${oci_version}" \
             --expected-revision "${SOURCE_REVISION}" \
             --source-ref "refs/tags/${RELEASE_TAG}" \
             --platform linux/amd64 | tee verification.json

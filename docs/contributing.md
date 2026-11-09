@@ -50,6 +50,26 @@ root with mode `0700`. Go creates fixture children using the process umask; a gr
 fixture is correctly refused by the private-parent admission check. Preserve that refusal rather
 than changing the command to accept writable parents.
 
+Linux runners can also inherit a setgid bit from a shared temporary volume. GNU `chmod 0700`
+preserves that bit on directories, while custody proofs require exact mode `0700`, including
+special permission bits. Prepare a fresh root in the environment where the tests execute:
+
+```bash
+(
+  set -euo pipefail
+  umask 0022
+  proof_tmp=$(mktemp -d /tmp/synthkit-private.XXXXXX)
+  chmod 0700 "$proof_tmp"
+  chmod g-s "$proof_tmp"
+  proof_tmp=$(cd "$proof_tmp" && pwd -P)
+  test "$(stat -c %a "$proof_tmp")" = 700
+  export TMPDIR="$proof_tmp" GOTMPDIR="$proof_tmp"
+  just check </dev/null
+)
+```
+
+This changes only the new proof directory. Keep the shared parent and admission checks intact.
+
 ## Work in a focused loop
 
 Read [the architecture contract](https://github.com/rknightion/synthkit/blob/main/ARCHITECTURE.md) before changing tiers, the runner, or sinks.
