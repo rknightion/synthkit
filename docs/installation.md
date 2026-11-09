@@ -22,12 +22,13 @@ synthkit ships as a single self-contained binary. Build from source with Go, or 
 
     - Docker Engine **24.0 or later** (the supported local daemon).
     - Docker Compose **2.24.4 or later** for the committed standing-deployment contract.
-    - Bash **5.0 or later**, Python **3.11 or later**, and `just` **1.58.0 or later**.
+    - A normal shell and browser. Docker Desktop includes the engine and Compose on macOS and Windows; use a WSL terminal for the shell commands on Windows.
     - Git **2.39 or later** to obtain the public checkout.
     - No Go installation needed — the prebuilt image is a distroless static binary.
 
-`gcx` **1.2.0 or later** is needed only for the optional remote Grafana verification commands in
-the [runbook](RUNBOOK.md); it is not needed to start Compose or inspect the local control plane.
+Host Go, Node.js, Python, Bash 5, `just`, `gcx` and external documentation-query plugins are not prerequisites for the basic container start. The complete [Docker Quick Start](quickstart.md) includes configuration, state preparation, dry run, live delivery and browser readback.
+
+Python 3.11+ and Docker Buildx are additional prerequisites for the strict running-image identity helper. Independent publication/signature verification also uses GitHub CLI. These checks have their own evidence requirements in [Deployment](deployment.md#container-image); basic Docker observations do not replace them.
 
 ## Platform choices
 
@@ -35,94 +36,17 @@ the [runbook](RUNBOOK.md); it is not needed to start Compose or inspect the loca
   recipe uses a Debian-family root shell; it is not an unprivileged package-install command.
 - **macOS:** the source path uses the same commands once the prerequisites are installed. Ensure
   Bash 5+ is on `PATH` (`/bin/bash` is older). For containers, use a running Docker-compatible
-  engine with Compose and check its versions before following the Compose steps. The clean Linux
-  container regression does not establish macOS container-runtime compatibility.
+  engine with Compose and check its versions before following the Compose steps. The Docker Quick Start does not require the host source-build toolchain. Docker Desktop and other compatible engines may differ in image-store identity; retain the exact image and runtime observations.
 
-Choose the [Quick Start](quickstart.md) for a complete source-build walkthrough. Published images
-already contain the operator UI; their host does not need Go or Node.
+Choose the [Quick Start](quickstart.md) for the Docker path. Published images already contain the operator UI. Use [Build from source](#build-from-source) when developing synthkit or when deliberately selecting features absent from the published image.
 
 ## Clean public clone to healthy Compose
 
-This Linux path is exercised by the clean-container regression. Start with Git, Docker Engine 24+
-and Docker Compose 2.24.4+ available. The fixture also contains Go, but the prebuilt-image path
-below does not use it. Run the package installation commands as root in a Debian-family environment;
-on an existing host, install the listed prerequisites using your normal administrative process.
+Follow the complete [Docker Quick Start](quickstart.md). It is the canonical first-run procedure for a fresh public clone on a Docker-capable workstation, including macOS. It needs Git, Docker Engine 24+, Compose 2.24.4+, a shell and a browser. It uses the published pin from `.env.example`, prepares the private state directory through a public helper container, and selects one blueprint explicitly.
 
-```bash
-apt-get update
-apt-get install -y --no-install-recommends bash ca-certificates curl python3
-curl --proto '=https' --tlsv1.2 -fsSL https://just.systems/install.sh \
-  | bash -s -- --tag 1.58.0 --to "$HOME/.local/bin"
-export PATH="$HOME/.local/bin:$PATH"
+A credential-free preview is useful on its own. Live delivery additionally needs the seven ingest settings described in that walkthrough and access to the destination Grafana stack. Empty `BLUEPRINT_NAMES` is intentional setup mode, not a telemetry demo. Keep self-observability off for this first path; it is a separate destination and credential configuration.
 
-bash --version
-python3 --version
-just --version
-docker --version
-docker compose version
-
-git clone https://github.com/rknightion/synthkit.git
-cd synthkit
-```
-
-The version commands are deliberate gates: use Bash 5.0+, Python 3.11+, `just` 1.58.0+, Docker
-Engine 24.0+, and Docker Compose 2.24.4+. Do not continue with a distribution-packaged `just` that
-rejects the repository's `working-directory` recipe attribute.
-
-Create `.env` without printing a secret. The credential-free path deliberately leaves
-`BLUEPRINT_NAMES` empty so the standing service starts in healthy setup mode. The separate
-one-shot command below selects `otlp-native` only for its offline inventory proof. For a live
-deployment, first follow [Credentials](credentials.md#finding-the-three-required-numeric-identifiers),
-add the required secret through the hidden-prompt helper, and select the intended blueprint before
-starting Compose.
-
-```bash
-if [ -L .env ] || { [ -e .env ] && [ ! -f .env ]; }; then
-  echo "refusing symlink or non-file .env" >&2
-  exit 1
-fi
-if [ ! -e .env ]; then
-  install -m 600 .env.example .env
-else
-  echo "Keeping existing .env; review it before continuing."
-fi
-chmod 600 .env
-```
-
-Prepare the bind-mounted state directory before Compose starts. This uses a pinned public helper
-container to set the distroless runtime uid, so it works from a Docker-socket-mounted clean
-container and on a normal Docker host without `sudo` or a host-side ownership workaround:
-
-```bash
-state_dir="$PWD/control-state-data"
-if [ -L "$state_dir" ] || { [ -e "$state_dir" ] && [ ! -d "$state_dir" ]; }; then
-  echo "refusing non-directory or symlink state path: $state_dir" >&2
-  exit 1
-fi
-mkdir -p "$state_dir"
-chmod 700 "$state_dir"
-docker run --rm --volume "$state_dir:/data" --entrypoint /bin/sh \
-  node:24-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43 \
-  -ceu 'chown 65532:65532 /data; chmod 0700 /data'
-```
-
-Validate the committed Compose artifact with fake inputs, prove the selected inventory offline,
-then start it and wait for its healthcheck:
-
-```bash
-just compose-check </dev/null
-BLUEPRINT_NAMES=otlp-native docker compose run --rm --no-deps \
-  -e DRY_RUN=true -e SELFOBS_ENABLED=false synthkit -once -dump
-docker compose up -d --wait
-curl -fsS http://127.0.0.1:8088/control/readiness
-```
-
-The offline path must report the selected `otlp-native` inventory. The final readiness response
-must contain `"ready":true`, `"setup_required":true`, `"live_ready":false`, zero loaded blueprints,
-and `"persisted_state":{"writable":true}`. This is an honest setup-mode health proof, not a delivery
-claim. After live credentials and an exact blueprint selection are supplied, readiness becomes
-delivery-aware and `live_ready` remains false until every intended lane has pushed successfully.
-Do not run raw `docker compose config` with a real `.env`.
+The full contributor environment and its `just compose-check` validation remain in [Contributing](contributing.md). They are not prerequisites for an operator's first container run. This section retains its public anchor for existing links; the command sequence lives in the Quick Start rather than in a second copy here.
 
 ---
 
@@ -171,13 +95,12 @@ For a persistent run with credentials, use the docker-compose path below or moun
 
 The repository ships a `docker-compose.yml` that reads all configuration from a `.env` file (gitignored — never commit secrets).
 
-**First-time setup:**
+For a first deployment, follow the [Docker Quick Start](quickstart.md) through state preparation, offline preview, credential preflight and live readback. It preserves an existing `.env` and does not require the contributor toolchain.
+
+After that setup, the ordinary start command is:
 
 ```bash
-# Follow the literal public-clone path above first. For a live deployment, add the required
-# credentials with the hidden-prompt helper, set DRY_RUN=false, then rerun these final commands:
-just compose-check </dev/null
-docker compose up -d --wait
+docker compose up -d --wait --wait-timeout 180 synthkit
 ```
 
 `SYNTHKIT_IMAGE_REF` is preferred and should be the verified release index digest for a standing

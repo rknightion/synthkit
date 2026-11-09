@@ -188,10 +188,34 @@ See [custom-blueprints.md](custom-blueprints.md) for how to add custom blueprint
 just dashgen \
   -blueprint blueprints/my-service.yaml \
   -out dashboards/my-service/ \
-  -datasource metrics=grafanacloud-prom \
-  -datasource logs=grafanacloud-logs \
-  -datasource traces=grafanacloud-traces
+  -datasource prometheus=target-prometheus \
+  -datasource loki=target-loki \
+  -datasource tempo=target-tempo
 ```
+
+For a Docker-only workstation, select an independently verified image that contains
+`/app/synthkit-dash` and the required template. The older default pin documented in
+[Container image](deployment.md#container-image) does not contain this command. Replace the
+placeholder below with the compatible image's full index reference:
+
+```bash
+image='ghcr.io/rknightion/synthkit@sha256:<verified-index>'
+mkdir -p generated-dashboards
+docker run --rm --network none \
+  --user "$(id -u):$(id -g)" \
+  --mount "type=bind,src=$PWD/generated-dashboards,dst=/out" \
+  --entrypoint /app/synthkit-dash "$image" \
+  -blueprint /app/blueprints/otlp-native.yaml \
+  -namespace demo -out /out \
+  -datasource prometheus='<target Prometheus datasource name>'
+```
+
+Run this from the checkout root using a POSIX shell. The output directory stays owned by your
+local user; no privileged container or recursive ownership change is needed. Use a fresh directory
+for a separate export because matching generated file names are overwritten. The blueprint and
+template in this example both come from the selected image. The datasource value is the actual
+name shown in Grafana, not a URL or credential. This command receives no `.env` or token and has no
+network access. It generates files only; it does not import them into Grafana.
 
 | Flag | Required | Description |
 |---|---|---|
@@ -208,8 +232,10 @@ just dashgen \
 
 For blueprints that define recording/alert rules, `synthkit-dash` also emits a `<blueprint>-rules.json` file.
 
-The bundled `otlp-native` blueprint includes a native HTTP operations template. Its coverage and
-receiver prerequisites are documented with the
+The current source includes a native HTTP operations template for `otlp-native`. Template
+availability follows the generator's image or source revision, not the host checkout's YAML.
+An older published image can emit the blueprint without containing this newer template. Its
+coverage and receiver prerequisites are documented with the
 [template source](https://github.com/rknightion/synthkit/tree/main/dashboards/examples/otlp_native).
 Generation is offline; a generated dashboard does not establish that telemetry reached a backend.
 
@@ -225,7 +251,7 @@ organisation still share every dashboard UID, so the second push overwrites the 
 
 ```bash
 just dashgen -blueprint blueprints/my-service.yaml -out dashboards/team-a/ -namespace team_a \
-  -datasource metrics=grafanacloud-prom -datasource logs=grafanacloud-logs
+  -datasource prometheus=target-prometheus -datasource loki=target-loki
 ```
 
 Without `-namespace` the output is byte-identical to earlier releases. With it, one pure function of
@@ -319,7 +345,15 @@ restriction on dashboard actions does not protect the datasource from direct que
 
 ## LLM-assisted skills
 
-synthkit ships agent skills for Claude Code, Codex, and OpenCode. Skills are authored once under `plugins/synthkit/skills/`; `just skills-sync` creates symlinks in `.claude/skills/` and `.agents/skills/` so the same skills are available in all three harnesses. `just skills-check` verifies the symlink farm and is safe for CI.
+synthkit ships optional agent skills for Claude Code, Codex, and OpenCode. The bundled guides
+cover first deployment and verification without an external documentation-query plugin. Use
+the repository's instructions first; if a provider's account UI has changed, its documentation
+is accessible through an ordinary browser or the assistant's default web search.
+
+Skills are authored once under `plugins/synthkit/skills/`; `just skills-sync` creates symlinks in
+`.claude/skills/` and `.agents/skills/` so the same skills are available in all three harnesses.
+Those are contributor maintenance commands, not prerequisites for the Docker Quick Start.
+`just skills-check` verifies the symlink farm and is safe for CI.
 
 ### Available skills
 

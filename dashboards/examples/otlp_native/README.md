@@ -4,7 +4,14 @@ This template compares the reference blueprint's Kubernetes-enriched and SDK-onl
 It uses their shared service identity and the deployment environment on `target_info`, so the
 SDK-only service does not need Kubernetes labels to appear.
 
-Generate the dashboard resources offline, with no tenant credential:
+This template is available in the current source. A published image must contain the matching
+generator revision; the presence of the `otlp-native` blueprint alone does not establish that it
+contains the HTTP template. See the [dashboard generation guide](../../../docs/tools.md#synthkit-dash-grafana-dashboard-generator)
+for container tooling and image-version requirements. Grafana Explore in the
+[Docker Quick Start](../../../docs/quickstart.md) verifies the emitted signals without requiring
+a generated dashboard.
+
+From a source development checkout, generate the resources offline with no tenant credential:
 
 ```bash
 go run ./cmd/synthkit-dash \

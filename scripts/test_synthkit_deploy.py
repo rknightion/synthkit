@@ -849,6 +849,8 @@ class DeployCLITest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
             docker = root / "docker"
+            observations = root / "observations.json"
+            observations.write_text("{}", encoding="utf-8")
             index = DIGEST
             manifest = "sha256:" + "c" * 64
             config = "sha256:" + "d" * 64
@@ -858,22 +860,23 @@ class DeployCLITest(unittest.TestCase):
             docker.write_text(
                 PYTHON_SHEBANG
                 +
-                "import json, sys\n"
+                "import json, sys\nfrom pathlib import Path\n"
+                f"observed=json.loads(Path({str(observations)!r}).read_text())\n"
                 f"index={index!r}; manifest={manifest!r}; config={config!r}; revision={revision!r}; version={version!r}; reference={reference!r}\n"
                 "args=sys.argv[1:]; joined=' '.join(args)\n"
                 "if args[:2] == ['inspect','--format']:\n"
                 "  template=args[2]\n"
-                "  if template == '{{.Config.Image}}': print(reference)\n"
-                "  elif template == '{{.Image}}': print(config)\n"
+                "  if template == '{{.Config.Image}}': print(observed.get('configured_ref', reference))\n"
+                "  elif template == '{{.Image}}': print(observed.get('running_id', config))\n"
                 "  elif template == '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}': print('healthy')\n"
                 "elif args[:3] == ['image','inspect','--format']:\n"
                 "  template=args[3]\n"
-                "  if template == '{{json .RepoDigests}}': print(json.dumps([reference]))\n"
+                "  if template == '{{json .RepoDigests}}': print(json.dumps(observed.get('repo_digests', [reference, 'ghcr.io/rknightion/synthkit@' + manifest])))\n"
                 "  elif template == '{{.Os}}/{{.Architecture}}': print('linux/amd64')\n"
                 "elif args[:4] == ['buildx','imagetools','inspect','--raw']:\n"
-                "  if args[4].endswith(index): print(json.dumps({'mediaType':'application/vnd.oci.image.index.v1+json','manifests':[{'digest':manifest,'platform':{'os':'linux','architecture':'amd64'}}]}))\n"
-                "  else: print(json.dumps({'mediaType':'application/vnd.oci.image.manifest.v1+json','config':{'digest':config}}))\n"
-                "elif args and args[0] == 'exec': print(json.dumps({'version':version,'revision':revision}))\n"
+                "  if args[4].endswith(index): print(json.dumps({'mediaType':'application/vnd.oci.image.index.v1+json','manifests':[{'digest':manifest,'platform':{'os':'linux','architecture':observed.get('registry_arch', 'amd64')}}]}))\n"
+                "  else: print(json.dumps({'mediaType':'application/vnd.oci.image.manifest.v1+json','config':{'digest':observed.get('registry_config', config)}}))\n"
+                "elif args and args[0] == 'exec': print(json.dumps({'version':observed.get('version', version),'revision':observed.get('revision', revision)}))\n"
                 "else: sys.exit(2)\n",
                 encoding="utf-8",
             )
@@ -904,10 +907,45 @@ class DeployCLITest(unittest.TestCase):
             self.assertEqual(report["revision"], revision)
             self.assertEqual(report["health"], "healthy")
 
+            for aliases in ([reference], [f"{IMAGE}@{manifest}", reference]):
+                with self.subTest(aliases=aliases):
+                    observations.write_text(json.dumps({"repo_digests": aliases}), encoding="utf-8")
+                    result = self.run_cli(
+                        "inspect-running", "--container", "container-id", "--expected-reference", reference,
+                        "--expected-version", version, "--expected-revision", revision, "--docker-bin", str(docker),
+                    )
+                    self.assertEqual(json.loads(result.stdout)["index_digest"], index)
+
+            wrong_digest = "sha256:" + "e" * 64
+            for observed, error in (
+                ({"repo_digests": []}, "running_repo_digest_invalid"),
+                ({"repo_digests": {reference: True}}, "running_repo_digest_invalid"),
+                ({"repo_digests": [f"{IMAGE}@{manifest}"]}, "running_index_mismatch"),
+                ({"repo_digests": [f"{IMAGE}@{manifest}", f"{IMAGE}@{wrong_digest}"]}, "running_index_mismatch"),
+                ({"repo_digests": ["ghcr.io/example/other@" + index, f"{IMAGE}@{manifest}"]}, "running_index_mismatch"),
+                ({"configured_ref": f"{IMAGE}@{wrong_digest}"}, "configured_reference_mismatch"),
+                ({"running_id": wrong_digest}, "running_config_mismatch"),
+                ({"registry_config": wrong_digest}, "running_config_mismatch"),
+                ({"registry_arch": "arm64"}, "platform_manifest_invalid"),
+                ({"version": "9.9.9"}, "binary_identity_mismatch"),
+                ({"revision": "f" * 40}, "binary_identity_mismatch"),
+            ):
+                with self.subTest(observed=observed):
+                    observations.write_text(json.dumps(observed), encoding="utf-8")
+                    result = self.run_cli(
+                        "inspect-running", "--container", "container-id", "--expected-reference", reference,
+                        "--expected-version", version, "--expected-revision", revision, "--docker-bin", str(docker),
+                        check=False,
+                    )
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(json.loads(result.stderr)["code"], error)
+
     def test_inspect_running_accepts_containerd_index_id_with_selected_platform_descriptor(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
             docker = root / "docker"
+            observations = root / "observations.json"
+            observations.write_text("{}", encoding="utf-8")
             index = DIGEST
             manifest = "sha256:" + "c" * 64
             config = "sha256:" + "d" * 64
@@ -917,7 +955,8 @@ class DeployCLITest(unittest.TestCase):
             docker.write_text(
                 PYTHON_SHEBANG
                 +
-                "import json, sys\n"
+                "import json, sys\nfrom pathlib import Path\n"
+                f"observed=json.loads(Path({str(observations)!r}).read_text())\n"
                 f"index={index!r}; manifest={manifest!r}; config={config!r}; revision={revision!r}; version={version!r}; reference={reference!r}\n"
                 "args=sys.argv[1:]\n"
                 "if args[:2] == ['inspect','--format']:\n"
@@ -925,10 +964,10 @@ class DeployCLITest(unittest.TestCase):
                 "  if template == '{{.Config.Image}}': print(reference)\n"
                 "  elif template == '{{.Image}}': print(index)\n"
                 "  elif template == '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}': print('unhealthy')\n"
-                "  elif template == '{{json .ImageManifestDescriptor}}': print(json.dumps({'digest':manifest,'platform':{'os':'linux','architecture':'amd64'}}))\n"
+                "  elif template == '{{json .ImageManifestDescriptor}}': print(observed.get('descriptor_raw', json.dumps(observed.get('descriptor', {'digest':manifest,'platform':{'os':'linux','architecture':'amd64'}}))))\n"
                 "elif args[:3] == ['image','inspect','--format']:\n"
                 "  template=args[3]\n"
-                "  if template == '{{json .RepoDigests}}': print(json.dumps([reference]))\n"
+                "  if template == '{{json .RepoDigests}}': print(json.dumps(observed.get('repo_digests', ['ghcr.io/rknightion/synthkit@' + manifest, reference])))\n"
                 "  elif template == '{{.Os}}/{{.Architecture}}': print('linux/amd64')\n"
                 "elif args[:4] == ['buildx','imagetools','inspect','--raw']:\n"
                 "  if args[4].endswith(index): print(json.dumps({'mediaType':'application/vnd.oci.image.index.v1+json','manifests':[{'digest':manifest,'platform':{'os':'linux','architecture':'amd64'}}]}))\n"
@@ -958,6 +997,23 @@ class DeployCLITest(unittest.TestCase):
             self.assertEqual(report["running_image_id"], index)
             self.assertEqual(report["runtime_identity"], "index_with_platform_descriptor")
             self.assertEqual(report["platform_manifest_digest"], manifest)
+
+            for observed, error in (
+                ({"repo_digests": [f"{IMAGE}@{manifest}"]}, "running_index_mismatch"),
+                ({"descriptor_raw": "not-json"}, "running_manifest_descriptor_invalid"),
+                ({"descriptor": None}, "running_manifest_descriptor_unavailable"),
+                ({"descriptor": {}}, "running_manifest_descriptor_unavailable"),
+                ({"descriptor": {"digest": "sha256:" + "e" * 64}}, "running_config_mismatch"),
+            ):
+                with self.subTest(observed=observed):
+                    observations.write_text(json.dumps(observed), encoding="utf-8")
+                    result = self.run_cli(
+                        "inspect-running", "--container", "container-id", "--expected-reference", reference,
+                        "--expected-version", version, "--expected-revision", revision, "--docker-bin", str(docker),
+                        check=False,
+                    )
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(json.loads(result.stderr)["code"], error)
 
     def test_inspect_running_rejects_invalid_health_before_registry_requests(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
