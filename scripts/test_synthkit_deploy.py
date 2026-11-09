@@ -735,6 +735,132 @@ class DeployCLITest(unittest.TestCase):
             self.assertNotIn(f" {reference} -version", events[candidate_probe])
             self.assertIn("--network none --read-only --cap-drop ALL --security-opt no-new-privileges", events[candidate_probe])
 
+    def test_publish_verification_uses_the_release_label_contract(self) -> None:
+        # Execute the maintained workflow shell and the real verification CLI.
+        # Only registry, signature/provenance services and Compose are fixtures.
+        workflow = SCRIPT.parents[1] / ".github" / "workflows" / "publish.yml"
+        lines = workflow.read_text(encoding="utf-8").splitlines()
+        step = lines.index("      - name: Verify exact image identity, signature, and provenance")
+        start = lines.index("        run: |", step) + 1
+        block = []
+        for line in lines[start:]:
+            if line and not line.startswith("          "):
+                break
+            block.append(line[10:])
+        shell = "\n".join(block)
+        # Actions' default shell supplies -e, not pipefail. The maintained block
+        # must propagate a failed verifier through tee without help from here.
+        for tag, label in (("v1.6.0", "1.6.0"), ("v1.6.1-rc.1", "v1.6.1-rc.1")):
+            with self.subTest(tag=tag), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp).resolve()
+                tools = root / "tools"
+                tools.mkdir()
+                scripts = root / "scripts"
+                scripts.mkdir()
+                (scripts / SCRIPT.name).write_bytes(SCRIPT.read_bytes())
+                published = root / "digests"
+                published.mkdir()
+                manifest = "sha256:" + "c" * 64
+                (published / manifest.removeprefix("sha256:")).touch()
+                (published / ("e" * 64)).touch()
+                index_raw = json.dumps({
+                    "mediaType": "application/vnd.oci.image.index.v1+json",
+                    "manifests": [{"digest": manifest, "platform": {"os": "linux", "architecture": "amd64"}}],
+                })
+                index = "sha256:" + hashlib.sha256(index_raw.encode()).hexdigest()
+                fixture = {
+                    "index": index,
+                    "index_raw": index_raw,
+                    "manifest": manifest,
+                    "config": "sha256:" + "d" * 64,
+                    "revision": "b" * 40,
+                    "version": tag.removeprefix("v"),
+                    "oci_version": label,
+                    "source_ref": "refs/tags/" + tag,
+                }
+                fixture_file = root / "fixture.json"
+                fixture_file.write_text(json.dumps(fixture), encoding="utf-8")
+                docker = tools / "docker"
+                docker.write_text(
+                    PYTHON_SHEBANG
+                    + "import json, os, sys\n"
+                    "from pathlib import Path\n"
+                    "f=json.loads(Path(os.environ['PUBLISH_FIXTURE']).read_text())\n"
+                    "args=sys.argv[1:]\n"
+                    "if args[:4] == ['buildx','imagetools','create','--dry-run']:\n"
+                    "  print(f['index_raw'])\n"
+                    "elif args[:4] == ['buildx','imagetools','inspect','--raw']:\n"
+                    "  if args[4].endswith(f['index']): print(f['index_raw'])\n"
+                    "  else: print(json.dumps({'mediaType':'application/vnd.oci.image.manifest.v1+json','config':{'digest':f['config']}}))\n"
+                    "elif args[:4] == ['buildx','imagetools','inspect','--format']:\n"
+                    "  print(json.dumps({'config':{'Labels':{'org.opencontainers.image.version':f['oci_version'],'org.opencontainers.image.revision':f['revision']}}}))\n"
+                    "elif args and args[0] == 'run' and '-version' in args:\n"
+                    "  print(json.dumps({'version':f['version'],'revision':f['revision']}))\n"
+                    f"elif args and args[0] == 'run' and {COSIGN_IMAGE!r} in args: pass\n"
+                    "else: sys.exit(2)\n",
+                    encoding="utf-8",
+                )
+                gh = tools / "gh"
+                gh.write_text(
+                    PYTHON_SHEBANG
+                    + "import json, os, sys\n"
+                    "from pathlib import Path\n"
+                    "f=json.loads(Path(os.environ['PUBLISH_FIXTURE']).read_text())\n"
+                    "args=sys.argv[1:]\n"
+                    f"expected=['attestation','verify','oci://{IMAGE}@' + f['index'],"
+                    "'--cert-oidc-issuer','https://token.actions.githubusercontent.com',"
+                    "'--repo','rknightion/synthkit','--signer-workflow','rknightion/.github/.github/workflows/container-publish.yml',"
+                    "'--source-digest',f['revision'],'--source-ref',f['source_ref']]\n"
+                    "sys.exit(0 if args == expected else 1)\n",
+                    encoding="utf-8",
+                )
+                just = tools / "just"
+                just.write_text('#!/bin/sh\n[ "$*" = compose-check ]\n', encoding="utf-8")
+                for tool in (docker, gh, just):
+                    tool.chmod(0o700)
+                environment = dict(
+                    os.environ,
+                    PATH=str(tools) + os.pathsep + os.environ["PATH"],
+                    HOME=str(root),
+                    RELEASE_TAG=tag,
+                    SOURCE_REVISION=fixture["revision"],
+                    PUBLISHED_DIGESTS=str(published),
+                    PUBLISHED_INDEX=str(root / "index.json"),
+                    GITHUB_OUTPUT=str(root / "github-output"),
+                    PUBLISH_FIXTURE=str(fixture_file),
+                )
+                result = subprocess.run(
+                    ["bash", "-e", "-c", shell],
+                    cwd=root, env=environment, capture_output=True, text=True, timeout=10,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                report_raw = (root / "verification.json").read_text(encoding="utf-8")
+                self.assertTrue(report_raw.strip(), "workflow succeeded without a verification report: " + result.stderr)
+                report = json.loads(report_raw)
+                self.assertEqual(report["oci_version"], label)
+                self.assertEqual(report["version"], tag.removeprefix("v"))
+                self.assertEqual(report["revision"], fixture["revision"])
+                self.assertEqual(report["index_digest"], index)
+                self.assertEqual(report["signature"], "verified")
+                self.assertEqual(report["provenance"], "verified")
+                # The caller must choose the contract's exact label, not accept
+                # both spellings or loosen independent source/binary checks.
+                opposite_label = tag if label != tag else tag.removeprefix("v")
+                for field, value, error_code in (
+                    ("oci_version", opposite_label, "oci_version_mismatch"),
+                    ("revision", "e" * 40, "oci_revision_mismatch"),
+                    ("source_ref", "refs/tags/v9.9.9", "provenance_verification_failed"),
+                    ("version", "9.9.9", "binary_identity_mismatch"),
+                ):
+                    with self.subTest(tag=tag, mismatch=field):
+                        fixture_file.write_text(json.dumps(fixture | {field: value}), encoding="utf-8")
+                        result = subprocess.run(
+                            ["bash", "-e", "-c", shell],
+                            cwd=root, env=environment, capture_output=True, text=True, timeout=10,
+                        )
+                        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                        self.assertIn(error_code, result.stderr)
+
     def test_verify_image_rejects_oci_label_and_binary_identity_mismatches(self) -> None:
         deploy = load_deploy_module()
         manifest = "sha256:" + "c" * 64

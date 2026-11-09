@@ -297,13 +297,17 @@ version and complete source revision. Missing, malformed or mismatched descripto
 close the containerd path. `inspect-running` binds runtime identity only: it does **not** verify a
 signature or provenance, and neither path replaces the artifact verification below.
 
-Verify a release before changing a deployment:
+Verify a release before changing a deployment. The current publisher labels a stable Git tag
+`vX.Y.Z` with binary and OCI version `X.Y.Z`. Prereleases retain the Git tag spelling in the OCI
+label, such as `vX.Y.Z-rc.N`, while their binary version omits the leading `v`. Keep these inputs
+independent and use the publication record for older artifacts, including the prefixed `v1.3.1`
+label above. Never derive an expected label from the candidate being verified.
 
 ```bash
 python3 scripts/synthkit-deploy.py verify-image \
   --reference ghcr.io/rknightion/synthkit@sha256:<index> \
   --expected-version X.Y.Z \
-  --expected-oci-version vX.Y.Z \
+  --expected-oci-version X.Y.Z \
   --expected-revision <40-hex-source-sha> \
   --source-ref refs/tags/vX.Y.Z \
   --platform linux/amd64
@@ -398,6 +402,7 @@ RECORDS_DIR="/absolute/private/path/synthkit-deployment-records"
 CONTAINER_ID="$(docker compose ps -q synthkit)"
 CANDIDATE_REF="ghcr.io/rknightion/synthkit@sha256:3a434bfbde910c71d7f98c81968f92a68a7bb854d563dcf1b34f4a622043c2cf"
 CANDIDATE_VERSION="1.4.0-rc.38"
+CANDIDATE_OCI_VERSION="v1.4.0-rc.38"
 CANDIDATE_REVISION="c6e4d1fa1776e4f7589acbb82bfde75f4773ccb2"
 PREVIOUS_RECORD="$RECORDS_DIR/current.json"
 
@@ -413,7 +418,7 @@ esac
 just compose-check
 python3 scripts/synthkit-deploy.py verify-image \
   --reference "$CANDIDATE_REF" --expected-version "$CANDIDATE_VERSION" \
-  --expected-oci-version "v$CANDIDATE_VERSION" --expected-revision "$CANDIDATE_REVISION" \
+  --expected-oci-version "$CANDIDATE_OCI_VERSION" --expected-revision "$CANDIDATE_REVISION" \
   --source-ref "refs/tags/v$CANDIDATE_VERSION" --platform linux/amd64
 ```
 

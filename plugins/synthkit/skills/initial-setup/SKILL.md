@@ -202,6 +202,8 @@ Fleet registration is valid when the operator chose metrics-only mode.
 The image is pulled from `ghcr.io/rknightion/synthkit`. Keep the eligible published
 `SYNTHKIT_IMAGE_REF` copied from `.env.example`, or replace it only with a release that has already
 passed `scripts/synthkit-deploy.py verify-image`. Prefer the exact index digest.
+Take its independent binary version, OCI label and source inputs from the publication record in
+`$SYNTHKIT_CHECKOUT/docs/deployment.md`; stable and prerelease label spellings differ.
 That verification trusts the reusable
 `rknightion/.github/.github/workflows/container-publish.yml` path across signer revisions, making
 Rob's continued control of that workflow repository part of the trust boundary. It still enforces

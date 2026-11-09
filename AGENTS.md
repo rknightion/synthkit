@@ -254,6 +254,11 @@ main-SHA tag in the cleanup workflow's `protected-tags` alongside the default st
 ordinary edge images expire after seven days. Update the protection with the chart image pin.
 See [Container image](docs/deployment.md#container-image) for the classic Docker config-ID and
 containerd index/descriptor identity paths and the separate release/main verification limits.
+The pinned publisher strips the leading `v` from stable OCI version labels, while prerelease
+labels retain their tag spelling. Keep binary version, OCI version and provenance tag inputs
+distinct; preserve older publication records and exact observed-label comparison.
+The publication verification block owns its strict shell settings: helper failures must propagate
+through output pipelines, and its regression runs under the ordinary CI shell.
 
 ## Secrets and environment surface
 
@@ -354,7 +359,11 @@ evidence. Provenance never reaches the wire; captured reality and the sole exemp
 
 - Private-file provisioning command proofs need a process umask of `0022` and a canonical,
   private temporary root. Go creates fixture children using the process umask; a group-writable
-  fixture is correctly refused by the unchanged private-parent admission check.
+  fixture is correctly refused by the unchanged private-parent admission check. Linux shared
+  temporary volumes can also propagate SGID, which GNU `chmod 0700` preserves. Clear it only on
+  the newly created proof root, require exact mode `0700`, and set both `TMPDIR` and `GOTMPDIR`
+  there before running Go. The [contribution guide](docs/contributing.md#prepare-a-development-checkout)
+  owns the supported setup; never change shared-parent permissions or weaken custody admission.
 
 - HA-loss subprocess proofs synchronize on the real HTTP handler's recorded observation before
   revocation; sender entry or an elapsed sleep is not a delivery receipt. Keep the five-second
