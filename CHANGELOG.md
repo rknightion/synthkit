@@ -2,6 +2,13 @@
 
 All notable changes to synthkit. Generated from Conventional Commits.
 
+## [1.6.3](https://github.com/rknightion/synthkit/compare/v1.6.2...v1.6.3) (2026-11-10)
+
+
+### Bug Fixes
+
+* align native quickstart telemetry with its models ([#733](https://github.com/rknightion/synthkit/issues/733)) ([d6ff8af](https://github.com/rknightion/synthkit/commit/d6ff8af79a454336b07b259a621d4011e2e1e4a7))
+
 ## [1.6.2](https://github.com/rknightion/synthkit/compare/v1.6.1...v1.6.2) (2026-11-10)
 
 
