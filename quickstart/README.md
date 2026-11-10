@@ -107,9 +107,13 @@ docker compose ps
 ```
 
 Open [SynthKit](http://127.0.0.1:8088/control/ui/). Wait for Ready, two active built-in blueprints,
-writable state and successful intended sinks. Compose returning does not prove that Grafana has
+writable state and successful intended sinks. This loopback-only example needs no local UI login
+unless you set `CONTROL_TOKEN`; then use username `control` and that token. Compose returning does not prove that Grafana has
 received data. Allow several one-minute collection intervals, refresh the native apps' relative
-time windows, and follow the [presenter walkthrough](demo.md).
+time windows, and follow the [presenter walkthrough](demo.md). If Kubernetes Home still shows
+onboarding after fresh data is confirmed, follow the
+[cold-open guidance](../docs/troubleshooting.md#native-app-view-stays-empty-after-data-arrives).
+Changing the time picker alone may not refresh that discovery state.
 
 The [deployment verification skill](../plugins/synthkit/skills/verify-deployment/SKILL.md) and
 [deployment guide](../docs/deployment.md#container-image) cover full immutable image identity and

@@ -218,6 +218,25 @@ An empty successful query, green sink strip or successful preflight is not proof
 arrived. If the agent cannot inspect the browser result, report the exact query and verification
 gap without requiring an extra plugin or claiming success.
 
+### Native application readback
+
+Keep ingestion evidence separate from native-app discovery and browser state. After the bounded
+warmup, confirm fresh post-start data in Explore for the same datasource and declared identity.
+If Kubernetes Home was cold-opened before data arrived and still shows onboarding, hard reload
+the same Cloud URL after selecting a recent relative range; a time-picker change alone may retain
+the cached negative discovery result. After live scaling, navigate afresh to the workload and
+load its pod table before comparing counts. Follow
+`$SYNTHKIT_CHECKOUT/docs/troubleshooting.md#native-app-view-stays-empty-after-data-arrives`;
+do not alter Grafana app code or promise an upstream fix as part of deployment verification.
+
+Application Observability Logs / New Format is conditional on the exact deployed image's fresh
+received logs having the matching `service_name` and `service_namespace`, plus successful readback
+in that view. Until that is proved, retain Loki Explore and the exact log `trace_id` to Tempo HTTP
+root check. App logs use the Loki sink; OTLP application metrics/traces do not establish an OTLP
+app-log exporter. See `$SYNTHKIT_CHECKOUT/docs/troubleshooting.md#application-logs-new-format-is-empty`.
+Do not infer a working latency control from an error-control demonstration; verify the actual
+emitted metric and trace response separately on the deployed image.
+
 ### Optional query CLI and API paths
 
 Use `gcx` only when it is already available and explicitly configured for the intended stack.

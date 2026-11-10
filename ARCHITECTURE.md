@@ -752,6 +752,12 @@ since the preceding barrier rather than losing them when the pending batch is em
 counters/monotonic gauges (`Add`), instantaneous gauges (`Set`), histogram expansion (`Observe` →
 `_bucket{le}/_sum/_count` against pinned bounds with per-family `le` STYLE: `LEBare` minimal
 decimals vs `LEDotZero` forced ".0" on integer bounds), `Reset` for synthetic restarts.
+`ObserveWeighted` records integer-weighted representatives in the same classic histogram state;
+zero weight creates no series. The native HTTP workload uses it to bound sampling cost while
+preserving modeled volume. It does not infer exemplars or an exponential histogram.
+Its duration sampler owns a private identity-seeded random stream. The workload preserves the
+released shared-shape draw budget separately, keeping unrelated metrics and request projections
+unchanged when the native duration model evolves.
 
 **Native (exponential) histograms:** `state.ObserveNative` / `ObserveDual` accumulate a cumulative
 sparse exponential histogram (`internal/state/nativehist.go`); `Collect` emits it as a

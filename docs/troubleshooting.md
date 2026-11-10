@@ -94,6 +94,46 @@ problem without exposing remote response text.
 
 ---
 
+### Native app view stays empty after data arrives
+
+First distinguish ingestion from browser state. Allow the selected lanes' collection intervals,
+delivery deadline and any required recording-rule evaluation, then query the intended datasource
+in Explore over a recent range that includes this run. Require stored sample timestamps newer
+than startup; an evaluation timestamp or historical data from a stopped run is not fresh-delivery
+proof. The [deployment verification skill](https://github.com/rknightion/synthkit/blob/main/plugins/synthkit/skills/verify-deployment/SKILL.md#4-wait-for-declared-cadence-then-query)
+describes the bounded warmup and inventory-backed selectors. Confirm that the app uses the same
+datasource and declared identity, and that its required backend setup is complete.
+
+Kubernetes Home can retain an onboarding result if it was first opened while no data was present.
+After fresh metrics are confirmed, select a recent relative range and hard reload the same Grafana
+Cloud URL. Changing only the time picker may leave that cached discovery result unchanged. A
+longer historical range alone does not establish that current discovery data exists. If Explore
+is still empty, continue diagnosing delivery rather than treating a browser reload as a remedy.
+
+After live scaling, navigate afresh to the workload before comparing readiness cards and the pod
+table; an already open view can retain older counts. Check the same identity and time range, and
+scroll to load the table rows before comparing them. These are browser readback steps, not changes
+to Grafana's app or the shipped blueprint.
+If a detail-page link resets the time window, use the Workloads navigation entry and select the
+recent range again before comparing views.
+
+### Application Logs New Format is empty
+
+The Application Observability **Logs / New Format** view needs the selected service's matching
+`service_name` and `service_namespace` log identity. Use it only after fresh received records from
+the exact deployed image have been verified with both fields and the view returns those records.
+A source change or successful metrics/trace ingestion does not establish that an older image's
+logs satisfy this prerequisite. App logs use the Loki sink; enabling native OTLP application
+metrics or traces does not enable an OTLP app-log exporter.
+
+When that identity prerequisite is absent or unverified, use Loki Explore with the stock selector
+in the [log-to-trace walkthrough](https://github.com/rknightion/synthkit/blob/main/quickstart/demo.md#630---join-a-failed-log-to-its-trace).
+Choose a fresh failed request from this run, copy its exact `trace_id`, and open it in Tempo.
+If the newest trace is still ingesting, try a slightly older failed request from the same run;
+do not claim correlation until that exact trace opens with the expected service's HTTP root span.
+
+---
+
 <!-- troubleshooting-symptom: TS-05 -->
 ## Series cap / kill switch
 

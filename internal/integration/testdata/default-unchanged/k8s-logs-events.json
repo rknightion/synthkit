@@ -785,7 +785,7 @@
       "job=kube-system/coredns": [3, "3c72b805b578150e"],
       "job=kube-system/metrics-server": [2, "3dec1f0d85347c8a"],
       "job=logs-api/logs-api": [1, "5df30eddbaa60bea"],
-      "job=logs-api/logs-api level=info": [91, "d36ed5885e1d4af3"],
+      "job=logs-api/logs-api level=info": [91, "1c1afa3dc5c4a15d"],
       "job=monitoring/alloy": [2, "cfffd69ff208e63e"]
     },
     "traces": {

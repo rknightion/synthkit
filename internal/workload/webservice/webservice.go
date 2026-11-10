@@ -30,7 +30,10 @@ package webservice
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
+	randv2 "math/rand/v2"
 	"time"
 
 	"github.com/rknightion/synthkit/internal/beyla"
@@ -289,10 +292,11 @@ type Workload struct {
 	hostArch  string // host.arch (GOARCH form) of pod 0's node, from its instance type ("" when no placement)
 	feoAppID  string // gf.feo11y.app.id — deterministic 8-hex from seed (signals/traces.md [slug: traces-resource-attrs])
 
-	m             *minter
-	st            *state.State
-	stOTLP        *state.State
-	otlpColdStart time.Time
+	m               *minter
+	st              *state.State
+	stOTLP          *state.State
+	otlpDurationRNG *randv2.Rand // Tick-owned; never advances the shared blueprint RNG.
+	otlpColdStart   time.Time
 }
 
 // build constructs a Workload from the cfg pointer NewConfig returned and the resolved
@@ -334,6 +338,8 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 		stOTLP: state.NewState(),
 	}
 	w.resolveIdentity()
+	durationSeed := sha256.Sum256([]byte(fmt.Sprintf("native-http-duration\x00%s\x00%s\x00%s\x00%s\x00%s", b.Seed, w.name, w.env, w.cluster, w.podName)))
+	w.otlpDurationRNG = randv2.New(randv2.NewPCG(binary.BigEndian.Uint64(durationSeed[:8]), binary.BigEndian.Uint64(durationSeed[8:16])))
 	w.context = cfg.Context
 	w.useCase = cfg.UseCase
 	w.team = cfg.Team

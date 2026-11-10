@@ -921,13 +921,13 @@
       "job=integrations/kubernetes/eventhandler level=Info": [140, "49b1e71a4747507d"],
       "job=integrations/kubernetes/eventhandler level=Warning": [2, "3ed22c85d7cfe57f"],
       "job=integrations/kubernetes/manifests": [29, "ed5266b57a74a5c8"],
-      "job=profiling-api/profiling-api level=error": [18, "3eeade24e105acae"],
-      "job=profiling-api/profiling-api level=info": [1384, "287307b296d320b1"],
-      "job=profiling-api/profiling-api level=warn": [14, "9066bedefe633ef2"],
-      "job=profiling-api/profiling-worker level=error": [9, "a02a6120197f7ec2"],
-      "job=profiling-worker/profiling-worker level=error": [10, "767b62c45a659adc"],
-      "job=profiling-worker/profiling-worker level=info": [413, "1ffc4759392ce8d6"],
-      "job=profiling-worker/profiling-worker level=warn": [4, "dc92bb0b2eec2401"]
+      "job=profiling-api/profiling-api level=error": [18, "c0cf67316e88604f"],
+      "job=profiling-api/profiling-api level=info": [1384, "8212e228fbad8e07"],
+      "job=profiling-api/profiling-api level=warn": [14, "1bfb48e80d27be2f"],
+      "job=profiling-api/profiling-worker level=error": [9, "f2d9ede2648594be"],
+      "job=profiling-worker/profiling-worker level=error": [10, "de975d519755094b"],
+      "job=profiling-worker/profiling-worker level=info": [413, "81dbf81601fcc889"],
+      "job=profiling-worker/profiling-worker level=warn": [4, "71d0d060aa430b4b"]
     },
     "otlp_metrics": {
       "app_queue_depth": [1, "09892ade5e8ad919"]

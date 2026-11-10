@@ -95,6 +95,11 @@ family. Emit the right key per family — this is a hard correctness rule, not c
 | `env` | Cloudflare tunnel metrics, dbo11y (where the cell/env identity is carried), FM/Alloy collector identity, Faro/RUM Loki stream label |
 | (Beyla) | Beyla span-metric / service-graph labels use `deployment_environment_name` (confirmed v:ok; see `signals/beyla.md`) |
 
+The direct-Loki `web_service` request-log projection additionally uses `deployment_environment`
+as structured metadata for the native Application Observability filter, retaining `env` as its
+indexed environment key. See [application logs](logs.md#app-logs--scopeblueprint-slug-logs-app)
+for that transport-specific compatibility contract.
+
 ### Correlation key-set (end-to-end request correlation) [slug: request-correlation]
 
 `{correlation_id, trace_id, span_id, session_id, request_id}` are span attributes / log structured

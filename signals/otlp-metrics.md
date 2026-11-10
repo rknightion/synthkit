@@ -224,6 +224,16 @@ Two instruments per workload instance per tick (60 s interval):
 Cumulative histogram (DELTA not used; cumulative since cold-start). One series per
 `(http.request.method, http.route, http.response.status_code)` triple.
 
+The synthetic value model uses each endpoint's `p95_ms` distribution and the workload-scoped
+`latency_spike` multiplier. Removing the fault restores the healthy distribution for subsequent
+observations; cumulative buckets and sum retain observations made during the fault. Aggregate
+request volume and the minted trace/log population both come from the traffic model at their own
+cadences. Histogram duration draws are independent of individual request durations.
+A bounded set of representative draws carries integer weights, so the histogram retains every
+modeled request across route and status splits without doing one draw per request. Its quantiles
+remain a sampled approximation, not an exact replay of individual trace durations. Native HTTP
+histograms carry no trace exemplars.
+
 **Datapoint attributes (per series):**
 
 | Attribute | Example values |
@@ -266,6 +276,10 @@ metrics:
 
 Instantaneous in-flight request count (derived via Little's Law: rps × service time). One
 series per distinct `http.request.method` value drawn from the declared endpoints.
+
+This gauge uses a separate synthetic service-time estimate. It does not derive concurrency from
+the duration histogram or reproduce a `latency_spike` incident response; use the duration
+histogram and HTTP traces to verify that control.
 
 **Datapoint attributes:**
 

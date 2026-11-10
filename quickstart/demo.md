@@ -27,8 +27,13 @@ namespace `otlp-api-enriched`, cluster `otlp-native-prod-euw1`. The independent 
 `dbo11y-mysql-app`, with schema `app`.
 
 Refresh relative-time views when you arrive; a page opened before startup can retain an old end
-time. A reused sandbox can have earlier entities and samples. Do not present this as an empty-tenant
-discovery benchmark, and label any rehearsal capture by its actual time.
+time. If Kubernetes Home was opened before data arrived, confirm fresh metrics after warmup, then
+hard reload that same Cloud page if it still shows onboarding. A time-picker change alone may not
+clear its cached discovery result. Use the
+[cold-open guidance](../docs/troubleshooting.md#native-app-view-stays-empty-after-data-arrives)
+to distinguish this from missing telemetry. A reused sandbox can have earlier entities and samples.
+Do not present this as an empty-tenant discovery benchmark, and label any rehearsal capture by its
+actual time.
 
 ## The 9:30 route
 
@@ -78,7 +83,7 @@ In Kubernetes workloads, find `otlp-api-enriched`, namespace `otlp-api-enriched`
 
 > The stock example gives us the Kubernetes context in Grafana's own app. We can see the replicas and resource usage without first building a custom dashboard.
 
-The sandbox needs its standard Kubernetes alert and recording-rule backend installed during preparation. Rule evaluation still needs fresh samples after startup. If a panel is warming, show the populated inventory and continue. Keep cost, profiling and beta assistant diagnosis outside this route unless separately verified.
+The sandbox needs its standard Kubernetes alert and recording-rule backend installed during preparation. Rule evaluation still needs fresh samples after startup. If a panel is warming, show the populated inventory and continue. After a live scale change, navigate afresh to the workload before comparing readiness cards and the pod table; a retained page may show older counts. Keep cost, profiling and beta assistant diagnosis outside this route unless separately verified.
 
 ### 3:30 - Show Database Observability
 
@@ -118,7 +123,7 @@ Pick a record after this run's fault activation, expand its fields and copy `tra
 
 > This is the exact failed synthetic request across logs and traces. It lets us rehearse the investigation and the explanation before customer access is ready. A service name and time window narrow the search; the trace ID makes the join precise.
 
-A generic error-level record can be a 429, so choose the numeric status-500 detail record. The native Application Observability Logs tab currently expects different log identity labels; Explore is the validated route. Native HTTP metrics have no trace exemplars here, and the current native duration instrument doesn't follow a latency-spike control. Keep this demo about errors.
+A generic error-level record can be a 429, so choose the numeric status-500 detail record. Use Application Observability **Logs / New Format** only after the exact deployed image's fresh logs have been verified with matching `service_name` and `service_namespace`; see the [log identity prerequisite](../docs/troubleshooting.md#application-logs-new-format-is-empty). Otherwise keep the Explore route above. These app logs use the Loki sink; native OTLP HTTP metrics and traces do not imply an OTLP app-log exporter. Native HTTP metrics have no trace exemplars here. Keep this timed demo about errors; rehearse a latency control separately only after its emitted metrics and traces have been verified on the deployed image.
 
 ### 8:15 - Recover
 
@@ -147,6 +152,8 @@ docker compose stop
 - If readiness or preflight fails, stop the emitter and use clearly labelled rehearsal captures.
 - If a rate panel is empty, allow multiple one-minute samples and refresh the time range. Continue
   with populated Kubernetes inventory or received logs while aggregation catches up.
+- If fresh Kubernetes metrics exist but Home still shows onboarding, hard reload the Cloud page.
+  For stale post-scale cards, navigate afresh to the workload before comparing its counts.
 - If a log's trace is absent, choose a slightly older failed request from the same run. Do not claim
   correlation until the exact trace opens.
 - If behind time, skip optional graph and schema drilldowns, disable the fault and close with setup.

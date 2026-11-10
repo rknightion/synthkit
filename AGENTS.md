@@ -100,6 +100,12 @@ Three tiers, mandatory:
   `runner.TickFunc` are the stdlib-only seams; constructs and workloads never import OTel, selfobs or
   profiling. See ARCHITECTURE §6.1.
 - Counters and histograms are cumulative across ticks (`internal/state`): push totals, never deltas.
+  Native HTTP histogram sampling must preserve modeled request volume: weighted representatives
+  retain count, buckets and sum while following endpoint latency and scoped incidents. Never cap
+  the logical request count to the draw budget. See `signals/otlp-metrics.md`.
+  Duration representatives use a private identity-seeded random stream. Preserve the released
+  shared-shape draw budget so a duration-model change does not shift unrelated signals; the
+  default-unchanged integration guard owns that compatibility boundary.
   Request-scoped IDs come only from the per-blueprint ledger; constructs never mint them.
   App root span IDs use the ledger's narrow `CorrelationSpanIDFromSeed` helper with the existing
   binding/tick/request frame. Trace, session, request and cross-system join keys stay fresh even
@@ -337,6 +343,10 @@ Corpus comparison scopes known profiles to their matching captured collector; un
 unattributed evidence remains independently compared. Missing matching profiles retain wrong-profile
 evidence. Provenance never reaches the wire; captured reality and the sole exemption stay unchanged.
 
+- `web_service` request logs carry indexed `service_namespace` matching OTLP identity and
+  `deployment_environment` metadata matching indexed `env`. Native Application Observability uses
+  **New Format** for this direct-Loki shape; never fabricate `exporter="OTLP"`. See `signals/logs.md`.
+
 - Loki query results can merge structured metadata into the returned stream map. Verify the
   indexed-label boundary with `/loki/api/v1/series`, not query-result labels alone; a metadata key
   in a query response is not evidence that the emitter indexed it.
@@ -388,6 +398,8 @@ evidence. Provenance never reaches the wire; captured reality and the sole exemp
 
 - Renderer changes are checked by inventory diff, not by unit test: `just dump` prints the full
   series/label inventory for offline comparison against `signals/`.
+- New field comments on internal structs also enter `fielddocs.json`, including private workload
+  fields. Run `just gen` for those additions even when the YAML field surface is unchanged.
 - A new blueprint field or config struct needs the wiring pass `just gen` (regenerates
   `BLUEPRINT-SCHEMA.md` and `fielddocs.json`, and the skills symlink farm). `just gen-check` fails on
   drift.

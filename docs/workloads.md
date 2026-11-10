@@ -57,9 +57,15 @@ workloads:
       - { cache: mine-sessions } # resolved to the named cache fixture
 ```
 
-`traffic` drives the **metric lane** volume (span-metrics RPS). The correlation narrative (one request per master tick) is separate and smaller by design — it seeds realistic trace/log samples without inflating span-metric series cardinality.
+`traffic` drives both aggregate metric volume and the minted trace/log request population. Each lane advances at its own cadence, with stochastic rounding of its expected request count. Aggregate histogram duration draws are independent of individual request durations.
 
 `endpoints` are drawn uniformly across each minted request; `error_rate` and `p95_ms` shape the per-route latency distribution and error fraction in both spans and span-metrics.
+
+With `otel.metrics: true`, the native HTTP duration histogram also follows the endpoint latency
+model and a scoped `latency_spike` control. Its cumulative count represents modeled traffic,
+including at volumes above its sampling budget. See the
+[native HTTP value contract](https://github.com/rknightion/synthkit/blob/main/signals/otlp-metrics.md#httpserverrequestduration--explicit-bound-histogram-slug-otlp-duration)
+for weighted sampling, recovery and trace-correlation limits.
 
 ### gen_ai / LLM hops
 
