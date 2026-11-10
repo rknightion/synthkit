@@ -21,6 +21,8 @@ control-state-data/
 
 # Secrets / local config
 .env
+# Retained coordination locks for atomic environment-selector updates.
+*.synthkit.lock
 .synthkit-env.*
 *.env.local
 

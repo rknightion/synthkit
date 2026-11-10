@@ -137,7 +137,7 @@ A generic error-level record can be a 429, so choose the numeric status-500 deta
 
 ### 8:15 - Recover
 
-Return to the **otlp-native** Incidents section. Under **Active failures here**, disable `error_burst · otlp-api-enriched`. Confirm it is no longer active and the overall posture returns to baseline.
+Return to the **otlp-native** Incidents section. Under **Active failures here**, disable `error_burst · otlp-api-enriched`. Confirm the injected failure is no longer active. Other retained controls, such as scale or volume, may keep the posture at `MOD`.
 
 > The fault is off. New requests return to the baseline probability. Rolling metric windows retain the bad period for a while, so we don't wait for the entire graph to recover on this call.
 
