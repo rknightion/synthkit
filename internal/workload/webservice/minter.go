@@ -244,7 +244,7 @@ func drawOutcome(errRate float64, eng *shape.Engine) (ledger.Outcome, int, strin
 
 // drawDuration returns a lognormal-ish latency in ms whose tail reaches roughly the p95
 // target. median = p95 / e^(1.645σ) with σ=0.5 puts p95 at the configured value.
-func drawDuration(p95ms float64, eng *shape.Engine) float64 {
+func drawDuration(p95ms float64, eng interface{ NormFloat64() float64 }) float64 {
 	if p95ms <= 0 {
 		p95ms = 120
 	}

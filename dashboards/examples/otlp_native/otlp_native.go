@@ -13,6 +13,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/grafana/grafana-foundation-sdk/go/common"
+	"github.com/grafana/grafana-foundation-sdk/go/dashboardv2"
+	"github.com/grafana/grafana-foundation-sdk/go/timeseries"
 	"github.com/rknightion/synthkit/dashboard"
 )
 
@@ -73,21 +76,29 @@ func HTTP(m *dashboard.Manifest) (dashboard.Dashboard, error) {
 	}
 	dashboard.AddPanel(&d, "http-header", dashboard.TextPanel("Native HTTP application metrics",
 		"# Native HTTP application metrics\n\nCompare the Kubernetes-enriched and SDK-only services using service identity and target_info's deployment environment. Requests are filtered by job and instance before aggregation. Five-minute rate windows cover this reference's one-minute metric cadence. Request duration uses the captured gateway's classic bucket projection in seconds; active requests is a gauge. Missing samples or target_info mean data is unavailable, not healthy zero.\n\n[Emitted remote-write metric inventory](/d/"+m.Blueprint+"-metrics) is a separate view. Native addon metrics, logs, traces and backend-derived spanmetrics are not covered here."))
-	dashboard.AddPanel(&d, "request-rate", dashboard.TimeseriesPanel("Request rate by service", "reqps",
+	dashboard.AddPanel(&d, "request-rate", httpTimeseriesPanel("Request rate by service", "reqps",
 		dashboard.PromTarget("sum by (service_name) ("+requests+")", "{{service_name}}")))
-	dashboard.AddPanel(&d, "error-ratio", dashboard.TimeseriesPanel("Server error share by service", "percentunit",
+	dashboard.AddPanel(&d, "error-ratio", httpTimeseriesPanel("Server error share by service", "percentunit",
 		dashboard.PromTarget("sum by (service_name) ("+failed+") / sum by (service_name) ("+requests+")", "{{service_name}}")))
-	dashboard.AddPanel(&d, "latency", dashboard.TimeseriesPanel("Request duration by service", "s",
+	dashboard.AddPanel(&d, "latency", httpTimeseriesPanel("Request duration by service", "s",
 		dashboard.PromTarget("histogram_quantile(0.50, sum by (service_name, le) ("+buckets+"))", "{{service_name}} p50").RefId("A"),
 		dashboard.PromTarget("histogram_quantile(0.95, sum by (service_name, le) ("+buckets+"))", "{{service_name}} p95").RefId("B"),
 		dashboard.PromTarget("histogram_quantile(0.99, sum by (service_name, le) ("+buckets+"))", "{{service_name}} p99").RefId("C")))
-	dashboard.AddPanel(&d, "active-requests", dashboard.TimeseriesPanel("Active requests by service", "short",
+	dashboard.AddPanel(&d, "active-requests", httpTimeseriesPanel("Active requests by service", "short",
 		dashboard.PromTarget("sum by (service_name) ("+active+")", "{{service_name}}")))
 	dashboard.WithRows(&d,
 		dashboard.Section("", dashboard.At("http-header", 24, 5)),
 		dashboard.Section("Traffic and failures", dashboard.Half("request-rate"), dashboard.Half("error-ratio")),
 		dashboard.Section("Latency and concurrency", dashboard.Half("latency"), dashboard.Half("active-requests")))
 	return d, nil
+}
+
+// HTTP comparisons need visible series names without changing other templates' defaults.
+func httpTimeseriesPanel(title, unit string, targets ...*dashboardv2.TargetBuilder) *dashboardv2.PanelBuilder {
+	return dashboard.TimeseriesPanel(title, unit, targets...).
+		Visualization(timeseries.NewVisualizationV2Builder().
+			Unit(unit).
+			Legend(common.NewVizLegendOptionsBuilder().ShowLegend(true)))
 }
 
 func quotedAlternation(values []string) string {

@@ -1444,9 +1444,9 @@
       "job=integrations/kubernetes/journal level=INFO": [12, "f90e31d907cab8c7"],
       "job=integrations/kubernetes/journal level=UNKNOWN": [12, "a6214ca0c3bf4ab0"],
       "job=integrations/kubernetes/manifests": [61, "717c31fc291b8ec1"],
-      "job=k8sfull-api/k8sfull-api level=error": [10, "c418e2fdd1a1c8cf"],
-      "job=k8sfull-api/k8sfull-api level=info": [517, "54565dec21250ce0"],
-      "job=k8sfull-api/k8sfull-api level=warn": [6, "d763ee33a51437d9"],
+      "job=k8sfull-api/k8sfull-api level=error": [10, "c5bdf07852e97422"],
+      "job=k8sfull-api/k8sfull-api level=info": [517, "4132319e9d5e583d"],
+      "job=k8sfull-api/k8sfull-api level=warn": [6, "0b563a44ae7d26ed"],
       "job=kube-system/aws-load-balancer-controller": [2, "83afe8adf4cd8324"],
       "job=kube-system/controller": [1, "94b306e2091c9ea2"]
     },

@@ -954,6 +954,7 @@
   "github.com/rknightion/synthkit/internal/workload/webservice.Workload.hostArch": "host.arch (GOARCH form) of pod 0's node, from its instance type (\"\" when no placement)",
   "github.com/rknightion/synthkit/internal/workload/webservice.Workload.name": "resolved identity (frozen at Build from the binding).",
   "github.com/rknightion/synthkit/internal/workload/webservice.Workload.nodeName": "k8s node hostname for pod 0 (empty when no cluster placement or no nodes)",
+  "github.com/rknightion/synthkit/internal/workload/webservice.Workload.otlpDurationRNG": "Tick-owned; never advances the shared blueprint RNG.",
   "github.com/rknightion/synthkit/internal/workload/webservice.Workload.team": "§5 canon (optional)",
   "github.com/rknightion/synthkit/internal/workload/webservice.Workload.useCase": "§5 canon (optional)",
   "github.com/rknightion/synthkit/internal/workload/webservice.Workload.version": "service.version (declared override or serviceVersion default)",

@@ -959,12 +959,12 @@
       "job=integrations/kubernetes/eventhandler level=Info": [98, "0661709049911da6"],
       "job=integrations/kubernetes/eventhandler level=Warning": [2, "d3fc40fb70613508"],
       "job=integrations/kubernetes/manifests": [22, "7ac8ee62672ab3a1"],
-      "job=otlp-api-enriched/otlp-api-enriched level=error": [18, "9463925840ea1ff1"],
-      "job=otlp-api-enriched/otlp-api-enriched level=info": [1036, "b3e2188723397c52"],
-      "job=otlp-api-enriched/otlp-api-enriched level=warn": [10, "ce538daa15699b36"],
-      "job=otlp-api-naked/otlp-api-naked level=error": [46, "8bec683677298deb"],
-      "job=otlp-api-naked/otlp-api-naked level=info": [1025, "a43ba8defa9a6064"],
-      "job=otlp-api-naked/otlp-api-naked level=warn": [4, "1ce8a2a8d6dd98f0"]
+      "job=otlp-api-enriched/otlp-api-enriched level=error": [18, "2e4fa291370b89c2"],
+      "job=otlp-api-enriched/otlp-api-enriched level=info": [1036, "04daba83b60f8960"],
+      "job=otlp-api-enriched/otlp-api-enriched level=warn": [10, "bfe1ca362d38daf5"],
+      "job=otlp-api-naked/otlp-api-naked level=error": [46, "364146fb76b06cf3"],
+      "job=otlp-api-naked/otlp-api-naked level=info": [1025, "c11dd9f07f1424e5"],
+      "job=otlp-api-naked/otlp-api-naked level=warn": [4, "6de6df15bc365c59"]
     },
     "otlp_metrics": {
       "beyla.bpf.map.entries_total": [2, "563f598f97232708"],
@@ -1095,7 +1095,7 @@
       "http.rq_reset_after_downstream_response_started": [1, "2de870a9cd746769"],
       "http.rq_total": [1, "d83b4605cbd3a12c"],
       "http.server.active_requests": [4, "0993114c81fb41da"],
-      "http.server.request.duration": [9, "55a94a5f2bf5532e"],
+      "http.server.request.duration": [9, "a5b23ad2fa128837"],
       "http.tracing.health_check": [1, "bfd3c3a2feb149f2"],
       "http.tracing.random_sampling": [1, "c4fbd4f012136460"],
       "http2.outbound_control_frames_active": [1, "7c1559a379cfb99c"],

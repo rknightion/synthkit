@@ -5,9 +5,11 @@
 package main
 
 import (
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -18,15 +20,20 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	collectortracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
 	metricspb "go.opentelemetry.io/proto/otlp/metrics/v1"
+	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
+	"google.golang.org/protobuf/proto"
 	"gopkg.in/yaml.v3"
 
 	"github.com/rknightion/synthkit/e2e/receiver"
 	"github.com/rknightion/synthkit/internal/blueprint"
+	"github.com/rknightion/synthkit/internal/control"
 	"github.com/rknightion/synthkit/internal/dashgen"
 	"github.com/rknightion/synthkit/internal/runner"
 	"github.com/rknightion/synthkit/internal/sink/loki"
@@ -130,21 +137,183 @@ func TestOTLPNativeQueriesAgainstEmittedHTTPMetrics(t *testing.T) {
 	assertNativeVerification(t, inventory, nativeObservations(inventory, "errored", fmt.Sprintf("HTTP %d: %s", response.StatusCode, missing.Message)), "errored", "missing_datasource")
 }
 
+// TestOTLPNativeDurationPublicOnsetAndRecovery keeps the shipped blueprint's traffic
+// and exercises the public runner/control seams plus actual OTLP HTTP encoding. The
+// model assertion is independent of the query oracle: a scoped incident scales the
+// target's duration increments and request spans, preserving counts and the peer.
+func TestOTLPNativeDurationPublicOnsetAndRecovery(t *testing.T) {
+	promtool, err := exec.LookPath("promtool")
+	if err != nil {
+		t.Fatal("integration query proof requires promtool on PATH")
+	}
+	healthy, healthySpans := captureNativeHTTPSequence(t, 24, false)
+	incident, incidentSpans := captureNativeHTTPSequence(t, 24, true)
+	healthyTrace := nativeTraceTotals(t, healthySpans)
+	incidentTrace := nativeTraceTotals(t, incidentSpans)
+	for _, service := range []string{"otlp-api-enriched", "otlp-api-naked"} {
+		var previousHealthy, previousIncident float64
+		for tick := 0; tick < 24; tick++ {
+			a, b := healthy.totals[tick][service], incident.totals[tick][service]
+			factor := 1.0
+			if service == "otlp-api-enriched" && tick >= 12 && tick < 18 {
+				factor = 4
+			}
+			incrementA, incrementB := a.sum-previousHealthy, b.sum-previousIncident
+			if math.Abs(incrementB-factor*incrementA) > 1e-10*math.Max(1, factor*incrementA) || a.count != b.count {
+				t.Errorf("%s tick%d native duration/count mismatch: baseline=%g incident=%g factor=%g counts=%d/%d", service, tick, incrementA, incrementB, factor, a.count, b.count)
+			}
+			traceA, traceB := healthyTrace[tick][service], incidentTrace[tick][service]
+			if traceA.count == 0 || traceA.count != traceB.count || math.Abs(float64(traceB.nanoseconds)-factor*float64(traceA.nanoseconds)) > 4*float64(traceA.count) {
+				t.Errorf("%s tick%d actual OTLP server spans do not follow factor%g: baseline=%+v incident=%+v", service, tick, factor, traceA, traceB)
+			}
+			previousHealthy, previousIncident = a.sum, b.sum
+		}
+	}
+	raw, err := os.ReadFile(filepath.Join(generated(t, otlpNativeBlueprint), "otlp-native-http.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	inventory, err := dashgen.InventoryFromDashboard(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var expressions []any
+	for _, at := range []int{11, 17, 23} {
+		for _, panel := range inventory.Panels {
+			for _, query := range panel.Queries {
+				expected := incident.expectedAt(t, panel.ID, query.RefID, at)
+				if panel.ID == "latency" {
+					baseline := healthy.expectedAt(t, panel.ID, query.RefID, at)
+					onset := incident.expectedAt(t, panel.ID, query.RefID, 17)
+					onsetBaseline := healthy.expectedAt(t, panel.ID, query.RefID, 17)
+					for i := range expected {
+						a := baseline[i].(map[string]any)["value"].(float64)
+						b := expected[i].(map[string]any)["value"].(float64)
+						if i == 0 && at == 17 {
+							if b < 2*a {
+								t.Errorf("generated %s target latency does not rise under full scoped incident: baseline=%g incident=%g", query.RefID, a, b)
+							}
+						} else if math.Abs(a-b) > 1e-12 {
+							t.Errorf("generated %s latency fails baseline/recovery/peer isolation at%d: baseline=%g incident=%g", query.RefID, at, a, b)
+						}
+						// The additional onset proof asks whether the literal graph
+						// crosses between the modeled healthy/fault populations. Its
+						// threshold comes from source buckets, not observed query output.
+						// The existing healthy-query proof retains its strict numeric oracle.
+						service := "otlp-api-enriched"
+						threshold := (onset[i].(map[string]any)["value"].(float64) + onsetBaseline[i].(map[string]any)["value"].(float64)) / 2
+						comparison := "<"
+						if i == 0 && at == 17 {
+							comparison = ">"
+						} else if i == 1 {
+							service, threshold = "otlp-api-naked", 2*a
+						}
+						expressions = append(expressions, map[string]any{
+							"expr":      fmt.Sprintf(`count(((%s) %s %.17g) and on (service_name) target_info{service_name=%q})`, query.Expression, comparison, threshold, service),
+							"eval_time": fmt.Sprintf("%dm", at), "exp_samples": []any{map[string]any{"labels": "{}", "value": 1}},
+						})
+					}
+					continue
+				}
+				expressions = append(expressions, map[string]any{"expr": query.Expression, "eval_time": fmt.Sprintf("%dm", at), "exp_samples": expected})
+			}
+		}
+	}
+	output, err := runPromtoolFixture(t, promtool, incident.inputSeries(), expressions)
+	if err != nil {
+		t.Fatalf("literal native queries failed baseline/scoped onset/recovery: %v\n%s", err, output)
+	}
+}
+
+type nativeTraceTotal struct{ count, nanoseconds uint64 }
+
+type nativeTraceReceipt struct {
+	tick      int
+	resources []*tracepb.ResourceSpans
+}
+
+func nativeTraceTotals(t *testing.T, receipts []nativeTraceReceipt) map[int]map[string]nativeTraceTotal {
+	t.Helper()
+	out := map[int]map[string]nativeTraceTotal{}
+	for _, receipt := range receipts {
+		for _, resource := range receipt.resources {
+			service := nativeAttrs(resource.GetResource().GetAttributes())["service.name"]
+			if service != "otlp-api-enriched" && service != "otlp-api-naked" {
+				continue
+			}
+			for _, scope := range resource.GetScopeSpans() {
+				for _, span := range scope.GetSpans() {
+					if span.GetKind() != tracepb.Span_SPAN_KIND_SERVER {
+						continue
+					}
+					// RunOnce can replay requests that started in the preceding minute.
+					// Bind their proof to the actual HTTP receipt/control cycle instead.
+					tick := receipt.tick
+					if out[tick] == nil {
+						out[tick] = map[string]nativeTraceTotal{}
+					}
+					total := out[tick][service]
+					total.count++
+					total.nanoseconds += span.GetEndTimeUnixNano() - span.GetStartTimeUnixNano()
+					out[tick][service] = total
+				}
+			}
+		}
+	}
+	return out
+}
+
 type nativeHTTPFixture struct {
+	ticks  int
 	series map[string][]string
 	totals map[int]map[string]*nativeHTTPTotals
 }
 
 type nativeHTTPTotals struct {
 	count   uint64
+	sum     float64
 	buckets map[float64]uint64 // cumulative counts, keyed by the actual seconds bound
 	active  float64
 }
 
 func captureNativeHTTP(t *testing.T) nativeHTTPFixture {
+	f, _ := captureNativeHTTPSequence(t, 12, false)
+	return f
+}
+
+func captureNativeHTTPSequence(t *testing.T, ticks int, incident bool) (nativeHTTPFixture, []nativeTraceReceipt) {
 	t.Helper()
 	rec := receiver.New()
-	srv := httptest.NewServer(rec.Handler())
+	var traceMu sync.Mutex
+	var traces []nativeTraceReceipt
+	currentTick := 0
+	metricsHandler := rec.Handler()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path != "/otlp/v1/traces" {
+			metricsHandler.ServeHTTP(w, req)
+			return
+		}
+		compressed, err := gzip.NewReader(req.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		defer compressed.Close()
+		data, err := io.ReadAll(compressed)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		var request collectortracepb.ExportTraceServiceRequest
+		if err := proto.Unmarshal(data, &request); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		traceMu.Lock()
+		traces = append(traces, nativeTraceReceipt{tick: currentTick, resources: request.GetResourceSpans()})
+		traceMu.Unlock()
+		w.WriteHeader(http.StatusOK)
+	}))
 	defer srv.Close()
 	data, err := os.ReadFile(otlpNativeBlueprint)
 	if err != nil {
@@ -159,7 +328,7 @@ func captureNativeHTTP(t *testing.T) nativeHTTPFixture {
 		t.Fatal(err)
 	}
 	r := runner.New(runner.Sinks{
-		Metrics: promrw.New("", "", "", true, nil), Logs: loki.New("", "", "", true), Traces: otlp.New("", "", "", true),
+		Metrics: promrw.New("", "", "", true, nil), Logs: loki.New("", "", "", true), Traces: otlp.New(srv.URL+"/otlp", "", "", false),
 		OTLPMetrics: otlp.NewMetrics(srv.URL+"/otlp", "", "", false),
 	}, reg, runner.Options{})
 	defer func() {
@@ -175,13 +344,27 @@ func captureNativeHTTP(t *testing.T) nativeHTTPFixture {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	start := time.Date(2026, time.June, 17, 12, 0, 0, 0, time.UTC)
-	for tick := 0; tick < 12; tick++ {
+	for tick := 0; tick < ticks; tick++ {
+		traceMu.Lock()
+		currentTick = tick
+		traceMu.Unlock()
+		state := control.DefaultState()
+		state.Failures["latency_spike"] = control.FailureSetting{Enabled: incident && tick >= 12 && tick < 18, Intensity: 1, Scope: "otlp-api-enriched"}
+		r.ApplyControl(state)
 		if err := r.RunOnce(ctx, start.Add(time.Duration(tick)*time.Minute)); err != nil {
 			t.Fatalf("actual native HTTP emission tick %d: %v", tick, err)
 		}
 	}
-	f := nativeHTTPFixture{series: map[string][]string{}, totals: map[int]map[string]*nativeHTTPTotals{}}
-	for _, resource := range rec.OTLPMetrics() {
+	f := projectNativeHTTP(t, rec.OTLPMetrics(), start, ticks)
+	traceMu.Lock()
+	defer traceMu.Unlock()
+	return f, traces
+}
+
+func projectNativeHTTP(t *testing.T, resources []*metricspb.ResourceMetrics, start time.Time, ticks int) nativeHTTPFixture {
+	t.Helper()
+	f := nativeHTTPFixture{ticks: ticks, series: map[string][]string{}, totals: map[int]map[string]*nativeHTTPTotals{}}
+	for _, resource := range resources {
 		attrs := nativeAttrs(resource.GetResource().GetAttributes())
 		service := attrs["service.name"]
 		if service != "otlp-api-enriched" && service != "otlp-api-naked" {
@@ -216,7 +399,7 @@ func captureNativeHTTP(t *testing.T) nativeHTTPFixture {
 						t.Fatalf("duration source is not the sourced cumulative explicit histogram in seconds: %v", metric)
 					}
 					for _, point := range hist.GetDataPoints() {
-						tick := nativeTick(t, point.GetTimeUnixNano(), start)
+						tick := nativeTick(t, point.GetTimeUnixNano(), start, ticks)
 						f.add("target_info", targetLabels, tick, 1)
 						labels := projectedLabels(resourceLabels, point.GetAttributes())
 						if len(point.GetBucketCounts()) != len(point.GetExplicitBounds())+1 {
@@ -224,6 +407,7 @@ func captureNativeHTTP(t *testing.T) nativeHTTPFixture {
 						}
 						total := f.at(tick, service)
 						total.count += point.GetCount()
+						total.sum += point.GetSum()
 						f.add("http_server_request_duration_seconds_count", labels, tick, float64(point.GetCount()))
 						f.add("http_server_request_duration_seconds_sum", labels, tick, point.GetSum())
 						var cumulative uint64
@@ -247,7 +431,7 @@ func captureNativeHTTP(t *testing.T) nativeHTTPFixture {
 						t.Fatalf("active requests source is not the sourced non-monotonic request sum: %v", metric)
 					}
 					for _, point := range sum.GetDataPoints() {
-						tick := nativeTick(t, point.GetTimeUnixNano(), start)
+						tick := nativeTick(t, point.GetTimeUnixNano(), start, ticks)
 						f.add("target_info", targetLabels, tick, 1)
 						value := point.GetAsDouble()
 						f.at(tick, service).active += value
@@ -291,10 +475,10 @@ func projectedLabels(resource map[string]string, attrs []*commonpb.KeyValue) map
 	return out
 }
 
-func nativeTick(t *testing.T, timestamp uint64, start time.Time) int {
+func nativeTick(t *testing.T, timestamp uint64, start time.Time, ticks int) int {
 	t.Helper()
 	tick := int(time.Unix(0, int64(timestamp)).Sub(start) / time.Minute)
-	if tick < 0 || tick >= 12 {
+	if tick < 0 || tick >= ticks {
 		t.Fatalf("native fixture emitted timestamp outside its bounded window: %d", timestamp)
 	}
 	return tick
@@ -323,7 +507,7 @@ func (f nativeHTTPFixture) add(name string, labels map[string]string, tick int, 
 	identity := name + "{" + strings.Join(matchers, ",") + "}"
 	values := f.series[identity]
 	if values == nil {
-		values = make([]string, 12)
+		values = make([]string, f.ticks)
 		for i := range values {
 			values[i] = "_"
 		}
@@ -370,7 +554,7 @@ func (f nativeHTTPFixture) foreignSeries(t *testing.T) []any {
 		} else if strings.Contains(identity, "deployment_environment") || strings.Contains(identity, "service_namespace") || strings.Contains(identity, "service_instance_id") {
 			t.Fatalf("ordinary application series manufactured resource promotion: %s", identity)
 		}
-		values := make([]string, 12)
+		values := make([]string, f.ticks)
 		for i := range values {
 			value := 1.0
 			if !isTarget {
@@ -406,16 +590,20 @@ func (f nativeHTTPFixture) foreignSeries(t *testing.T) []any {
 }
 
 func (f nativeHTTPFixture) expected(t *testing.T, panel, refID string) []any {
+	return f.expectedAt(t, panel, refID, 11)
+}
+
+func (f nativeHTTPFixture) expectedAt(t *testing.T, panel, refID string, at int) []any {
 	t.Helper()
 	var out []any
 	for _, service := range []string{"otlp-api-enriched", "otlp-api-naked"} {
-		b := f.totals[11][service]
+		b := f.totals[at][service]
 		var value float64
 		switch panel {
 		case "request-rate":
-			value = f.windowDelta(t, service, "http_server_request_duration_seconds_count", "") / (4 * 60)
+			value = f.windowRateAt(t, service, "http_server_request_duration_seconds_count", "", at)
 		case "error-ratio":
-			value = f.windowDelta(t, service, "http_server_request_duration_seconds_count", `http_response_status_code="500"`) / f.windowDelta(t, service, "http_server_request_duration_seconds_count", "")
+			value = f.windowRateAt(t, service, "http_server_request_duration_seconds_count", `http_response_status_code="500"`, at) / f.windowRateAt(t, service, "http_server_request_duration_seconds_count", "", at)
 		case "active-requests":
 			value = b.active
 		case "latency":
@@ -428,12 +616,12 @@ func (f nativeHTTPFixture) expected(t *testing.T, panel, refID string) []any {
 				bounds = append(bounds, bound)
 			}
 			sort.Float64s(bounds)
-			rank := quantile * f.windowDelta(t, service, "http_server_request_duration_seconds_count", "")
+			rank := quantile * f.windowRateAt(t, service, "http_server_request_duration_seconds_bucket", `le="+Inf"`, at)
 			var previousBound, previousCount float64
 			for _, bound := range bounds {
-				count := f.windowDelta(t, service, "http_server_request_duration_seconds_bucket", `le=`+strconv.Quote(strconv.FormatFloat(bound, 'g', -1, 64)))
+				count := f.windowRateAt(t, service, "http_server_request_duration_seconds_bucket", `le=`+strconv.Quote(strconv.FormatFloat(bound, 'g', -1, 64)), at)
 				if count >= rank {
-					value = previousBound + (bound-previousBound)*(rank-previousCount)/(count-previousCount)
+					value = previousBound + (bound-previousBound)*((rank-previousCount)/(count-previousCount))
 					break
 				}
 				previousBound, previousCount = bound, count
@@ -449,43 +637,53 @@ func (f nativeHTTPFixture) expected(t *testing.T, panel, refID string) []any {
 	return out
 }
 
-// windowDelta reads each source counter independently. A first observation is not an
+// windowRateAt reads each source counter independently before rate aggregation. A first observation is not an
 // increment from an invented zero. This fixture permits a late-created counter only
 // when its remaining observations are flat, so its range rate is unambiguously zero;
 // a different late-series shape refuses this oracle instead of guessing extrapolation.
-func (f nativeHTTPFixture) windowDelta(t *testing.T, service, metric, extraMatcher string) float64 {
+func (f nativeHTTPFixture) windowRateAt(t *testing.T, service, metric, extraMatcher string, at int) float64 {
 	t.Helper()
-	var total float64
+	var total, compensation float64
 	for identity, values := range f.series {
 		if !strings.HasPrefix(identity, metric+"{") || !strings.Contains(identity, `service_name=`+strconv.Quote(service)) || (extraMatcher != "" && !strings.Contains(identity, extraMatcher)) {
 			continue
 		}
-		first := 7
-		for first < 12 && values[first] == "_" {
+		first := at - 4
+		for first <= at && values[first] == "_" {
 			first++
 		}
-		if first == 12 {
+		if first > at {
 			continue
 		}
 		a, err := strconv.ParseFloat(values[first], 64)
 		if err != nil {
 			t.Fatal(err)
 		}
-		b, err := strconv.ParseFloat(values[11], 64)
+		b, err := strconv.ParseFloat(values[at], 64)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if first != 7 {
-			for _, value := range values[first:] {
+		if first != at-4 {
+			for _, value := range values[first : at+1] {
 				if value != values[first] {
 					t.Fatalf("late source series needs a different range-rate oracle: %s %v", identity, values)
 				}
 			}
 		} else {
-			total += b - a
+			// Five regular one-minute samples span four minutes. Extrapolate
+			// that source's observed slope across the five-minute range, then
+			// aggregate source rates, as the rendered rate-before-sum query does.
+			rate := (b - a) * (300.0 / 240.0) / 300
+			next := total + rate
+			if math.Abs(total) >= math.Abs(rate) {
+				compensation += (total - next) + rate
+			} else {
+				compensation += (rate - next) + total
+			}
+			total = next
 		}
 	}
-	return total
+	return total + compensation
 }
 
 func runPromtoolFixture(t *testing.T, promtool string, series, expressions []any) (string, error) {

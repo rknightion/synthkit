@@ -3,7 +3,11 @@
 package webservice
 
 import (
+	"compress/gzip"
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"slices"
 	"strings"
 	"testing"
@@ -15,6 +19,7 @@ import (
 	"github.com/rknightion/synthkit/internal/ledger"
 	"github.com/rknightion/synthkit/internal/shape"
 	"github.com/rknightion/synthkit/internal/sink/faro"
+	"github.com/rknightion/synthkit/internal/sink/loki"
 	"github.com/rknightion/synthkit/internal/sink/otlp"
 )
 
@@ -248,7 +253,7 @@ func TestNoHighCardLogStreamLabels(t *testing.T) {
 	}
 
 	forbidden := []string{"trace_id", "span_id", "request_id", "session_id", "correlation_id"}
-	allowed := []string{"env", "service_name", "level", "source", "cluster", "job"}
+	allowed := []string{"env", "service_namespace", "service_name", "level", "source", "cluster", "job"}
 	for _, st := range lc.Streams {
 		for k := range st.Labels {
 			if slices.Contains(forbidden, k) {
@@ -266,6 +271,139 @@ func TestNoHighCardLogStreamLabels(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// The installed native app selects indexed service_namespace/service_name, then filters
+// deployment_environment. Exercise the public projection and real Loki push encoder so
+// metadata cannot accidentally satisfy an indexed-identity assertion.
+func TestProjectBatchNativeAppLogIdentityOnLokiWire(t *testing.T) {
+	type wireStream struct {
+		Labels map[string]string   `json:"stream"`
+		Values [][]json.RawMessage `json:"values"`
+	}
+	received := make(chan []wireStream, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		gz, err := gzip.NewReader(r.Body)
+		if err != nil {
+			t.Error(err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		defer gz.Close()
+		var body struct {
+			Streams []wireStream `json:"streams"`
+		}
+		if err := json.NewDecoder(gz).Decode(&body); err != nil {
+			t.Error(err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		received <- body.Streams
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	for _, identity := range []struct{ service, namespace, environment string }{
+		{"checkout", "backend", "prod"},
+		{"checkout", "backend", "staging"},
+		{"checkout", "other", "prod"},
+		{"receipts", "backend", "prod"},
+	} {
+		t.Run(identity.service+"/"+identity.namespace+"/"+identity.environment, func(t *testing.T) {
+			cfg := NewConfig().(*Config)
+			cfg.Tracing, cfg.RUM = true, false
+			binding := testBinding(nil)
+			binding.Name = identity.service
+			binding.Env = &fixture.Env{Name: identity.environment, Weight: 1}
+			binding.Cluster.Env = binding.Env
+			binding.Cluster.Workloads[0].Name = identity.service
+			binding.Cluster.Workloads[0].Namespace = identity.namespace
+			built, err := build(cfg, binding)
+			if err != nil {
+				t.Fatal(err)
+			}
+			workload := built.(*Workload)
+			led := ledger.New(shape.New("", nil), 0, 0)
+			led.AddMinter(workload.Minter())
+			now := time.Date(2026, 6, 15, 13, 0, 0, 0, time.UTC)
+			batch := mintNonEmpty(t, led, now, false)
+			traces := &coretest.TraceCapture{}
+			world := coretest.World(nil, nil, traces)
+			world.Logs = loki.New(server.URL, "fixture", "fixture", false)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := workload.ProjectBatch(ctx, now, world, batch); err != nil {
+				t.Fatal(err)
+			}
+			if len(traces.Resources) != 1 {
+				t.Fatalf("expected the request's backend resource, got %d", len(traces.Resources))
+			}
+			resource := traces.Resources[0].Attrs
+			if resource["service.namespace"] != identity.namespace || resource["deployment.environment.name"] != identity.environment {
+				t.Fatalf("trace identity disagrees with the declared placement: %v", resource)
+			}
+			var streams []wireStream
+			select {
+			case streams = <-received:
+			case <-ctx.Done():
+				t.Fatal("no Loki push received")
+			}
+			requests := map[string]*ledger.Request{}
+			for _, request := range batch {
+				requests[request.TraceID] = request
+			}
+			completed := map[string]int{}
+			for _, stream := range streams {
+				if stream.Labels["service_namespace"] != resource["service.namespace"] || stream.Labels["service_name"] != resource["service.name"] || stream.Labels["env"] != identity.environment {
+					t.Fatalf("native app cannot isolate the emitted indexed identity: %v", stream.Labels)
+				}
+				if _, exists := stream.Labels["deployment_environment"]; exists {
+					t.Fatal("app environment filter must remain metadata; env already indexes the environment")
+				}
+				if _, exists := stream.Labels["exporter"]; exists {
+					t.Fatal("direct Loki push acquired exporter provenance")
+				}
+				for _, key := range []string{"trace_id", "span_id", "request_id", "session_id", "correlation_id"} {
+					if _, exists := stream.Labels[key]; exists {
+						t.Fatalf("request identifier %s entered the Loki index", key)
+					}
+				}
+				for _, tuple := range stream.Values {
+					if len(tuple) != 3 {
+						t.Fatalf("expected body plus correlation metadata, got %d tuple elements", len(tuple))
+					}
+					var metadata map[string]string
+					if err := json.Unmarshal(tuple[2], &metadata); err != nil {
+						t.Fatal(err)
+					}
+					request := requests[metadata["trace_id"]]
+					if request == nil || metadata["span_id"] != request.SpanID || metadata["request_id"] != request.RequestID || metadata["correlation_id"] != request.CorrelationID {
+						t.Fatalf("request correlation changed on the wire: %v", metadata)
+					}
+					if metadata["deployment_environment"] != resource["deployment.environment.name"] {
+						t.Fatalf("native app environment filter cannot isolate this request: %v", metadata)
+					}
+					var body struct{ Msg string }
+					var line string
+					if err := json.Unmarshal(tuple[1], &line); err != nil {
+						t.Fatal(err)
+					}
+					if err := json.Unmarshal([]byte(line), &body); err != nil {
+						t.Fatal(err)
+					}
+					if body.Msg == "request completed" {
+						completed[request.TraceID]++
+					}
+				}
+			}
+			for _, request := range batch {
+				if completed[request.TraceID] != 1 {
+					t.Fatalf("request %s produced %d lifecycle logs, want one", request.TraceID, completed[request.TraceID])
+				}
+			}
+		})
 	}
 }
 
@@ -331,7 +469,7 @@ func TestProjectLogs_ServiceHopFailureLine(t *testing.T) {
 	}
 	lc := &coretest.LogCapture{}
 	world := coretest.World(nil, lc, nil)
-	if err := w.projectLogs(context.Background(), world, []*ledger.Request{r}); err != nil {
+	if err := w.ProjectBatch(context.Background(), r.Start, world, []*ledger.Request{r}); err != nil {
 		t.Fatal(err)
 	}
 	// Expect a stream with service_name=payments carrying a line whose span_id == the service
@@ -341,7 +479,13 @@ func TestProjectLogs_ServiceHopFailureLine(t *testing.T) {
 		if st.Labels["service_name"] != "payments" {
 			continue
 		}
+		if st.Labels["service_namespace"] != "test-api" || st.Labels["env"] != "prod" {
+			t.Fatalf("callee log identity disagrees with its trace resource: %v", st.Labels)
+		}
 		for _, ln := range st.Lines {
+			if ln.Meta["deployment_environment"] != "prod" {
+				t.Fatalf("callee log lost the native app environment filter: %v", ln.Meta)
+			}
 			if ln.Meta["span_id"] == "aaaaaaaaaaaaaaaa" && ln.Meta["trace_id"] == r.TraceID {
 				found = true
 			}
