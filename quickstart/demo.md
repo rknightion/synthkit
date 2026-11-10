@@ -109,7 +109,17 @@ Optional: use the prepared Entity Graph to show the discovered stock service ide
 
 ### 6:30 - Join a failed log to its trace
 
-Use Loki Explore with the lab's Loki datasource and a recent window. Paste the exact stock query:
+In the same Application Observability service, open **Logs**, select **New Format**, and run the
+query over a recent window. Expand a fresh `request failed` record whose JSON body has numeric
+`status: 500`, then copy its `trace_id`. Use a record after this run's fault activation. The
+namespace and service filters stay attached to the native view.
+
+In Tempo Explore choose **Trace ID**, paste the value and click **Run query**. Use a slightly
+older failed record if the newest trace is still ingesting. The HTTP root span should show the
+same service and status 500.
+
+For an older image or while the native view is warming, use Loki Explore with the lab's Loki
+datasource and the same recent window. The exact stock fallback query is:
 
 ```logql
 {source="app",service_name="otlp-api-enriched",cluster="otlp-native-prod-euw1",level="error"}
@@ -119,7 +129,7 @@ Use Loki Explore with the lab's Loki datasource and a recent window. Paste the e
 | __error__=""
 ```
 
-Pick a record after this run's fault activation, expand its fields and copy `trace_id`. In Tempo Explore choose **Trace ID**, paste the value and click **Run query**. Use a slightly older failed record if the newest trace is still ingesting.
+The fallback follows the same exact-ID join; it does not substitute a service/time search for the returned trace.
 
 > This is the exact failed synthetic request across logs and traces. It lets us rehearse the investigation and the explanation before customer access is ready. A service name and time window narrow the search; the trace ID makes the join precise.
 
