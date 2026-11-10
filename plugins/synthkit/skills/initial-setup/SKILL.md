@@ -171,6 +171,11 @@ container and a normal Docker host. Do not use a recursive ownership change here
 the files beneath this dedicated directory.
 
 ## Step 6: Dry-run before any live push
+Run this one-shot before starting the continuous emitter. It shares the Compose state mount and
+may write probe, boot and source metadata even in dry-run mode. Never start it alongside an emitter
+using the same state. For a running deployment, use the console inventory or `GET /control/inventory`
+for a read-only view; stop the emitter before repeating this shared-state preview.
+
 Use the committed Compose file directly. Contributor validation includes `just compose-check`;
 it is not a prerequisite for an operator with Docker only. It renders fake `.env.example` inputs;
 never substitute real credentials or run raw `docker compose config` against them.

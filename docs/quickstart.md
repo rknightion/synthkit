@@ -14,6 +14,10 @@ Start with an offline preview, then connect your Grafana Cloud stack. This walkt
 complete first-run path; [Installation](installation.md) covers optional source builds and
 [Deployment](deployment.md) covers standing deployments.
 
+Use a fresh, unused configuration and state directory for this walkthrough. If a running or
+stopped deployment already owns the configuration or persisted state, preserve both and follow
+[Reproducible upgrade](deployment.md#reproducible-upgrade) instead.
+
 ## 1. Clone and create local configuration
 
 ```bash
@@ -43,8 +47,12 @@ fi
 chmod 600 .env
 ```
 
-Open `.env` in a local text editor and set these existing entries. Keep the published image
-reference from `.env.example` for this walkthrough:
+Open `.env` in a local text editor and set these existing entries. Use the current
+`SYNTHKIT_IMAGE_REF` from `.env.example` only for this unused first-run configuration; its release
+identity is recorded in [Container image](deployment.md#container-image). Do not change an existing
+deployment's image selector here, even if its emitter is stopped. Its
+[upgrade procedure](deployment.md#reproducible-upgrade) preserves configuration and state with a
+snapshot and a checked selector change. Updating the checkout does not rewrite an ignored `.env`.
 
 ```dotenv
 BLUEPRINT_NAMES=otlp-native
@@ -66,6 +74,11 @@ The Compose deployment binds port 8088 to loopback. Keep that default for this w
 When `CONTROL_TOKEN` is set, the browser asks for username `control` and that token as its password.
 
 ## 2. Prepare private storage and preview offline
+
+Run this one-shot preview before starting the continuous emitter. It shares the mounted state
+directory and writes probe, boot and blueprint-source metadata even though telemetry delivery is
+offline. Do not run another `-once -dump` alongside an active emitter; inspect the running
+console or [current inventory](http://127.0.0.1:8088/control/inventory) instead.
 
 The container runs as uid 65532. Its mounted state directory must be writable by that uid and
 private. This pinned helper prepares the directory using Docker; no host-side Node installation
@@ -100,11 +113,11 @@ upload or Git-source flow described in [Custom Blueprints](custom-blueprints.md)
 effective namespaced identity and apply/restart rules. Compose does not automatically mount the
 checkout's blueprint directory.
 
-The starter includes the two HTTP services below, Kubernetes telemetry and an agent example.
-Optional agent/Sigil status may show missing credentials while the configured HTTP telemetry
-lanes are ready. Those optional credentials are not required for this first run. The starter
-does not include named incident scenarios; choose a scenario-bearing example later when rehearsing
-failure injection.
+The starter contains the `otlp-api-enriched` and `otlp-api-naked` HTTP services plus Kubernetes
+telemetry. With this walkthrough's settings, optional integration rows in preflight are
+intentionally disabled rather than missing required credentials. The starter has no named
+incident scenarios; choose a supported scenario-bearing example later when rehearsing failure
+injection.
 
 You can stop here if you only want to inspect the generated signals.
 
@@ -157,6 +170,8 @@ docker compose ps
 Open [the operator UI](http://127.0.0.1:8088/control/ui) in your browser. It should show the
 selected blueprint and live delivery rather than dry-run. The sink strip reports local push
 results; inspect any error detail before checking Grafana.
+
+Use its X-ray view or `GET /control/inventory` for the active process's current inventory.
 
 Open [readiness](http://127.0.0.1:8088/control/readiness) in another browser tab. For this selected
 live run, check `ready: true`, `setup_required: false`, `live_ready: true` and
@@ -237,8 +252,9 @@ is embedded. The published-image walkthrough above needs neither build toolchain
 
 ## Next steps
 
-- [Dashboard tools](tools.md#synthkit-dash-grafana-dashboard-generator) explain generated views and
-  their image-version requirements. Grafana Explore is enough to verify this first run.
+- [Dashboard tools](tools.md#synthkit-dash-grafana-dashboard-generator) covers optional offline
+  exports using the current stable image's bundled generator. Grafana Explore is enough to
+  verify this first run.
 - [Custom Blueprints](custom-blueprints.md) covers UI uploads, Git sources and runtime selection.
 - [Control Plane](control-plane.md) covers the operator UI, scaling and incident controls.
 - [Deployment](deployment.md) covers persistent hosts, image identity and network exposure.

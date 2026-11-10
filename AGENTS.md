@@ -297,6 +297,9 @@ version `1791408283-0027`; preserve its light/dark contract when adding consumer
 
 ## Dashboard export contracts
 
+`synthkit-dash` copies datasource mapping values literally into v2 `datasource.name`; supply the
+target Grafana datasource UID. That resource-name field is not the datasource display label.
+
 Dashboard generation is offline. Keep native OTLP semantic-instrument inventory separate from
 Prometheus receiver-projected names and source each template's projection and units. The operational
 exporter uses stable deployment resource identity separately from its process picker; unsupported
@@ -393,6 +396,11 @@ evidence. Provenance never reaches the wire; captured reality and the sole exemp
   and exact names are in `scripts/race-isolated.txt`; see `docs/contributing.md` for the split proof.
 
 ## Task interface
+
+One-shot `-once -dump` starts the state-owning path and may write probe, boot and source metadata.
+Run it before the continuous emitter starts, never concurrently against the same mounted state.
+For a running deployment, read `GET /control/inventory` or use isolated temporary state for an offline
+preview; credential preflight exits before the state-owning startup path.
 
 `just check` is the pre-commit gate. Three recipes mutate a live Grafana stack and are marked
 `[confirm(...)]` (`selfobs-dashboard`, `corpus-gcx`, `provision`): stop and ask before running one,
