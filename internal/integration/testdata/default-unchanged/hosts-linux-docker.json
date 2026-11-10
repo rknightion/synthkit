@@ -8,7 +8,7 @@
       "container_fs_usage_bytes": [19, "096085e2af5f0c8f"],
       "container_fs_writes_total": [19, "6cc308db76414ba6"],
       "container_last_seen": [19, "4269094977c720b9"],
-      "container_memory_usage_bytes": [19, "fdd5ad087961e051"],
+      "container_memory_usage_bytes": [19, "3647ebbb264e3b99"],
       "container_network_receive_bytes_total": [19, "7c7c31f96a7b3197"],
       "container_network_receive_errors_total": [19, "2d234306067c9ba8"],
       "container_network_receive_packets_dropped_total": [19, "5e62344c6f454880"],
