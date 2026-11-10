@@ -2,6 +2,14 @@
 
 All notable changes to synthkit. Generated from Conventional Commits.
 
+## [1.6.4](https://github.com/rknightion/synthkit/compare/v1.6.3...v1.6.4) (2026-11-10)
+
+
+### Bug Fixes
+
+* **quickstart:** pin the verified native app release ([#736](https://github.com/rknightion/synthkit/issues/736)) ([0ca346e](https://github.com/rknightion/synthkit/commit/0ca346e759a3e71177a5be879a4ac10ab6f319ff))
+* **telemetry:** bound container memory by declared limits ([#737](https://github.com/rknightion/synthkit/issues/737)) ([37c18cc](https://github.com/rknightion/synthkit/commit/37c18cc1c68b6fc886c66bf3d3ad03d0d577bda0))
+
 ## [1.6.3](https://github.com/rknightion/synthkit/compare/v1.6.2...v1.6.3) (2026-11-10)
 
 
