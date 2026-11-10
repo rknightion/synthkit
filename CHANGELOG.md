@@ -2,6 +2,14 @@
 
 All notable changes to synthkit. Generated from Conventional Commits.
 
+## [1.6.2](https://github.com/rknightion/synthkit/compare/v1.6.1...v1.6.2) (2026-11-10)
+
+
+### Documentation
+
+* add a stock native-app quickstart demo ([#731](https://github.com/rknightion/synthkit/issues/731)) ([9956c21](https://github.com/rknightion/synthkit/commit/9956c211a4b82a21c9e46b9da05530b2e01ea4c5))
+* use the verified release for Docker onboarding ([#725](https://github.com/rknightion/synthkit/issues/725)) ([a91e51c](https://github.com/rknightion/synthkit/commit/a91e51c0bf970e396d4765b6a0fef2f34423dfcf))
+
 ## [1.6.1](https://github.com/rknightion/synthkit/compare/v1.6.0...v1.6.1) (2026-11-09)
 
 
