@@ -1,0 +1,4 @@
+# Reuse the canonical runtime contract while keeping private configuration and state here.
+include:
+  - path: ../docker-compose.yml
+    project_directory: .

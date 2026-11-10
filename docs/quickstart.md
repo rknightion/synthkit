@@ -14,6 +14,11 @@ Start with an offline preview, then connect your Grafana Cloud stack. This walkt
 complete first-run path; [Installation](installation.md) covers optional source builds and
 [Deployment](deployment.md) covers standing deployments.
 
+For a prepared native-app tour using the shipped HTTP and MySQL examples, the repository's
+[stock demo folder](https://github.com/rknightion/synthkit/tree/main/quickstart) includes its own
+example configuration and presenter walkthrough. Its Compose file reuses the deployment below
+with a separate local configuration and state directory.
+
 Use a fresh, unused configuration and state directory for this walkthrough. If a running or
 stopped deployment already owns the configuration or persisted state, preserve both and follow
 [Reproducible upgrade](deployment.md#reproducible-upgrade) instead.

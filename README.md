@@ -57,6 +57,10 @@ Docker-contained exports. The [installation guide](docs/installation.md) covers 
 the [deployment guide](docs/deployment.md#container-image) records the default image's release,
 digest and provenance.
 
+For a repeatable native-app demonstration, use the **[stock demo folder](quickstart/README.md)**.
+It selects the shipped HTTP and MySQL examples, reads private credentials from its local `.env`,
+and includes a short terminal-to-Grafana [presenter walkthrough](quickstart/demo.md).
+
 For other starting points:
 
 - [Understand the model](docs/getting-started.md) — blueprints, workloads and signal destinations.
