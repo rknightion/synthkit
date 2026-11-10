@@ -277,6 +277,9 @@ covers the declared Go-read, example, Compose and project-`.env` surfaces, not a
 override values. Put `.env` comments on their own lines - Docker does not strip an inline comment from
 an `env_file` value.
 
+The deployment helper retains private `*.synthkit.lock` coordination files beside environment
+files across atomic selector upgrades. Keep these files ignored and retain their lock inodes.
+
 ## Contributor workflow
 
 Before editing repository code, configuration, blueprints or documentation, agents must read and
