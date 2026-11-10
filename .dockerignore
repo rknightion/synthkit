@@ -32,6 +32,7 @@ control-state-data/
 codex/
 runtime/
 docs/
+quickstart/
 
 # Built binaries / test artifacts.
 synthkit

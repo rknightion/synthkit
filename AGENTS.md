@@ -308,6 +308,11 @@ is not datasource authorization. See [dashboard tooling](docs/tools.md) and the 
 
 ## Operational entrypoints
 
+`quickstart/` reuses the canonical Compose file through an include whose `project_directory` is
+the quick-start folder. Preserve its local `.env` and state isolation. The tracked credential-free
+template is `.env_example`; `.env` and runtime state stay ignored, and the entire folder stays
+outside Docker build contexts. Its presenter walkthrough uses unmodified stock blueprints.
+
 The public first-run path is Docker Compose with a normal shell/browser. Keep its required knowledge
 in the checkout and bundled skills; do not introduce a documentation-query plugin or private home
 as an operator prerequisite. Capability claims follow the selected immutable image, not the host
