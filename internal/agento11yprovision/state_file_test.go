@@ -1542,7 +1542,8 @@ func TestFoundationPoisonCannotJoinGrant(t *testing.T) {
 	cancelled := make(chan struct{})
 	allow := make(chan struct{})
 	joined := make(chan struct{})
-	go func() { defer close(joined); <-grant.Context().Done(); close(cancelled); <-allow }()
+	requestCtx := grant.Context()
+	go func() { defer close(joined); <-requestCtx.Done(); close(cancelled); <-allow }()
 	s.edges.sync = func(fd int, stage string) error {
 		if stage == "state.json-dir-sync" {
 			return unix.EIO
