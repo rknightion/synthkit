@@ -338,6 +338,10 @@ and backend readback. See the canonical [Quick Start](docs/quickstart.md).
 
 ## Verification
 
+Shared cAdvisor baseline memory is bounded as one budget before projecting components. Keep
+above-request usage valid, honor limits below the ordinary floor, and preserve unrelated values
+and random-draw consumption. The canonical model is in `signals/k8s.md`.
+
 OTLP pod-log inventory retains emitter-selected `collector_profile` provenance separately.
 Corpus comparison scopes known profiles to their matching captured collector; unknown and
 unattributed evidence remains independently compared. Missing matching profiles retain wrong-profile

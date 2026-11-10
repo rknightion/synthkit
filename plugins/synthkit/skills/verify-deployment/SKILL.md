@@ -220,6 +220,10 @@ gap without requiring an extra plugin or claiming success.
 
 ### Native application readback
 
+For baseline container memory, compare usage with the same container's request and limit at the
+same time. Above-request usage is valid; above-limit baseline usage is a model mismatch, not
+proof of an OOM. Follow the [cAdvisor value contract](https://github.com/rknightion/synthkit/blob/main/signals/k8s.md).
+
 Keep ingestion evidence separate from native-app discovery and browser state. After the bounded
 warmup, confirm fresh post-start data in Explore for the same datasource and declared identity.
 If Kubernetes Home was cold-opened before data arrived and still shows onboarding, hard reload
