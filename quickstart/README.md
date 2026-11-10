@@ -115,6 +115,10 @@ onboarding after fresh data is confirmed, follow the
 [cold-open guidance](../docs/troubleshooting.md#native-app-view-stays-empty-after-data-arrives).
 Changing the time picker alone may not refresh that discovery state.
 
+In Application Observability's **Logs** tab, select **New Format** for the default image's service
+identity. The [log-format guide](../docs/troubleshooting.md#application-logs-new-format-is-empty)
+covers fresh readback and the Explore fallback for an older deployment.
+
 The [deployment verification skill](../plugins/synthkit/skills/verify-deployment/SKILL.md) and
 [deployment guide](../docs/deployment.md#container-image) cover full immutable image identity and
 fresh backend verification. Those stronger checks have additional prerequisites; ordinary Compose
