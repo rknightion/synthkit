@@ -681,3 +681,60 @@ func profileTotal(series []psink.Series) int64 {
 	}
 	return total
 }
+
+// ── Volume pause (SKT-0167) ─────────────────────────────────────────────────────────
+
+// allLanesCluster enables the eBPF, Go pprof and JVM lanes over one Go and one JVM workload so
+// every lane has at least one pod to render.
+func allLanesCluster() *fixture.Cluster {
+	return testClusterWithFeatures(
+		map[string]bool{"profiling": true, "profiling_pprof": true, "profiling_java": true},
+		"go", "jvm",
+	)
+}
+
+// tickAtVolume runs one Tick with the engine's master volume knob set to vol and returns every
+// series written.
+func tickAtVolume(t *testing.T, vol float64) []psink.Series {
+	t.Helper()
+	c, err := k8sprofiling.New(nil, &fixture.Set{Cluster: allLanesCluster()})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	pc := &PyroscopeCapture{}
+	w := testWorld(pc)
+	w.Shape.SetVolumeMultiplier(vol)
+	// A Wednesday midday (business hours) so BusinessFactor is well above zero at volume 1.
+	now := time.Date(2026, 6, 17, 12, 0, 0, 0, time.UTC)
+	if err := c.Tick(context.Background(), now, w); err != nil {
+		t.Fatalf("Tick: %v", err)
+	}
+	return pc.allSeries()
+}
+
+// TestVolumeZeroEmitsNoProfiles: an explicit volume_multiplier of 0 is a pause. The shared
+// pyroscope builder maps a non-positive load factor to full weight, so the construct itself
+// must emit nothing rather than pass the zero through.
+func TestVolumeZeroEmitsNoProfiles(t *testing.T) {
+	if got := tickAtVolume(t, 0); len(got) != 0 {
+		t.Fatalf("volume 0: want no profile series, got %d", len(got))
+	}
+}
+
+// TestSmallNonzeroVolumeStillEmitsProfiles pins the other side of the pause: any non-zero volume
+// keeps emitting, scaled down, across all three lanes.
+func TestSmallNonzeroVolumeStillEmitsProfiles(t *testing.T) {
+	got := tickAtVolume(t, 0.01)
+	if len(got) == 0 {
+		t.Fatal("volume 0.01: want profile series, got none")
+	}
+	sources := map[string]bool{}
+	for _, s := range got {
+		sources[labelVal(s, "source")] = true
+	}
+	for _, src := range []string{"alloy/pyroscope.ebpf", "alloy/pyroscope.pprof", "alloy/pyroscope.java"} {
+		if !sources[src] {
+			t.Errorf("volume 0.01: lane %q emitted nothing", src)
+		}
+	}
+}

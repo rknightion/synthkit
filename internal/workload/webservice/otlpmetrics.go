@@ -21,8 +21,9 @@ var otlpDurationBuckets = []float64{0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 
 
 // tickOTLPMetrics emits the native OTLP application metrics (http.server.request.duration +
 // http.server.active_requests) for this workload, when the OTLP-metrics lane is wired. Volume
-// reuses the SAME per-tick totalCalls + per-route split as the promrw span-metrics lane so the
-// two agree. Cumulative; resource attrs naked or k8s_monitoring-enriched. No-op if the writer
+// derives from the metric lane's configured per-tick totalCalls. Route/status allocation and
+// bounded duration sampling are independent of the ledger sample and legacy spanmetrics.
+// Cumulative; resource attrs naked or k8s_monitoring-enriched. No-op if the writer
 // is nil (lane not declared/wired) — keeps stOTLP empty when the lane is off.
 func (w *Workload) tickOTLPMetrics(ctx context.Context, now time.Time, world *core.World, totalCalls int, routes []routeStat) error {
 	if world.OTLPMetrics == nil {
@@ -31,15 +32,38 @@ func (w *Workload) tickOTLPMetrics(ctx context.Context, now time.Time, world *co
 	if w.otlpColdStart.IsZero() {
 		w.otlpColdStart = now
 	}
-	// Accumulate the cumulative request-duration histogram, split across routes/status.
+	// Accumulate the cumulative request-duration histogram, conserving the full
+	// configured volume when route and status populations do not divide evenly.
 	if len(routes) > 0 && totalCalls > 0 {
 		perRoute := totalCalls / len(routes)
+		// The released native lane consumed this capped uniform-draw budget.
+		// Preserve its exact rounding/caps ONLY for shared-RNG compatibility so
+		// active requests, spanmetrics and later requests keep their released values.
+		// Actual duration observations use the isolated stream and full counts below.
 		for _, rs := range routes {
+			legacyOK := max(0, min(200, int(float64(perRoute)*(1-rs.errorRate))))
+			legacyErrors := max(0, min(200, int(float64(perRoute)*rs.errorRate)))
+			for range legacyOK + legacyErrors {
+				world.Shape.Float64()
+			}
+		}
+		latencyFactor := world.Shape.FailFactor(now, "latency_spike", w.name, 4.0)
+		for i, rs := range routes {
+			calls := perRoute
+			if i < totalCalls%len(routes) {
+				calls++
+			}
 			method, route := splitRoute(rs.route)
-			okN := int(float64(perRoute) * (1 - rs.errorRate))
-			errN := int(float64(perRoute) * rs.errorRate)
-			w.observeOTLPDuration(method, route, 200, okN, world.Shape)
-			w.observeOTLPDuration(method, route, 500, errN, world.Shape)
+			p95ms := 0.0
+			for _, endpoint := range w.cfg.Endpoints {
+				if endpoint.Route == rs.route {
+					p95ms = endpoint.P95ms
+					break
+				}
+			}
+			errN := int(float64(calls) * rs.errorRate)
+			w.observeOTLPDuration(method, route, 200, calls-errN, p95ms, latencyFactor)
+			w.observeOTLPDuration(method, route, 500, errN, p95ms, latencyFactor)
 		}
 	}
 	// Derive distinct HTTP methods from routes for per-method active_requests attribution.
@@ -55,22 +79,28 @@ func (w *Workload) tickOTLPMetrics(ctx context.Context, now time.Time, world *co
 	return world.OTLPMetrics.Write(ctx, []otlp.MetricResource{res})
 }
 
-// observeOTLPDuration records n cumulative duration observations for one (method,route,status)
-// series into the dedicated stOTLP, with a per-tick observation budget (matches span-metrics).
-func (w *Workload) observeOTLPDuration(method, route string, status, n int, shp *shape.Engine) {
+// observeOTLPDuration represents every request in a route/status cohort with at most
+// 200 duration draws from the same endpoint and incident model as the request minter.
+// Integer weights preserve exact counts and matching bucket/sum contributions without
+// making observation work proportional to configured traffic. The two cadences sample
+// independently; these aggregate samples are not request-correlated exemplars.
+func (w *Workload) observeOTLPDuration(method, route string, status, n int, p95ms, latencyFactor float64) {
 	if n <= 0 {
 		return
 	}
-	if n > 200 {
-		n = 200
-	}
+	draws := min(n, 200)
 	labels := map[string]string{
 		"http.request.method":       method,
 		"http.route":                route,
 		"http.response.status_code": strconv.Itoa(status),
 	}
-	for i := 0; i < n; i++ {
-		w.stOTLP.Observe(otelDurationMetricName, labels, otlpDurationBuckets, state.LEDotZero, 0.02+shp.Float64()*0.18)
+	for i := 0; i < draws; i++ {
+		weight := n / draws
+		if i < n%draws {
+			weight++
+		}
+		seconds := drawDuration(p95ms, w.otlpDurationRNG) / 1000 * latencyFactor
+		w.stOTLP.ObserveWeighted(otelDurationMetricName, labels, otlpDurationBuckets, state.LEDotZero, seconds, uint64(weight))
 	}
 }
 

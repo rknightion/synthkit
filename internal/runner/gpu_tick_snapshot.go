@@ -46,14 +46,9 @@ func (bp *bpRuntime) gpuLiveFailures(capture *gpuTickSnapshot, mode string) []sh
 	st := &capture.state
 	var out []shape.LiveFailure
 	expand := func(scope string, intensity float64) {
-		if strings.HasSuffix(scope, ":*") {
-			axis := failuremode.Axis(strings.TrimSuffix(scope, ":*"))
-			for _, name := range bp.axisScopes(axis) {
-				out = append(out, shape.LiveFailure{Enabled: true, Intensity: intensity, Scope: name})
-			}
-			return
+		for _, name := range bp.liveScopes(mode, scope) {
+			out = append(out, shape.LiveFailure{Enabled: true, Intensity: intensity, Scope: name})
 		}
-		out = append(out, shape.LiveFailure{Enabled: true, Intensity: intensity, Scope: scope})
 	}
 	if f, ok := st.Failures[mode]; ok && f.Enabled {
 		expand(f.Scope, f.Intensity)
@@ -80,10 +75,28 @@ func (bp *bpRuntime) gpuLiveFailures(capture *gpuTickSnapshot, mode string) []sh
 				continue
 			}
 			seen[ri.Target] = true
+			// The runtime engine holds the incident's literal target, so it is evaluated there
+			// and the verdict is then expanded to the concrete scopes the shape engine matches.
 			if active, intensity := capture.runtime.Eval(capture.now, mode, ri.Target); active {
-				out = append(out, shape.LiveFailure{Enabled: true, Intensity: intensity, Scope: ri.Target})
+				for _, name := range bp.liveScopes(mode, ri.Target) {
+					out = append(out, shape.LiveFailure{Enabled: true, Intensity: intensity, Scope: name})
+				}
 			}
 		}
 	}
 	return out
+}
+
+// liveScopes turns a live failure's target into the concrete scopes the shape engine matches
+// exactly, with the loader's scheduled expansion: "" and a bare name stay as they are, and
+// "<axis>:*" becomes every declared target of that axis. A "resource:*" of a resource-axis mode
+// is the declared resources of the mode's kind alone. An axis with no target yields none.
+func (bp *bpRuntime) liveScopes(mode, scope string) []string {
+	if !strings.HasSuffix(scope, ":*") {
+		return []string{scope}
+	}
+	if bp.res != nil {
+		return bp.res.ExpandEffectScopes(mode, scope)
+	}
+	return bp.axisScopes(failuremode.Axis(strings.TrimSuffix(scope, ":*")))
 }

@@ -26,7 +26,7 @@ import (
 // test.
 
 // otlpNativeAllowed is the OTEL-NATIVE list from signals/otlp-native-verdicts.md: kinds
-// that have (or, for the 13 "different namespace" CloudWatch/CSP kinds, may eventually
+// that have (or, for the 19 "different namespace" CloudWatch/CSP kinds, may eventually
 // get) a real OTel-native metric lane. Membership here does not by itself permit an
 // OTLP lane emitting the construct's EXISTING promrw family names — see that file's
 // "not permission to re-emit" note.
@@ -50,8 +50,15 @@ var otlpNativeAllowed = map[string]bool{
 	"glue":             true,
 	"bedrock":          true,
 	"agentcore":        true,
-	"csp_azure":        true,
-	"csp_gcp":          true,
+	// Native source forms exist; these initial consumers still reject OTLP Build.
+	"lambda":          true,
+	"sqs":             true,
+	"dynamodb":        true,
+	"redshift":        true,
+	"cloudwatch_logs": true,
+	"scheduler":       true,
+	"csp_azure":       true,
+	"csp_gcp":         true,
 }
 
 // otlpScrapeOnlyForbidden is the SCRAPE-ONLY list from signals/otlp-native-verdicts.md:
@@ -79,6 +86,7 @@ var otlpScrapeOnlyForbidden = map[string]bool{
 	"synthetic_monitoring":     true,
 	"cloudflare":               true,
 	"snowflake":                true,
+	"solace":                   true,
 	"langsmith_platform":       true,
 	"langsmith_eval":           true,
 	"portkey_poller":           true,
@@ -111,7 +119,19 @@ func sourceDirOfConstruct(t *testing.T, reg core.ConstructReg) string {
 	if file == "" {
 		t.Fatalf("construct %q: could not resolve Build source file", reg.Kind)
 	}
-	return filepath.Dir(file)
+	return sourceDirOnDisk(t, filepath.Dir(file))
+}
+
+// sourceDirOnDisk maps a compiled source directory to a real one. Under -trimpath the
+// compiler records module-relative paths ("github.com/rknightion/synthkit/internal/..."),
+// which are rebased onto the repo root; untrimmed absolute paths pass through unchanged.
+func sourceDirOnDisk(t *testing.T, dir string) string {
+	t.Helper()
+	const modulePrefix = "github.com/rknightion/synthkit/"
+	if rel, ok := strings.CutPrefix(filepath.ToSlash(dir), modulePrefix); ok {
+		return filepath.Join(repoRoot(t), filepath.FromSlash(rel))
+	}
+	return dir
 }
 
 // sourceDirOfWorkload is sourceDirOfConstruct for workloads.
@@ -126,7 +146,7 @@ func sourceDirOfWorkload(t *testing.T, reg core.WorkloadReg) string {
 	if file == "" {
 		t.Fatalf("workload %q: could not resolve Build source file", reg.Kind)
 	}
-	return filepath.Dir(file)
+	return sourceDirOnDisk(t, filepath.Dir(file))
 }
 
 // dirDeclaresOTLPMetrics scans every non-test .go file directly in dir for a reference
@@ -229,10 +249,10 @@ func TestOTLPVerdictCoverageIsComplete(t *testing.T) {
 	checkStale("otlpScrapeOnlyForbidden", otlpScrapeOnlyForbidden)
 	checkStale("otlpUnresolved", otlpUnresolved)
 
-	const wantTotal = 47
+	const wantTotal = 54
 	if got := len(allKinds); got != wantTotal {
 		t.Errorf("runner.Catalog() registers %d kinds, want %d (signals/otlp-native-verdicts.md "+
-			"includes the Datadog receiver and 2026-10-15 DCGM exporter additions to the 45-package baseline — if the catalog has genuinely "+
+			"includes the Datadog receiver, DCGM exporter, Solace exporter and captured CloudWatch consumer additions to the 45-package baseline — if the catalog has genuinely "+
 			"grown or shrunk, re-run the SKT-0007.01 study and update both files)", got, wantTotal)
 	}
 }

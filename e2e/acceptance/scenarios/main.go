@@ -12,6 +12,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"net/http"
 	"net/url"
@@ -21,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/control"
 	"github.com/rknightion/synthkit/internal/failuremode"
 )
@@ -37,6 +39,9 @@ type config struct {
 	siblingEnv   string
 	settle       time.Duration
 	minChange    float64
+	// resources are the schema's declared causal resources with their bound consumers, read once
+	// per run; they narrow a resource-mode assertion to the series its consumers emit.
+	resources []control.ResourceInfo
 }
 
 type disposition struct {
@@ -49,6 +54,8 @@ type disposition struct {
 	Active   *float64 `json:"active,omitempty"`
 	Cleared  *float64 `json:"cleared,omitempty"`
 	Sibling  *float64 `json:"sibling,omitempty"`
+	// Scope says what the observation was narrowed to, or that it stayed blueprint-wide.
+	Scope string `json:"scope,omitempty"`
 }
 
 type report struct {
@@ -95,6 +102,7 @@ func run(ctx context.Context, cfg config) (report, error) {
 	if err != nil {
 		return report{}, err
 	}
+	cfg.resources = schema.Resources
 	scenarios := append([]control.ScenarioInfo(nil), schema.Scenarios...)
 	sort.Slice(scenarios, func(i, j int) bool {
 		return scenarios[i].Blueprint+"/"+scenarios[i].Name < scenarios[j].Blueprint+"/"+scenarios[j].Name
@@ -131,12 +139,18 @@ func exercise(ctx context.Context, c *http.Client, cfg config, sc control.Scenar
 		}
 		return d
 	}
-	d := disposition{ID: id, Mode: a.Mode, Source: a.Source, Verdict: "fail"}
+	target := targets[a.Mode]
+	a, scope := narrowToConsumers(a, cfg.resources, sc.Blueprint, target)
+	a.Query = strings.ReplaceAll(a.Query, "{{blueprint}}", queryLabelValue(sc.Blueprint))
+	a.SiblingQuery = strings.ReplaceAll(a.SiblingQuery, "{{blueprint}}", queryLabelValue(sc.Blueprint))
+	d := disposition{ID: id, Mode: a.Mode, Source: a.Source, Verdict: "fail", Scope: scope}
 	if a.SiblingQuery != "" && cfg.siblingEnv == "" {
 		d.Detail = "environment-scoped assertion requires -sibling-env"
 		return d
 	}
-	target := targets[a.Mode]
+	if a.AnySeries {
+		return exerciseAnySeries(ctx, c, cfg, a, id, target, d)
+	}
 	baseline, err := observe(ctx, c, cfg, a, target, "")
 	if err != nil {
 		d.Detail = "baseline observation: " + err.Error()
@@ -171,7 +185,7 @@ func exercise(ctx context.Context, c *http.Client, cfg config, sc control.Scenar
 		return d
 	}
 	d.Active = &active
-	if !moved(a.Direction, baseline, active, cfg.minChange) {
+	if !movedFor(a, baseline, active, cfg.minChange) {
 		d.Detail = fmt.Sprintf("active value %.6g did not %s from baseline %.6g by %.0f%%", active, a.Direction, baseline, cfg.minChange*100)
 		return d
 	}
@@ -202,13 +216,101 @@ func exercise(ctx context.Context, c *http.Client, cfg config, sc control.Scenar
 		return d
 	}
 	d.Cleared = &cleared
-	if !near(baseline, cleared, cfg.minChange) {
+	if !clearedFor(a, baseline, cleared, cfg.minChange) {
 		d.Detail = fmt.Sprintf("deactivation did not return near baseline: baseline %.6g, cleared %.6g", baseline, cleared)
 		return d
 	}
 	d.Verdict = "pass"
 	d.Detail = "emitted-data assertion moved while active, sibling stayed baseline when applicable, and deactivation cleared the reversible observation"
 	return d
+}
+
+// exerciseAnySeries proves an effect whose carrying series the target does not name (a causal
+// resource, bound to its consumers by the blueprint). It passes when a series present both before
+// and during the activation moves in the assertion's direction by at least cfg.minChange, and every
+// series that moved returns near its baseline after deactivation. A series that exists in only one
+// of the two snapshots is not compared: appearing or vanishing is not movement of a known series.
+func exerciseAnySeries(ctx context.Context, c *http.Client, cfg config, a failuremode.Assertion, id, target string, d disposition) disposition {
+	baseline, err := observeSeries(ctx, c, cfg, a, target, "")
+	if err != nil {
+		d.Detail = "baseline observation: " + err.Error()
+		return d
+	}
+	if err := mutate(ctx, c, cfg, "/control/scenarios/activate", id); err != nil {
+		d.Detail = "activate: " + err.Error()
+		return d
+	}
+	deactivated := false
+	defer func() {
+		if !deactivated {
+			_ = mutate(context.Background(), c, cfg, "/control/scenarios/deactivate", id)
+		}
+	}()
+	if err := wait(ctx, cfg.settle); err != nil {
+		d.Detail = err.Error()
+		return d
+	}
+	active, err := observeSeries(ctx, c, cfg, a, target, "")
+	if err != nil {
+		d.Detail = "active observation: " + err.Error()
+		return d
+	}
+	var movedKeys []string
+	for key, was := range baseline {
+		if now, ok := active[key]; ok && movedFor(a, was, now, cfg.minChange) {
+			movedKeys = append(movedKeys, key)
+		}
+	}
+	if len(movedKeys) == 0 {
+		d.Detail = fmt.Sprintf("no series %s by %.0f%% from its baseline across %d baseline and %d active series", a.Direction, cfg.minChange*100, len(baseline), len(active))
+		return d
+	}
+	sort.Strings(movedKeys)
+	best := movedKeys[0]
+	for _, key := range movedKeys[1:] {
+		if relativeChange(baseline[key], active[key]) > relativeChange(baseline[best], active[best]) {
+			best = key
+		}
+	}
+	d.Baseline, d.Active = ptr(baseline[best]), ptr(active[best])
+	if err := mutate(ctx, c, cfg, "/control/scenarios/deactivate", id); err != nil {
+		d.Detail = "deactivate: " + err.Error()
+		return d
+	}
+	deactivated = true
+	if err := wait(ctx, cfg.settle); err != nil {
+		d.Detail = err.Error()
+		return d
+	}
+	cleared, err := observeSeries(ctx, c, cfg, a, target, "")
+	if err != nil {
+		d.Detail = "cleared observation: " + err.Error()
+		return d
+	}
+	for _, key := range movedKeys {
+		got, ok := cleared[key]
+		if !ok {
+			continue // a series that stopped being reported has not stayed elevated
+		}
+		if !clearedFor(a, baseline[key], got, cfg.minChange) {
+			d.Detail = fmt.Sprintf("deactivation did not return series {%s} near baseline: baseline %.6g, cleared %.6g", key, baseline[key], got)
+			d.Cleared = ptr(got)
+			return d
+		}
+	}
+	if got, ok := cleared[best]; ok {
+		d.Cleared = ptr(got) // never report a cleared value the query did not return
+	}
+	d.Verdict = "pass"
+	d.Detail = fmt.Sprintf("%d of %d series moved while active and every moved series returned near baseline after deactivation", len(movedKeys), len(baseline))
+	return d
+}
+
+func ptr(v float64) *float64 { return &v }
+
+// relativeChange orders moved series; a zero baseline ranks by the absolute value reached.
+func relativeChange(baseline, active float64) float64 {
+	return math.Abs(active-baseline) / math.Max(math.Abs(baseline), 1)
 }
 
 func getSchema(ctx context.Context, c *http.Client, cfg config) (control.Schema, error) {
@@ -225,6 +327,20 @@ func mutate(ctx context.Context, c *http.Client, cfg config, path, id string) er
 }
 
 func observe(ctx context.Context, c *http.Client, cfg config, a failuremode.Assertion, target, sibling string) (float64, error) {
+	series, err := observeSeries(ctx, c, cfg, a, target, sibling)
+	if err != nil {
+		return 0, err
+	}
+	var sum float64
+	for _, v := range series {
+		sum += v
+	}
+	return sum, nil
+}
+
+// observeSeries runs the assertion's instant query and returns one finite value per result
+// series, keyed by its sorted label set ("" for a label-less aggregate).
+func observeSeries(ctx context.Context, c *http.Client, cfg config, a failuremode.Assertion, target, sibling string) (map[string]float64, error) {
 	query := a.Query
 	if sibling != "" {
 		query = a.SiblingQuery
@@ -236,44 +352,60 @@ func observe(ctx context.Context, c *http.Client, cfg config, a failuremode.Asse
 		base, user, token = cfg.lokiURL, cfg.lokiUser, cfg.lokiToken
 	}
 	if base == "" {
-		return 0, fmt.Errorf("%s query URL is required for %s", a.QueryAPI, a.Mode)
+		return nil, fmt.Errorf("%s query URL is required for %s", a.QueryAPI, a.Mode)
 	}
 	u, err := url.Parse(strings.TrimRight(base, "/") + "/api/v1/query")
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	q := u.Query()
 	q.Set("query", query)
 	u.RawQuery = q.Encode()
 	var out queryResponse
 	if err := requestJSON(ctx, c, u.String(), "", user, token, http.MethodGet, nil, &out); err != nil {
-		return 0, err
+		return nil, err
 	}
 	if out.Status != "success" {
-		return 0, fmt.Errorf("query status %q: %s", out.Status, out.Error)
+		return nil, fmt.Errorf("query status %q: %s", out.Status, out.Error)
 	}
 	if len(out.Data.Result) == 0 {
-		return 0, errors.New("query returned no series")
+		return nil, errors.New("query returned no series")
 	}
-	var sum float64
+	series := make(map[string]float64, len(out.Data.Result))
 	for _, result := range out.Data.Result {
 		if len(result.Value) != 2 {
-			return 0, errors.New("query result is not an instant vector")
+			return nil, errors.New("query result is not an instant vector")
 		}
 		text, ok := result.Value[1].(string)
 		if !ok {
-			return 0, errors.New("query value is not a string")
+			return nil, errors.New("query value is not a string")
 		}
 		v, err := strconv.ParseFloat(text, 64)
 		if err != nil {
-			return 0, fmt.Errorf("parse query value %q: %w", text, err)
+			return nil, fmt.Errorf("parse query value %q: %w", text, err)
 		}
 		if math.IsNaN(v) || math.IsInf(v, 0) {
-			return 0, fmt.Errorf("query value is non-finite: %q", text)
+			return nil, fmt.Errorf("query value is non-finite: %q", text)
 		}
-		sum += v
+		series[seriesKey(result.Metric)] += v
 	}
-	return sum, nil
+	return series, nil
+}
+
+// seriesKey is a stable identity for one result series.
+func seriesKey(metric map[string]string) string {
+	keys := make([]string, 0, len(metric))
+	for k := range metric {
+		if k != "__name__" {
+			keys = append(keys, k)
+		}
+	}
+	sort.Strings(keys)
+	parts := make([]string, len(keys))
+	for i, k := range keys {
+		parts[i] = k + "=" + metric[k]
+	}
+	return strings.Join(parts, ",")
 }
 
 type queryResponse struct {
@@ -281,7 +413,8 @@ type queryResponse struct {
 	Error  string `json:"error"`
 	Data   struct {
 		Result []struct {
-			Value []any `json:"value"`
+			Metric map[string]string `json:"metric"`
+			Value  []any             `json:"value"`
 		} `json:"result"`
 	} `json:"data"`
 }
@@ -337,6 +470,26 @@ func moved(direction failuremode.Direction, baseline, active, minChange float64)
 	}
 }
 
+// movedFor is moved plus the assertion's absolute floor: an observation that must reach MinActive
+// before it counts, so a series at (or near) zero that blips to a small positive value is noise,
+// not the fault. Assertions without a floor keep moved's semantics exactly.
+func movedFor(a failuremode.Assertion, baseline, active, minChange float64) bool {
+	if a.MinActive > 0 && active < a.MinActive {
+		return false
+	}
+	return moved(a.Direction, baseline, active, minChange)
+}
+
+// clearedFor is near, except that a floored assertion whose baseline sat below the floor clears
+// once the observation is back under the floor: near's tolerance around zero is a fixed 0.2, far
+// below the floor, and a residual between the two is neither elevated nor an exact return.
+func clearedFor(a failuremode.Assertion, baseline, cleared, minChange float64) bool {
+	if a.MinActive > 0 && baseline < a.MinActive {
+		return cleared < a.MinActive
+	}
+	return near(baseline, cleared, minChange)
+}
+
 func near(want, got, tolerance float64) bool {
 	scale := math.Max(math.Abs(want), 1)
 	return math.Abs(want-got) <= scale*tolerance
@@ -362,4 +515,87 @@ func wait(ctx context.Context, d time.Duration) error {
 	case <-t.C:
 		return nil
 	}
+}
+
+// narrowToConsumers restricts a resource-mode assertion to the series its targeted resource's
+// bound consumers emit, as the control schema lists them, and says what it did. The floors and
+// direction are untouched; only the query changes. A resource with no consumer of a kind the query
+// can filter on (or an assertion whose series carry no consumer identity) keeps the blueprint-wide
+// observation and the label says so, so a pass is never read as narrower than it was.
+func narrowToConsumers(a failuremode.Assertion, resources []control.ResourceInfo, blueprint, target string) (failuremode.Assertion, string) {
+	if _, resourceMode := causal.ModeKind(a.Mode); !resourceMode {
+		return a, ""
+	}
+	if len(a.Scopes) == 0 {
+		return a, "blueprint-wide (the mode's series carry no consumer identity)"
+	}
+	matched := matchResources(resources, blueprint, a.Mode, target)
+	if len(matched) == 0 {
+		return a, fmt.Sprintf("blueprint-wide (the schema lists no resource %q for %s)", target, a.Mode)
+	}
+	consumers, _ := scopeConsumers(resources, blueprint, a.Mode, target)
+	scoped, n := a.Scope(consumers)
+	if n == 0 {
+		return a, fmt.Sprintf("blueprint-wide (no listed consumer of %s is of a kind the query filters on)", resourceNames(matched))
+	}
+	return scoped, fmt.Sprintf("%d bound consumers of %s", n, resourceNames(matched))
+}
+
+func resourceNames(rs []control.ResourceInfo) string {
+	names := make([]string, len(rs))
+	for i, r := range rs {
+		names[i] = r.Name
+	}
+	return strings.Join(names, ", ")
+}
+
+// matchResources are the blueprint's resources a scenario effect reaches. The effect's target is a
+// resource name, a base name shared by one resource per environment (Alias), or the wildcard form
+// (also an empty target) that selects every resource of the kind the mode acts on. A slowed
+// dependency also stretches the pools, concurrency limits and queues that hold their work across
+// it, so dependency_slow reaches those resources' consumers too.
+func matchResources(resources []control.ResourceInfo, blueprint, mode, target string) []control.ResourceInfo {
+	kind, ok := causal.ModeKind(mode)
+	if !ok {
+		return nil
+	}
+	var matched []control.ResourceInfo
+	named := map[string]bool{}
+	for _, r := range resources {
+		if r.Blueprint != blueprint || r.Kind != string(kind) {
+			continue
+		}
+		if target == "" || target == string(causal.AxisResource)+":*" || r.Name == target || r.Alias == target {
+			matched = append(matched, r)
+			named[r.Name] = true
+		}
+	}
+	if mode == causal.ModeDependencySlow {
+		for _, r := range resources {
+			if r.Blueprint == blueprint && r.HeldAcross != "" && named[r.HeldAcross] && !named[r.Name] {
+				matched = append(matched, r)
+			}
+		}
+	}
+	return matched
+}
+
+// scopeConsumers flattens the consumers of the matched resources into the form an assertion
+// scopes by. Each app consumer's callers become consumers of their own kind, with the consumer's
+// identity and their service: their server spans include the consumer's hop. It reports whether
+// any resource matched.
+func scopeConsumers(resources []control.ResourceInfo, blueprint, mode, target string) ([]failuremode.Consumer, bool) {
+	matched := matchResources(resources, blueprint, mode, target)
+	var out []failuremode.Consumer
+	for _, r := range matched {
+		for _, c := range r.Consumers {
+			out = append(out, failuremode.Consumer{Kind: c.Kind, Identity: c.Identity})
+			for _, caller := range c.Callers {
+				id := maps.Clone(c.Identity)
+				id["service"] = caller
+				out = append(out, failuremode.Consumer{Kind: failuremode.ConsumerAppCallers, Identity: id})
+			}
+		}
+	}
+	return out, len(matched) > 0
 }

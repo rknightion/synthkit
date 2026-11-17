@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -256,12 +255,7 @@ func TestHATerminalExitWindowHelper(t *testing.T) {
 	cfg.MasterTick, cfg.SendDrainDeadline = time.Hour, 2*time.Second
 	cfg.FMURL, cfg.SigilEndpoint, cfg.FaroCollector, cfg.ProfilesURL, cfg.ControlToken = "", "", "", "", ""
 	cfg.GitPollInterval = 0
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.HTTPAddr = listener.Addr().String()
-	_ = listener.Close()
+	cfg.HTTPAddr = childHTTPAddr
 	events := &observedAdmission{path: filepath.Join(root, "events.jsonl")}
 	term, selected := make(chan struct{}), make(chan struct{})
 	var stopped func()

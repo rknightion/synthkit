@@ -1,0 +1,43 @@
+{
+  "blueprint": "hosts-macos",
+  "digest": "per family: [row count, first 16 hex digits of sha256 over the sorted canonical masked rows]; numbers quantised to 6 significant digits",
+  "families": {
+    "metrics": {
+      "node_boot_time_seconds": [3, "f932bd1e6af8a98c"],
+      "node_cpu_seconds_total": [112, "e40f25c295c4740e"],
+      "node_disk_io_time_seconds_total": [3, "e5531d797f4de3d0"],
+      "node_disk_read_bytes_total": [3, "446e26994f8a2884"],
+      "node_disk_written_bytes_total": [3, "1b551234c8b8cd60"],
+      "node_filesystem_avail_bytes": [3, "29bd141b44954f66"],
+      "node_filesystem_files": [3, "86a7e381c5af018c"],
+      "node_filesystem_files_free": [3, "830db33d38eb1bae"],
+      "node_filesystem_readonly": [3, "b655b80e823fb776"],
+      "node_filesystem_size_bytes": [3, "42104f6801cd180b"],
+      "node_load1": [3, "e0a1a8b38512dac1"],
+      "node_load15": [3, "c7007bfac9f60383"],
+      "node_load5": [3, "4f1a464c312b5bab"],
+      "node_memory_compressed_bytes": [3, "53002377b8497ba5"],
+      "node_memory_internal_bytes": [3, "1824a185ac08ba2c"],
+      "node_memory_purgeable_bytes": [3, "01ada98b254c5664"],
+      "node_memory_swap_total_bytes": [3, "4414231a2d1a7c3a"],
+      "node_memory_swap_used_bytes": [3, "31a13445c097d176"],
+      "node_memory_total_bytes": [3, "b2c8887d6cc49f05"],
+      "node_memory_wired_bytes": [3, "b8762f8460d2121b"],
+      "node_network_receive_bytes_total": [3, "11edd5dddbb0eaa6"],
+      "node_network_receive_drop_total": [3, "8e5d91af87d8432b"],
+      "node_network_receive_errs_total": [3, "4f440b86326eed9b"],
+      "node_network_receive_packets_total": [3, "c156676746a61c7b"],
+      "node_network_transmit_bytes_total": [3, "a8f9f17e8143f9df"],
+      "node_network_transmit_drop_total": [3, "482b4d7b73d7e52a"],
+      "node_network_transmit_errs_total": [3, "24c9233a09460cbd"],
+      "node_network_transmit_packets_total": [3, "ba88e80c5557570c"],
+      "node_os_info": [3, "fcc1852a7916cb8f"],
+      "node_textfile_scrape_error": [3, "5a5d485ac408cbed"],
+      "node_uname_info": [3, "c1ed788f6387a476"],
+      "up": [3, "89acdedfb5f40656"]
+    },
+    "logs": {
+      "job=integrations/macos-node": [38, "98e19cd79a2f67ee"]
+    }
+  }
+}

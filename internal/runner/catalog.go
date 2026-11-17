@@ -11,6 +11,7 @@ import (
 	"github.com/rknightion/synthkit/internal/construct/beylaagent"
 	"github.com/rknightion/synthkit/internal/construct/certmanager"
 	"github.com/rknightion/synthkit/internal/construct/cloudflare"
+	"github.com/rknightion/synthkit/internal/construct/cloudwatchlogs"
 	"github.com/rknightion/synthkit/internal/construct/clusterautoscaler"
 	"github.com/rknightion/synthkit/internal/construct/coredns"
 	"github.com/rknightion/synthkit/internal/construct/cspazure"
@@ -20,6 +21,7 @@ import (
 	"github.com/rknightion/synthkit/internal/construct/dbo11ymysql"
 	"github.com/rknightion/synthkit/internal/construct/dbo11ypg"
 	"github.com/rknightion/synthkit/internal/construct/docdb"
+	"github.com/rknightion/synthkit/internal/construct/dynamodb"
 	"github.com/rknightion/synthkit/internal/construct/ebscsi"
 	"github.com/rknightion/synthkit/internal/construct/ec2"
 	"github.com/rknightion/synthkit/internal/construct/elasticache"
@@ -33,6 +35,7 @@ import (
 	"github.com/rknightion/synthkit/internal/construct/k8sprofiling"
 	"github.com/rknightion/synthkit/internal/construct/karpenter"
 	"github.com/rknightion/synthkit/internal/construct/ksmingress"
+	"github.com/rknightion/synthkit/internal/construct/lambda"
 	"github.com/rknightion/synthkit/internal/construct/langsmitheval"
 	"github.com/rknightion/synthkit/internal/construct/langsmithplatform"
 	"github.com/rknightion/synthkit/internal/construct/lbc"
@@ -43,8 +46,12 @@ import (
 	"github.com/rknightion/synthkit/internal/construct/portkeypoller"
 	"github.com/rknightion/synthkit/internal/construct/qualificationpipeline"
 	"github.com/rknightion/synthkit/internal/construct/rds"
+	"github.com/rknightion/synthkit/internal/construct/redshift"
+	"github.com/rknightion/synthkit/internal/construct/scheduler"
 	"github.com/rknightion/synthkit/internal/construct/sm"
 	"github.com/rknightion/synthkit/internal/construct/snowflake"
+	"github.com/rknightion/synthkit/internal/construct/solace"
+	"github.com/rknightion/synthkit/internal/construct/sqs"
 	"github.com/rknightion/synthkit/internal/construct/vpccni"
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/workload/aiagent"
@@ -133,6 +140,13 @@ func Catalog() *core.Registry {
 	reg.RegisterConstruct(withMetricProducers(glue.Registration(), producerUnlabelled, producerOTLPNative))
 	reg.RegisterConstruct(withMetricProducers(bedrock.Registration(), producerUnlabelled, producerOTLPNative))
 	reg.RegisterConstruct(withMetricProducers(agentcore.Registration(), producerUnlabelled, producerOTLPNative))
+	// Initial captured CW consumers have no implemented native export admission.
+	reg.RegisterConstruct(withMetricProducer(lambda.Registration(), producerUnlabelled))
+	reg.RegisterConstruct(withMetricProducer(sqs.Registration(), producerUnlabelled))
+	reg.RegisterConstruct(withMetricProducer(dynamodb.Registration(), producerUnlabelled))
+	reg.RegisterConstruct(withMetricProducer(redshift.Registration(), producerUnlabelled))
+	reg.RegisterConstruct(withMetricProducer(cloudwatchlogs.Registration(), producerUnlabelled))
+	reg.RegisterConstruct(withMetricProducer(scheduler.Registration(), producerUnlabelled))
 
 	// Cluster add-ons (blueprint addons: list).
 	reg.RegisterConstruct(withMetricProducer(lbc.Registration(), producerPromRW))
@@ -175,6 +189,7 @@ func Catalog() *core.Registry {
 	reg.RegisterConstruct(withMetricProducer(langsmithplatform.Registration(), producerPromRW))
 	reg.RegisterConstruct(withMetricProducer(langsmitheval.Registration(), producerPromRW))
 	reg.RegisterConstruct(withMetricProducer(snowflake.Registration(), producerPromRW))
+	reg.RegisterConstruct(withMetricProducer(solace.Registration(), producerPromRW))
 	reg.RegisterConstruct(withMetricProducer(qualificationpipeline.Registration(), producerPromRW))
 	reg.RegisterConstruct(withMetricProducers(beylaagent.Registration(), producerPromRW, producerOTLPNative))
 	reg.RegisterConstruct(withMetricProducer(nettopo.Registration(), producerPromRW))

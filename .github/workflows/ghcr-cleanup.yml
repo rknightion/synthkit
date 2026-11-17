@@ -26,6 +26,6 @@ jobs:
       packages: "synthkit,synthkit-skcapture"
       # The chart pins this verified image by digest; retain its tag beyond the edge window.
       # Preserve the reusable's stable/latest/main protections when updating this chart pin.
-      protected-tags: '^(latest|main|v?[0-9.]+|main-27455d6)$'
+      protected-tags: '^(latest|main|v?[0-9.]+|main-27455d6|main-7573924)$'
       # Scheduled runs prune for real; a manual dispatch defaults to dry-run.
       dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run || false }}

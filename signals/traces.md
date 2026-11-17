@@ -56,6 +56,105 @@ app_automation:
   forbidden: [payloads, secrets, command_output, arbitrary_attributes]
 ```
 
+## App causal request spans [slug: traces-app-causal]
+
+An `app` workload that opts into causal resources (`uses`, `call_policies`, `worker`,
+`traffic.from_resource`) projects each request's derived hop facts. Healthy requests keep the
+legacy spans. Only failing spans gain attributes.
+
+Provenance: OpenTelemetry semantic-conventions v1.44.0:
+https://github.com/open-telemetry/semantic-conventions/blob/v1.44.0/docs/http/http-spans.md
+(status rules, `http.response.status_code`, `http.request.resend_count`, `error.type`)
+https://github.com/open-telemetry/semantic-conventions/blob/v1.44.0/docs/db/database-spans.md
+(`error.type` on a database client span)
+https://github.com/open-telemetry/semantic-conventions/blob/v1.44.0/docs/registry/attributes/error.md
+(`error.type`, fallback value `_OTHER`)
+https://github.com/open-telemetry/semantic-conventions/blob/v1.44.0/docs/messaging/messaging-spans.md
+(a processing span of a message consumer is `CONSUMER`)
+https://github.com/open-telemetry/semantic-conventions/blob/v1.44.0/docs/exceptions/exceptions-spans.md
+(document status Deprecated: "Use Semantic conventions for exceptions in logs instead")
+https://github.com/open-telemetry/semantic-conventions/blob/v1.44.0/docs/exceptions/exceptions-logs.md
+(`exception.type` on a log record).
+OpenTelemetry specification v1.61.0:
+https://github.com/open-telemetry/opentelemetry-specification/blob/v1.61.0/specification/trace/api.md
+(span status description only with `Error`; `CONSUMER` span kind).
+https://github.com/open-telemetry/semantic-conventions/blob/v1.44.0/docs/general/recording-errors.md
+(Development: context-sensitive error classification; errors handled gracefully SHOULD NOT be
+recorded on spans or metrics describing that operation; the example uses application-owned
+attributes to describe the handled result, not a universal handled-error attribute).
+
+- A worker entry's CONSUMER root is named `{messaging.operation.name} {destination}` per the pinned
+  messaging Span name rule (messaging-spans.md "Span name": operation name, a space, then the
+  destination; "Process span" example operation name `process`). The operation is `process`
+  (the entry handles the messages it is handed). The destination is the bound queue resource
+  (`traffic.from_resource`), a declared low-cardinality name known to be neither temporary nor
+  anonymous, so `process <queue resource>` (for example `process validation-queue`). The declared
+  route is a request path (`GET /`), not a queue name, so it is not the destination. A span
+  `name_template` of the root's kind still overrides the default. Only a `worker: true` entry is
+  renamed; every other root, callee span and non-causal request keeps its route or node name. The
+  derived span-metric `span_name` for that entry row is the same string. No `messaging.*`
+  attribute is stamped (`messaging.system` has no sourced value for a queue resource; PENDING in
+  [cantfind.md](../cantfind.md) SK-134).
+- HTTP SERVER span status is ERROR only for a 5xx response; a 4xx answer stays UNSET. A gRPC
+  SERVER span follows the pinned gRPC rule instead: ERROR only for UNKNOWN, DEADLINE_EXCEEDED,
+  UNIMPLEMENTED, INTERNAL, UNAVAILABLE and DATA_LOSS (here the 5xx class and a call that timed
+  out), UNSET for a throttle or a 4xx rejection ([slug: traces-causal-grpc-status]). CLIENT spans
+  are ERROR for 4xx, 5xx and transport failures (connect, credential, timeout), gRPC included. A
+  worker entry's root is a CONSUMER span; the HTTP rules do not apply to it. A causal rule-origin
+  4xx rejection is handled gracefully only at its originating operation: that root or non-HTTP
+  callee stays UNSET without `error.type` or a status description, while the warning log retains
+  the rejection cause. Non-HTTP callers with an unabsorbed child failure remain ERROR; inherited
+  rule-fault provenance is not operation-local handling evidence. This
+  exception is not a blanket 4xx exemption: token refusals, transport and execution failures,
+  timeouts (including one masking a rule answer), and rule-origin 5xx remain ERROR on non-HTTP
+  operations. An HTTP or gRPC SERVER still follows its protocol's status rules. CLIENT failures
+  remain ERROR. Authors may use empty-kind SpanSpec attributes with `ref: outcome` and
+  `ref: error_code` for their own application marker key/value; synthkit invents no fixed marker.
+- `http.response.status_code` is stamped on failing HTTP service hops and a failing SERVER root,
+  never on gRPC hops or worker/stream/job operations; db/cache leaf CLIENT spans get `error.type` only.
+- `error.type` is set only on a span whose status is ERROR (a SERVER span answering 4xx or 429
+  stays UNSET with `http.response.status_code` and no `error.type`; the cause stays on the log).
+  It is the origin's own type at the origin span (callee SERVER span for server-side
+  faults; caller CLIENT span for transport failures and timeouts). Upstream spans carry the mapped
+  status as a string, or `timeout` / the transport type when no status was seen. A resource
+  failure with neither a status nor a declared type uses the well-known fallback `_OTHER`.
+- The origin span's status description is the fault message, set only when the span is ERROR (the
+  specification forbids a description on any other status). The semantic conventions advise
+  omitting a description the status code already implies; the message is kept because it names
+  the declared cause (a resource and its mode), which a status code cannot.
+- A request that fails only from the workload's baseline error rate (no declared fault) projects
+  as a non-causal request apart from span timing (its spans sit on the causal timeline, as a
+  successful request's do), except in a `traffic.from_resource` app (a bound function's
+  invocations, which has no non-causal twin): there the entry's background failure is its
+  `error_rate` cause, so its root follows the rules above with `error.type` the status as a string
+  and the status description `<service>: <error code>` (the drawn `error_mix` code).
+- Each resend is its own CLIENT span (and callee SERVER subtree) with
+  `http.request.resend_count` = 1, 2, ...; the first attempt omits it.
+- No `exception` span event is emitted (deprecated in the pinned conventions). The class rides
+  the error log's `exception_type` field instead ([logs.md](logs.md)), a blueprint-declared log
+  field whose name is the author's choice.
+
+```yaml signals
+app_causal:
+  v: ok
+  emitter: app workload (causal requests)
+  attributes:
+    - {name: http.response.status_code, type: int, present: failing-http-hops-only}
+    - {name: error.type, type: string, present: failed-operations-only}
+    - {name: http.request.resend_count, type: int, present: resends-only}
+  status:
+    http_server_5xx: STATUS_CODE_ERROR
+    http_server_4xx: STATUS_CODE_UNSET
+    grpc_server_error_class: STATUS_CODE_ERROR      # 5xx class and timeouts; see traces-causal-grpc-status
+    grpc_server_throttle_or_4xx: STATUS_CODE_UNSET
+    client_4xx_5xx_transport_timeout: STATUS_CODE_ERROR
+    consumer_root_unhandled_failure: STATUS_CODE_ERROR
+    nonhttp_origin_handled_rule_4xx: STATUS_CODE_UNSET # root or callee's own rule_regression only; not inherited child failure, token, transport, timeout or 5xx
+  span_kinds:
+    worker_entry_root: SPAN_KIND_CONSUMER
+  span_events: none
+```
+
 The `web_service` workload emits ONE connected trace per request modelling the real browser→backend→DB
 path. Hand-encoded multi-Resource `ResourceSpans` (I2); Tempo assembles by `trace_id`+`parent_span_id`
 across exports. See [`00-canon.md`](00-canon.md) for scoping `[slug: request-correlation]`, envelope keys
@@ -205,6 +304,8 @@ Span timing uses `r.RenderStart()`; ledger windowing keys on `r.Start` (I11).
 
 An `app` `services[]` node can set `signals.traces: false`. It emits no root, SERVER, CLIENT, DSL child or agent-flow spans of its own. A traced caller's CLIENT span remains, and the untraced node passes W3C trace context through to a traced callee. The callee's SERVER span uses the same trace ID and the nearest emitted CLIENT as parent, so Tempo can show a direct caller-to-callee connection across the untraced node. An untraced entry with no upstream span leaves the first traced callee as the observed root. This switch does not stop the ledger from minting correlation IDs or remove trace IDs from enabled logs. An entry carrying `rum_faro` and a node declaring `agentic_flow` must keep traces enabled.
 
+**Queue-driven worker spans** (`app` with `traffic.from_resource` and a `worker` entry). The worker's root is a `SPAN_KIND_CONSUMER` span. When another app's hop publishes into the queue (its service `uses` the queue), the worker request that takes that message continues the producing request's trace: `trace_id` is the producing request's, `parent_span_id` is the publishing hop's span (the publisher's SERVER span, else the caller's CLIENT span), and the span carries one OTLP `Span.links` entry to that same span context (semantic-conventions v1.44.0 messaging-spans.md, "Message creation context as parent of Process span": a single-message process span MAY use the creation context as parent and links to it). The worker's logs carry the same `trace_id`. The pairing is first in, first out per queue: a worker request takes the oldest unconsumed message whose producing request started no later than the worker request started minus its duration, and a request that finds none keeps its own root with no parent and no link. A failed publishing hop publishes no message. Span counts and span metrics are unchanged: no span is added or removed.
+
 ## App db/cache leaf → RDS instance link (db-CLIENT span) [slug: traces-app-db-instance]
 
 The `app` workload models its service graph as nodes; a `type: db`/`type: cache` node is a **leaf**
@@ -261,3 +362,21 @@ app_db_leaf_client_span:
     db_instance_identifier: first DNS label of server.address   # → dbo11y RDS instance metrics
   provenance: 2026-06-17 — app db-leaf RDS link (Option A); faithful to OTel/Beyla DB semconv, demoability-motivated
 ```
+
+## Causal gRPC hop span status [slug: traces-causal-grpc-status]
+
+A causal hop to or from a `type: grpc` node follows the gRPC span-status rules, not the HTTP
+ones. Provenance: OpenTelemetry semantic-conventions v1.44.0
+https://github.com/open-telemetry/semantic-conventions/blob/v1.44.0/docs/rpc/grpc.md
+
+- A gRPC SERVER span (a callee's, or a gRPC entry's root) is ERROR only for the statuses the
+  convention lists as server errors: UNKNOWN, DEADLINE_EXCEEDED, UNIMPLEMENTED, INTERNAL,
+  UNAVAILABLE and DATA_LOSS. The causal facts carry HTTP-class statuses, so the 5xx class and a
+  call that timed out are server errors; a throttle (429, RESOURCE_EXHAUSTED) and a rule or
+  argument rejection (4xx, INVALID_ARGUMENT) leave the SERVER span UNSET with no `error.type`.
+- A CLIENT span calling a gRPC node is ERROR on any failed answer (every status except OK).
+- No HTTP status attribute is stamped on any span of a gRPC hop. The gRPC status attribute
+  (`rpc.response.status_code` in v1.44.0) is not emitted until its values are sourced (cantfind
+  SK-133); `error.type` keeps its generic value.
+- Only HTTP service types carry `http.response.status_code`; `worker`, `stream` and `job`
+  nodes do not.

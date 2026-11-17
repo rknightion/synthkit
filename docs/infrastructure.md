@@ -141,6 +141,11 @@ k8s_monitoring:
 
 Absent feature flags are treated as `false` — that collector role is not deployed.
 
+Baseline container memory can exceed its request while remaining within its declared limit.
+The shared [cAdvisor value model](https://github.com/rknightion/synthkit/blob/main/signals/k8s.md)
+bounds the memory components together, including explicit limits below the normal usage floor.
+It does not turn memory pressure into an OOM incident automatically.
+
 ### Cluster observability gate
 
 `cluster.observability.cloudwatch` controls the per-node `aws_ec2_*` lane. Set it to `false` for a pure k8s-only footprint:

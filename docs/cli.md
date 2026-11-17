@@ -26,6 +26,7 @@ loads the complete catalog.
 | `-validate` | false | Offline validation of the selected local blueprint set; print JSON cardinality projections and diagnostics, then exit non-zero on errors. |
 | `-preflight` | false | Validate and probe mandatory live Grafana endpoints, then exit with redacted lane/reason output. |
 | `-healthcheck` | false | Exit successfully only when the local control plane reports delivery readiness; used by Compose. |
+| `-startupcheck` | false | Read-only local `/control/startup` probe: boot completion only, never delivery or admission. Uses `JSON_HTTP_ADDR` directly, not `-env`; cannot combine with other modes or `-one-shot-deadline`. Requires a compatible image. See [startup versus delivery readiness](control-plane.md#startup-versus-delivery-readiness). |
 | `-version` | false | Print `{"version":"X.Y.Z","revision":"<40-hex>"}` as JSON, then exit. Local builds report `dev`/`unknown` unless stamped. |
 | `-env <path>` | `.env` | Path to the `.env` file (optional; falls back to process environment). |
 
@@ -61,7 +62,8 @@ Stdout is one JSON object with `ok`, `blueprints` and `diagnostics`. Each bluepr
 number of distinct metric series observed in one throwaway dry cycle (including native OTLP
 metrics), **not** a long-term upper bound; low-volume request lanes and time-dependent families may
 vary or be absent in that cycle. `cardinality: -1` means the projection was unavailable. Runtime
-control overrides are not applied. Validation takes precedence over other mode flags.
+control overrides are not applied. Validation takes precedence over other mode flags except
+`-startupcheck`, which refuses combinations with any other mode.
 
 **What `-dump` output is deterministic, and what isn't.** The authoritative section of a
 `-dump` — each sink's `<name> {[sorted label/attribute keys]}` inventory block — is the
@@ -169,6 +171,14 @@ The [Kubernetes-state Helm Job](kubernetes.md#diskless-one-shot-job) supports HA
 separate named state and Lease authority. Use matching emitter/tool images at least 1.6.0-rc.176;
 preview, explicit apply and emitter restart/reacquisition remain required. File mode is still available.
 
+## agento11y-provision - manual Agent Observability provisioning
+
+Source-built, same-user local command that creates, disables and tears down the Agent Observability
+resources declared in a blueprint's `agent_observability:` block. It is not in the published image
+or Compose and installs no runtime admission. Build it with
+`just build-packages ./cmd/agento11y-provision </dev/null`; flags, private inputs, lifecycle and exit
+codes are in [agent-observability-provisioning.md](agent-observability-provisioning.md).
+
 ## blueprint-schema — schema artifact generator
 
 Regenerates the blueprint schema artifacts from the live Go types: `BLUEPRINT-SCHEMA.md` (the human reference) and `internal/blueprintschema/fielddocs.json` (the embedded field-description index used by the control-plane UI). Run this whenever a blueprint field or construct/workload config changes.
@@ -240,7 +250,7 @@ just dashgen -blueprint <path> -out <dir> -datasource <group=name> [flags]
 | `-integrations <path>` | no | Optional integrations config YAML for deep-link index. |
 | `-folder <uid>` | no | UID for the generated Folder resource (defaults to `<blueprint>-dashboards`). |
 | `-namespace <name>` | no | Derive every generated folder, dashboard and rule identity, internal `/d/` link, dropdown tag and inventory UID from `(namespace, legacy UID)` so independent installs of one blueprint do not collide. 1 to 12 characters of `a-z`, `0-9` and `_`, starting with a letter or digit; refused with no output if malformed. Absent: legacy UIDs, byte-identical output. See [tools.md](tools.md#namespacing-dashboard-uids). |
-| `-datasource <group=name>` | yes, repeated | Explicit datasource binding for every rendered query group. |
+| `-datasource <group=name>` | yes, repeated | Explicit Grafana datasource UID for every rendered query group; v2 `datasource.name` is a resource UID. |
 
 Always emits a Folder resource, a thin index dashboard, a metrics dashboard, and a panel inventory. Per-blueprint templates produce additional dashboards when registered. Use `-verify-inventory` and `-observations` to classify every panel as rendered, empty, or errored from normalized read-only observations. Push and validate with `gcx`. See [tools.md](tools.md).
 

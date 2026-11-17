@@ -94,17 +94,27 @@ test-packages *packages:
 vet-packages *packages:
     go vet {{ packages }}
 
-# race detector over the module; internal/integration is excluded (OOMs a 16 GB runner)
+# Tests listed in scripts/race-isolated.txt are skipped by the parallel race sweep and run
+# once afterwards, one package per invocation (SKT-0162). internal/integration stays excluded.
+
+# race detector over the module, timing-sensitive tests isolated; internal/integration is excluded (OOMs a 16 GB runner)
 [group('check')]
 [no-exit-message]
 race:
-    go test -race $(go list ./... | grep -v '/internal/integration$')
+    python3 scripts/race_split.py run --exclude '/internal/integration$'
 
-# initial-setup skill helper tests
+# prove the race split runs every test exactly once, and that CI reaches it through `just race`
+[group('check')]
+[no-exit-message]
+race-split-check:
+    python3 scripts/race_split.py check
+
+# deployment and operational dashboard helper tests
 [group('check')]
 [no-exit-message]
 test-helpers:
     bash plugins/synthkit/skills/initial-setup/scripts/test_helpers.sh all
+    python3 -m unittest discover -s dashboards/internal -p 'test_export_selfobs_dashboard.py'
 
 # deployment-helper safety and identity tests
 [group('check')]
@@ -344,7 +354,7 @@ proto-drift-check:
 
 # pre-commit gate: every CI validation that runs without a Docker daemon or service container
 [group('check')]
-check: _ui-embed fmt-check lint gen-check env-check docs-check test race hygiene ui-check compose-check helm-test lab-check signal-fidelity troubleshooting-check
+check: _ui-embed fmt-check lint gen-check env-check docs-check test race race-split-check hygiene ui-check compose-check helm-test lab-check signal-fidelity troubleshooting-check
 
 # local Docker validation superset; hosted CI also owns schema validation via shared workflows
 [group('check')]
@@ -422,6 +432,12 @@ gen: blueprint-schema skills-sync
 dashgen *args:
     go run ./cmd/synthkit-dash {{ args }}
 
+# export deployment-scoped process dashboards offline
+[group('gen')]
+[positional-arguments]
+selfobs-export *args:
+    python3 dashboards/internal/export_selfobs_dashboard.py "$@"
+
 # regenerate BLUEPRINT-SCHEMA.md and internal/blueprintschema/fielddocs.json from the live Go types
 [group('gen')]
 blueprint-schema:
@@ -491,3 +507,18 @@ forge *args:
 [group("check")]
 signals-conformance dump_file:
     go run ./internal/conformance -signals signals -dump {{ quote(dump_file) }}
+
+# GitHub issues and the rknightion Project; maintainers only (needs the tracker tools and credentials)
+[group('tracker')]
+[positional-arguments]
+tracker *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export TRACKER_REPO=rknightion/synthkit TRACKER_PROJECT_OWNER=rknightion TRACKER_PROJECT=7
+    export TRACKER_ISSUE_IDENTITY=app TRACKER_PROJECT_IDENTITY=user
+    exec tracker-with-token "$@"
+
+# print the issue a legacy board id (SKT-0001) became
+[group('tracker')]
+issue id:
+    TRACKER_REPO=rknightion/synthkit tracker legacy {{ quote(id) }}

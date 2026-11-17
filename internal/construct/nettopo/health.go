@@ -64,8 +64,10 @@ var bgpVendorWalkers = map[string]string{
 	"nokia":   "vendor_nokia",
 }
 
-// dominantVendor returns the most frequent vendor in the graph's device list.
-// Falls back to "arista" when the graph is empty.
+// dominantVendor returns the most frequent vendor in the graph's device list. A tie is resolved
+// to the lexicographically smallest vendor name, so the result (and the walker label derived from
+// it) never depends on Go's randomised map iteration order. Falls back to "arista" when the graph
+// is empty.
 func dominantVendor(devices []Device) string {
 	counts := map[string]int{}
 	for _, d := range devices {
@@ -73,7 +75,7 @@ func dominantVendor(devices []Device) string {
 	}
 	best, bestN := "arista", 0
 	for v, n := range counts {
-		if n > bestN {
+		if n > bestN || (n == bestN && v < best) {
 			best, bestN = v, n
 		}
 	}

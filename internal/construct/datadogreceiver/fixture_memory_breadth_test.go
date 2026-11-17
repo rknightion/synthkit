@@ -59,6 +59,7 @@ func TestSwapBreadthFixtureResourcesMatchVerdict(t *testing.T) {
 	constructed, err := Build(&Config{
 		Mode: "host", DeploymentEnvironment: "example",
 		HostName: "agent-node", ServiceName: "example-service", Source: "agent", IncrementsPerMinute: 0.5,
+		CPUs: 2, MemoryGB: 8,
 	}, &fixture.Set{})
 	if err != nil {
 		t.Fatal(err)

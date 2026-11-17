@@ -515,16 +515,7 @@ func newHAView(ctx context.Context, cfg *config.Config, gate ha.LeaderGate, boun
 	fs := fleetstatus.NewStore()
 	hs := healthstatus.NewStore()
 	configure := func() {
-		var lanes []pushstatus.LaneConfig
-		for _, l := range v.runner.DeliveryReadinessLanes() {
-			lc := pushstatus.LaneConfig{Name: l.Name, FreshAfter: l.EmissionInterval + cfg.SendDeadline}
-			if cfg.DryRun {
-				lc.Disabled = true
-				lc.DisabledReason = "dry_run"
-			}
-			lanes = append(lanes, lc)
-		}
-		ps.ConfigureLanes(lanes)
+		ps.ConfigureLanes(readinessLaneConfigs(v.runner.DeliveryReadinessLanes(), cfg.SendDeadline, cfg.DryRun))
 	}
 	configure()
 	obs := func(ctx context.Context, ev pushhook.Event) {
@@ -598,6 +589,15 @@ func newHAView(ctx context.Context, cfg *config.Config, gate ha.LeaderGate, boun
 	}
 	mutationBound := ha.Bounded{Gate: gate, Timeout: 2 * time.Second, Margin: cfg.HAFenceMargin, Crash: bound.Crash}
 	handler := control.NewHandler(store, v.runner.ApplyControl, cfg.ControlToken, v.runner).SetHA(gate, mutationBound).
+		SetStartup(func() bool {
+			// Installed before publication, only after build and preflight. Boot
+			// completion is independent of election, delivery and transition state.
+			if v.readinessFacts == nil {
+				return false
+			}
+			facts := v.readinessFacts()
+			return facts.ConfigLoaded && facts.RunnerBuilt && facts.PreflightPassed
+		}).
 		SetBasePath(cfg.ControlBasePath).
 		SetManagedFeatures(cfg.ControlManagedFeatures).
 		SetStatus(control.StatusSources{Sinks: ps.Snapshot, Queues: func() []pushstatus.QueueStat { return ps.SnapshotQueues(v.runner.QueueDepths()) }, ByBlueprint: ps.SnapshotByBlueprint, Fleet: fs.Snapshot, DryRun: cfg.DryRun, Readiness: readiness, Optional: func() []optionallane.Disposition {

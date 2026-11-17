@@ -4,10 +4,12 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/core/coretest"
 	"github.com/rknightion/synthkit/internal/ledger"
 	"github.com/rknightion/synthkit/internal/sink/otlp"
@@ -70,6 +72,24 @@ func TestAppMinterAgentFlowInventoryRepeatable(t *testing.T) {
 	}
 }
 
+var benchmarkRequest *ledger.Request
+
+func BenchmarkAppMintRequestCorrelation(b *testing.B) {
+	cfg := &Config{Traffic: Traffic{OffPeakRPS: 1, PeakRPS: 1}, Services: []ServiceNode{{Name: "backend", Type: "web", Entry: true}}}
+	workload, err := Registration().Build(cfg, core.Binding{Name: "benchmark-app", Env: coretest.Env(), Cluster: coretest.Cluster()})
+	if err != nil {
+		b.Fatal(err)
+	}
+	world := coretest.World(nil, nil, nil)
+	m := workload.(*Workload).m
+	now := time.Date(2026, 6, 15, 13, 0, 0, 0, time.UTC)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchmarkRequest = m.mintRequest(now, world.Shape, uint64(i), 0)
+	}
+}
+
 func TestAppMinterCorrelationIdentityUnits(t *testing.T) {
 	now := time.Date(2026, 6, 15, 13, 0, 0, 0, time.UTC)
 	w := buildApp(t, agentFlowCfg(false))
@@ -88,10 +108,18 @@ func TestAppMinterCorrelationIdentityUnits(t *testing.T) {
 			seen[key] = true
 		}
 	}
-	for range 3 {
-		for _, r := range w.m.Mint(now, 1, world.Shape) {
+	for tick := range 3 {
+		for requestIdx, r := range w.m.Mint(now, 1, world.Shape) {
+			seed := fmt.Sprintf("app\x00%s\x00%s\x00%s\x00%d\x00%d", w.m.workloadName, w.m.env, w.m.cluster, tick, requestIdx)
+			if want := ledger.NewCorrelationFromSeed(seed).SpanID; r.SpanID != want {
+				t.Fatalf("binding/tick/request root SpanID = %s, want %s", r.SpanID, want)
+			}
 			check(r)
 		}
+	}
+	// Observed on the unchanged minter before the narrow ledger derivation.
+	if got, want := world.Shape.Float64(), 0.094521338458405713; got != want {
+		t.Fatalf("correlation derivation shifted engine draws: got %.17g, want %.17g", got, want)
 	}
 	// Preserve direct mintOne callers' fresh request identities too.
 	check(w.m.mintOne(now, world.Shape))
@@ -107,7 +135,11 @@ func TestAppMinterCorrelationIdentityUnits(t *testing.T) {
 		case "cluster":
 			other.m.cluster += "-other"
 		}
-		for _, r := range other.m.Mint(now, 1, world.Shape) {
+		for requestIdx, r := range other.m.Mint(now, 1, world.Shape) {
+			seed := fmt.Sprintf("app\x00%s\x00%s\x00%s\x000\x00%d", other.m.workloadName, other.m.env, other.m.cluster, requestIdx)
+			if want := ledger.NewCorrelationFromSeed(seed).SpanID; r.SpanID != want {
+				t.Fatalf("changed %s binding root SpanID = %s, want %s", field, r.SpanID, want)
+			}
 			check(r)
 		}
 	}

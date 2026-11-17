@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/fixture"
 	"github.com/rknightion/synthkit/internal/sink/loki"
@@ -28,14 +29,20 @@ import (
 	"github.com/rknightion/synthkit/internal/state"
 )
 
-// Config is the (empty) per-instance configuration struct. All identity is resolved
-// from the fixture.Set handed at Build; no blueprint-specific config is needed.
-type Config struct{}
+// Config carries resolver-injected causal binding only; identity comes from fixtures.
+// Its private fields are not YAML configuration knobs.
+type Config struct {
+	resource string
+	set      causal.Set
+}
 
 // construct is the live instance produced by Build.
 type construct struct {
-	db *fixture.DB
-	st *state.State
+	db       *fixture.DB
+	st       *state.State
+	model    *causal.Model
+	resource string
+	pool     bool
 }
 
 // Build validates the fixture set and returns a ready construct instance. Returns an
@@ -48,7 +55,19 @@ func Build(cfg any, fx *fixture.Set) (core.Construct, error) {
 	if !strings.EqualFold(fx.DB.Engine, "mysql") {
 		return nil, fmt.Errorf("dbo11y_mysql: requires engine=mysql, got %q", fx.DB.Engine)
 	}
-	return &construct{db: fx.DB, st: state.NewState()}, nil
+	c := &construct{db: fx.DB, st: state.NewState()}
+	if rc, ok := cfg.(*Config); ok && rc != nil && rc.resource != "" {
+		r, err := resolveBinding(rc, fx)
+		if err != nil {
+			return nil, err
+		}
+		m, err := causal.Compile(rc.set)
+		if err != nil {
+			return nil, fmt.Errorf("dbo11y_mysql: causal model: %w", err)
+		}
+		c.model, c.resource, c.pool = m, r.Name, r.Kind == causal.KindPool
+	}
+	return c, nil
 }
 
 // ── per-series variation helpers ─────────────────────────────────────────────
@@ -71,15 +90,17 @@ func (c *construct) Signals() []core.SignalClass { return []core.SignalClass{cor
 func (c *construct) Interval() time.Duration     { return 60 * time.Second }
 
 func (c *construct) Tick(ctx context.Context, now time.Time, w *core.World) error {
-	if err := w.Metrics.Write(ctx, c.buildMetrics(now, w)); err != nil {
+	// Capture once: counters and log exemplars describe the same trailing minute.
+	bound := c.boundWindow(now, w.Shape)
+	if err := w.Metrics.Write(ctx, c.buildMetrics(now, w, bound)); err != nil {
 		return err
 	}
-	return w.Logs.Write(ctx, c.buildStreams(now, w))
+	return w.Logs.Write(ctx, c.buildStreams(now, w, bound))
 }
 
 // ── metrics ──────────────────────────────────────────────────────────────────
 
-func (c *construct) buildMetrics(now time.Time, w *core.World) []promrw.Series {
+func (c *construct) buildMetrics(now time.Time, w *core.World, bound boundReading) []promrw.Series {
 	db := c.db
 	bf := w.Shape.BusinessFactor(now) * w.Shape.Noise(0.1)
 	tgt := dboTargetLabels(db)
@@ -87,9 +108,12 @@ func (c *construct) buildMetrics(now time.Time, w *core.World) []promrw.Series {
 	// Failure-mode amplifiers (parity with the Postgres dbo11y construct). Each returns 1.0
 	// when its mode is inactive, so emission is identical to baseline unless the control plane
 	// fires the incident. All scope to db.Name (the database-axis identity).
-	connFactor := w.Shape.FailFactor(now, "connection_saturation", db.Name, 5)
-	lockFactor := w.Shape.FailFactor(now, "lock_contention", db.Name, 5)
-	slowFactor := w.Shape.FailFactor(now, "slow_query_storm", db.Name, 8)
+	connFactor, lockFactor, slowFactor := 1.0, 1.0, 1.0
+	if c.model == nil {
+		connFactor = w.Shape.FailFactor(now, "connection_saturation", db.Name, 5)
+		lockFactor = w.Shape.FailFactor(now, "lock_contention", db.Name, 5)
+		slowFactor = w.Shape.FailFactor(now, "slow_query_storm", db.Name, 8)
+	}
 
 	// ── core: connection_info ────────────────────────────────────────────────
 	// ALL SIX metric labels required (03-dbo11y §3.1.1 / T1).
@@ -119,7 +143,12 @@ func (c *construct) buildMetrics(now time.Time, w *core.World) []promrw.Series {
 	// global_status (§3.1.4).
 	// connection_saturation: connections climb toward max_connections (512). Base 20×bf×5 ≈
 	// ≤100 at peak — well within the ceiling (asserted by TestConnectionSaturationAmplifies).
-	c.st.Set("mysql_global_status_threads_connected", tgt, math.Round(20*bf*connFactor))
+	connected := math.Round(20 * bf * connFactor)
+	if bound.pool {
+		connected = bound.inUse
+	}
+	// Busy client connections are not server running threads or max_connections.
+	c.st.Set("mysql_global_status_threads_connected", tgt, connected)
 	c.st.Set("mysql_global_status_threads_running", tgt, math.Round(5*bf*connFactor))
 	c.st.Add("mysql_global_status_questions", tgt, math.Round(500*bf))
 	// slow_query_storm: the global slow-query counter accelerates.
@@ -150,7 +179,7 @@ func (c *construct) buildMetrics(now time.Time, w *core.World) []promrw.Series {
 				svRate := c.seriesVar(w, now, "stmt_sec|"+schema+"|"+q.ID, 0.30)
 				secDelta = 0.01 * bf * svRate
 			}
-			c.st.Add("mysql_perf_schema_events_statements_seconds_total", ql, secDelta)
+			c.st.Add("mysql_perf_schema_events_statements_seconds_total", ql, secDelta*bound.latency)
 			c.st.Add("mysql_perf_schema_events_statements_rows_sent_total", ql, 100*bf*svRow)
 			c.st.Add("mysql_perf_schema_events_statements_rows_examined_total", ql, 500*bf*svExam)
 			c.st.Add("mysql_perf_schema_events_statements_errors_total", ql, 0)
@@ -163,7 +192,7 @@ func (c *construct) buildMetrics(now time.Time, w *core.World) []promrw.Series {
 				lockDelta = 0.001 * bf * svLock
 			}
 			// lock_contention: lock-wait time accrues faster across every digest.
-			c.st.Add("mysql_perf_schema_events_statements_lock_time_seconds_total", ql, lockDelta*lockFactor)
+			c.st.Add("mysql_perf_schema_events_statements_lock_time_seconds_total", ql, lockDelta*lockFactor*bound.latency)
 		}
 	}
 
@@ -178,7 +207,7 @@ func (c *construct) buildMetrics(now time.Time, w *core.World) []promrw.Series {
 			wl := mergeMaps(tgt, map[string]string{"digest": q.ID, "schema": schema})
 			svWait := c.seriesVar(w, now, "wait_sec|"+schema+"|"+q.ID, 0.18)
 			// slow_query_storm: time spent in waits grows with the latency right-tail.
-			c.st.Add("database_observability_wait_event_seconds_total", wl, 0.2*bf*slowFactor*svWait)
+			c.st.Add("database_observability_wait_event_seconds_total", wl, 0.2*bf*slowFactor*svWait*bound.latency)
 		}
 	}
 
@@ -190,7 +219,7 @@ func (c *construct) buildMetrics(now time.Time, w *core.World) []promrw.Series {
 		"master_uuid": masterUUID(db.ServerID),
 	})
 	var secondsBehind float64
-	if w.Shape.Active(now, "replication_lag", db.Name) {
+	if c.model == nil && w.Shape.Active(now, "replication_lag", db.Name) {
 		secondsBehind = math.Round(w.Shape.FailFactor(now, "replication_lag", db.Name, 120))
 	}
 	c.st.Set("mysql_slave_status_seconds_behind_source", rl, secondsBehind)
@@ -212,7 +241,7 @@ func (c *construct) buildMetrics(now time.Time, w *core.World) []promrw.Series {
 
 // ── logs ─────────────────────────────────────────────────────────────────────
 
-func (c *construct) buildStreams(now time.Time, w *core.World) []loki.Stream {
+func (c *construct) buildStreams(now time.Time, w *core.World, bound boundReading) []loki.Stream {
 	db := c.db
 	if len(db.Databases) == 0 {
 		return nil
@@ -220,14 +249,14 @@ func (c *construct) buildStreams(now time.Time, w *core.World) []loki.Stream {
 	schema := db.Databases[0]
 	var out []loki.Stream
 
-	out = append(out, c.sampleStreams(now, schema)...)
-	out = append(out, c.waitStreams(now, schema)...)
+	out = append(out, c.sampleStreams(now, schema, bound.latency)...)
+	out = append(out, c.waitStreams(now, schema, bound.latency)...)
 	out = append(out, c.queryDetailStreams(now, schema)...)
 	out = append(out, c.schemaStreams(now, schema)...)
 	out = append(out, c.explainStreams(now, schema)...)
 	out = append(out, c.healthStreams(now)...)
 	// query_data_locks: only emitted when lock_contention is active (SK-14).
-	if w.Shape.Active(now, "lock_contention", db.Name) {
+	if c.model == nil && w.Shape.Active(now, "lock_contention", db.Name) {
 		out = append(out, c.lockStreams(now)...)
 	}
 	return out
@@ -235,7 +264,7 @@ func (c *construct) buildStreams(now time.Time, w *core.World) []loki.Stream {
 
 // sampleStreams emits op="query_sample" (§3.2.1).
 // Timestamp rule (M8/T7): line T = now − elapsed_time (query start).
-func (c *construct) sampleStreams(now time.Time, schema string) []loki.Stream {
+func (c *construct) sampleStreams(now time.Time, schema string, latency float64) []loki.Stream {
 	qsLabels := dboStreamLabels(c.db, "query_sample")
 	var lines []loki.Line
 	const samplesPerQuery = 4
@@ -246,6 +275,7 @@ func (c *construct) sampleStreams(now time.Time, schema string) []loki.Stream {
 		} else {
 			elapsedMs = 5 + float64(qi)*0.5
 		}
+		elapsedMs *= latency
 		elapsedStr := fmt.Sprintf("%.6fms", elapsedMs)
 		for s := range samplesPerQuery {
 			elapsedDur := time.Duration(elapsedMs * float64(time.Millisecond))
@@ -284,7 +314,7 @@ func (c *construct) sampleStreams(now time.Time, schema string) []loki.Stream {
 
 // waitStreams emits op="wait_event" (v1, §3.2.2) and op="wait_event_v2" (§3.2.3).
 // Only emitted for slow queries. Timestamp rule same as query_sample (T7).
-func (c *construct) waitStreams(now time.Time, schema string) []loki.Stream {
+func (c *construct) waitStreams(now time.Time, schema string, latency float64) []loki.Stream {
 	wev1Labels := dboStreamLabels(c.db, "wait_event")
 	wev2Labels := dboStreamLabels(c.db, "wait_event_v2")
 
@@ -295,7 +325,9 @@ func (c *construct) waitStreams(now time.Time, schema string) []loki.Stream {
 		if !q.Slow {
 			continue
 		}
-		elapsedMs := 500 + float64(qi)*50
+		// Scale baseline synthetic categories, never attribute pool acquisition waits
+		// to an InnoDB cause. Use the query duration for the shared start timestamp.
+		elapsedMs := (500 + float64(qi)*50) * latency
 		for s := range samplesPerQuery {
 			elapsedDur := time.Duration(elapsedMs * float64(time.Millisecond))
 			sampleOffset := time.Duration(s) * 15 * time.Second

@@ -5,6 +5,7 @@ package agento11yprovision
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"slices"
 	"time"
 )
@@ -127,7 +128,10 @@ func engineCleanupBefore(ctx context.Context, c *Client, p enginePlan, s Snapsho
 	}
 	co := record.Coordinate
 	o, spec, e := engineReadExact(ctx, c, p, inv, co)
-	if e != nil || o.Presence != PresencePresent || o.ManagedHash != record.ManagedHash {
+	if e != nil {
+		return co, spec, "", fmt.Errorf("%w: cleanup before exact read: %w", ErrConflict, e)
+	}
+	if o.Presence != PresencePresent || o.ManagedHash != record.ManagedHash {
 		return co, spec, "", ErrConflict
 	}
 	if e = engineVerifyCustody(ctx, c, p, s, inv, ""); e != nil {

@@ -96,7 +96,9 @@ Two secondary places also need attention:
 - The embedded control plane (`JSON_HTTP_ADDR`, default `127.0.0.1:8088`) serves **plain HTTP**
   with no built-in TLS. Loopback remains the frictionless default. With `CONTROL_TOKEN` set,
   sensitive control reads, all Infinity data routes, and every mutation require HTTP Basic auth;
-  only `/healthz` and sanitized `/control/readiness` remain public. A non-loopback bind will not
+  only `/healthz`, sanitized `/control/readiness`, and the boot-only `/control/startup` remain
+  public. Startup exposes only `started`, not delivery or admission evidence; see
+  [startup versus delivery readiness](control-plane.md#startup-versus-delivery-readiness). A non-loopback bind will not
   start unless `CONTROL_TOKEN` is non-empty and `CONTROL_EXPOSURE_ACK` is exactly
   `trusted-network` or `tls-proxy`. Do not send Basic credentials over untrusted plaintext HTTP;
   use an SSH tunnel or a browser-trusted TLS proxy such as `tailscale serve`.

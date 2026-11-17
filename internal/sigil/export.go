@@ -53,9 +53,22 @@ type Message struct {
 	Parts []Part
 }
 
+// PartKind names the text-like payload variant of a Part explicitly. The zero value keeps the
+// legacy behavior: thinking when Thinking is non-empty, text otherwise.
+type PartKind string
+
+const (
+	// PartKindThinking selects the thinking payload even when Thinking is empty, such as a
+	// thinking part whose content metadata-only capture removed. It never implies content.
+	PartKindThinking PartKind = "thinking"
+)
+
 // Part is a tagged union: exactly one of Text/Thinking/ToolCall/ToolResult is set. ProviderType
 // maps to the proto Part.metadata.provider_type (e.g. "tool_call", "thinking", "tool_use").
+// Kind explicitly selects the thinking variant when its permitted content is empty; the
+// ProviderType string is advisory metadata and never selects a payload.
 type Part struct {
+	Kind         PartKind `json:",omitempty"`
 	ProviderType string
 	Text         string
 	Thinking     string

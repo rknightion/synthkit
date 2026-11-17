@@ -10,7 +10,9 @@ package blueprint
 import (
 	"fmt"
 
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/fixture"
+	"github.com/rknightion/synthkit/internal/pipelinerun"
 	"gopkg.in/yaml.v3"
 )
 
@@ -42,22 +44,23 @@ func (m Metadata) IsZero() bool {
 
 // Decl is the raw YAML blueprint document (strict-decoded; unknown fields fail loud).
 type Decl struct {
-	GPUCompute   *fixture.GPUTopologySpec `yaml:"gpu_compute"`
-	Name         string                   `yaml:"name"`
-	Label        string                   `yaml:"label"`         // sink-stamped selector; defaults to Name
-	Metadata     Metadata                 `yaml:"metadata"`      // optional human-facing annotation (UI only)
-	Shape        string                   `yaml:"shape"`         // default shape profile
-	Timezone     string                   `yaml:"timezone"`      // business-hours anchor (default Europe/Zurich)
-	Regions      []RegionDecl             `yaml:"regions"`       // follow-the-sun multi-tz composite (mutually exclusive with timezone)
-	SeriesBudget int                      `yaml:"series_budget"` // fixed one-minute per-blueprint data-point allowance; <=0 is unlimited
-	HighDPM      *HighDPMDecl             `yaml:"high_dpm"`      // explicit opt-in to a per-blueprint metric cadence below the default floor
-	Environments []EnvDecl                `yaml:"environments"`
-	Workloads    []WorkloadDecl           `yaml:"workloads"`
-	Features     map[string]yaml.Node     `yaml:"features"`     // Grafana Cloud products (sm, fleet); `enabled` reserved (default true)
-	Integrations map[string]yaml.Node     `yaml:"integrations"` // external sources GC ingests (cloudflare, csp_*); same decode + `enabled` key
-	Incidents    []IncidentDecl           `yaml:"incidents"`
-	Scenarios    []ScenarioDecl           `yaml:"scenarios"`
-	Hosts        []HostDecl               `yaml:"hosts"` // traditional non-k8s machines (node/windows/macos exporter + optional docker)
+	AgentObservability *AgentObservabilityDecl  `yaml:"agent_observability,omitempty"` // manual management authoring; never runtime admission
+	GPUCompute         *fixture.GPUTopologySpec `yaml:"gpu_compute"`
+	Name               string                   `yaml:"name"`
+	Label              string                   `yaml:"label"`         // sink-stamped selector; defaults to Name
+	Metadata           Metadata                 `yaml:"metadata"`      // optional human-facing annotation (UI only)
+	Shape              string                   `yaml:"shape"`         // default shape profile
+	Timezone           string                   `yaml:"timezone"`      // business-hours anchor (default Europe/Zurich)
+	Regions            []RegionDecl             `yaml:"regions"`       // follow-the-sun multi-tz composite (mutually exclusive with timezone)
+	SeriesBudget       int                      `yaml:"series_budget"` // fixed one-minute per-blueprint data-point allowance; <=0 is unlimited
+	HighDPM            *HighDPMDecl             `yaml:"high_dpm"`      // explicit opt-in to a per-blueprint metric cadence below the default floor
+	Environments       []EnvDecl                `yaml:"environments"`
+	Workloads          []WorkloadDecl           `yaml:"workloads"`
+	Features           map[string]yaml.Node     `yaml:"features"`     // Grafana Cloud products (sm, fleet); `enabled` reserved (default true)
+	Integrations       map[string]yaml.Node     `yaml:"integrations"` // external sources GC ingests (cloudflare, csp_*); same decode + `enabled` key
+	Incidents          []IncidentDecl           `yaml:"incidents"`
+	Scenarios          []ScenarioDecl           `yaml:"scenarios"`
+	Hosts              []HostDecl               `yaml:"hosts"` // traditional non-k8s machines (node/windows/macos exporter + optional docker)
 }
 
 // HighDPMDecl is the explicit cost-bearing override for one blueprint's metric-bearing
@@ -113,6 +116,13 @@ type EnvDecl struct {
 	Cluster    *ClusterDecl   `yaml:"cluster"`
 	Databases  []DatabaseDecl `yaml:"databases"`
 	Caches     []CacheDecl    `yaml:"caches"`
+	// Resources opts the environment into the causal request model (internal/causal): the
+	// pools, concurrency limits, queues, quotas, dependencies, credentials and rules requests
+	// meet. Names are unique across the blueprint and are incident targets on the `resource`
+	// axis; a name `<base>-<lower(env)>` is also reached by the base name in every environment.
+	// The resolver hands the blueprint's whole set to every consuming construct and workload.
+	// Omitted = no causal model and unchanged output.
+	Resources []causal.Resource `yaml:"resources"`
 }
 
 // CloudDecl declares the env's cloud-account identity.
@@ -133,12 +143,24 @@ type CloudDecl struct {
 	Region           string    `yaml:"region"`
 	VpcID            string    `yaml:"vpc_id"`
 	NATGateways      int       `yaml:"nat_gateways"`
-	CloudWatch       yaml.Node `yaml:"cloudwatch"` // cw_infra sub-family toggles (raw; decoded via registry)
-	AOSS             yaml.Node `yaml:"aoss"`       // OpenSearch Serverless config (collections:); absent ⇒ not emitted
-	MWAA             yaml.Node `yaml:"mwaa"`       // Managed Workflows for Apache Airflow (environments:); absent ⇒ not emitted
-	Glue             yaml.Node `yaml:"glue"`       // AWS Glue ETL (jobs:); absent ⇒ not emitted
-	Bedrock          yaml.Node `yaml:"bedrock"`    // AWS Bedrock CloudWatch (models:/sub_signals:); absent ⇒ not emitted
-	AgentCore        yaml.Node `yaml:"agentcore"`  // AWS Bedrock-AgentCore CloudWatch (agents:/sub_signals:); absent ⇒ not emitted
+	CloudWatch       yaml.Node `yaml:"cloudwatch"`      // cw_infra sub-family toggles (raw; decoded via registry)
+	AOSS             yaml.Node `yaml:"aoss"`            // OpenSearch Serverless config (collections:); absent ⇒ not emitted
+	MWAA             yaml.Node `yaml:"mwaa"`            // Managed Workflows for Apache Airflow (environments:); absent ⇒ not emitted
+	Glue             yaml.Node `yaml:"glue"`            // AWS Glue ETL (jobs:); absent ⇒ not emitted
+	Bedrock          yaml.Node `yaml:"bedrock"`         // AWS Bedrock CloudWatch (models:/sub_signals:); absent ⇒ not emitted
+	AgentCore        yaml.Node `yaml:"agentcore"`       // AWS Bedrock-AgentCore CloudWatch (agents:/sub_signals:); absent ⇒ not emitted
+	Lambda           yaml.Node `yaml:"lambda"`          // FunctionName-only CloudWatch (functions:); remote-write only; absent ⇒ not emitted
+	SQS              yaml.Node `yaml:"sqs"`             // Ordinary CloudWatch queue metrics (queues:); remote-write only; absent ⇒ not emitted
+	DynamoDB         yaml.Node `yaml:"dynamodb"`        // Provisioned CloudWatch table metrics (tables:); remote-write only; absent ⇒ not emitted
+	Redshift         yaml.Node `yaml:"redshift"`        // Provisioned cluster snapshots and sparse I/O (clusters:); remote-write only; absent ⇒ not emitted
+	CloudWatchLogs   yaml.Node `yaml:"cloudwatch_logs"` // Log-group intake metrics (log_groups:); remote-write only; absent ⇒ not emitted
+	Scheduler        yaml.Node `yaml:"scheduler"`       // EventBridge Scheduler fixed-rate schedules (schedules:); remote-write only; absent ⇒ not emitted
+	// Pipelines declares the env's batch data pipelines once (internal/pipelinerun). The resolver
+	// hands them to every consuming cloud-service construct (glue, mwaa) and adds each stage as a
+	// pipeline_stage failure target named <pipeline>.<stage>. Pipeline names must be unique across
+	// all blueprint environments. A glue stage needs a glue block; an orchestrating environment
+	// needs an mwaa block that lists it.
+	Pipelines []pipelinerun.Pipeline `yaml:"pipelines"`
 }
 
 // ClusterDecl declares one Kubernetes cluster.
@@ -314,6 +336,15 @@ type DatabaseDecl struct {
 	Name          string             `yaml:"name"`
 	InstanceClass string             `yaml:"instance_class"` // e.g. "db.t3.medium"; empty → resolver default
 	Observability *ObservabilityDecl `yaml:"observability"`  // nil = CloudWatch only (the defaults)
+	// Resource binds the database's CloudWatch and optional PostgreSQL/MySQL dbo11y constructs
+	// to a declared causal `dependency` or `pool` resource (environments[].resources), so they follow
+	// the shared model instead of the database-axis failure modes. Optional. A bound database is
+	// no longer a database-axis incident target (slow_query_storm, connection_saturation and the
+	// other database modes name an unknown target at load); the resource-axis modes move it.
+	// Needs the CloudWatch lane and constructs that support binding. DocumentDB/Neptune dbo11y
+	// remains unsupported. Pool connections use the trailing-minute mean busy count; dbo11y
+	// query and existing synthetic wait durations scale with mean latency, without cause attribution.
+	Resource string `yaml:"resource"`
 }
 
 // ObservabilityDecl independently toggles the two telemetry lanes a database fans into —
@@ -443,9 +474,10 @@ type IncidentDecl struct {
 	// Every, when set, makes the incident INTERVAL-RECURRING: it fires for For out of every Every
 	// (a Go duration, e.g. "10m"), repeating continuously and anchored on the Unix epoch. At is
 	// ignored and must be empty when Every is set (load rejects setting both).
-	Every     string  `yaml:"every"`
-	For       string  `yaml:"for"` // Go duration ("20m")
-	Intensity float64 `yaml:"intensity"`
+	Every        string  `yaml:"every"`
+	For          string  `yaml:"for"`       // Go duration ("20m")
+	Intensity    float64 `yaml:"intensity"` // [0,1]; scheduled default 1.0 only when omitted
+	intensitySet bool    // authored presence, separate from the resolved/live numeric value
 }
 
 // ScenarioDecl is a named, reusable, correlated incident bundle. It can be fired by schedule (an
@@ -462,7 +494,8 @@ type ScenarioDecl struct {
 // Target grammar: a declared instance name | "<axis>:*" (all instances of an axis) | "" (the
 // mode's sole axis; rejected at load for a multi-axis mode).
 type EffectDecl struct {
-	Mode      string  `yaml:"mode"`
-	Target    string  `yaml:"target"`
-	Intensity float64 `yaml:"intensity"` // [0,1]; default 1.0 when <= 0
+	Mode         string  `yaml:"mode"`
+	Target       string  `yaml:"target"`
+	Intensity    float64 `yaml:"intensity"` // [0,1]; scheduled default 1.0 only when omitted
+	intensitySet bool    // scheduling only; live resolved-zero behavior is unchanged
 }

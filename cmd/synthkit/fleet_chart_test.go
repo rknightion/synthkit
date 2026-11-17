@@ -6,8 +6,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -102,6 +102,7 @@ func TestFleetRenderedHALifecycleHelper(t *testing.T) {
 		t.Fatal(err)
 	}
 	deps := productionHADependencies()
+	recordBoundHTTPAddr(&deps)
 	deps.Preflight = func(context.Context, *config.Config) error { return nil }
 	deps.StateBackend = func(gate ha.LeaderGate) control.StateBackend {
 		b := fleetChartBackend(t, &cfg, gate, os.Getenv("FLEET_CHART_API"))
@@ -199,18 +200,14 @@ func TestFleetRenderedHAStartupAndHandoff(t *testing.T) {
 		baselineWrites := a.StateWrites
 		a.Mu.Unlock()
 		cfg.PodUID = []string{"first-pod", "next-pod"}[process]
-		listen, err := net.Listen("tcp", "127.0.0.1:0")
-		if err != nil {
-			t.Fatal(err)
-		}
-		cfg.HTTPAddr = listen.Addr().String()
-		listen.Close()
+		cfg.HTTPAddr = childHTTPAddr
+		addrFile := filepath.Join(root, fmt.Sprintf("http-addr-%d", process))
 		path := filepath.Join(root, "config.json")
 		writeHAJSON(t, path, cfg)
 		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 		defer cancel()
 		cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestFleetRenderedHALifecycleHelper$")
-		cmd.Env = append(os.Environ(), "FLEET_CHART_CONFIG="+path, "FLEET_CHART_API="+a.Server.URL, "GORACE="+os.Getenv("GORACE")+" atexit_sleep_ms=0")
+		cmd.Env = append(os.Environ(), "FLEET_CHART_CONFIG="+path, "FLEET_CHART_API="+a.Server.URL, childHTTPAddrFileEnv+"="+addrFile, "GORACE="+os.Getenv("GORACE")+" atexit_sleep_ms=0")
 		var output bytes.Buffer
 		cmd.Stdout, cmd.Stderr = &output, &output
 		if err := cmd.Start(); err != nil {
@@ -219,7 +216,7 @@ func TestFleetRenderedHAStartupAndHandoff(t *testing.T) {
 		}
 		done := make(chan error, 1)
 		go func() { done <- cmd.Wait() }()
-		awaitHA(t, func() bool { code, _ := haGet(t, "http://"+cfg.HTTPAddr+"/control/state"); return code == 200 })
+		awaitChildControl(t, addrFile)
 		a.Mu.Lock()
 		writes, releases := a.StateWrites, a.Releases
 		a.Mu.Unlock()

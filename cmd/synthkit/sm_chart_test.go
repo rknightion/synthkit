@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"io"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -212,12 +211,7 @@ func TestSMChartRenderedHAProvisionAndDelivery(t *testing.T) {
 		t.Helper()
 		api.ReplaceLease(cfg.HALeaseName)
 		api.Permit()
-		l, err := net.Listen("tcp", "127.0.0.1:0")
-		if err != nil {
-			t.Fatal(err)
-		}
-		cfg.HTTPAddr = l.Addr().String()
-		l.Close()
+		cfg.HTTPAddr = childHTTPAddr
 		p := filepath.Join(t.TempDir(), "config.json")
 		writeHAJSON(t, p, cfg)
 		exe, err := os.Executable()

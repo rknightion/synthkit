@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -244,7 +243,7 @@ func TestHALeadershipSessionAcrossRestart(t *testing.T) {
 	// Forged configured tags must not decide session attribution.
 	cfg.SelfObsTags = sessionIDKey + "=forged," + sessionAttributionKey + "=forged"
 	cfg.SelfObsMetricInterval = 100 * time.Millisecond
-	cfg.HARetryPeriod, cfg.HARenewDeadline, cfg.HAKubeRequestTimeout = 50*time.Millisecond, 300*time.Millisecond, 100*time.Millisecond
+	cfg.HARetryPeriod, cfg.HARenewDeadline, cfg.HAKubeRequestTimeout = 50*time.Millisecond, fleetHARenewDeadline, fleetHAKubeRequestTimeout
 	cfg.HAReleaseTimeout, cfg.SendDrainDeadline = time.Second, 3*time.Second
 	cfg.BlueprintsDir, cfg.BlueprintDataDir, cfg.BlueprintNames, cfg.SnapshotPath = baked, filepath.Join(root, "data"), []string{"test"}, statePath
 	cfg.FMURL, cfg.ControlToken, cfg.SigilEndpoint, cfg.FaroCollector, cfg.ProfilesURL, cfg.PyroscopeURL = "", "", "", "", "", ""
@@ -262,12 +261,7 @@ func TestHALeadershipSessionAcrossRestart(t *testing.T) {
 		collector.mu.Lock()
 		collector.process = process
 		collector.mu.Unlock()
-		listen, err := net.Listen("tcp", "127.0.0.1:0")
-		if err != nil {
-			t.Fatal(err)
-		}
-		cfg.HTTPAddr = listen.Addr().String()
-		_ = listen.Close()
+		cfg.HTTPAddr = childHTTPAddr
 		path := filepath.Join(root, process+".json")
 		writeHAJSON(t, path, cfg)
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)

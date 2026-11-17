@@ -123,8 +123,10 @@ the hand-encoded OTLP seam):
   before author labels (so two nodes sharing a profile never collide).
 - `telemetryspec.{MetricSpec,LogSpec,SpanSpec}` built from `ValueModel` one-of value generators
   (`const`/`const_str`/`enum`/`int_range`/`float_range`/`normal`/`bool`/`shape`/`ref`). `shape` is
-  driven by the incident engine (incident-responsive values); `ref` pulls a correlation field (the
-  request-correlation glue). A load-time CAPABILITY MATRIX enforces: a high-card `ref` is legal ONLY in a
+  driven by the incident engine (incident-responsive values); its optional metric-only
+  `incident_value` endpoint preserves the legacy calculation when omitted. See the
+  [canonical value-model guide](docs/workloads.md#telemetry-dsl) for interpolation, scope,
+  pause and scheduled-intensity caveats. `ref` pulls a correlation field (the request-correlation glue). A load-time CAPABILITY MATRIX enforces: a high-card `ref` is legal ONLY in a
   log body / span attribute (never a label/stream-label); a label source must be
   `const`/`const_str`/`enum` with a stable, total domain (I32 determinism, I40). The canonical
   high-card key set lives in `internal/highcard`, shared by the loki + promrw sinks AND the DSL — so
@@ -240,6 +242,45 @@ transfer curves. Consumer profile admission, NVSwitch exposition, runtime tick
 capture and log/KSM/network adapters retain separate ownership and acceptance.
 See [GPU fixture](docs/ai-factory/fixture.md) for joins and remaining barriers.
 
+### Causal resource model (`internal/causal`)
+
+```go
+type Set struct{ Envs []Declaration; Loads []Load }         // one blueprint's resources + retrying edges
+type Consumer interface{ UseResources(Set) }                // Config: resolver injects the Set
+type LoadDeclarer interface{ CausalLoads(s Set, env string) ([]Load, error) } // workload Config, per instance env
+type Advancer interface{ AdvanceCausal(now time.Time, c Clock) } // built instance: runner, every master tick
+func Compile(s Set) (*Model, error)
+func (m *Model) Advance(now time.Time, c Clock)             // 5 s epoch grid; warm start from floor(now) - 24 h
+func (m *Model) State(name string, at time.Time) (State, bool)
+func (m *Model) Window(name string, from, to time.Time) (Window, bool)
+func (m *Model) Apply(name string, at time.Time, d Draw) Effect      // one arrival (producer side)
+func (m *Model) ApplyConsumer(name string, at time.Time) Effect      // one message taken from a queue
+```
+
+A blueprint opts in with `environments[].resources`. The resolver validates the declarations,
+collects every `LoadDeclarer`'s retrying edges into the `Set`, checks summed traffic shares, and
+injects the same `Set` into every construct and workload Config implementing `Consumer`. Each
+consumer compiles its own `Model`; the runner advances every built `Advancer` on each master tick
+before mint, so all consumers sample live faults at the same instants. The package owns no
+metric, label, log or span name, never reads the wall clock and never draws from the shape
+engine's RNG; per-arrival draws hash the minter's seed unit (`UnitDraw`). No `resources:` means no
+model, no injection and unchanged output. The request facts it produces live in the additive
+`ledger.Request.Causal/Fault` and `ledger.Call` causal fields, all zero on the legacy path.
+
+Database `resource:` binding uses the existing config `BindResource`, `Consumer` and
+`BindingDeclarer` seams plus built `Advancer`, without changing the runner scheduler. The resolver
+binds both CloudWatch and optional PostgreSQL/MySQL dbo11y configs to the same declaration; the
+CloudWatch lane remains required and DocumentDB/Neptune dbo11y remains unsupported. Each adapter
+reads `(now-60s, now]`: pool `MeanInUse` supplies connection counts in both lanes, while dependency-only
+bindings retain baseline connections. Mean `LatencyFactor` drives cloud latency and dbo11y
+statement-seconds increments plus existing synthetic query/wait durations. Metrics and logs share
+one reading per dbo11y tick. This amplitude-only synthetic model does not establish server Lock/IO
+attribution, SQL errors, MySQL running threads or a new server connection limit. Bound databases are
+not database-axis schedule targets and ignore legacy modes even if injected directly; unbound
+siblings remain unchanged. Counter totals remain cumulative through recovery. No new wire labels,
+metadata or telemetry names are introduced; the [dbo11y contract](signals/dbo11y.md#causal-database-bindings)
+owns the projection details.
+
 ### Registry
 
 Explicit instance built in the composition root's catalog wiring file (single owner). **No global
@@ -284,9 +325,9 @@ default/no_tool_content and full_with_metadata_spans retain native generation co
 but omit tool-span content; only explicit full emits accepted tool content in spans.
 Metadata-only preserves roles/part structure, tool identities, usage and timing while
 removing SDK-defined content. Authored tags/metadata are not generally scrubbed.
-Metadata-only thinking payloads reject because the current native Part seam lacks a
-kind discriminator for empty thinking; no placeholder content or silent retyping is
-permitted. See the workload guide and canonical signal contract for pinned policy.
+Metadata-only thinking keeps its part kind through the native Part's explicit Kind and
+encodes as an empty thinking payload; no placeholder content or silent retyping is
+permitted, and the sink rejects a thinking kind carrying text or an unknown kind. See the workload guide and canonical signal contract for pinned policy.
 This is a bound-app native-content exception, not blanket permission for generic
 custom span content or synthetic backend guard/evaluation producers.
 
@@ -322,8 +363,18 @@ noncommit, pending-clearance, drain, fencing or adoption evidence. Recovery need
 exact-attempt attribution and fresh approval, preserves the original mode and never replays an
 attempted mutation. Cleanup checks the whole historical owned-consumer closure before deletion;
 unsupported resources and unknown-use dependencies remain retained with an incomplete teardown.
-There is no CLI, YAML, environment or runner wiring, runtime admission or live-backend conformance
-claim. Existing workload guidance and blueprint-authoring restrictions remain unchanged.
+
+Apply (including no-op re-apply), deactivate and their suffix-recovery Starts also reserve capacity
+for one canonical full teardown of the resulting custody history. Preview forecasts this before
+management requests; Bootstrap and Start enforce it again before publishing authority. The forecast
+uses maximum encoded backend/approval values, the canonical Start's checksum material and a combined
+generation reserve, without changing the codec or custody limits. It reserves one recovery per
+unsettled step, not arbitrary split teardowns or unlimited no-progress suffix Starts. Resource counts
+alone do not prove admission; the actual declaration and accumulated history must fit. See the
+[manual provisioning guide](docs/agent-observability-provisioning.md#capacity-refusal) for operator
+handling. The source-built manual command does not enable runtime admission, runner wiring or
+live-backend conformance. Existing workload guidance and blueprint-authoring restrictions remain
+unchanged.
 
 ## 3. The blueprint YAML
 
@@ -449,6 +500,37 @@ pipeline. "It all arrives via the CloudWatch metric stream" is a transport fact,
   is the Postgres wire protocol either way); the engine/type selects the CloudWatch family variant and
   is gated by the same emission switch below.
 
+### Captured CloudWatch consumer admission
+
+`cloud.lambda`, `cloud.sqs`, `cloud.dynamodb`, `cloud.redshift` and `cloud.cloudwatch_logs` are
+optional strict-decoded topology configs resolved through the explicit registry into independent
+ScopeBlueprint constructs. Their resource identity lives in
+`functions`/`queues`/`tables`/`clusters`/`log_groups`; cloud account/region come only from the resolved
+fixture. They implement only remote-write and fail Build on native OTLP export. AWS native source
+forms remain a separate contract, not aliases or permission to fall back.
+
+For these five kinds, admit at most one declaration per blueprint/account/region/kind, including
+across environments with disjoint resources. One instance owns the full resource list and any
+once-only account snapshots, without inventing shared discovery types. Different kinds and
+blueprint scopes remain distinct. The scoped writer alone stamps blueprint after cloning.
+This conservative ceiling remains until broader pure identity claims are separately designed.
+The [canonical emitted subset](signals/cw.md#initial-captured-service-emitters-slug-cw-captured-emitted)
+is 51 stat bases (35 original plus ten Redshift, two Logs intake and four optional Logs delivery; plus three opt-in DynamoDB throttle bases);
+positive source tables are not emission allowlists. Redshift snapshots/queue stocks and sparse
+fixed-second I/O latency, Logs uncompressed per-event intake and independent Lambda
+subscription-delivery period observations are explicit operator assumptions. Optional filters are declared under the owning group, with P21
+vendor dimensions and literal Lambda only; each of four required whole nonnegative values observes
+once per synthetic active minute (four value statistics=x, sample_count=1). Bytes are already
+compressed; no intake relationship, compression, retries/loss or function identity is inferred.
+Integer active-time progress is independent of intake, including zero-intake groups, with at most
+one observation per tick; positive master amplitude never scales authored values. The consumers
+preserve exact fractional carry, cap only new accrual at 60 seconds and use the real master-zero
+pause/silent-resume fence; no hidden inventory/rate defaults, captured numerical or native fidelity.
+No pipeline adapters, ESM/fair/info, user-query/NodeID/by-data-source/managed-storage,
+other delivery selectors/profiles or native-runtime admission is implied. SELECT is observed only
+as a literal in P13; its numerical population/timing/statistic semantics remain held. See
+[authoring and assumptions](docs/blueprints.md#captured-cloudwatch-consumers).
+
 ### 3.2 Incident model: definition vs activation
 
 The incident model separates WHAT CAN happen (vocabulary) from WHEN it happens (activation):
@@ -458,7 +540,27 @@ responds to — a `[]failuremode.Mode{Name, Axis, Help}` list (e.g. k8s_cluster 
 `pod_crashloop`, `node_not_ready` on `AxisCluster`; dbo11y_postgres declares `connection_saturation`,
 `replication_lag`, `lock_contention`, `slow_query_storm` on `AxisDatabase`). The construct itself
 owns the physics: on each tick it calls `shape.Eval(mode, ownIdentity)` for the modes it implements.
-Axes: `workload | cluster | database | cache | cloud | service`.
+Axes include `workload | cluster | database | cache | cloud | service | pipeline_stage | resource`.
+The shared `internal/pipelinerun` mechanic owns deterministic run-window facts, not signal names;
+Glue and MWAA consume the same environment-scoped seed and declaration without importing each
+other. Terminal windows expose matching outcome counts, duration sums and extrema; count establishes
+presence, and MWAA consumes these facts without retaining observations in empty windows. The
+[MWAA outcome contract](signals/cw.md) owns sourced signal names, units, dimensions and
+sparse export semantics for both transports. Pipeline names are blueprint-wide unique and stage targets are `<pipeline>.<stage>`;
+`pipeline_stage:*` covers every environment's stages. See [declared pipelines](docs/constructs.md#declared-pipelines)
+and the [canonical stage incident contract](docs/incidents.md#pipeline_stage-axis) for grammar,
+activation and the limited emitting-adapter scope. This seam adds no log contract.
+
+The shared `internal/causal` mechanic owns the **`resource` axis**: declared request resources
+(pool, concurrency, queue, quota, dependency, credential, rule) and eight modes on them
+(`pool_exhausted`, `concurrency_reduced`, `quota_reduced`, `consumer_slowdown`, `dependency_slow`,
+`dependency_unavailable`, `credential_expired`, `rule_regression`). Resource names are
+blueprint-wide unique targets, registered with the construct-declared targets, so a name shared
+with a service node or database resolves by mode; a name `<base>-<lower(env)>` is also reached by
+the target `<base>` in every environment (the model reads both scopes). `resource:*` schedules
+cover the declared names, not the base aliases. Activation is unchanged: scheduled, scenario and
+live faults all arrive through `shape.Engine.Eval`. Consumers map model state onto their own
+sourced names; the mechanic adds no telemetry or log contract.
 
 The **`service` axis** (`AxisService`) targets an individual NODE of an `app` service graph.
 The `app` workload declares its modes (`error_spike`/`latency_storm`/`throughput_drop`/`fallback_storm`/
@@ -650,6 +752,12 @@ since the preceding barrier rather than losing them when the pending batch is em
 counters/monotonic gauges (`Add`), instantaneous gauges (`Set`), histogram expansion (`Observe` →
 `_bucket{le}/_sum/_count` against pinned bounds with per-family `le` STYLE: `LEBare` minimal
 decimals vs `LEDotZero` forced ".0" on integer bounds), `Reset` for synthetic restarts.
+`ObserveWeighted` records integer-weighted representatives in the same classic histogram state;
+zero weight creates no series. The native HTTP workload uses it to bound sampling cost while
+preserving modeled volume. It does not infer exemplars or an exponential histogram.
+Its duration sampler owns a private identity-seeded random stream. The workload preserves the
+released shared-shape draw budget separately, keeping unrelated metrics and request projections
+unchanged when the native duration model evolves.
 
 **Native (exponential) histograms:** `state.ObserveNative` / `ObserveDual` accumulate a cumulative
 sparse exponential histogram (`internal/state/nativehist.go`); `Collect` emits it as a
@@ -771,6 +879,27 @@ ConfigMap repurposing, runtime restore/replay wiring or Docker-default change. A
 filesystem semantics still require validation before HA use. See
 [checkpoint foundations](docs/checkpoint-foundations.md) for the admitted and missing behavior.
 
+### 6.3 Process startup versus delivery readiness
+
+`GET /control/startup` is a read-only public boot probe with only `{"started":bool}`.
+The composition root supplies its predicate; an absent/false predicate returns 503.
+Ordinary mode supplies true only after the existing fatal configuration, selection,
+validation and runner/control construction steps complete. Reaching the endpoint also
+proves that the HTTP listener is serving. Lease mode additionally requires the existing
+configuration/build/preflight completion facts installed before view publication, not
+election or delivery. A process that exits during fatal initialization cannot serve it.
+
+`-startupcheck` calls this endpoint using `JSON_HTTP_ADDR` directly, with the same
+five-second context/four-second client bounds and wildcard-to-loopback resolution as
+`-healthcheck`. Neither probe loads configuration or starts an emitter. Startup is not
+ongoing liveness, state writability, successful loading of every requested source,
+source/custody admission, HA leadership/fencing authority, or receiver/backend evidence.
+It may succeed in selected dry-run or before a sparse lane's first event, while the
+unchanged `-healthcheck`, `/control/readiness` and `live_ready` remain delivery-unready.
+Do not inflate rates or force first events to satisfy a startup budget. Older images lack
+this command; chart defaults must retain `-healthcheck` until an operator explicitly opts
+into startup-only probing with a verified compatible image.
+
 ## 7. Invariants (each enforced by types/asserts/tests — never comments alone)
 
 Metric mechanics
@@ -883,7 +1012,8 @@ Custom-telemetry DSL (`app` workload — §2)
 - **I40** A DSL value model feeding a metric/stream LABEL must be `const`/`const_str`/`enum` with a
   total, non-empty domain (enum labels expand to the FULL cross-product every tick); `int_range`/
   `normal`/`ref`/etc. are rejected as label sources — so the `-once -dump` name+label-key inventory
-  is run-stable (I32). Metric VALUES, log body fields, and span attribute values are unconstrained.
+  is run-stable (I32). Numeric metric values and log/span values follow the
+  [canonical capability matrix](docs/workloads.md#telemetry-dsl); `shape.incident_value` is metric-only.
   The `app` workload auto-stamps node identity on every series/stream/span before author labels, so
   two nodes sharing a profile never produce duplicate series.
 - **I41** Sink DELIVERY is decoupled from EMISSION. Each signal's scoped writer feeds a bounded
@@ -900,6 +1030,13 @@ Custom-telemetry DSL (`app` workload — §2)
   `-once -dump` inventory is recorded pre-queue and is unaffected. The queue is stdlib-only and never
   links the OTel SDK (preserving the §6 ban); self-obs reads it via the stdlib `queue.Observer` seam
   and the runner's `QueueDepths()` provider (`synthkit.queue.depth`).
+- **I42** Causal request state agrees across consumers by shared determinism, not shared state:
+  every consumer compiles its own `causal.Model` from the one resolver-injected `Set` and the
+  runner advances every `causal.Advancer` on each master tick, so states are equal at every 5 s
+  grid point (exact for scheduled faults; live faults sampled per master tick). `internal/causal`
+  imports only the standard library and `internal/failuremode`, never reads the wall clock or the
+  shape engine's RNG, and is in the archtest construct/workload import allowlist. A blueprint
+  without `resources:` builds no model and its output is unchanged.
 
 ## 8. Module layout
 
@@ -918,6 +1055,8 @@ synthkit/
     ├── shape/               diurnal plateau + weekly + noise + schedulable incidents
     ├── state/               sink-correctness layer (cumulative counters, histogram expansion, le styles)
     ├── cw/                  shared CloudWatch stat-expansion mechanic (StatSet/EmitStats; peer of state)
+    ├── pipelinerun/         shared deterministic declared-pipeline timeline; no telemetry names
+    ├── causal/              shared deterministic request-resource model (resource axis, per-arrival effects); no telemetry names
     ├── failuremode/         failure-mode vocabulary types (Mode/Axis/MultiAxis); leaf — no synthkit-tier imports
     ├── scale/               live scaling overrides (atomic snapshot; lock-free tick hot path); leaf
     ├── sink/{promrw,otlp,loki,faro}   each carries an optional pushhook.Observe field (self-obs seam; nil = unchanged)

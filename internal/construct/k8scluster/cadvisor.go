@@ -42,8 +42,9 @@ func emitCAdvisor(
 
 	wlByName := podWorkloadByName(cl)
 
-	for ns, deploys := range workloadDeployments(cl) {
-		for _, deploy := range deploys {
+	wlDeps := workloadDeployments(cl)
+	for _, ns := range sortedNamespaces(wlDeps) {
+		for _, deploy := range wlDeps[ns] {
 			fwl := wlByName[deploy]
 			reps := substrateReps(fwl, replicas, len(nodes))
 

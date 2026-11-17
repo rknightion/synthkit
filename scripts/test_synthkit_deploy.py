@@ -735,6 +735,132 @@ class DeployCLITest(unittest.TestCase):
             self.assertNotIn(f" {reference} -version", events[candidate_probe])
             self.assertIn("--network none --read-only --cap-drop ALL --security-opt no-new-privileges", events[candidate_probe])
 
+    def test_publish_verification_uses_the_release_label_contract(self) -> None:
+        # Execute the maintained workflow shell and the real verification CLI.
+        # Only registry, signature/provenance services and Compose are fixtures.
+        workflow = SCRIPT.parents[1] / ".github" / "workflows" / "publish.yml"
+        lines = workflow.read_text(encoding="utf-8").splitlines()
+        step = lines.index("      - name: Verify exact image identity, signature, and provenance")
+        start = lines.index("        run: |", step) + 1
+        block = []
+        for line in lines[start:]:
+            if line and not line.startswith("          "):
+                break
+            block.append(line[10:])
+        shell = "\n".join(block)
+        # Actions' default shell supplies -e, not pipefail. The maintained block
+        # must propagate a failed verifier through tee without help from here.
+        for tag, label in (("v1.6.0", "1.6.0"), ("v1.6.1-rc.1", "v1.6.1-rc.1")):
+            with self.subTest(tag=tag), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp).resolve()
+                tools = root / "tools"
+                tools.mkdir()
+                scripts = root / "scripts"
+                scripts.mkdir()
+                (scripts / SCRIPT.name).write_bytes(SCRIPT.read_bytes())
+                published = root / "digests"
+                published.mkdir()
+                manifest = "sha256:" + "c" * 64
+                (published / manifest.removeprefix("sha256:")).touch()
+                (published / ("e" * 64)).touch()
+                index_raw = json.dumps({
+                    "mediaType": "application/vnd.oci.image.index.v1+json",
+                    "manifests": [{"digest": manifest, "platform": {"os": "linux", "architecture": "amd64"}}],
+                })
+                index = "sha256:" + hashlib.sha256(index_raw.encode()).hexdigest()
+                fixture = {
+                    "index": index,
+                    "index_raw": index_raw,
+                    "manifest": manifest,
+                    "config": "sha256:" + "d" * 64,
+                    "revision": "b" * 40,
+                    "version": tag.removeprefix("v"),
+                    "oci_version": label,
+                    "source_ref": "refs/tags/" + tag,
+                }
+                fixture_file = root / "fixture.json"
+                fixture_file.write_text(json.dumps(fixture), encoding="utf-8")
+                docker = tools / "docker"
+                docker.write_text(
+                    PYTHON_SHEBANG
+                    + "import json, os, sys\n"
+                    "from pathlib import Path\n"
+                    "f=json.loads(Path(os.environ['PUBLISH_FIXTURE']).read_text())\n"
+                    "args=sys.argv[1:]\n"
+                    "if args[:4] == ['buildx','imagetools','create','--dry-run']:\n"
+                    "  print(f['index_raw'])\n"
+                    "elif args[:4] == ['buildx','imagetools','inspect','--raw']:\n"
+                    "  if args[4].endswith(f['index']): print(f['index_raw'])\n"
+                    "  else: print(json.dumps({'mediaType':'application/vnd.oci.image.manifest.v1+json','config':{'digest':f['config']}}))\n"
+                    "elif args[:4] == ['buildx','imagetools','inspect','--format']:\n"
+                    "  print(json.dumps({'config':{'Labels':{'org.opencontainers.image.version':f['oci_version'],'org.opencontainers.image.revision':f['revision']}}}))\n"
+                    "elif args and args[0] == 'run' and '-version' in args:\n"
+                    "  print(json.dumps({'version':f['version'],'revision':f['revision']}))\n"
+                    f"elif args and args[0] == 'run' and {COSIGN_IMAGE!r} in args: pass\n"
+                    "else: sys.exit(2)\n",
+                    encoding="utf-8",
+                )
+                gh = tools / "gh"
+                gh.write_text(
+                    PYTHON_SHEBANG
+                    + "import json, os, sys\n"
+                    "from pathlib import Path\n"
+                    "f=json.loads(Path(os.environ['PUBLISH_FIXTURE']).read_text())\n"
+                    "args=sys.argv[1:]\n"
+                    f"expected=['attestation','verify','oci://{IMAGE}@' + f['index'],"
+                    "'--cert-oidc-issuer','https://token.actions.githubusercontent.com',"
+                    "'--repo','rknightion/synthkit','--signer-workflow','rknightion/.github/.github/workflows/container-publish.yml',"
+                    "'--source-digest',f['revision'],'--source-ref',f['source_ref']]\n"
+                    "sys.exit(0 if args == expected else 1)\n",
+                    encoding="utf-8",
+                )
+                just = tools / "just"
+                just.write_text('#!/bin/sh\n[ "$*" = compose-check ]\n', encoding="utf-8")
+                for tool in (docker, gh, just):
+                    tool.chmod(0o700)
+                environment = dict(
+                    os.environ,
+                    PATH=str(tools) + os.pathsep + os.environ["PATH"],
+                    HOME=str(root),
+                    RELEASE_TAG=tag,
+                    SOURCE_REVISION=fixture["revision"],
+                    PUBLISHED_DIGESTS=str(published),
+                    PUBLISHED_INDEX=str(root / "index.json"),
+                    GITHUB_OUTPUT=str(root / "github-output"),
+                    PUBLISH_FIXTURE=str(fixture_file),
+                )
+                result = subprocess.run(
+                    ["bash", "-e", "-c", shell],
+                    cwd=root, env=environment, capture_output=True, text=True, timeout=10,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                report_raw = (root / "verification.json").read_text(encoding="utf-8")
+                self.assertTrue(report_raw.strip(), "workflow succeeded without a verification report: " + result.stderr)
+                report = json.loads(report_raw)
+                self.assertEqual(report["oci_version"], label)
+                self.assertEqual(report["version"], tag.removeprefix("v"))
+                self.assertEqual(report["revision"], fixture["revision"])
+                self.assertEqual(report["index_digest"], index)
+                self.assertEqual(report["signature"], "verified")
+                self.assertEqual(report["provenance"], "verified")
+                # The caller must choose the contract's exact label, not accept
+                # both spellings or loosen independent source/binary checks.
+                opposite_label = tag if label != tag else tag.removeprefix("v")
+                for field, value, error_code in (
+                    ("oci_version", opposite_label, "oci_version_mismatch"),
+                    ("revision", "e" * 40, "oci_revision_mismatch"),
+                    ("source_ref", "refs/tags/v9.9.9", "provenance_verification_failed"),
+                    ("version", "9.9.9", "binary_identity_mismatch"),
+                ):
+                    with self.subTest(tag=tag, mismatch=field):
+                        fixture_file.write_text(json.dumps(fixture | {field: value}), encoding="utf-8")
+                        result = subprocess.run(
+                            ["bash", "-e", "-c", shell],
+                            cwd=root, env=environment, capture_output=True, text=True, timeout=10,
+                        )
+                        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                        self.assertIn(error_code, result.stderr)
+
     def test_verify_image_rejects_oci_label_and_binary_identity_mismatches(self) -> None:
         deploy = load_deploy_module()
         manifest = "sha256:" + "c" * 64
@@ -849,6 +975,8 @@ class DeployCLITest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
             docker = root / "docker"
+            observations = root / "observations.json"
+            observations.write_text("{}", encoding="utf-8")
             index = DIGEST
             manifest = "sha256:" + "c" * 64
             config = "sha256:" + "d" * 64
@@ -858,22 +986,23 @@ class DeployCLITest(unittest.TestCase):
             docker.write_text(
                 PYTHON_SHEBANG
                 +
-                "import json, sys\n"
+                "import json, sys\nfrom pathlib import Path\n"
+                f"observed=json.loads(Path({str(observations)!r}).read_text())\n"
                 f"index={index!r}; manifest={manifest!r}; config={config!r}; revision={revision!r}; version={version!r}; reference={reference!r}\n"
                 "args=sys.argv[1:]; joined=' '.join(args)\n"
                 "if args[:2] == ['inspect','--format']:\n"
                 "  template=args[2]\n"
-                "  if template == '{{.Config.Image}}': print(reference)\n"
-                "  elif template == '{{.Image}}': print(config)\n"
+                "  if template == '{{.Config.Image}}': print(observed.get('configured_ref', reference))\n"
+                "  elif template == '{{.Image}}': print(observed.get('running_id', config))\n"
                 "  elif template == '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}': print('healthy')\n"
                 "elif args[:3] == ['image','inspect','--format']:\n"
                 "  template=args[3]\n"
-                "  if template == '{{json .RepoDigests}}': print(json.dumps([reference]))\n"
+                "  if template == '{{json .RepoDigests}}': print(json.dumps(observed.get('repo_digests', [reference, 'ghcr.io/rknightion/synthkit@' + manifest])))\n"
                 "  elif template == '{{.Os}}/{{.Architecture}}': print('linux/amd64')\n"
                 "elif args[:4] == ['buildx','imagetools','inspect','--raw']:\n"
-                "  if args[4].endswith(index): print(json.dumps({'mediaType':'application/vnd.oci.image.index.v1+json','manifests':[{'digest':manifest,'platform':{'os':'linux','architecture':'amd64'}}]}))\n"
-                "  else: print(json.dumps({'mediaType':'application/vnd.oci.image.manifest.v1+json','config':{'digest':config}}))\n"
-                "elif args and args[0] == 'exec': print(json.dumps({'version':version,'revision':revision}))\n"
+                "  if args[4].endswith(index): print(json.dumps({'mediaType':'application/vnd.oci.image.index.v1+json','manifests':[{'digest':manifest,'platform':{'os':'linux','architecture':observed.get('registry_arch', 'amd64')}}]}))\n"
+                "  else: print(json.dumps({'mediaType':'application/vnd.oci.image.manifest.v1+json','config':{'digest':observed.get('registry_config', config)}}))\n"
+                "elif args and args[0] == 'exec': print(json.dumps({'version':observed.get('version', version),'revision':observed.get('revision', revision)}))\n"
                 "else: sys.exit(2)\n",
                 encoding="utf-8",
             )
@@ -904,10 +1033,45 @@ class DeployCLITest(unittest.TestCase):
             self.assertEqual(report["revision"], revision)
             self.assertEqual(report["health"], "healthy")
 
+            for aliases in ([reference], [f"{IMAGE}@{manifest}", reference]):
+                with self.subTest(aliases=aliases):
+                    observations.write_text(json.dumps({"repo_digests": aliases}), encoding="utf-8")
+                    result = self.run_cli(
+                        "inspect-running", "--container", "container-id", "--expected-reference", reference,
+                        "--expected-version", version, "--expected-revision", revision, "--docker-bin", str(docker),
+                    )
+                    self.assertEqual(json.loads(result.stdout)["index_digest"], index)
+
+            wrong_digest = "sha256:" + "e" * 64
+            for observed, error in (
+                ({"repo_digests": []}, "running_repo_digest_invalid"),
+                ({"repo_digests": {reference: True}}, "running_repo_digest_invalid"),
+                ({"repo_digests": [f"{IMAGE}@{manifest}"]}, "running_index_mismatch"),
+                ({"repo_digests": [f"{IMAGE}@{manifest}", f"{IMAGE}@{wrong_digest}"]}, "running_index_mismatch"),
+                ({"repo_digests": ["ghcr.io/example/other@" + index, f"{IMAGE}@{manifest}"]}, "running_index_mismatch"),
+                ({"configured_ref": f"{IMAGE}@{wrong_digest}"}, "configured_reference_mismatch"),
+                ({"running_id": wrong_digest}, "running_config_mismatch"),
+                ({"registry_config": wrong_digest}, "running_config_mismatch"),
+                ({"registry_arch": "arm64"}, "platform_manifest_invalid"),
+                ({"version": "9.9.9"}, "binary_identity_mismatch"),
+                ({"revision": "f" * 40}, "binary_identity_mismatch"),
+            ):
+                with self.subTest(observed=observed):
+                    observations.write_text(json.dumps(observed), encoding="utf-8")
+                    result = self.run_cli(
+                        "inspect-running", "--container", "container-id", "--expected-reference", reference,
+                        "--expected-version", version, "--expected-revision", revision, "--docker-bin", str(docker),
+                        check=False,
+                    )
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(json.loads(result.stderr)["code"], error)
+
     def test_inspect_running_accepts_containerd_index_id_with_selected_platform_descriptor(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
             docker = root / "docker"
+            observations = root / "observations.json"
+            observations.write_text("{}", encoding="utf-8")
             index = DIGEST
             manifest = "sha256:" + "c" * 64
             config = "sha256:" + "d" * 64
@@ -917,7 +1081,8 @@ class DeployCLITest(unittest.TestCase):
             docker.write_text(
                 PYTHON_SHEBANG
                 +
-                "import json, sys\n"
+                "import json, sys\nfrom pathlib import Path\n"
+                f"observed=json.loads(Path({str(observations)!r}).read_text())\n"
                 f"index={index!r}; manifest={manifest!r}; config={config!r}; revision={revision!r}; version={version!r}; reference={reference!r}\n"
                 "args=sys.argv[1:]\n"
                 "if args[:2] == ['inspect','--format']:\n"
@@ -925,10 +1090,10 @@ class DeployCLITest(unittest.TestCase):
                 "  if template == '{{.Config.Image}}': print(reference)\n"
                 "  elif template == '{{.Image}}': print(index)\n"
                 "  elif template == '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}': print('unhealthy')\n"
-                "  elif template == '{{json .ImageManifestDescriptor}}': print(json.dumps({'digest':manifest,'platform':{'os':'linux','architecture':'amd64'}}))\n"
+                "  elif template == '{{json .ImageManifestDescriptor}}': print(observed.get('descriptor_raw', json.dumps(observed.get('descriptor', {'digest':manifest,'platform':{'os':'linux','architecture':'amd64'}}))))\n"
                 "elif args[:3] == ['image','inspect','--format']:\n"
                 "  template=args[3]\n"
-                "  if template == '{{json .RepoDigests}}': print(json.dumps([reference]))\n"
+                "  if template == '{{json .RepoDigests}}': print(json.dumps(observed.get('repo_digests', ['ghcr.io/rknightion/synthkit@' + manifest, reference])))\n"
                 "  elif template == '{{.Os}}/{{.Architecture}}': print('linux/amd64')\n"
                 "elif args[:4] == ['buildx','imagetools','inspect','--raw']:\n"
                 "  if args[4].endswith(index): print(json.dumps({'mediaType':'application/vnd.oci.image.index.v1+json','manifests':[{'digest':manifest,'platform':{'os':'linux','architecture':'amd64'}}]}))\n"
@@ -958,6 +1123,23 @@ class DeployCLITest(unittest.TestCase):
             self.assertEqual(report["running_image_id"], index)
             self.assertEqual(report["runtime_identity"], "index_with_platform_descriptor")
             self.assertEqual(report["platform_manifest_digest"], manifest)
+
+            for observed, error in (
+                ({"repo_digests": [f"{IMAGE}@{manifest}"]}, "running_index_mismatch"),
+                ({"descriptor_raw": "not-json"}, "running_manifest_descriptor_invalid"),
+                ({"descriptor": None}, "running_manifest_descriptor_unavailable"),
+                ({"descriptor": {}}, "running_manifest_descriptor_unavailable"),
+                ({"descriptor": {"digest": "sha256:" + "e" * 64}}, "running_config_mismatch"),
+            ):
+                with self.subTest(observed=observed):
+                    observations.write_text(json.dumps(observed), encoding="utf-8")
+                    result = self.run_cli(
+                        "inspect-running", "--container", "container-id", "--expected-reference", reference,
+                        "--expected-version", version, "--expected-revision", revision, "--docker-bin", str(docker),
+                        check=False,
+                    )
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(json.loads(result.stderr)["code"], error)
 
     def test_inspect_running_rejects_invalid_health_before_registry_requests(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

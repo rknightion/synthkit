@@ -120,8 +120,12 @@ func pipelineCaptureGeneration(g sigil.Generation, mode string) (sigil.Generatio
 		for _, message := range messages {
 			for i := range message.Parts {
 				part := &message.Parts[i]
-				if part.Thinking != "" || part.ProviderType == "thinking" {
-					return sigil.Generation{}, pipelineError("metadata_only thinking parts unsupported by current native part encoder")
+				// Metadata-only removes thinking content but keeps the part a
+				// thinking part: the explicit kind survives the now-empty
+				// content, which the encoder would otherwise emit as text.
+				if part.ToolCall == nil && part.ToolResult == nil && part.Media == nil && (part.Thinking != "" || part.ProviderType == "thinking") {
+					part.Kind = sigil.PartKindThinking
+					part.Thinking = ""
 				}
 				if part.Media != nil && out.Metadata[sigil.AttrSDKName] == sigil.SDKPython {
 					return sigil.Generation{}, pipelineError("Python media parts not admitted by pipeline")

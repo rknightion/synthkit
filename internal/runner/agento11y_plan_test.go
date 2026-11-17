@@ -34,6 +34,18 @@ func declarationRegistry() *core.Registry {
 	return reg
 }
 
+func TestRegistrationPlanRefusesMissingRetainedAuthoring(t *testing.T) {
+	reg := core.NewRegistry()
+	reg.RegisterWorkload(core.WorkloadReg{Kind: "fictional", NewConfig: func() any { return &struct{}{} }, Build: func(any, core.Binding) (core.Workload, error) { panic("manual plan built workload") }, AgentDeclarations: func(any, core.Binding) ([]core.AgentDeclaration, error) {
+		return []core.AgentDeclaration{{Name: "Planner", ProducerMode: core.AgentProducerReal, Service: core.AgentServiceIdentity{Name: "service"}}}, nil
+	}})
+	res := &blueprint.Resolved{Name: "fictional", Label: "fictional", Workloads: []blueprint.WorkloadInstance{{Kind: "fictional", Name: "worker", Config: &struct{}{}}}, AgentObservability: &blueprint.AgentObservabilityDecl{Closures: []blueprint.AgentClosureDecl{{Key: "closure", Agent: blueprint.AgentRef{Instance: "worker", AgentName: "Planner"}, Evaluators: []blueprint.AgentEvaluatorDecl{{Key: "e", Spec: p.EvaluatorSpec{EvaluatorID: "eval", Version: "1"}}}}}}}
+	binding := p.Binding{DeploymentID: "fictional", StateID: "fictional", ContractRevision: "agento11yprovision-state-3264k-v2", SourceRevision: "sigil-bc963fb09-engine-inventory404-v1", Destination: p.Destination{GrafanaOrigin: "https://management.example.invalid", GrafanaOrg: "fictional", PluginRoute: "/api/plugins/grafana-agento11y-app/resources/eval", EffectiveTenant: "fictional", RuntimeEndpoint: "https://runtime.example.invalid/export", RuntimeTenant: "fictional"}}
+	if _, err := RegistrationPlan(reg, []*blueprint.Resolved{res}, binding); err == nil {
+		t.Fatal("programmatic DTO remarshal silently minted authored approval evidence")
+	}
+}
+
 type declarationNoHTTP struct{}
 
 func (declarationNoHTTP) RoundTrip(*http.Request) (*http.Response, error) {

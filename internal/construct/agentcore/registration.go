@@ -2,17 +2,22 @@
 
 package agentcore
 
-import "github.com/rknightion/synthkit/internal/core"
+import (
+	"github.com/rknightion/synthkit/internal/causal"
+	"github.com/rknightion/synthkit/internal/core"
+	"github.com/rknightion/synthkit/internal/failuremode"
+)
 
 // Registration wires this construct into the composition root's catalog
 // (single-owner wiring shim — added by the wiring pass).
 func Registration() core.ConstructReg {
+	modes := append(append([]failuremode.Mode(nil), FailureModes...), causal.FailureModes...)
 	return core.ConstructReg{
 		Kind:         "agentcore",
 		Doc:          "aws_bedrock_agentcore_* CloudWatch metrics for Bedrock AgentCore (invocation-class + resource-usage families)",
 		Scope:        core.ScopeBlueprint,
 		NewConfig:    func() any { return &Config{} },
 		Build:        Build,
-		FailureModes: FailureModes,
+		FailureModes: modes,
 	}
 }

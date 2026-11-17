@@ -72,6 +72,10 @@ func NewCorrelationFromSeed(seed string) Correlation {
 	}
 }
 
+// CorrelationSpanIDFromSeed derives only the root SpanID of NewCorrelationFromSeed
+// using its exact seed frame. It does not mint the other correlation join keys.
+func CorrelationSpanIDFromSeed(seed string) string { return hexNFromSeed(seed+"\x00span", 8) }
+
 // Outcome is a request's terminal status (drives error metrics, log status codes, span
 // status).
 type Outcome int
@@ -131,6 +135,25 @@ type Call struct {
 
 	Duration time.Duration
 	Failed   bool
+
+	// Causal hop facts (internal/causal). All zero = legacy; set only on a causal request.
+	Attempt        int           // 0 first; k >= 1 is resend k (http.request.resend_count)
+	StatusCode     int           // callee status as the caller saw it; 0 = unset
+	TimedOut       bool          // the caller gave up at its timeout
+	Offset         time.Duration // start relative to RenderStart; 0 = legacy positioning
+	ServerDuration time.Duration // callee server span duration when it differs from Duration
+	Fault          *Fault        // cause of this hop's failure or slowness; nil = none
+}
+
+// Fault is the cause of a request's or hop's failure or slowness (causal requests only). Its
+// strings are values (error.type, exception.type, a message), never metric/label/field names.
+type Fault struct {
+	Resource  string // declared causal resource name
+	Kind      string // resource kind
+	Mode      string // active fault mode; "" for emergent saturation
+	ErrorType string // error.type value
+	Exception string // exception.type value; "" = no exception event
+	Message   string // human message naming the cause
 }
 
 // Request is the per-request source of truth for the whole signal fan-out. FROZEN
@@ -171,6 +194,22 @@ type Request struct {
 	ErrorKind     string // "" on success; e.g. "timeout" | "upstream_5xx" (log detail)
 	BrowserOrigin bool   // wrapped in a RUM session/user action (Faro lane + browser span)
 	Calls         []Call // downstream db/cache hops, in order
+
+	// Causal facts (internal/causal), zero = legacy. Causal reports that the facts follow the
+	// causal model and projection reads the causal Call fields; Fault is the origin cause of a
+	// non-success outcome or a slowed request.
+	Causal bool
+	Fault  *Fault
+
+	// Logical identity: a request a client re-sends after a failure is a NEW request (fresh
+	// trace, span and request IDs) of the same logical request. Logical is the logical request's
+	// seed unit, set on every re-send to the first attempt's unit so the logical request's
+	// per-request draws (a source ID, its drawn path) repeat on every attempt while distinct
+	// logical requests stay fresh; "" means the request is its own logical request (every
+	// request that is not a re-send). LogicalAttempt is 0 on the first attempt and k on re-send
+	// k. Neither is ever a label.
+	Logical        string
+	LogicalAttempt int
 }
 
 // RenderStart is the base timestamp span/log lanes use to time a request's tree. Traces are

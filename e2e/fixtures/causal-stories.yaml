@@ -1,0 +1,232 @@
+# Test-only fixture, never a deployable blueprint (it lives in e2e/fixtures/, outside blueprints/).
+# The five causal stories of the request model (internal/causal): each declared fault is a
+# scheduled incident on its own window of one Monday, so internal/integration/causal_test.go runs
+# the real loader and runner inside one window at a time and checks traces, logs and metrics of the
+# failing node, its callers and the bound AWS and broker constructs against each other.
+#
+# Every rate is constant (off_peak_rps = peak_rps, load: constant) so one master tick mints a full
+# window of requests and the app's counts line up with the constructs' model windows. 60 rps is a
+# modest intake API; the resource sizes follow the design sketch (codex design §2.1), with the
+# demand of every resource the intake app reaches raised to its 60 rps, as load validation requires.
+#
+# Windows (UTC, 2026-06-15):
+#   09:00-09:10 story 1 partner-cert-expired     credential_expired on partner-api-cert
+#   09:20-09:30 story 2 enrich-throttling        concurrency_reduced 0.7 on enrich-fn-concurrency
+#   09:40-09:50 story 3 completeness-regression  rule_regression on completeness-rule
+#   10:00-10:10 story 5 intake-pool-exhaustion   dependency_slow on records-db (the pool exhausts)
+#   10:20-10:30 story 5 intake-throttling        quota_reduced 0.5 on intake-quota (429)
+#   11:00-11:40 story 4 validator-slowdown       dependency_slow on external-validator
+name: causal-stories
+label: causal-stories
+timezone: UTC
+environments:
+  - name: prod
+    cloud:
+      provider: aws
+      account_id: "111122223333"
+      region: eu-west-1
+      vpc_id: vpc-causal-stories
+      cloudwatch: {albs: 0, s3_buckets: 0, nlb: false, ebs: false, nat_gateway: false, eks: false, firehose: false, private_link: false}
+      lambda:
+        functions:
+          # The intake API's enrichment function; its invocations, throttles, errors, concurrency
+          # and duration come from enrich-fn-concurrency.
+          - name: enrich-fn
+            resource: enrich-fn-concurrency
+      sqs:
+        queues:
+          - name: validation-queue
+            collector_name: validation-queue
+            message_bytes: 2048
+            resource: validation-queue
+    cluster:
+      type: eks
+      name: causal-stories-prod
+      emit: false                    # topology for the app workloads only; no cluster telemetry
+      node_groups: [{name: general, instance_type: m6i.large, desired: 2}]
+    resources:
+      # Story 5: the intake pool exhausts when its database slows. Healthy: hold 20 ms (a 15 ms
+      # query plus driver overhead), 60 x 0.020 = 1.2 of 10 connections. dependency_slow at
+      # intensity 1 (lock contention, 15 ms -> 180 ms): h = 20 + 15 x 11 = 185 ms,
+      # 60 x 0.185 = 11.1 > 10, so about 10% of requests time out acquiring a connection.
+      - name: intake-db-pool
+        kind: pool
+        size: 10
+        hold_ms: 20
+        held_across: records-db
+        acquire_timeout_ms: 3000
+        demand: {off_peak_rps: 60, peak_rps: 60, load: constant}
+        error: {status: 503, type: SQLTransientConnectionException,
+                message: "intake-db-pool: connection is not available, request timed out after 3000ms"}
+      - name: records-db
+        kind: dependency
+        latency_ms: 15
+        slow_factor: 12
+      # Story 5 variant: a per-client rate quota of 80 rps, halved by quota_reduced 0.5 to 40 rps
+      # against 60 rps of demand, rejects a third of requests with 429.
+      - name: intake-quota
+        kind: quota
+        limit_rps: 80
+        demand: {off_peak_rps: 60, peak_rps: 60, load: constant}
+      # Story 1: the partner API's server certificate expires; every TLS handshake fails.
+      - name: partner-api
+        kind: dependency
+        latency_ms: 120
+      - name: partner-api-cert
+        kind: credential
+        of: partner-api
+        credential_type: server_certificate
+        error: {type: SSLHandshakeException,
+                message: "partner-api: PKIX path validation failed: certificate expired"}
+      # Story 2: the enrichment function's reserved concurrency. 60 rps x 0.9 s = 54 of 80
+      # concurrent executions; concurrency_reduced 0.7 leaves 24, so about half throttle.
+      - name: enrich-fn-concurrency
+        kind: concurrency
+        size: 80
+        hold_ms: 900
+        held_across: partner-api
+        demand: {off_peak_rps: 60, peak_rps: 60, load: constant}
+        error: {status: 429, type: TooManyRequestsException, message: "Rate Exceeded."}
+      # Story 4: forty validation consumers, 400 ms a message including the 350 ms validator call:
+      # mu = 40 / 0.4 s = 100 msg/s against 60 msg/s. The validator slowed 3x (350 -> 1050 ms)
+      # makes h = 400 + 350 x 2 = 1100 ms, mu = 36.4 msg/s < 60, and the backlog ages.
+      - name: validation-queue
+        kind: queue
+        size: 40
+        hold_ms: 400
+        held_across: external-validator
+        demand: {off_peak_rps: 60, peak_rps: 60, load: constant}
+      - name: external-validator
+        kind: dependency
+        latency_ms: 350
+        slow_factor: 3
+      # Story 4, broker side: a partner feed on the Solace broker is validated by the same external
+      # validator. Eight consumers at 400 ms: mu = 20 msg/s against 15 msg/s; slowed, mu = 7.3.
+      - name: partner-feed-queue
+        kind: queue
+        size: 8
+        hold_ms: 400
+        held_across: external-validator
+        demand: {off_peak_rps: 15, peak_rps: 15, load: constant}
+      # Story 3: a data-quality rule; a regressed rule rejects 35% of records with 422.
+      - name: completeness-rule
+        kind: rule
+        reject_share: 0.35
+        error: {status: 422, message: "rule completeness rejected record: mandatory field missing"}
+
+integrations:
+  solace:
+    targets: [QueueDetails, QueueStats, VpnSpool, GlobalStats, Spool]
+    brokers:
+      - name: broker-a
+        vpns:
+          - name: vpn-a
+            queues:
+              - {name: partner-feed-q, resource: partner-feed-queue, avg_msg_bytes: 2048, spool_quota_mb: 1024}
+
+workloads:
+  - type: app
+    name: intake
+    runs_on: causal-stories-prod
+    traffic: {off_peak_rps: 60, peak_rps: 60}
+    services:
+      - name: intake-api
+        entry: true
+        uses: [intake-quota, intake-db-pool, completeness-rule]   # met on arrival, in order
+        calls: [records-db, enrich-fn, validation-publisher]
+        call_policies:
+          # Throttles are retried twice with backoff; a 5xx from the function is not.
+          enrich-fn: {timeout_ms: 10000, retries: 2, backoff_ms: 200, retry_on: [throttle]}
+        custom_metrics:
+          # The entry's answers by status from its own hop outcomes (design §5.4, measure latency).
+          - name: http_server_request_duration_seconds
+            source: "OpenTelemetry semantic conventions http.server.request.duration; signals/otlp-metrics.md"
+            instrument: histogram
+            buckets: [0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10]
+            labels:
+              http_response_status_code: {enum: [{value: "200"}, {value: "422"}, {value: "429"}, {value: "502"}, {value: "503"}]}
+            value: {outcomes: {status_label: http_response_status_code, measure: latency}}
+        logs: &causal_logs
+          - source: app
+            body:
+              span_id: {ref: span_id}
+              status: {ref: status}
+              outcome: {ref: outcome}
+              error_type: {ref: error_type}
+              error_message: {ref: error_message}
+              exception_type: {ref: exception_type}
+              fault_resource: {ref: fault_resource}
+              fault_mode: {ref: fault_mode}
+              attempt: {ref: attempt}
+              upstream: {ref: upstream}
+      - {name: records-db, type: db, uses: [records-db]}
+      - name: enrich-fn
+        type: function
+        external: true                 # a managed Lambda runtime, not a cluster deployment
+        uses: [enrich-fn-concurrency]
+        calls: [partner-gateway]
+        call_policies:
+          partner-gateway: {timeout_ms: 2000, retries: 1, retry_on: [5xx, timeout, connect]}
+        logs: *causal_logs
+      - name: partner-gateway
+        external: true
+        uses: [partner-api]            # partner-api-cert follows its dependency
+        logs: *causal_logs
+      - name: validation-publisher
+        uses: [validation-queue]
+        logs: *causal_logs
+  - type: app                          # story 4 consumer side: the queue's served rate drives it
+    name: validator
+    runs_on: causal-stories-prod
+    traffic: {from_resource: validation-queue}
+    services:
+      - name: validation-worker
+        entry: true
+        worker: true
+        calls: [external-validator-node]
+        call_policies:
+          external-validator-node: {timeout_ms: 1500}
+        logs: &worker_logs  # anchors do not cross workloads
+          - source: app
+            body:
+              span_id: {ref: span_id}
+              status: {ref: status}
+              outcome: {ref: outcome}
+              error_type: {ref: error_type}
+              error_message: {ref: error_message}
+              exception_type: {ref: exception_type}
+              fault_resource: {ref: fault_resource}
+              fault_mode: {ref: fault_mode}
+              attempt: {ref: attempt}
+              upstream: {ref: upstream}
+      - name: external-validator-node
+        external: true
+        uses: [external-validator]
+        logs: *worker_logs
+
+scenarios:
+  - name: partner-cert-expired
+    title: Partner API certificate expired
+    effects: [{mode: credential_expired, target: partner-api-cert}]
+  - name: enrich-throttling
+    title: Enrichment function reserved concurrency reduced
+    effects: [{mode: concurrency_reduced, target: enrich-fn-concurrency, intensity: 0.7}]
+  - name: completeness-regression
+    title: Completeness rule regression
+    effects: [{mode: rule_regression, target: completeness-rule}]
+  - name: intake-pool-exhaustion
+    title: Records database lock contention
+    effects: [{mode: dependency_slow, target: records-db}]
+  - name: intake-throttling
+    title: Intake rate quota halved
+    effects: [{mode: quota_reduced, target: intake-quota, intensity: 0.5}]
+  - name: validator-slowdown
+    title: External validator slowed
+    effects: [{mode: dependency_slow, target: external-validator}]
+incidents:
+  - {scenario: partner-cert-expired, at: "2026-06-15T09:00", for: 10m}
+  - {scenario: enrich-throttling, at: "2026-06-15T09:20", for: 10m}
+  - {scenario: completeness-regression, at: "2026-06-15T09:40", for: 10m}
+  - {scenario: intake-pool-exhaustion, at: "2026-06-15T10:00", for: 10m}
+  - {scenario: intake-throttling, at: "2026-06-15T10:20", for: 10m}
+  - {scenario: validator-slowdown, at: "2026-06-15T11:00", for: 40m}

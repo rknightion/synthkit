@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/rknightion/synthkit/internal/blueprint"
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/construct/fleetmgmt"
 	"github.com/rknightion/synthkit/internal/control"
 	"github.com/rknightion/synthkit/internal/core"
@@ -161,10 +162,13 @@ type boundWorkload struct {
 
 // DeliveryReadinessLane is one sink lane an active blueprint intends to emit. EmissionInterval is
 // the slowest declared instance cadence feeding that lane and therefore the earliest safe stale
-// threshold before adding the queue delivery deadline.
+// threshold before adding the queue delivery deadline. Freshness is the manifest lane's class: only
+// a FreshnessScheduled lane has a missing-evidence bound; a FreshnessRequestDriven lane pushes only
+// when requests were minted, so its silence is not evidence of a fault.
 type DeliveryReadinessLane struct {
 	Name             string
 	EmissionInterval time.Duration
+	Freshness        LaneFreshness
 }
 
 // bpRuntime is one blueprint's running state: its own shape engine (its incidents +
@@ -970,6 +974,26 @@ func (r *Runner) MasterTick(ctx context.Context, now time.Time) error {
 	return errors.Join(errs...)
 }
 
+// advanceCausal advances every causal consumer of one blueprint (internal/causal) to this master
+// tick, before mint, whatever each consumer's own cadence: every consumer then samples live
+// faults at the same instants, so their independently compiled models agree at every grid point
+// (ARCHITECTURE I42). Consumers also advance idempotently in their own Tick.
+func (r *Runner) advanceCausal(bp *bpRuntime, now time.Time) {
+	for _, bc := range bp.constructs {
+		if a, ok := bc.construct.(causal.Advancer); ok {
+			a.AdvanceCausal(now, bp.eng)
+		}
+	}
+	for _, bw := range bp.workloads {
+		if a, ok := bw.workload.(causal.Advancer); ok {
+			a.AdvanceCausal(now, bp.eng)
+		}
+	}
+}
+
+// The blueprint shape engine is the causal model's clock.
+var _ causal.Clock = (*shape.Engine)(nil)
+
 // masterTickOne mints ONE blueprint's batch and hands each of its workloads EXACTLY its own requests
 // (exactly-once trace/log projection — I10). It is the single-blueprint slice of MasterTick: called
 // serially by MasterTick (RunOnce) and concurrently — one goroutine per blueprint — by Run. The
@@ -985,6 +1009,7 @@ func (r *Runner) masterTickOne(ctx context.Context, bp *bpRuntime, now time.Time
 			preparer.PreparePodLifecycle(now)
 		}
 	}
+	r.advanceCausal(bp, now)
 	batch := bp.ledger.Mint(now)
 	if len(batch) == 0 {
 		return nil
@@ -1366,6 +1391,9 @@ func (r *Runner) ControlSchema() control.Schema {
 				sc.Kinds = append(sc.Kinds, bc.kind)
 			}
 		}
+		if bp.res != nil {
+			sc.Resources = append(sc.Resources, resourceInfos(bp.name, bp.res.Resources)...)
+		}
 	}
 	return sc
 }
@@ -1463,19 +1491,34 @@ func (r *Runner) ValidateRuntimeIncident(ri control.RuntimeIncident) error {
 			return fmt.Errorf("mode %q not declared on axis %q", ri.Mode, axis)
 		}
 	default:
-		var axis failuremode.Axis
-		found := false
+		// A name may be a target on several axes (an app service node and its Lambda function):
+		// the incident resolves on the one axis that declares its mode, mirroring the loader.
+		var named, declaring []string
 		for _, t := range bp.targets {
-			if t.Name == ri.Target {
-				axis, found = t.Axis, true
-				break
+			if t.Name != ri.Target || slices.Contains(named, string(t.Axis)) {
+				continue
+			}
+			named = append(named, string(t.Axis))
+			if modeOnAxisVocab(vocab, ri.Mode, t.Axis) {
+				declaring = append(declaring, string(t.Axis))
 			}
 		}
-		if !found {
+		switch {
+		case len(named) == 0:
 			return fmt.Errorf("unknown target %q in blueprint %q", ri.Target, ri.Blueprint)
+		case len(declaring) > 1:
+			return fmt.Errorf("target %q is ambiguous: mode %q is declared on its axes %s", ri.Target, ri.Mode, strings.Join(declaring, ", "))
+		case len(declaring) == 0 && len(named) == 1:
+			return fmt.Errorf("mode %q not declared on target %q's axis %q", ri.Mode, ri.Target, named[0])
+		case len(declaring) == 0:
+			return fmt.Errorf("mode %q not declared on any of target %q's axes %s", ri.Mode, ri.Target, strings.Join(named, ", "))
 		}
-		if !modeOnAxisVocab(vocab, ri.Mode, axis) {
-			return fmt.Errorf("mode %q not declared on target %q's axis %q", ri.Mode, ri.Target, axis)
+	}
+	// A resource-axis mode must act on the kind of every resource its target reaches, with the
+	// loader's error text (a resource:* target must select at least one resource of that kind).
+	if bp.res != nil {
+		if err := bp.res.ValidateResourceKind(ri.Mode, ri.Target); err != nil {
+			return err
 		}
 	}
 	// at/for required, then delegate grammar validation to shape: build a throwaway engine from the
@@ -1681,7 +1724,7 @@ func (r *Runner) DeliveryReadinessLanes() []DeliveryReadinessLane {
 	out := make([]DeliveryReadinessLane, 0, len(m.Lanes))
 	for _, lane := range m.Lanes {
 		if lane.State == LaneExpected {
-			out = append(out, DeliveryReadinessLane{Name: lane.Sink, EmissionInterval: lane.EmissionInterval})
+			out = append(out, DeliveryReadinessLane{Name: lane.Sink, EmissionInterval: lane.EmissionInterval, Freshness: lane.Freshness})
 		}
 	}
 	return out
@@ -1755,3 +1798,8 @@ func (r *Runner) WindowStats(blueprint string, now time.Time, window time.Durati
 	}
 	return ledger.WindowStats{}
 }
+
+// The real engine must keep satisfying causal.ScheduledClock: warm start relies on the optional
+// assertion to keep live faults out of all but the last stretch of steps (a signature drift would
+// otherwise silently fall back to applying them over the whole horizon).
+var _ causal.ScheduledClock = (*shape.Engine)(nil)

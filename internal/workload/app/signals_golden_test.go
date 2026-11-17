@@ -83,16 +83,20 @@ var appParityGoldens = map[string]appParityGolden{
 		Traces: "772c075029860afb7898bf13960943ddbe4f7180e6b8cd438a45e535667b293c",
 		Counts: appParityCounts{MetricSeries: 21703, LogStreams: 1, LogLines: 1, TraceBlocks: 1, Spans: 2},
 	},
+	// 3d6e63e34731/workload-0, 30c71ab79cac/workload-0, 30c71ab79cac/workload-1 and
+	// span-metrics-fixture: a nested hop that outlasts its caller now widens the caller's CLIENT and
+	// SERVER span ends to cover it. Audited base/candidate payloads differ only in those span End
+	// times; span sets, starts, metrics, logs and counts are identical.
 	"3d6e63e34731/workload-0": {
-		Traces: "d67e19ca399875b8bd39ef2cb474d0481dcab0860ffb7b16c50b78d773a509ae",
+		Traces: "2c05e7aede7ade3c6da3dd247a787434ab7294ca4bf17a5d32e23bee48b097af",
 		Counts: appParityCounts{MetricSeries: 44557, LogStreams: 4, LogLines: 4, TraceBlocks: 6, Spans: 15},
 	},
 	"30c71ab79cac/workload-0": {
-		Traces: "541911c92d2b510d65ba55504eb871a8f09fb077f1d85266ea6232a7fcaef387",
+		Traces: "ede848b8b750107ba9109f7e3f58308b56e80b2fdff77e4aac01f39644776ece",
 		Counts: appParityCounts{MetricSeries: 23018, LogStreams: 3, LogLines: 3, TraceBlocks: 4, Spans: 14},
 	},
 	"30c71ab79cac/workload-1": {
-		Traces: "000d86ae8b5720d4089461c1ae78e4ef5e3489a8926bf65c6dbb737d60d588e9",
+		Traces: "12d8133b029ff8315a0e3e0365cceed9860818b27bf11b50b477a846da73ce28",
 		Counts: appParityCounts{MetricSeries: 22203, LogStreams: 1, LogLines: 1, TraceBlocks: 2, Spans: 9},
 	},
 	"30c71ab79cac/workload-2": {
@@ -108,7 +112,7 @@ var appParityGoldens = map[string]appParityGolden{
 		Counts: appParityCounts{MetricSeries: 192, LogStreams: 0, LogLines: 0, TraceBlocks: 3, Spans: 5},
 	},
 	"span-metrics-fixture": {
-		Traces: "3cc2dd80149b25c1e634853d22f85b200e00fc3bfbf3bd6418c262289e92340c",
+		Traces: "be14e64f20501384895239c7af47eee9bb0beddc7fc5b15080ea917cba2e7804",
 		Counts: appParityCounts{MetricSeries: 170, LogStreams: 0, LogLines: 0, TraceBlocks: 2, Spans: 4},
 	},
 }
@@ -355,8 +359,7 @@ func runAppParityCase(t *testing.T, cfg *Config, now time.Time, seed string) (ap
 		t.Logf("fixed request route=%q outcome=%q trace=%q logs=%s", r.Route, r.Outcome, r.TraceID, encoded)
 	}
 
-	sortedMetrics := sortedMetricBatch(t, metrics.batch)
-	wire := appParityWire{Metrics: parityJSON(t, sortedMetrics), Logs: parityJSON(t, logs.batch)}
+	wire := appParityWire{Metrics: canonicalMetricJSON(t, metrics.batch), Logs: parityJSON(t, logs.batch)}
 	// Diagnostic only: retain canonical sink batches for cross-platform investigation.
 	if dir := os.Getenv("APP_PARITY_DUMP_DIR"); dir != "" {
 		if err := os.MkdirAll(dir, 0755); err != nil {
@@ -409,6 +412,34 @@ func parityJSON(t *testing.T, batch any) []byte {
 	return encoded
 }
 
+// canonicalMetricJSON reuses the complete encoded records used for lexical ordering.
+// Joining those records preserves the old sort-then-marshal array bytes, including
+// duplicates and the non-nil empty array returned for a nil input batch.
+func canonicalMetricJSON(t *testing.T, batch []promrw.Series) []byte {
+	t.Helper()
+	records := make([]string, len(batch))
+	size := 2 + max(0, len(batch)-1)
+	for i, series := range batch {
+		encoded, err := json.Marshal(series)
+		if err != nil {
+			t.Fatalf("encode metric series: %v", err)
+		}
+		records[i] = string(encoded)
+		size += len(encoded)
+	}
+	sort.Strings(records)
+	out := make([]byte, 0, size)
+	out = append(out, '[')
+	for i, record := range records {
+		if i > 0 {
+			out = append(out, ',')
+		}
+		out = append(out, record...)
+	}
+	return append(out, ']')
+}
+
+// sortedMetricBatch is the unchanged independent full-series reference for byte proofs.
 func sortedMetricBatch(t *testing.T, batch []promrw.Series) []promrw.Series {
 	t.Helper()
 	count := len(batch)

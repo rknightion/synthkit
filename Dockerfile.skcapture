@@ -43,7 +43,7 @@ RUN tar -xzf /tmp/kubernetes-src.tar.gz -C /kubectl-src
 # Disable the upstream workspace and authenticate downloaded modules via sumdb.
 ENV GOWORK=off GOSUMDB=sum.golang.org
 RUN cp go.mod kubectl-build.mod && cp go.sum kubectl-build.sum && \
-    go get -modfile=kubectl-build.mod golang.org/x/net@v0.60.0
+    go get -modfile=kubectl-build.mod golang.org/x/net@v0.62.0
 
 ARG TARGETARCH
 RUN case "$TARGETARCH" in amd64|arm64) ;; *) echo "unsupported architecture: $TARGETARCH" >&2; exit 1 ;; esac && \
@@ -57,7 +57,7 @@ RUN case "$TARGETARCH" in amd64|arm64) ;; *) echo "unsupported architecture: $TA
 
 # ─── Final image ──────────────────────────────────────────────────────────────
 # Alpine base + source-built kubectl. No compiler or source in the final image.
-FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+FROM alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
 
 # Upgrade base packages so the pinned base cannot retain a fixed vulnerability.
 # Explicit CA versions invalidate older cached upgrade layers and regenerate the active store.

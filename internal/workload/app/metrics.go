@@ -25,23 +25,71 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 		w.tickProfiles(ctx, now, world)
 		return nil
 	}
+	// An explicit master volume of 0 is a pause (SKT-0147): spec metrics follow
+	// observePausedMetricStates instead of evaluating shape values, whose evaluator treats a zero
+	// load factor as full load.
+	paused := world.Shape.Paused()
+	pausedCtx := telemetryspec.EvalCtx{Rand: world.Shape.Float64, Norm: world.Shape.NormFloat64, Now: now}
+	dt := interval.Seconds()
+	if !w.lastMetricTick.IsZero() && now.After(w.lastMetricTick) {
+		dt = now.Sub(w.lastMetricTick).Seconds()
+	}
+	w.lastMetricTick = now
+	// from opens this tick's metric window (from, now] for resource counters and outcomes.
+	from := now.Add(-time.Duration(dt * float64(time.Second)))
 	for _, n := range w.graph.nodes {
 		id := w.identity(n)
+		var incs map[string]float64
+		derived := n.hasDerived()
+		if derived {
+			incs = make(map[string]float64)
+		}
 		if !n.decl.metricsEnabled() {
 			// Consume this node's value draws in declaration order so disabling one producer does
 			// not shift the generated samples of enabled services later in the same tick.
 			for _, spec := range n.metrics {
-				w.observeMetricStates(nil, nil, id, spec, w.metricCtx(now, world, id, spec))
+				w.observeMetricStates(nil, nil, id, spec, w.metricCtx(now, from, world, id, n, spec), incs, nil)
+			}
+			if derived {
+				for _, spec := range n.metrics {
+					if isDerived(spec) {
+						w.observeDerived(nil, nil, id, n, spec, w.metricCtx(now, from, world, id, n, spec), incs, dt, paused, world)
+					}
+				}
 			}
 			continue
 		}
-		for i, spec := range n.metrics {
-			metricCtx := w.metricCtx(now, world, id, spec)
-			var native *state.State
+		nativeFor := func(i int) *state.State {
 			if w.cfg.otelMetricsEnabled() && world.OTLPMetrics != nil && i >= n.nativeMetricStart {
-				native = w.nativeState(n)
+				return w.nativeState(n)
 			}
-			w.observeMetricStates(w.st, native, id, spec, metricCtx)
+			return nil
+		}
+		for i, spec := range n.metrics {
+			native := nativeFor(i)
+			if paused {
+				n.notePaused(now, spec)
+				ctx := pausedCtx
+				w.stallProviders(&ctx, now, world, id, n, spec)
+				w.observePausedMetricStates(w.st, native, id, spec, ctx)
+				continue
+			}
+			metricCtx := w.metricCtx(now, from, world, id, n, spec)
+			w.observeMetricStates(w.st, native, id, spec, metricCtx, incs, w.seriesShape(now, time.Duration(dt*float64(time.Second)), world, id, n, i, spec))
+		}
+		// Derived specs read this tick's counter increments, so they run after the node's
+		// ordinary specs; they consume draws only when declared (count_of observations).
+		if derived {
+			for i, spec := range n.metrics {
+				if !isDerived(spec) {
+					continue
+				}
+				ctx := pausedCtx
+				if !paused {
+					ctx = w.metricCtx(now, from, world, id, n, spec)
+				}
+				w.observeDerived(w.st, nativeFor(i), id, n, spec, ctx, incs, dt, paused, world)
+			}
 		}
 	}
 	if world.EmitSpanMetrics {
@@ -64,19 +112,124 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 
 // metricCtx builds the eval context for one metric: a `shape` value reads the node's load
 // (BusinessFactor) amplified by any active incident on the value's declared mode, scoped to the
-// node (per-node incident responsiveness, §6.5). Non-shape values ignore ShapeVal.
-func (w *Workload) metricCtx(now time.Time, world *core.World, id nodeIdentity, spec telemetryspec.MetricSpec) telemetryspec.EvalCtx {
-	shapeVal := world.Shape.BusinessFactor(now)
+// node (per-node incident responsiveness, §6.5). With incident_value, load and scoped intensity
+// stay separate: the DSL interpolates the declared endpoints instead of multiplying by FailFactor.
+// Non-shape values ignore these inputs.
+func (w *Workload) metricCtx(now, from time.Time, world *core.World, id nodeIdentity, n *node, spec telemetryspec.MetricSpec) telemetryspec.EvalCtx {
+	shapeVal := n.load.business(now, world.Shape)
+	var intensity float64
 	if spec.Value.Kind() == telemetryspec.KindShape && spec.Value.Shape != nil && spec.Value.Shape.Mode != "" {
-		shapeVal *= world.Shape.FailFactor(now, spec.Value.Shape.Mode, id.service, incidentAmplification)
+		if spec.Value.Shape.IncidentValue != nil {
+			_, intensity = world.Shape.Eval(now, spec.Value.Shape.Mode, id.service)
+		} else {
+			shapeVal *= world.Shape.FailFactor(now, spec.Value.Shape.Mode, id.service, incidentAmplification)
+		}
 	}
-	return telemetryspec.EvalCtx{
+	ctx := telemetryspec.EvalCtx{
 		ShapeVal: shapeVal,
-		Rand:     world.Shape.Float64,
-		Norm:     world.Shape.NormFloat64,
+		// A shape_profile can reach an exact zero load (floor 0, weekend_factor 0); that must
+		// read 0, like a paused shape gauge. The blueprint curve never reaches 0 (its pause
+		// takes the paused path), so the legacy zero-means-1.0 fallback is kept without one.
+		ExactLoad:         n.load != nil,
+		IncidentIntensity: intensity,
+		Rand:              world.Shape.Float64,
+		Norm:              world.Shape.NormFloat64,
+		Now:               now, // the tick time, never the wall clock; stallProviders holds it per series
 	}
+	w.stallProviders(&ctx, now, world, id, n, spec)
+	w.causalProviders(&ctx, spec, n, from, now, world)
+	return ctx
 }
 
 // incidentAmplification is the magnitude a shape-driven value reaches at full incident intensity
 // (×N at intensity 1.0) — e.g. a fallback rate triples under fallback_storm.
 const incidentAmplification = 3.0
+
+// heartbeatNow is the time one series of a `now` gauge reads this tick: the tick time, unless the
+// series is stalled, or the gauge is arrivals_only and the node had none this tick, when it is the
+// last reading taken while it was neither. The series stalls on its own stall mode (an enum label
+// value's stall_mode, else the metric's), resolved per service like a shape value's.
+//
+// The hold is workload state keyed by node, metric, series labels and stall mode, so two series
+// with different stall modes hold independently. It advances only on ticks the series is not held,
+// so it is deterministic and never reads the wall clock. A hold that is already due on the first
+// evaluation has no earlier reading, so that tick reads the tick time and becomes the held value.
+// A now model with a period (a declared schedule) reads its last schedule boundary instead of the
+// tick time, and a boundary that falls inside a hold is a missed run that keeps the held reading
+// until the next boundary (see telemetryspec.NowModel). Every other value model gets the tick time
+// unchanged. The hold is not persisted: after a process restart inside an incident the gauge
+// re-holds from the first tick it sees. n is the node, for the arrivals read; nil counts as
+// arrivals.
+func (w *Workload) heartbeatNow(now time.Time, world *core.World, id nodeIdentity, n *node, spec telemetryspec.MetricSpec, labels map[string]string) time.Time {
+	if spec.Value.Kind() != telemetryspec.KindNow {
+		return now
+	}
+	mode := spec.SeriesStallMode(labels)
+	arrivalsOnly := spec.Value.Now.ArrivalsOnly
+	sched := spec.Value.Now
+	if mode == "" && !arrivalsOnly {
+		return sched.Boundary(now)
+	}
+	key := id.service + "\x00" + incKey(spec.Name, labels) + "\x00" + mode
+	held := stallActive(now, world, id, mode) || (arrivalsOnly && !w.hadArrivals(now, world, n))
+	at := sched.Boundary(now)
+	if w.nowHold == nil {
+		w.nowHold = make(map[string]time.Time)
+	}
+	if sched.Period > 0 {
+		// A run on the schedule that falls in a hold is missed: remember the boundary in force
+		// at the last held tick, and keep the reading until a later boundary arrives.
+		missKey := key + "\x00missed"
+		if held {
+			w.nowHold[missKey] = at
+		} else if missed, ok := w.nowHold[missKey]; ok && !at.After(missed) {
+			held = true
+		}
+	}
+	if held {
+		if prev, ok := w.nowHold[key]; ok {
+			return prev
+		}
+	}
+	w.nowHold[key] = at
+	return at
+}
+
+// stallActive reports whether the incident mode is active for the service at intensity above 0.
+// An active window at intensity 0 is a no-op everywhere else (a shape value reads baseline), so it
+// does not stall a producer either.
+func stallActive(now time.Time, world *core.World, id nodeIdentity, mode string) bool {
+	if mode == "" {
+		return false
+	}
+	active, intensity := world.Shape.Eval(now, mode, id.service)
+	return active && intensity > 0
+}
+
+// hadArrivals reports whether the node's source had arrivals this tick: its load factor (its own
+// shape_profile clock, else the blueprint curve, times the master volume) is above 0. A paused
+// workload has none.
+func (w *Workload) hadArrivals(now time.Time, world *core.World, n *node) bool {
+	if n == nil {
+		return true
+	}
+	return !world.Shape.Paused() && n.load.business(now, world.Shape) > 0
+}
+
+// stallProviders wires the stall state a `now` gauge or a `source_read` counter reads for each of
+// its series (see heartbeatNow); every other value is unchanged.
+func (w *Workload) stallProviders(ctx *telemetryspec.EvalCtx, now time.Time, world *core.World, id nodeIdentity, n *node, spec telemetryspec.MetricSpec) {
+	switch spec.Value.Kind() {
+	case telemetryspec.KindNow:
+		if spec.SeriesStallMode(nil) == "" && !spec.HasSeriesStall() && !spec.Value.Now.ArrivalsOnly {
+			return
+		}
+		ctx.NowFor = func(labels map[string]string) time.Time {
+			return w.heartbeatNow(now, world, id, n, spec, labels)
+		}
+	case telemetryspec.KindSourceRead:
+		ctx.Stalled = func(labels map[string]string) bool {
+			return stallActive(now, world, id, spec.SeriesStallMode(labels))
+		}
+	}
+}

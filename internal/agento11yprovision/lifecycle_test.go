@@ -752,12 +752,98 @@ func (f *engineTLSFixture) apply(p enginePlan) (Receipt, error) {
 func (f *engineTLSFixture) applyWithin(p enginePlan, budget time.Duration) (Receipt, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), budget)
 	defer cancel()
+	margin := deadlineMargin(f.t, ctx)
 	pv, e := previewEngine(ctx, f.client, f.store, p, ModeApply)
+	margin.returned()
 	if e != nil {
 		return Receipt{}, e
 	}
-	return applyEngine(ctx, f.client, f.store, p, pv, engineApproval(f.t, pv, "", nil))
+	receipt, e := applyEngine(ctx, f.client, f.store, p, pv, engineApproval(f.t, pv, "", nil))
+	margin.returned()
+	return receipt, e
 }
+
+// marginProbe is test-side diagnostics only: it changes no deadline, call or
+// assertion. Created immediately before the first engine call on a caller
+// context, it logs after each engine return on that context
+//
+//	deadline-margin test=<name> budget=<deadline - first entry> left=<deadline - this return> margin=<left/budget> returns=<n>
+//
+// so the last line for a context is the margin at its last engine return. A
+// test whose own body calls deadlineMargin is listed in scripts/race-isolated.txt,
+// whose invocation runs with -v and puts its margins in the hosted log
+// (race_split.py check). The shared fixture apply (applyWithin) also logs, for
+// whichever test calls it; a sweep test's lines show only when it fails.
+type marginProbe struct {
+	t        *testing.T
+	deadline time.Time
+	budget   time.Duration
+	mu       sync.Mutex
+	returns  int
+}
+
+func deadlineMargin(t *testing.T, ctx context.Context) *marginProbe {
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		t.Fatal("deadline-margin probe needs a caller deadline")
+	}
+	return &marginProbe{t: t, deadline: deadline, budget: time.Until(deadline)}
+}
+
+func (m *marginProbe) returned() {
+	left := time.Until(m.deadline)
+	m.mu.Lock()
+	m.returns++
+	n := m.returns
+	m.mu.Unlock()
+	m.t.Logf("deadline-margin test=%s budget=%s left=%s margin=%.3f returns=%d", m.t.Name(), m.budget.Round(time.Millisecond), left.Round(time.Millisecond), float64(left)/float64(m.budget), n)
+}
+
+// requireEngineError asserts that an engine call a test expects to fail failed
+// with the error class the test is about. A bare non-nil error is not enough,
+// and an error whose chain carries a caller or HTTP deadline or a cancellation
+// does not satisfy it: the fixture's other timing bounds are unchanged, so a
+// test that passed on a deadline would otherwise pass for the wrong reason.
+// Exact-read conflicts retain their causes, so these checks reject deadlines
+// even when the outer error also matches ErrConflict.
+func requireEngineError(t *testing.T, site string, err, want error) {
+	t.Helper()
+	requireNotInterrupted(t, site, err)
+	if !errors.Is(err, want) {
+		t.Fatalf("%s: want error class %v, got %v", site, want, err)
+	}
+}
+
+// requireEngineHTTPStatus asserts a typed HTTP status observation (*HTTPError).
+func requireEngineHTTPStatus(t *testing.T, site string, err error, status int) {
+	t.Helper()
+	requireNotInterrupted(t, site, err)
+	var he *HTTPError
+	if !errors.As(err, &he) || he.StatusCode != status {
+		t.Fatalf("%s: want HTTP status %d observation, got %v", site, status, err)
+	}
+}
+
+// requireEngineErrorText is for the management client's own refusals, which are
+// built without an exported sentinel; the message is the only identity they have.
+func requireEngineErrorText(t *testing.T, site string, err error, text string) {
+	t.Helper()
+	requireNotInterrupted(t, site, err)
+	if !strings.Contains(err.Error(), text) {
+		t.Fatalf("%s: want error containing %q, got %v", site, text, err)
+	}
+}
+
+func requireNotInterrupted(t *testing.T, site string, err error) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("%s: engine returned no error", site)
+	}
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		t.Fatalf("%s: ended by a deadline or cancellation, not the behaviour under test: %v", site, err)
+	}
+}
+
 func engineSnapshot(t *testing.T, f *engineTLSFixture) Snapshot {
 	t.Helper()
 	s, e := f.store.Load(context.Background())
@@ -812,24 +898,31 @@ func TestEngineAllFamiliesApplyNoopCleanupTLS(t *testing.T) {
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel()
+			margin := deadlineMargin(t, ctx)
 			pv, e := previewEngine(ctx, f.client, f.store, p, ModeApply)
+			margin.returned()
 			if e != nil {
 				t.Fatal(e)
 			}
 			before := len(f.writes)
 			noop, e := applyEngine(ctx, f.client, f.store, p, pv, engineApproval(t, pv, s.Document.Constructions[0].ID, nil))
+			margin.returned()
 			if e != nil || noop.Result != ReceiptApplyObserved || len(f.writes) != before {
 				t.Fatalf("ten-family noop failed/mutated: %v", e)
 			}
 			cp := cleanupPlan(t, p, engineSnapshot(t, f))
 			ctx2, cancel2 := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel2()
+			margin2 := deadlineMargin(t, ctx2)
 			pv, e = previewEngine(ctx2, f.client, f.store, cp, ModeTeardown)
+			margin2.returned()
 			if e != nil {
 				t.Fatal(e)
 			}
 			result, e := cleanupEngine(ctx2, f.client, f.store, cp, pv, engineApproval(t, pv, "", nil))
-			if e == nil || result.Result != ReceiptIncomplete || len(result.Members) != 10 {
+			margin2.returned()
+			requireEngineError(t, "retained ten-family teardown", e, ErrConflict)
+			if result.Result != ReceiptIncomplete || len(result.Members) != 10 {
 				t.Fatalf("full retained teardown not honest: %v %+v", e, result)
 			}
 			after := engineSnapshot(t, f)
@@ -1014,7 +1107,8 @@ func TestEngineSourceNormalizationAdmissionTLS(t *testing.T) {
 				f.input.Resources[i].Spec = s
 			}
 			p, err := prepareEngine(f.input)
-			if err == nil || p.plan.Digest() != "" || p.specs != nil {
+			requireEngineError(t, "source-invalid "+tc.name, err, ErrInvalid)
+			if p.plan.Digest() != "" || p.specs != nil {
 				t.Errorf("source-invalid %s admitted before first write: %v", tc.name, err)
 			}
 			if len(f.calls) != 0 || len(f.writes) != 0 || !engineSnapshot(t, f).Base.Pristine {
@@ -1037,9 +1131,8 @@ func TestEngineSourceNormalizationAdmissionTLS(t *testing.T) {
 				t.Fatal(err)
 			}
 			f.input.Resources[0].Spec = s
-			if _, err = prepareEngine(f.input); err == nil {
-				t.Errorf("source-invalid %s admitted before first write", tc.name)
-			}
+			_, err = prepareEngine(f.input)
+			requireEngineError(t, "source-invalid "+tc.name, err, ErrInvalid)
 			if len(f.calls) != 0 || !engineSnapshot(t, f).Base.Pristine {
 				t.Fatal("invalid heuristic made calls or acquired authority")
 			}
@@ -1074,10 +1167,13 @@ func TestEngineSourceNormalizationAdmissionTLS(t *testing.T) {
 				}
 				f.input.Resources[i].Spec = s
 			}
+			wantClass := ErrInvalid
+			if bad == "reserved-binding-name" {
+				wantClass = ErrUnsupported
+			}
 			for repeat := 0; repeat < 20; repeat++ {
-				if _, e := prepareEngine(f.input); e == nil {
-					t.Fatalf("source-invalid %s admitted before first write", bad)
-				}
+				_, e := prepareEngine(f.input)
+				requireEngineError(t, "source-invalid "+bad, e, wantClass)
 			}
 			if len(f.calls) != 0 {
 				t.Fatal("authoring normalization made network calls")
@@ -1226,7 +1322,23 @@ func TestEngineApprovedAbsenceTruthTableTLS(t *testing.T) {
 				f.evals[v.EvaluatorID] = v
 			}
 			_, e := f.apply(f.plan())
-			if e == nil || len(f.writes) != 0 || !engineSnapshot(t, f).Base.Pristine {
+			switch fault {
+			case "404-alone":
+				requireEngineHTTPStatus(t, fault, e, 500)
+			case "partial":
+				requireEngineErrorText(t, fault, e, "agento11y management list envelope is invalid")
+			case "capped":
+				requireEngineErrorText(t, fault, e, "agento11y management response exceeds byte limit")
+			case "foreign":
+				requireEngineErrorText(t, fault, e, "agento11y management evaluator observation is invalid")
+			case "contradictory-inventory", "non404":
+				requireEngineError(t, fault, e, ErrConflict)
+			case "paid":
+				requireEngineError(t, fault, e, ErrUnsupported)
+			default:
+				t.Fatalf("no expected class for fault %s", fault)
+			}
+			if len(f.writes) != 0 || !engineSnapshot(t, f).Base.Pristine {
 				t.Fatalf("unverified absence granted write/custody: %v", e)
 			}
 		})
@@ -1236,7 +1348,9 @@ func TestEngineApprovedAbsenceTruthTableTLS(t *testing.T) {
 			f := newEngineTLS(t, false)
 			in := f.input
 			in.Binding.SourceRevision = revision
-			if _, e := prepareEngine(in); e == nil || len(f.calls) != 0 {
+			_, e := prepareEngine(in)
+			requireEngineError(t, "unknown source revision", e, ErrBinding)
+			if len(f.calls) != 0 {
 				t.Fatal("unknown revision admitted")
 			}
 		})
@@ -1252,7 +1366,9 @@ func TestEngineOwnedEvaluatorListConfigMustMatchExactTLS(t *testing.T) {
 	before := len(f.writes)
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
-	if _, e := previewEngine(ctx, f.client, f.store, p, ModeApply); e == nil || len(f.writes) != before {
+	_, e := previewEngine(ctx, f.client, f.store, p, ModeApply)
+	requireEngineError(t, "list/exact configuration contradiction", e, ErrConflict)
+	if len(f.writes) != before {
 		t.Fatal("same-coordinate list/exact configuration contradiction accepted")
 	}
 }
@@ -1268,7 +1384,10 @@ func TestEngineOwnedEvaluatorInventoryCannotHideOtherVersionTLS(t *testing.T) {
 	before := len(f.writes)
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
-	if _, e := previewEngine(ctx, f.client, f.store, p, ModeApply); e == nil || len(f.writes) != before {
+	defer deadlineMargin(t, ctx).returned() // the last engine call is the function's last statement
+	_, e := previewEngine(ctx, f.client, f.store, p, ModeApply)
+	requireEngineError(t, "extra owned-identity version", e, ErrConflict)
+	if len(f.writes) != before {
 		t.Fatal("extra version under owned identity hidden behind unchanged GET-latest")
 	}
 }
@@ -1279,8 +1398,10 @@ func TestEnginePostCommitAmbiguityTLS(t *testing.T) {
 			f.fault = fault
 			p := f.plan()
 			_, e := f.apply(p)
-			if e == nil {
-				t.Fatal("ambiguous mutation accepted")
+			if fault == "drop-collection" {
+				requireEngineErrorText(t, "first apply "+fault, e, "agento11y management transport failed")
+			} else {
+				requireEngineError(t, "first apply "+fault, e, ErrConflict)
 			}
 			s := engineSnapshot(t, f)
 			if s.Document == nil || s.Document.Pending == nil || len(s.Document.Receipts) != 0 {
@@ -1288,7 +1409,8 @@ func TestEnginePostCommitAmbiguityTLS(t *testing.T) {
 			}
 			before := len(f.writes)
 			_, e = f.apply(p)
-			if e == nil || len(f.writes) != before {
+			requireEngineError(t, "second apply "+fault, e, ErrConflict)
+			if len(f.writes) != before {
 				t.Fatal("normal apply retried ambiguous attempt")
 			}
 			for _, w := range f.writes {
@@ -1340,9 +1462,8 @@ func TestEngineIndependentNoncommitOnlyNeverAttemptedSuffixTLS(t *testing.T) {
 	f := newEngineTLS(t, false)
 	f.fault = "collection-not-applied"
 	p := f.plan()
-	if _, e := f.apply(p); e == nil {
-		t.Fatal("refused collection completed apply")
-	}
+	_, e := f.apply(p)
+	requireEngineHTTPStatus(t, "refused collection", e, 503)
 	s := engineSnapshot(t, f)
 	pending := s.Document.Pending
 	if pending == nil || pending.ResourceKey != "c" {
@@ -1386,7 +1507,8 @@ func TestEngineIndependentNoncommitOnlyNeverAttemptedSuffixTLS(t *testing.T) {
 	_, e = recoverEngine(ctx, f.client, f.store, p, pv, engineApproval(t, pv, pending.ConstructionID, rec))
 	cancel()
 	after := engineSnapshot(t, f)
-	if e == nil || after.Document.Pending != nil || engineRecord(after, "c").Status != ResourceNotApplied || !engineRecord(after, "c").Coordinate.Unassigned {
+	requireEngineError(t, "noncommit recovery", e, ErrConflict)
+	if after.Document.Pending != nil || engineRecord(after, "c").Status != ResourceNotApplied || !engineRecord(after, "c").Coordinate.Unassigned {
 		t.Fatal("noncommit lost reservation/tombstone")
 	}
 	before := len(f.writes)
@@ -1397,9 +1519,7 @@ func TestEngineIndependentNoncommitOnlyNeverAttemptedSuffixTLS(t *testing.T) {
 		t.Fatal(e)
 	}
 	_, e = recoverEngine(ctx, f.client, f.store, p, pv, engineApproval(t, pv, pending.ConstructionID, nil))
-	if e == nil {
-		t.Fatal("failed collection dependency made complete receipt")
-	}
+	requireEngineError(t, "failed collection dependency", e, ErrConflict)
 	suffix := f.writes[before:]
 	if !reflect.DeepEqual(suffix, []string{"POST /rules", "POST /hook-rules"}) {
 		t.Fatalf("only independent never-attempted work may proceed, not collection replay/dependent action: %v", suffix)
@@ -1435,7 +1555,9 @@ func TestEngineTeardownExpiryBeforeFirstDeleteTLS(t *testing.T) {
 	defer cancel()
 	bound := time.NewTimer(5 * time.Second)
 	defer bound.Stop()
+	margin := deadlineMargin(t, ctx)
 	pv, e := previewEngine(ctx, f.client, f.store, original, ModeTeardown)
+	margin.returned()
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -1455,6 +1577,7 @@ func TestEngineTeardownExpiryBeforeFirstDeleteTLS(t *testing.T) {
 	case <-bound.C:
 		t.Fatal("local sender did not return within 5s")
 	}
+	margin.returned() // on the test goroutine: the sender goroutine may outlive a failed test
 	callerErr := ctx.Err()
 	release()
 	select {
@@ -1494,7 +1617,9 @@ func TestEngineTeardownExpiryBeforeFirstDeleteTLS(t *testing.T) {
 	pv, rec := engineRecoveryInput(t, f, original)
 	recoveryCtx, recoveryCancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer recoveryCancel()
+	recoveryMargin := deadlineMargin(t, recoveryCtx)
 	_, recoveryErr := recoverEngine(recoveryCtx, f.client, f.store, original, pv, engineApproval(t, pv, cons.ID, rec))
+	recoveryMargin.returned()
 	after := engineSnapshot(t, f)
 	settled := engineConstruction(after, cons.ID)
 	if !errors.Is(recoveryErr, ErrConflict) || after.Document.Pending != nil || engineRecord(after, "r").Status != ResourceDisabled || settled == nil || settled.ID != cons.ID || settled.Input != cons.Input || settled.Mode != cons.Mode {
@@ -1520,12 +1645,22 @@ func TestEngineLostResponseRecoveryRetainsOriginalConstructionTLS(t *testing.T) 
 			p := f.plan()
 			original := p
 			var originalError error
+			var originalCtxErr error
 			var acquiredAction *ResourceRecord
 			if mode == ModeApply {
 				f.fault = "drop-collection"
-				if _, e := f.apply(p); e == nil {
-					t.Fatal("lost create response accepted")
+				ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+				margin := deadlineMargin(t, ctx)
+				pv, e := previewEngine(ctx, f.client, f.store, p, ModeApply)
+				margin.returned()
+				if e == nil {
+					_, e = applyEngine(ctx, f.client, f.store, p, pv, engineApproval(t, pv, "", nil))
+					margin.returned()
 				}
+				originalError = e
+				originalCtxErr = ctx.Err() // diagnostics for the cleared-pending fatal, read before cancel
+				cancel()
+				requireEngineErrorText(t, "lost create response", e, "agento11y management transport failed")
 			} else {
 				if _, e := f.apply(p); e != nil {
 					t.Fatal(e)
@@ -1543,22 +1678,27 @@ func TestEngineLostResponseRecoveryRetainsOriginalConstructionTLS(t *testing.T) 
 					f.fault = "drop-delete"
 				}
 				ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+				margin := deadlineMargin(t, ctx)
 				pv, e := previewEngine(ctx, f.client, f.store, original, mode)
+				margin.returned()
 				if e != nil {
 					cancel()
 					t.Fatal(e)
 				}
 				_, e = cleanupEngine(ctx, f.client, f.store, original, pv, engineApproval(t, pv, "", nil))
+				margin.returned()
 				originalError = e
+				originalCtxErr = ctx.Err() // diagnostics for the cleared-pending fatal, read before cancel
 				cancel()
-				if e == nil {
-					t.Fatal("lost cleanup response accepted")
-				}
+				requireEngineErrorText(t, "lost cleanup response", e, "agento11y management transport failed")
 			}
 			s := engineSnapshot(t, f)
 			pending := s.Document.Pending
 			if pending == nil {
-				t.Fatal("lost response cleared pending")
+				f.mu.Lock()
+				dropped := f.dropped
+				f.mu.Unlock()
+				t.Fatalf("lost response cleared pending: originalError=%v dropped=%t ctxErr=%v", originalError, dropped, originalCtxErr)
 			}
 			if mode == ModeTeardown {
 				f.mu.Lock()
@@ -1582,16 +1722,15 @@ func TestEngineLostResponseRecoveryRetainsOriginalConstructionTLS(t *testing.T) 
 			// Ordinary entry points cannot recast or replay an incomplete construction.
 			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 			pv, _ := NewPreview(original.plan, mode, s.Base, proofDigest('9'))
+			replayMargin := deadlineMargin(t, ctx)
 			if mode == ModeApply {
 				_, e := applyEngine(ctx, f.client, f.store, original, pv, engineApproval(t, pv, "", nil))
-				if e == nil {
-					t.Fatal("normal apply replayed pending")
-				}
+				replayMargin.returned()
+				requireEngineError(t, "normal apply replay of pending", e, ErrConflict)
 			} else {
 				_, e := cleanupEngine(ctx, f.client, f.store, original, pv, engineApproval(t, pv, "", nil))
-				if e == nil {
-					t.Fatal("new cleanup recast pending")
-				}
+				replayMargin.returned()
+				requireEngineError(t, "new cleanup over pending", e, ErrConflict)
 			}
 			cancel()
 			if len(f.writes) != before {
@@ -1619,18 +1758,28 @@ func TestEngineLostResponseRecoveryRetainsOriginalConstructionTLS(t *testing.T) 
 				a, e := DecodeApproval(engineApprovalRaw(t, pv, construction, changed))
 				if e == nil {
 					ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+					badMargin := deadlineMargin(t, ctx)
 					_, e = recoverEngine(ctx, f.client, f.store, original, pv, a)
+					badMargin.returned()
 					cancel()
 				}
-				if e == nil || engineSnapshot(t, f).Document.Pending == nil || len(f.writes) != before {
+				wantBad := ErrApproval
+				if bad == "construction" {
+					wantBad = ErrConflict
+				}
+				requireEngineError(t, "wrong recovery "+bad, e, wantBad)
+				if engineSnapshot(t, f).Document.Pending == nil || len(f.writes) != before {
 					t.Fatalf("wrong recovery %s changed attempt/authority", bad)
 				}
 			}
 			ctx, cancel = context.WithTimeout(context.Background(), 4*time.Second)
+			recoverMargin := deadlineMargin(t, ctx)
 			_, e := recoverEngine(ctx, f.client, f.store, original, pv, engineApproval(t, pv, id, rec))
+			recoverMargin.returned()
 			cancel()
 			after := engineSnapshot(t, f)
-			if e == nil || after.Document.Pending != nil || len(f.writes) != before {
+			requireEngineError(t, "exact original recovery", e, ErrConflict)
+			if after.Document.Pending != nil || len(f.writes) != before {
 				t.Fatalf("exact original observation not settled without replay: %v", e)
 			}
 			settled := engineConstruction(after, id)
@@ -1659,12 +1808,15 @@ func TestEngineLostResponseRecoveryRetainsOriginalConstructionTLS(t *testing.T) 
 			// A NEW exact recovery preview/approval can continue only never-dispatched
 			// suffix steps of that SAME original construction, never the settled step.
 			ctx, cancel = context.WithTimeout(context.Background(), 4*time.Second)
+			suffixMargin := deadlineMargin(t, ctx)
 			pv2, e := previewEngine(ctx, f.client, f.store, original, ModeRecover)
+			suffixMargin.returned()
 			if e != nil {
 				cancel()
 				t.Fatal(e)
 			}
 			receipt, e := recoverEngine(ctx, f.client, f.store, original, pv2, engineApproval(t, pv2, id, nil))
+			suffixMargin.returned()
 			cancel()
 			want := ReceiptApplyObserved
 			if mode == ModeDeactivate {
@@ -1676,7 +1828,9 @@ func TestEngineLostResponseRecoveryRetainsOriginalConstructionTLS(t *testing.T) 
 			if receipt.Mode != mode || receipt.ConstructionID != id || receipt.Input != originalInput || receipt.Result != want {
 				t.Fatalf("suffix recast original receipt: %v %+v", e, receipt)
 			}
-			if (mode == ModeTeardown && e == nil) || (mode != ModeTeardown && e != nil) {
+			if mode == ModeTeardown {
+				requireEngineError(t, "retained teardown suffix", e, ErrConflict)
+			} else if e != nil {
 				t.Fatalf("dishonest completion status for original mode: %v", e)
 			}
 			final := engineSnapshot(t, f)
@@ -1766,15 +1920,25 @@ func TestEngineCleanupContradictionNeverReadsAroundOrDeletesTLS(t *testing.T) {
 			f.fault = fault
 			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 			defer cancel()
+			margin := deadlineMargin(t, ctx)
 			pv, e := previewEngine(ctx, f.client, f.store, cp, ModeTeardown)
+			margin.returned()
 			if e != nil {
 				t.Fatal(e)
 			}
 			start := len(f.calls)
 			before := len(f.writes)
 			_, e = cleanupEngine(ctx, f.client, f.store, cp, pv, engineApproval(t, pv, "", nil))
-			if e == nil {
-				t.Fatal("contradictory/refused disable accepted")
+			margin.returned()
+			switch fault {
+			case "disable-lies":
+				requireEngineErrorText(t, fault, e, "agento11y management resource observation is invalid")
+			case "disable-refuse":
+				requireEngineHTTPStatus(t, fault, e, 403)
+			case "disable-wrong-config":
+				requireEngineError(t, fault, e, ErrConflict)
+			default:
+				t.Fatalf("no expected class for fault %s", fault)
 			}
 			f.mu.Lock()
 			trace := append([]string{}, f.calls[start:]...)
@@ -1832,9 +1996,8 @@ func TestEngineCleanupConsumerBarrierTLS(t *testing.T) {
 					bad.Steps[i].Number = uint32(i + 1)
 				}
 				before, _ := json.Marshal(bad.Steps)
-				if _, e = prepareEngine(bad); e == nil {
-					t.Fatal("delete-before-disable ordering admitted")
-				}
+				_, e = prepareEngine(bad)
+				requireEngineError(t, "delete-before-disable ordering", e, ErrInvalid)
 				after, _ := json.Marshal(bad.Steps)
 				if string(before) != string(after) {
 					t.Fatal("invalid input was reordered")
@@ -1845,7 +2008,9 @@ func TestEngineCleanupConsumerBarrierTLS(t *testing.T) {
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 			defer cancel()
+			margin := deadlineMargin(t, ctx)
 			pv, e := previewEngine(ctx, f.client, f.store, cp, mode)
+			margin.returned()
 			if e != nil {
 				t.Fatal(e)
 			}
@@ -1854,15 +2019,14 @@ func TestEngineCleanupConsumerBarrierTLS(t *testing.T) {
 			writeStart := len(f.writes)
 			f.mu.Unlock()
 			receipt, e := cleanupEngine(ctx, f.client, f.store, cp, pv, engineApproval(t, pv, "", nil))
+			margin.returned()
 			f.mu.Lock()
 			trace := append([]string{}, f.calls[requestStart:]...)
 			mutations := append([]string{}, f.writes[writeStart:]...)
 			f.mu.Unlock()
 			t.Logf("scenario=%s error=%v actual_mutations=%v", scenario, e, mutations)
 			if scenario == "lying-disable" {
-				if e == nil {
-					t.Fatal("lying disable accepted")
-				}
+				requireEngineErrorText(t, "lying disable", e, "agento11y management resource observation is invalid")
 				want := []string{"PATCH /rules/rule-fresh"}
 				if !reflect.DeepEqual(mutations, want) {
 					t.Fatalf("lying disable not actually reached exactly once: %v", mutations)
@@ -1896,8 +2060,11 @@ func TestEngineCleanupConsumerBarrierTLS(t *testing.T) {
 				if e != nil || receipt.Result != ReceiptDeactivated {
 					t.Fatalf("deactivation failed: %v %+v", e, receipt)
 				}
-			} else if e == nil || receipt.Result != ReceiptIncomplete {
-				t.Fatalf("retained teardown not honest: %v %+v", e, receipt)
+			} else {
+				requireEngineError(t, "retained action-only teardown", e, ErrConflict)
+				if receipt.Result != ReceiptIncomplete {
+					t.Fatalf("retained teardown not honest: %v %+v", e, receipt)
+				}
 			}
 			if engineSnapshot(t, f).Document.Pending != nil {
 				t.Fatal("verified cleanup left pending")
@@ -1937,7 +2104,9 @@ func TestEngineHistoricalConsumerBarrierReadsEveryKindTLS(t *testing.T) {
 			f.mu.Unlock()
 			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 			defer cancel()
+			margin := deadlineMargin(t, ctx)
 			inv, e := engineInventoryRead(ctx, f.client, p, s)
+			margin.returned()
 			if e != nil {
 				t.Fatal(e)
 			}
@@ -1945,6 +2114,7 @@ func TestEngineHistoricalConsumerBarrierReadsEveryKindTLS(t *testing.T) {
 			start := len(f.calls)
 			f.mu.Unlock()
 			e = engineConsumerBarrier(ctx, f.client, p, s, inv)
+			margin.returned()
 			if enabled == "none" {
 				if e != nil {
 					t.Fatal(e)
@@ -1986,15 +2156,20 @@ func TestEngineCleanupWholeClosureAndRetentionTLS(t *testing.T) {
 			cp := cleanupPlan(t, p, s)
 			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 			defer cancel()
+			margin := deadlineMargin(t, ctx)
 			pv, e := previewEngine(ctx, f.client, f.store, cp, ModeTeardown)
+			margin.returned()
 			if e != nil {
 				t.Fatal(e)
 			}
 			start := len(f.writes)
 			requestStart := len(f.calls)
 			receipt, e := cleanupEngine(ctx, f.client, f.store, cp, pv, engineApproval(t, pv, "", nil))
-			if e == nil {
-				t.Fatal("full teardown incorrectly successful")
+			margin.returned()
+			if fault == "disable-lies" {
+				requireEngineErrorText(t, fault, e, "agento11y management resource observation is invalid")
+			} else {
+				requireEngineError(t, fault, e, ErrConflict)
 			}
 			deletes := 0
 			for _, w := range f.writes[start:] {
@@ -2044,13 +2219,18 @@ func TestEngineStaleAndWrongScopeRefuseTLS(t *testing.T) {
 	p := f.plan()
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
+	margin := deadlineMargin(t, ctx)
+	defer margin.returned() // the last engine call on ctx is the function's last statement
 	pv, e := previewEngine(ctx, f.client, f.store, p, ModeApply)
+	margin.returned()
 	if e != nil {
 		t.Fatal(e)
 	}
 	approval := engineApproval(t, pv, "", nil)
 	f.collections["unrelated"] = Collection{TenantID: "tenant", CollectionID: "unrelated", Name: "Other", CreatedBy: "fixture", UpdatedBy: "fixture"}
-	if _, e = applyEngine(ctx, f.client, f.store, p, pv, approval); e == nil || len(f.writes) != 0 {
+	_, e = applyEngine(ctx, f.client, f.store, p, pv, approval)
+	requireEngineError(t, "stale inventory approval", e, ErrConflict)
+	if len(f.writes) != 0 {
 		t.Fatal("stale inventory approval accepted")
 	}
 	delete(f.collections, "unrelated")
@@ -2060,7 +2240,9 @@ func TestEngineStaleAndWrongScopeRefuseTLS(t *testing.T) {
 	for _, fault := range []string{"wrong-parent"} {
 		f.fault = fault
 		before := len(f.writes)
-		if _, e = previewEngine(ctx, f.client, f.store, p, ModeApply); e == nil || len(f.writes) != before {
+		_, e = previewEngine(ctx, f.client, f.store, p, ModeApply)
+		requireEngineErrorText(t, "wrong scoped observation", e, "agento11y management resource observation is invalid")
+		if len(f.writes) != before {
 			t.Fatal("wrong scoped observation accepted")
 		}
 	}
@@ -2073,7 +2255,9 @@ func TestEngineStaleAndWrongScopeRefuseTLS(t *testing.T) {
 		t.Fatal(e)
 	}
 	before := len(f.writes)
-	if _, e = previewEngine(ctx, f.client, f.store, wrong, ModeApply); e == nil || len(f.writes) != before {
+	_, e = previewEngine(ctx, f.client, f.store, wrong, ModeApply)
+	requireEngineError(t, "foreign binding", e, ErrBinding)
+	if len(f.writes) != before {
 		t.Fatal("foreign binding admitted")
 	}
 }
@@ -2085,8 +2269,10 @@ func TestEngineSuiteContentAndCompletenessNotJustCountTLS(t *testing.T) {
 			f.fault = fault
 			p := f.plan()
 			_, e := f.applyWithin(p, 20*time.Second)
-			if e == nil {
-				t.Fatal("same-ID wrong content/partial inventory accepted")
+			if fault == "case-list-partial" {
+				requireEngineErrorText(t, fault, e, "agento11y management list envelope is invalid")
+			} else {
+				requireEngineError(t, fault, e, ErrConflict)
 			}
 			s := engineSnapshot(t, f)
 			if s.Document.Pending == nil || s.Document.Pending.ResourceKey != "k" || len(s.Document.Receipts) != 0 {
@@ -2116,7 +2302,9 @@ func TestEngineSuiteContentAndCompletenessNotJustCountTLS(t *testing.T) {
 		before := len(f.writes)
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
-		if _, e := previewEngine(ctx, f.client, f.store, p, ModeApply); e == nil || len(f.writes) != before {
+		_, e := previewEngine(ctx, f.client, f.store, p, ModeApply)
+		requireEngineError(t, "published noop content drift", e, ErrConflict)
+		if len(f.writes) != before {
 			t.Fatal("matching case count/IDs/publication flag hid content drift")
 		}
 	})
@@ -2132,7 +2320,10 @@ func TestEngineWrongCaseVersionRefusesBeforeWrites(t *testing.T) {
 	before := len(f.writes)
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
-	if _, e := previewEngine(ctx, f.client, f.store, p, ModeApply); e == nil || len(f.writes) != before {
+	defer deadlineMargin(t, ctx).returned() // the last engine call is the function's last statement
+	_, e := previewEngine(ctx, f.client, f.store, p, ModeApply)
+	requireEngineErrorText(t, "wrong case version", e, "agento11y management resource observation is invalid")
+	if len(f.writes) != before {
 		t.Fatal("wrong case version admitted")
 	}
 }

@@ -41,6 +41,7 @@ type Handler struct {
 	cfg      *ConfigView
 	inv      InventorySource
 	health   func() any
+	startup  func() bool // boot completion only; never delivery or mutation admission
 	diag     *Diagnostics
 	onChange func(State) // optional self-obs audit hook; called after every successful mutation
 	bpadmin  BlueprintAdmin
@@ -184,6 +185,11 @@ func (h *Handler) SetReadinessBlueprintFlags(l BlueprintLister) *Handler {
 	return h
 }
 
+// SetStartup installs a read-only boot-completion predicate before serving.
+// Nil or false fails closed. The caller owns boot facts; this is not readiness,
+// ongoing health, source admission, state writability, or HA leadership authority.
+func (h *Handler) SetStartup(fn func() bool) *Handler { h.startup = fn; return h }
+
 // SetHealth attaches the health payload callback served at GET /control/health. The
 // closure assembles healthstatus.Report + live process metrics at the composition root
 // so control stays decoupled from healthstatus. Chained; returns h. Absent ⇒ 404.
@@ -236,7 +242,7 @@ type StatusSources struct {
 // NewHandler serves the control plane. onApply (optional) is called with the new
 // snapshot after every successful mutation — the runner adapter wires knobs from it.
 // token (optional) is the HTTP Basic password (username controlUser) gating every mutation and
-// topology-bearing read; empty = auth disabled. Only the sanitized readiness probe stays public.
+// topology-bearing read; empty = auth disabled. Only the sanitized startup and readiness probes stay public.
 // src (optional, variadic so the existing 3-arg call sites keep compiling) supplies the
 // blueprint-derived schema: when present and non-nil, GET /control/schema marshals
 // src[0].ControlSchema() and the scenario/scaling POSTs validate against it; absent ⇒ the
@@ -358,6 +364,18 @@ func NewHandler(store *Store, onApply func(State), token string, src ...SchemaSo
 			optional = h.status.Optional()
 		}
 		writeJSON(w, StatusReport{Sinks: sinks, Queues: queues, ByBlueprint: byBp, Fleet: fleet, Persist: h.store.PersistHealth(), DryRun: h.status.DryRun, Readiness: readiness, Optional: optional})
+	})
+	// Startup exposes only boot completion, independently of delivery readiness.
+	// A request reaching this handler also proves the HTTP listener is serving.
+	mux.HandleFunc("GET /control/startup", func(w http.ResponseWriter, r *http.Request) {
+		started := h.startup != nil && h.startup()
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		if !started {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		}
+		writeJSON(w, struct {
+			Started bool `json:"started"`
+		}{Started: started})
 	})
 	// GET /control/readiness is deliberately public so Docker can call it without credentials. Its
 	// probe representation omits topology, errors, filesystem paths, and operational reasons.
@@ -1115,7 +1133,7 @@ func requireTokenHandler(token string, next http.Handler) http.Handler {
 func protectControlReads(token string, next http.Handler) http.Handler {
 	protected := RequireToken(token, next)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if (r.Method == http.MethodGet || r.Method == http.MethodHead) && r.URL.Path != "/control/readiness" {
+		if (r.Method == http.MethodGet || r.Method == http.MethodHead) && r.URL.Path != "/control/readiness" && r.URL.Path != "/control/startup" {
 			protected.ServeHTTP(w, r)
 			return
 		}

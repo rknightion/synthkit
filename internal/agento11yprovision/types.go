@@ -11,27 +11,27 @@ import "time"
 // OutputKey describes an evaluator's typed score. Optional scalar pointers
 // distinguish omission from explicit zero or false.
 type OutputKey struct {
-	Key           string   `json:"key"`
-	Type          string   `json:"type"`
-	Description   string   `json:"description,omitempty"`
-	Unit          string   `json:"unit,omitempty"`
-	PassThreshold *float64 `json:"pass_threshold,omitempty"`
-	Enum          []string `json:"enum"`
-	Min           *float64 `json:"min,omitempty"`
-	Max           *float64 `json:"max,omitempty"`
-	PassMatch     []string `json:"pass_match"`
-	PassValue     *bool    `json:"pass_value,omitempty"`
+	Key           string   `json:"key" yaml:"key"`
+	Type          string   `json:"type" yaml:"type"`
+	Description   string   `json:"description,omitempty" yaml:"description"`
+	Unit          string   `json:"unit,omitempty" yaml:"unit"`
+	PassThreshold *float64 `json:"pass_threshold,omitempty" yaml:"pass_threshold"`
+	Enum          []string `json:"enum" yaml:"enum"`
+	Min           *float64 `json:"min,omitempty" yaml:"min"`
+	Max           *float64 `json:"max,omitempty" yaml:"max"`
+	PassMatch     []string `json:"pass_match" yaml:"pass_match"`
+	PassValue     *bool    `json:"pass_value,omitempty" yaml:"pass_value"`
 }
 
 // EvaluatorSpec creates an explicit immutable evaluator version. There is no
 // evaluator enabled flag. Config is a kind-specific JSON object, not a JSON string.
 type EvaluatorSpec struct {
-	EvaluatorID string         `json:"evaluator_id"`
-	Version     string         `json:"version"`
-	Kind        string         `json:"kind"`
-	Description string         `json:"description,omitempty"`
-	Config      map[string]any `json:"config"`
-	OutputKeys  []OutputKey    `json:"output_keys"`
+	EvaluatorID string         `json:"evaluator_id" yaml:"evaluator_id"`
+	Version     string         `json:"version" yaml:"version"`
+	Kind        string         `json:"kind" yaml:"kind"`
+	Description string         `json:"description,omitempty" yaml:"description"`
+	Config      map[string]any `json:"config" yaml:"config"`
+	OutputKeys  []OutputKey    `json:"output_keys" yaml:"output_keys"`
 }
 
 // Evaluator is an observed version row. GetEvaluator selects the latest row;
@@ -51,18 +51,18 @@ type Evaluator struct {
 
 // HookToolFilter blocks tool names matching these globs.
 type HookToolFilter struct {
-	BlockedNames []string `json:"blocked_names"`
+	BlockedNames []string `json:"blocked_names" yaml:"blocked_names"`
 }
 
 // HookRedactPattern is a regex redaction step. Replacement is backend-owned.
 type HookRedactPattern struct {
-	ID    string `json:"id,omitempty"`
-	Regex string `json:"regex"`
+	ID    string `json:"id,omitempty" yaml:"id"`
+	Regex string `json:"regex" yaml:"regex"`
 }
 
 // HookRedactConfig preserves redaction pattern order.
 type HookRedactConfig struct {
-	Patterns []HookRedactPattern `json:"patterns"`
+	Patterns []HookRedactPattern `json:"patterns" yaml:"patterns"`
 }
 
 // HookRuleSpec is a create or full replacement, never a patch. Scalar pointers
@@ -70,17 +70,17 @@ type HookRedactConfig struct {
 // match/evaluator/filter/redact containers are not omitted during replacement.
 // A nil ToolFilter or Redact omits that optional field; a PUT still replaces it.
 type HookRuleSpec struct {
-	RuleID       string            `json:"rule_id,omitempty"`
-	Enabled      *bool             `json:"enabled,omitempty"`
-	Phase        string            `json:"phase,omitempty"`
-	Priority     *int              `json:"priority,omitempty"`
-	Selector     string            `json:"selector,omitempty"`
-	Match        map[string]any    `json:"match"`
-	EvaluatorIDs []string          `json:"evaluator_ids"`
-	ActionOnFail string            `json:"action_on_fail,omitempty"`
-	ShortCircuit *bool             `json:"short_circuit,omitempty"`
-	ToolFilter   *HookToolFilter   `json:"tool_filter,omitempty"`
-	Redact       *HookRedactConfig `json:"redact,omitempty"`
+	RuleID       string            `json:"rule_id,omitempty" yaml:"rule_id"`
+	Enabled      *bool             `json:"enabled,omitempty" yaml:"enabled"`
+	Phase        string            `json:"phase,omitempty" yaml:"phase"`
+	Priority     *int              `json:"priority,omitempty" yaml:"priority"`
+	Selector     string            `json:"selector,omitempty" yaml:"selector"`
+	Match        map[string]any    `json:"match" yaml:"match"`
+	EvaluatorIDs []string          `json:"evaluator_ids" yaml:"evaluator_ids"`
+	ActionOnFail string            `json:"action_on_fail,omitempty" yaml:"action_on_fail"`
+	ShortCircuit *bool             `json:"short_circuit,omitempty" yaml:"short_circuit"`
+	ToolFilter   *HookToolFilter   `json:"tool_filter,omitempty" yaml:"tool_filter"`
+	Redact       *HookRedactConfig `json:"redact,omitempty" yaml:"redact"`
 }
 
 // HookRule is observed configuration, not a registration or ownership receipt.

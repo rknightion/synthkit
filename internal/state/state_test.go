@@ -671,3 +671,37 @@ func TestCollectAliasesLabels(t *testing.T) {
 		t.Fatal("Collect must ALIAS the live label map (mutating one collected view affects the live map); callers must clone before stamping")
 	}
 }
+
+// Weighted synthetic representatives preserve the logical volume in both wire projections.
+func TestWeightedHistogramConservesVolume(t *testing.T) {
+	s := NewState()
+	labels := map[string]string{"route": "/widgets"}
+	bounds := []float64{1, 5, 10}
+	s.ObserveWeighted("weighted_duration", labels, bounds, LEDotZero, 2, 0)
+	if got := s.CollectHistos(); len(got) != 0 {
+		t.Fatalf("zero weight created a histogram: %+v", got)
+	}
+	s.ObserveWeighted("weighted_duration", labels, bounds, LEDotZero, 0.5, 3)
+	s.ObserveWeighted("weighted_duration", labels, bounds, LEDotZero, 5, 2)
+	s.ObserveWeighted("weighted_duration", labels, bounds, LEDotZero, 20, 4)
+	s.Observe("weighted_duration", labels, bounds, LEDotZero, 5)
+	got := collect(s, time.Unix(0, 0))
+	for le, want := range map[string]float64{"1.0": 3, "5.0": 6, "10.0": 6, "+Inf": 10} {
+		if v, ok := seriesByNameLE(got, "weighted_duration_bucket", le); !ok || v != want {
+			t.Fatalf("bucket le=%s want %v, got %v ok=%v", le, want, v, ok)
+		}
+	}
+	if v, _ := find(got, "weighted_duration_sum"); v != 96.5 {
+		t.Fatalf("weighted sum want96.5 got%v", v)
+	}
+	points := s.CollectHistos()
+	if len(points) != 1 || points[0].Count != 10 || points[0].Sum != 96.5 {
+		t.Fatalf("weighted OTLP total want count10 sum96.5, got%+v", points)
+	}
+	wantBuckets := []uint64{3, 3, 0, 4}
+	for i, want := range wantBuckets {
+		if points[0].BucketCounts[i] != want {
+			t.Fatalf("OTLP bucket%d want%d got%d", i, want, points[0].BucketCounts[i])
+		}
+	}
+}

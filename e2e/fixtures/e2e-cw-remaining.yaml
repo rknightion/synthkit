@@ -1,0 +1,31 @@
+# Offline integration populations, not deployment rates or captured numeric fidelity.
+# Explicit one-minute bootstrap produces every admitted family without changing shipped blueprints.
+name: e2e-cw-remaining
+label: remaining-selector
+environments:
+  - name: prod
+    cloud:
+      provider: aws
+      account_id: "111122223333"
+      region: us-east-1
+      vpc_id: vpc-remaining-fixture
+      cloudwatch: {albs: 0, s3_buckets: 0, nlb: false, ebs: false, nat_gateway: false, eks: false, firehose: false, private_link: false}
+      redshift:
+        clusters:
+          # Deliberate test stocks, 120 read/30 write observations in the bootstrap minute.
+          - name: fixture-warehouse
+            collector_name: declared-warehouse
+            snapshot: {cpu_percent: 25, database_connections: 7, healthy: true, maintenance: false, disk_used_percent: 40, total_tables: 12}
+            read_io: {operations_per_second: 2, latency_seconds: 0.125}
+            write_io: {operations_per_second: 0.5, latency_seconds: 0.25}
+            wlm_queues: [{name: fixture-queue, waiting: 3, running: 2}]
+          # Independent zero/false stocks; no IO or queue declarations to infer.
+          - name: fixture-idle-warehouse
+            collector_name: declared-idle-warehouse
+            snapshot: {cpu_percent: 0, database_connections: 0, healthy: false, maintenance: true, disk_used_percent: 0, total_tables: 0}
+      cloudwatch_logs:
+        log_groups:
+          # 120 independent synthetic uploads of 256 uncompressed bytes each.
+          - {name: /fixture/intake, events_per_second: 2, uncompressed_bytes_per_event: 256}
+          # Explicit zero is valid and must not repeat an active group's observations.
+          - {name: /fixture/idle, events_per_second: 0, uncompressed_bytes_per_event: 1}

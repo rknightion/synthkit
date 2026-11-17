@@ -55,9 +55,19 @@ type Manifest struct {
 	Workloads    []WorkloadRef
 	Integrations []IntegrationRef
 
-	Metrics    []MetricSignal // every emitted prom series base, classified
-	LogSources []LogSource    // loki stream sources
-	Spans      []SpanSource   // otlp services + span names
+	Metrics     []MetricSignal     // every emitted prom series base, classified
+	OTLPMetrics []OTLPMetricSource `json:",omitempty"` // native semantic names, not Prometheus projections
+	LogSources  []LogSource        // loki stream sources
+	Spans       []SpanSource       // otlp services + span names
+}
+
+// OTLPMetricSource is the native metric inventory observed for one service during derivation.
+// MetricNames and ResourceKeys retain OTLP names; a template must use its sourced receiver
+// contract to choose projected queries rather than guessing a Prometheus instrument from them.
+type OTLPMetricSource struct {
+	Service      string
+	MetricNames  []string
+	ResourceKeys []string
 }
 
 type EnvRef struct {

@@ -12,10 +12,12 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/failuremode"
 	"github.com/rknightion/synthkit/internal/fixture"
 	"github.com/rknightion/synthkit/internal/genai"
+	"github.com/rknightion/synthkit/internal/pipelinerun"
 )
 
 // Topology construct kinds the resolver emits from typed declarations. Their configs
@@ -46,6 +48,13 @@ const (
 	// New in catalog-expansion 2b (AI cloud-services):
 	KindBedrock   = "bedrock"
 	KindAgentCore = "agentcore"
+	// Bounded captured CloudWatch consumers (remote-write only).
+	KindLambda         = "lambda"
+	KindSQS            = "sqs"
+	KindDynamoDB       = "dynamodb"
+	KindRedshift       = "redshift"
+	KindCloudWatchLogs = "cloudwatch_logs"
+	KindScheduler      = "scheduler"
 	// Fleet Management mirror: emitted from the cluster path when k8s_monitoring.fleet_management
 	// is true. Must equal the string the fleetmgmt construct registers as its Kind.
 	KindFleetManagement = "fleet_management"
@@ -61,7 +70,7 @@ func TopologyKinds() []string {
 		KindK8sCluster, KindEC2, KindCWInfra, KindRDS, KindElastiCache, KindHost,
 		KindDbo11yMySQL, KindDbo11yPostgres,
 		KindDocDB, KindNeptune, KindAOSS, KindMWAA, KindGlue,
-		KindBedrock, KindAgentCore,
+		KindBedrock, KindAgentCore, KindLambda, KindSQS, KindDynamoDB, KindRedshift, KindCloudWatchLogs, KindScheduler,
 		KindFleetManagement,
 		KindK8sProfiling,
 	}
@@ -178,22 +187,27 @@ type ResolvedEnvMeta struct {
 }
 
 type Resolved struct {
-	gpuDeviceClaims []gpuIdentityClaim // canonical rack-device identity claims, including unselected racks
-	GPU             *fixture.GPUTopology
-	Name            string
-	Label           string
-	Metadata        Metadata          // blueprint-level human-facing annotation (UI only)
-	Environments    []ResolvedEnvMeta // per-env metadata for the UI (decl order)
-	Shape           string
-	Timezone        string
-	Regions         []RegionDecl // follow-the-sun multi-tz composite; mutually exclusive with Timezone
-	SeriesBudget    int
-	HighDPM         *ResolvedHighDPM
-	Constructs      []ConstructInstance
-	Workloads       []WorkloadInstance
-	Incidents       []string // shape-engine schedule entries: kind@at/for[#intensity][@target]
-	Targets         []Target
-	Scenarios       []ResolvedScenario
+	AgentObservability *AgentObservabilityDecl
+	gpuDeviceClaims    []gpuIdentityClaim // canonical rack-device identity claims, including unselected racks
+	GPU                *fixture.GPUTopology
+	Name               string
+	Label              string
+	Metadata           Metadata          // blueprint-level human-facing annotation (UI only)
+	Environments       []ResolvedEnvMeta // per-env metadata for the UI (decl order)
+	Shape              string
+	Timezone           string
+	Regions            []RegionDecl // follow-the-sun multi-tz composite; mutually exclusive with Timezone
+	SeriesBudget       int
+	HighDPM            *ResolvedHighDPM
+	Constructs         []ConstructInstance
+	Workloads          []WorkloadInstance
+	Incidents          []string // shape-engine schedule entries: kind@at/for[#intensity][@target]
+	Targets            []Target
+	Scenarios          []ResolvedScenario
+	resRefs            map[string][]resourceRef
+	// Resources is every declared causal resource with the consumers bound to it, empty when the
+	// blueprint declares none. Read-only inventory for the control schema.
+	Resources []ResolvedResource
 	// Warnings are non-fatal resolve-time notes (e.g. a database/cache declaration that produced
 	// zero emitting constructs) surfaced to operators via the control-plane diagnostics panel.
 	Warnings []string
@@ -210,6 +224,89 @@ type ResolvedHighDPM struct {
 // the set the resolver validates every scenario/incident effect against.
 func vocabulary(reg *core.Registry) []failuremode.Mode {
 	return reg.AllFailureModes()
+}
+
+// validatePipelines checks declarations and consumer blocks across the entire blueprint.
+// StageScope is <pipeline>.<stage>, not environment-qualified: environment names have no
+// delimiter-safe grammar. Reject repeated pipeline identities rather than silently addressing
+// multiple environments with one incident (even when their stage sets currently differ).
+func validatePipelines(d *Decl) error {
+	owners := map[string]string{}
+	for _, e := range d.Environments {
+		c := e.Cloud
+		if c == nil || len(c.Pipelines) == 0 {
+			continue
+		}
+		if err := pipelinerun.Validate(c.Pipelines); err != nil {
+			return fmt.Errorf("blueprint %q: env %q: pipelines: %w", d.Name, e.Name, err)
+		}
+		for _, p := range c.Pipelines {
+			if previous, exists := owners[p.Name]; exists {
+				return fmt.Errorf("blueprint %q: pipeline identity collision: pipeline %q declared by environments %q and %q; pipeline names must be unique across the blueprint", d.Name, p.Name, previous, e.Name)
+			}
+			owners[p.Name] = e.Name
+			if p.Environment != "" && c.MWAA.Kind == 0 {
+				return fmt.Errorf("blueprint %q: env %q: pipeline %q: environment %q needs a cloud.mwaa block", d.Name, e.Name, p.Name, p.Environment)
+			}
+			for _, s := range p.Stages {
+				if s.Service == pipelinerun.ServiceGlue && c.Glue.Kind == 0 {
+					return fmt.Errorf("blueprint %q: env %q: pipeline %q stage %q: glue stage needs a cloud.glue block", d.Name, e.Name, p.Name, s.Name)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// validateResources checks the causal resource declarations across the entire blueprint:
+// causal.Validate (kinds, fields, references, blueprint-wide unique names), the incident-scope
+// grammar, and that no environment base alias is itself a declared resource name (a target
+// naming it would otherwise reach both).
+func validateResources(d *Decl) error {
+	var s causal.Set
+	for _, e := range d.Environments {
+		if len(e.Resources) > 0 {
+			s.Envs = append(s.Envs, causal.Declaration{Env: e.Name, Resources: e.Resources})
+		}
+	}
+	if s.Empty() {
+		return nil
+	}
+	if err := causal.Validate(s); err != nil {
+		return fmt.Errorf("blueprint %q: resources: %w", d.Name, err)
+	}
+	declared := map[string]bool{}
+	for _, decl := range s.Envs {
+		for _, r := range decl.Resources {
+			if !scopeSafe(r.Name) {
+				return fmt.Errorf("blueprint %q: env %q: resource %q is not an incident scope", d.Name, decl.Env, r.Name)
+			}
+			declared[r.Name] = true
+		}
+	}
+	for _, decl := range s.Envs {
+		for _, r := range decl.Resources {
+			if base := causal.EnvAlias(r.Name, decl.Env); base != "" && declared[base] {
+				return fmt.Errorf("blueprint %q: env %q: resource %q is reached by the base name %q, which is also a declared resource; rename one", d.Name, decl.Env, r.Name, base)
+			}
+		}
+	}
+	return nil
+}
+
+// causalSet is the blueprint's declared resources with each environment's resolved demand facts
+// (the same weight and non-production flag its workloads use).
+func causalSet(envs []envCtx) causal.Set {
+	var s causal.Set
+	for _, ec := range envs {
+		if len(ec.decl.Resources) == 0 {
+			continue
+		}
+		s.Envs = append(s.Envs, causal.Declaration{
+			Env: ec.env.Name, Weight: ec.env.Weight, NonProd: ec.env.NonProd, Resources: ec.decl.Resources,
+		})
+	}
+	return s
 }
 
 // envCtx pairs an environment's resolved fixtures (env identity + cloud) with its raw decl.
@@ -266,6 +363,12 @@ func expandWorkloads(d *Decl, clusterByEnv map[string]string, allEnvNames []stri
 // resolve turns a validated Decl into fixtures + instances. reg supplies config types
 // and validates kinds.
 func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
+	if err := validatePipelines(d); err != nil {
+		return nil, err
+	}
+	if err := validateResources(d); err != nil {
+		return nil, err
+	}
 	if d.Timezone != "" && len(d.Regions) > 0 {
 		return nil, fmt.Errorf("blueprint %q: set either timezone or regions, not both", d.Name)
 	}
@@ -756,6 +859,12 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 				{KindGlue, &e.Cloud.Glue},
 				{KindBedrock, &e.Cloud.Bedrock},
 				{KindAgentCore, &e.Cloud.AgentCore},
+				{KindLambda, &e.Cloud.Lambda},
+				{KindSQS, &e.Cloud.SQS},
+				{KindDynamoDB, &e.Cloud.DynamoDB},
+				{KindRedshift, &e.Cloud.Redshift},
+				{KindCloudWatchLogs, &e.Cloud.CloudWatchLogs},
+				{KindScheduler, &e.Cloud.Scheduler},
 			}
 			for _, cs := range cloudServices {
 				if cs.node.Kind == 0 {
@@ -769,6 +878,10 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 				cscfg := csreg.NewConfig()
 				if err := strictDecode(cs.node, cscfg, fmt.Sprintf("blueprint %q: env %q %s config", d.Name, e.Name, cs.kind)); err != nil {
 					return nil, err
+				}
+				// One pipelines declaration fans into every consuming construct.
+				if pc, ok := cscfg.(pipelinerun.Consumer); ok && len(e.Cloud.Pipelines) > 0 {
+					pc.UsePipelines(e.Cloud.Pipelines)
 				}
 				r.Constructs = append(r.Constructs, ConstructInstance{Kind: cs.kind, Name: e.Name, Config: cscfg, Fixtures: set})
 			}
@@ -798,7 +911,16 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 				if err != nil {
 					return nil, err
 				}
+				if dbDecl.Resource != "" {
+					b, ok := ci.Config.(resourceBinder)
+					if !ok {
+						return nil, fmt.Errorf("blueprint %q: database %q: engine %q does not support resource binding", d.Name, dbDecl.Name, dbDecl.Engine)
+					}
+					b.BindResource(dbDecl.Resource)
+				}
 				r.Constructs = append(r.Constructs, *ci)
+			} else if dbDecl.Resource != "" {
+				return nil, fmt.Errorf("blueprint %q: database %q: resource %q needs the cloudwatch lane (observability.cloudwatch is false)", d.Name, dbDecl.Name, dbDecl.Resource)
 			}
 			if dbDecl.Observability.dbo11yEnabled() {
 				kind := KindDbo11yPostgres
@@ -808,6 +930,13 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 				ci, err := emptyConfigInstance(reg, kind, dbDecl.Name, set, d.Name)
 				if err != nil {
 					return nil, err
+				}
+				if dbDecl.Resource != "" {
+					b, ok := ci.Config.(resourceBinder)
+					if !ok {
+						return nil, fmt.Errorf("blueprint %q: database %q: construct %q does not support resource binding", d.Name, dbDecl.Name, kind)
+					}
+					b.BindResource(dbDecl.Resource)
 				}
 				r.Constructs = append(r.Constructs, *ci)
 			}
@@ -963,21 +1092,95 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 		})
 	}
 
+	// One resources declaration fans into every consuming construct and workload, after strict
+	// decode and before Build (as pipelines do through pipelinerun.Consumer). Workloads whose call
+	// graphs send traffic through resources first declare their retrying edges and traffic
+	// shares (causal.LoadDeclarer), so every consumer compiles the same closed-loop demand and
+	// the summed traffic through a resource is checked against its declared demand. No
+	// resources: no declarer or consumer is called.
+	if declared := causalSet(envs); !declared.Empty() {
+		set := declared
+		for _, wi := range r.Workloads {
+			if ld, ok := wi.Config.(causal.LoadDeclarer); ok {
+				env := ""
+				if wi.Env != nil {
+					env = wi.Env.Name
+				}
+				loads, err := ld.CausalLoads(declared, env)
+				if err != nil {
+					return nil, fmt.Errorf("blueprint %q: workload %q: resources: %w", d.Name, wi.Name, err)
+				}
+				set.Loads = append(set.Loads, loads...)
+			}
+		}
+		if err := causal.Validate(set); err != nil {
+			return nil, fmt.Errorf("blueprint %q: resources: %w", d.Name, err)
+		}
+		for _, ci := range r.Constructs {
+			if c, ok := ci.Config.(causal.Consumer); ok {
+				c.UseResources(set)
+			}
+		}
+		for _, wi := range r.Workloads {
+			if c, ok := wi.Config.(causal.Consumer); ok {
+				c.UseResources(set)
+			}
+		}
+		r.Resources = resolvedResources(set, r)
+	}
+
 	// Pass 6 — addressable-target inventory, scenario resolution, then incident compilation.
 	//
-	// Target inventory + ambiguity check (a name reused across two axes is rejected).
+	// Target inventory + ambiguity check (a name reused across two structural axes is rejected;
+	// a construct-declared function or queue name may share one and resolves by its mode).
 	r.Targets = buildTargets(d)
 	if r.GPU != nil {
 		for _, target := range r.GPU.Targets {
 			r.Targets = append(r.Targets, Target{Name: target.Key, Axis: target.Axis})
 		}
 	}
-	axes, err := targetIndex(r.Targets)
-	if err != nil {
+	// The structural inventory keeps rejecting a name reused across its own axes; construct-
+	// declared targets (functions, queues) may share a name with it and resolve by mode.
+	if _, err := targetIndex(r.Targets); err != nil {
 		return nil, fmt.Errorf("blueprint %q: %w", d.Name, err)
 	}
+	// Causal resources (and their environment base aliases) are mode-resolved like construct-
+	// declared targets: a resource may share a name with a service node or another axis.
+	resTargets, resAliases, resRefs := resourceTargets(d)
+	r.Targets = append(r.Targets, resTargets...)
+	r.resRefs = resRefs
+	declared, targetWarns, skippedTargets := declaredConstructTargets(r.Constructs, r.Targets)
+	r.Targets = append(r.Targets, declared...)
+	// Scheduled "<axis>:*" expansion skips alias-only resource names: the declared resources
+	// they alias are already in the expansion.
+	scheduleTargets := r.Targets
+	if len(resAliases) > 0 {
+		scheduleTargets = nil
+		for _, t := range r.Targets {
+			if t.Axis == causal.AxisResource && resAliases[t.Name] {
+				continue
+			}
+			scheduleTargets = append(scheduleTargets, t)
+		}
+	}
+	for _, w := range targetWarns {
+		log.Printf("WARN blueprint %q: %s", d.Name, w)
+		r.Warnings = append(r.Warnings, w)
+	}
+	axes := targetAxes(r.Targets)
 	vocab := vocabulary(reg)
 	multi := failuremode.MultiAxis(vocab)
+	// validateEffectFull adds the resource-kind check: a resource-axis mode must act on the kind
+	// of every resource its target reaches.
+	validateEffectFull := func(e EffectDecl) error {
+		if err := validateResolvedEffect(r, reg, e, axes, vocab, multi); err != nil {
+			return err
+		}
+		if err := validateResourceKind(e, axes, resRefs); err != nil {
+			return err
+		}
+		return validateAgentCoreThrottle(r, e)
+	}
 
 	// Validate + resolve scenarios (must precede the incident loop: a scheduled incident may
 	// reference a scenario by name).
@@ -991,9 +1194,17 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 		}
 		scNames[sc.Name] = true
 		for _, e := range sc.Effects {
-			if err := validateResolvedEffect(r, reg, e, axes, vocab, multi); err != nil {
+			if err := validateEffectFull(e); err != nil {
 				return nil, fmt.Errorf("blueprint %q scenario %q: %w", d.Name, sc.Name, err)
 			}
+			if w, ok := wildcardSkipWarning(fmt.Sprintf("scenario %q effect %q", sc.Name, e.Mode), e.Target, skippedTargets); ok {
+				log.Printf("WARN blueprint %q: %s", d.Name, w)
+				r.Warnings = append(r.Warnings, w)
+			}
+		}
+		if w, ok := rateOnlyWarning(fmt.Sprintf("scenario %q", sc.Name), false, sc.Effects, axes, vocab); ok {
+			log.Printf("WARN blueprint %q: %s", d.Name, w)
+			r.Warnings = append(r.Warnings, w)
 		}
 		title := sc.Title
 		if title == "" {
@@ -1019,19 +1230,28 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 				return nil, fmt.Errorf("blueprint %q: incident references unknown scenario %q", d.Name, inc.Scenario)
 			}
 			for _, e := range sc.Effects {
-				inten := e.Intensity
-				if inten <= 0 {
-					inten = 1.0
-				}
-				for _, scope := range expandScopes(e.Target, r.Targets) {
-					r.Incidents = append(r.Incidents, scheduleEntry(e.Mode, inc.At, inc.For, inten, scope))
+				inten := scheduledIntensity(e.Intensity, e.intensitySet)
+				for _, scope := range expandEffectScopes(e.Mode, e.Target, scheduleTargets, resRefs) {
+					r.Incidents = append(r.Incidents, scheduleEntry(e.Mode, inc.At, inc.For, inten, scope, true))
 				}
 			}
 			continue
 		}
 		// single-mode incident: validate against the inventory + vocabulary, then compile.
-		if err := validateResolvedEffect(r, reg, EffectDecl{Mode: inc.Kind, Target: inc.Target, Intensity: inc.Intensity}, axes, vocab, multi); err != nil {
+		if err := validateEffectFull(EffectDecl{Mode: inc.Kind, Target: inc.Target, Intensity: inc.Intensity}); err != nil {
 			return nil, fmt.Errorf("blueprint %q incident %q: %w", d.Name, inc.Kind, err)
+		}
+		if w, ok := wildcardSkipWarning(fmt.Sprintf("incident %q", inc.Kind), inc.Target, skippedTargets); ok {
+			log.Printf("WARN blueprint %q: %s", d.Name, w)
+			r.Warnings = append(r.Warnings, w)
+		}
+		incWhere := fmt.Sprintf("incident %q", inc.Kind)
+		if inc.Target != "" {
+			incWhere = fmt.Sprintf("incident %q on %q", inc.Kind, inc.Target)
+		}
+		if w, ok := rateOnlyWarning(incWhere, true, []EffectDecl{{Mode: inc.Kind, Target: inc.Target}}, axes, vocab); ok {
+			log.Printf("WARN blueprint %q: %s", d.Name, w)
+			r.Warnings = append(r.Warnings, w)
 		}
 		// An incident is either absolute/daily (At) or interval-recurring (Every) — never both.
 		// For the interval form, emit an "every<dur>" time token (validated as a Go duration here)
@@ -1046,8 +1266,27 @@ func resolve(d *Decl, reg *core.Registry) (*Resolved, error) {
 			}
 			timeTok = "every" + inc.Every
 		}
-		for _, scope := range expandScopes(inc.Target, r.Targets) {
-			r.Incidents = append(r.Incidents, scheduleEntry(inc.Kind, timeTok, inc.For, inc.Intensity, scope))
+		for _, scope := range expandEffectScopes(inc.Kind, inc.Target, scheduleTargets, resRefs) {
+			r.Incidents = append(r.Incidents, scheduleEntry(inc.Kind, timeTok, inc.For, inc.Intensity, scope, inc.intensitySet))
+		}
+	}
+	// Captured CW kinds own account-region aggregates/resource lists once per
+	// blueprint. Check the final BoM, including addons and cross-env routes:
+	// neither environment nor construct instance names distinguish their series.
+	type cwDeclarationKey struct{ kind, account, region string }
+	cwDeclarations := map[cwDeclarationKey]string{}
+	for _, ci := range r.Constructs {
+		switch ci.Kind {
+		case KindLambda, KindSQS, KindDynamoDB, KindRedshift, KindCloudWatchLogs, KindScheduler:
+			if ci.Fixtures == nil || ci.Fixtures.Cloud == nil {
+				continue // Missing cloud remains the construct Build's normal refusal.
+			}
+			cloud := ci.Fixtures.Cloud
+			key := cwDeclarationKey{ci.Kind, cloud.AccountID, cloud.Region}
+			if previous, exists := cwDeclarations[key]; exists {
+				return nil, fmt.Errorf("blueprint %q: %s declaration collision: account_id %q region %q declared by constructs %q and %q; use one resource list per blueprint/account/region/kind", d.Name, ci.Kind, key.account, key.region, previous, ci.Name)
+			}
+			cwDeclarations[key] = ci.Name
 		}
 	}
 	for _, w := range zeroConstructWarnings(r, d) {
@@ -1577,6 +1816,10 @@ func toFixtureHost(hd HostDecl) (*fixture.Host, error) {
 		Kernel:    hd.Kernel,
 	}, nil
 }
+
+// resourceBinder is implemented by a database construct Config that can be bound to a causal
+// resource (databases[].resource). Duck-typed: the blueprint package imports no construct.
+type resourceBinder interface{ BindResource(name string) }
 
 // emptyConfigInstance instantiates a topology kind (empty config; fixtures carry
 // everything), validating the kind is registered.

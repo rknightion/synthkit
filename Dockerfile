@@ -1,5 +1,5 @@
 # --- control-UI build stage (Node, build-time only) ---
-FROM node:24.22.1-alpine@sha256:6a1c190e17215d844926b0677f4bf87273ff7d5e54db06d3b5b5863ab0b09a3d AS ui
+FROM node:26.13.0-alpine@sha256:c6ad9e9c1d80f6eb607c26b4b0a132ff7a2344fad1c78ea3baa2a7d4c8de6d94 AS ui
 RUN apk add --no-cache ca-certificates=20261020-r0 ca-certificates-bundle=20261020-r0
 WORKDIR /ui
 COPY internal/control/ui/package*.json ./
@@ -21,10 +21,11 @@ ARG VERSION=dev
 ARG REVISION=unknown
 RUN CGO_ENABLED=0 go build -ldflags "-X main.version=${VERSION} -X main.revision=${REVISION}" -o /out/synthkit ./cmd/synthkit && \
     CGO_ENABLED=0 go build -ldflags "-X main.version=${VERSION}" -o /out/sm-provision ./cmd/sm-provision && \
-    CGO_ENABLED=0 go build -o /out/synthkit-dash ./cmd/synthkit-dash
+    CGO_ENABLED=0 go build -o /out/synthkit-dash ./cmd/synthkit-dash && \
+    CGO_ENABLED=0 go build -o /out/synthkit-chat ./cmd/synthkit-chat
 
 # Debian security carries the patched trust store before the distroless rebuild.
-FROM debian:bookworm-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8 AS trust
+FROM debian:bookworm-slim@sha256:99c0b25c46d0214d5a2091092e7908907dcaecd6a962cde0ac700acee222b6f3 AS trust
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates=20250419~deb12u2 && \
     dpkg-query -s ca-certificates > /ca-certificates.status && \
     mkdir /selected-certs && cp -L /etc/ssl/certs/*.pem /selected-certs/
@@ -39,6 +40,7 @@ WORKDIR /app
 COPY --from=build /out/synthkit /app/synthkit
 COPY --from=build /out/sm-provision /app/sm-provision
 COPY --from=build /out/synthkit-dash /app/synthkit-dash
+COPY --from=build /out/synthkit-chat /app/synthkit-chat
 COPY blueprints/ /app/blueprints/
 # Control-plane state (Phase 6) persists under /data — mount a DIRECTORY owned by
 # uid 65532 (distroless nonroot); a single-FILE mount breaks atomic save (I25).

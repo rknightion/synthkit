@@ -3,8 +3,10 @@
 package otlp
 
 import (
+	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/hex"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -687,5 +689,231 @@ func TestCapturedInventoryExcludesInvalidSpans(t *testing.T) {
 	_, names, _ := sink.Inventory()
 	if got := names["checkout"]; len(got) != 1 || got[0] != "valid" {
 		t.Fatalf("inventory names=%v", got)
+	}
+}
+
+// TestConvertSpansEncodesEvents round-trips a span with one event through the proto
+// decoder and checks the wire field numbers: Span.events = 11; Span.Event.time_unix_nano
+// = 1 (fixed64), name = 2, attributes = 3.
+func TestConvertSpansEncodesEvents(t *testing.T) {
+	now := time.Unix(1_700_000_000, 123)
+	evTime := now.Add(5 * time.Millisecond)
+	in := []Span{{
+		Name: "op", TraceID: "0123456789abcdef0123456789abcdef", SpanID: "0123456789abcdef",
+		Start: now, End: now.Add(10 * time.Millisecond), Status: StatusError,
+		Events: []Event{{
+			Name: "exception", Time: evTime,
+			Attrs: map[string]any{"exception.type": "timeout"},
+		}},
+	}}
+	spans, skipped := convertSpans(in)
+	if skipped != 0 || len(spans) != 1 {
+		t.Fatalf("convertSpans: %d spans, %d skipped", len(spans), skipped)
+	}
+	raw, err := proto.Marshal(spans[0])
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var got tracepb.Span
+	if err := proto.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(got.Events) != 1 {
+		t.Fatalf("decoded %d events, want 1", len(got.Events))
+	}
+	ev := got.Events[0]
+	if ev.Name != "exception" || ev.TimeUnixNano != uint64(evTime.UnixNano()) {
+		t.Errorf("event = name %q time %d, want exception %d", ev.Name, ev.TimeUnixNano, evTime.UnixNano())
+	}
+	if len(ev.Attributes) != 1 || ev.Attributes[0].Key != "exception.type" || ev.Attributes[0].Value.GetStringValue() != "timeout" {
+		t.Errorf("event attributes = %v", ev.Attributes)
+	}
+
+	// Raw wire field numbers, independent of the generated decoder.
+	var evBytes []byte
+	for b := raw; len(b) > 0; {
+		num, typ, n := protowire.ConsumeTag(b)
+		if n < 0 {
+			t.Fatalf("bad tag")
+		}
+		b = b[n:]
+		vn := protowire.ConsumeFieldValue(num, typ, b)
+		if vn < 0 {
+			t.Fatalf("bad field value")
+		}
+		if num == 11 {
+			if typ != protowire.BytesType {
+				t.Fatalf("field 11 wire type %v, want bytes", typ)
+			}
+			evBytes, _ = protowire.ConsumeBytes(b)
+		}
+		b = b[vn:]
+	}
+	if evBytes == nil {
+		t.Fatal("span has no field 11 (events)")
+	}
+	seen := map[protowire.Number]protowire.Type{}
+	for b := evBytes; len(b) > 0; {
+		num, typ, n := protowire.ConsumeTag(b)
+		b = b[n:]
+		seen[num] = typ
+		b = b[protowire.ConsumeFieldValue(num, typ, b):]
+	}
+	if seen[1] != protowire.Fixed64Type || seen[2] != protowire.BytesType || seen[3] != protowire.BytesType {
+		t.Errorf("event wire fields = %v, want 1=fixed64 2=bytes 3=bytes", seen)
+	}
+}
+
+// TestConvertSpansNilEventsByteIdentical verifies a span with nil (or empty) Events encodes
+// byte-for-byte as a span built with no Events field, and carries no field 11.
+func TestConvertSpansNilEventsByteIdentical(t *testing.T) {
+	now := time.Unix(1_700_000_000, 0)
+	mk := func(ev []Event) []byte {
+		spans, _ := convertSpans([]Span{{
+			Name: "op", TraceID: "0123456789abcdef0123456789abcdef", SpanID: "0123456789abcdef",
+			Start: now, End: now.Add(time.Millisecond), Attrs: map[string]any{"k": "v"}, Events: ev,
+		}})
+		b, err := proto.MarshalOptions{Deterministic: true}.Marshal(spans[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		return b
+	}
+	ref, err := proto.MarshalOptions{Deterministic: true}.Marshal(&tracepb.Span{
+		TraceId: []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef},
+		SpanId:  []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef},
+		Name:    "op", Kind: tracepb.Span_SPAN_KIND_INTERNAL,
+		StartTimeUnixNano: uint64(now.UnixNano()), EndTimeUnixNano: uint64(now.Add(time.Millisecond).UnixNano()),
+		Attributes: kvs(map[string]any{"k": "v"}),
+		Status:     &tracepb.Status{Code: tracepb.Status_STATUS_CODE_UNSET},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, ev := range map[string][]Event{"nil": nil, "empty": {}} {
+		if got := mk(ev); !bytes.Equal(got, ref) {
+			t.Errorf("%s Events: encoding differs from base\n got %x\nwant %x", name, got, ref)
+		}
+	}
+	for b := ref; len(b) > 0; {
+		num, typ, n := protowire.ConsumeTag(b)
+		if num == 11 {
+			t.Fatal("base encoding carries field 11")
+		}
+		b = b[n:]
+		b = b[protowire.ConsumeFieldValue(num, typ, b):]
+	}
+}
+
+// TestConvertSpansEncodesLinks round-trips a span with one link through the proto decoder and
+// checks the wire field numbers: Span.links = 13; Span.Link.trace_id = 1, span_id = 2,
+// attributes = 4.
+func TestConvertSpansEncodesLinks(t *testing.T) {
+	now := time.Unix(1_700_000_000, 0)
+	linkTrace, linkSpan := "fedcba9876543210fedcba9876543210", "fedcba9876543210"
+	in := []Span{{
+		Name: "process q", TraceID: "0123456789abcdef0123456789abcdef", SpanID: "0123456789abcdef",
+		ParentID: linkSpan, Kind: KindConsumer, Start: now, End: now.Add(time.Millisecond),
+		Links: []Link{{TraceID: linkTrace, SpanID: linkSpan, Attrs: map[string]any{"messaging.message.id": "m1"}}},
+	}}
+	spans, skipped := convertSpans(in)
+	if skipped != 0 || len(spans) != 1 {
+		t.Fatalf("convertSpans: %d spans, %d skipped", len(spans), skipped)
+	}
+	raw, err := proto.Marshal(spans[0])
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var got tracepb.Span
+	if err := proto.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(got.Links) != 1 {
+		t.Fatalf("decoded %d links, want 1", len(got.Links))
+	}
+	l := got.Links[0]
+	if hex.EncodeToString(l.TraceId) != linkTrace || hex.EncodeToString(l.SpanId) != linkSpan {
+		t.Errorf("link = trace %x span %x, want %s %s", l.TraceId, l.SpanId, linkTrace, linkSpan)
+	}
+	if len(l.Attributes) != 1 || l.Attributes[0].Key != "messaging.message.id" || l.Attributes[0].Value.GetStringValue() != "m1" {
+		t.Errorf("link attributes = %v", l.Attributes)
+	}
+
+	// Raw wire field numbers, independent of the generated decoder.
+	var linkBytes []byte
+	for b := raw; len(b) > 0; {
+		num, typ, n := protowire.ConsumeTag(b)
+		if n < 0 {
+			t.Fatalf("bad tag")
+		}
+		b = b[n:]
+		vn := protowire.ConsumeFieldValue(num, typ, b)
+		if vn < 0 {
+			t.Fatalf("bad field value")
+		}
+		if num == 13 {
+			if typ != protowire.BytesType {
+				t.Fatalf("field 13 wire type %v, want bytes", typ)
+			}
+			linkBytes, _ = protowire.ConsumeBytes(b)
+		}
+		b = b[vn:]
+	}
+	if linkBytes == nil {
+		t.Fatal("span has no field 13 (links)")
+	}
+	seen := map[protowire.Number]protowire.Type{}
+	for b := linkBytes; len(b) > 0; {
+		num, typ, n := protowire.ConsumeTag(b)
+		b = b[n:]
+		seen[num] = typ
+		b = b[protowire.ConsumeFieldValue(num, typ, b):]
+	}
+	if seen[1] != protowire.BytesType || seen[2] != protowire.BytesType || seen[4] != protowire.BytesType {
+		t.Errorf("link wire fields = %v, want 1=bytes 2=bytes 4=bytes", seen)
+	}
+}
+
+// TestConvertSpansNilLinksByteIdentical verifies a span with nil (or empty) Links encodes
+// byte-for-byte as a span built with no Links field, and carries no field 13.
+func TestConvertSpansNilLinksByteIdentical(t *testing.T) {
+	now := time.Unix(1_700_000_000, 0)
+	mk := func(links []Link) []byte {
+		spans, _ := convertSpans([]Span{{
+			Name: "op", TraceID: "0123456789abcdef0123456789abcdef", SpanID: "0123456789abcdef",
+			Start: now, End: now.Add(time.Millisecond), Attrs: map[string]any{"k": "v"}, Links: links,
+		}})
+		b, err := proto.MarshalOptions{Deterministic: true}.Marshal(spans[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		return b
+	}
+	ref, err := proto.MarshalOptions{Deterministic: true}.Marshal(&tracepb.Span{
+		TraceId: []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef},
+		SpanId:  []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef},
+		Name:    "op", Kind: tracepb.Span_SPAN_KIND_INTERNAL,
+		StartTimeUnixNano: uint64(now.UnixNano()), EndTimeUnixNano: uint64(now.Add(time.Millisecond).UnixNano()),
+		Attributes: kvs(map[string]any{"k": "v"}),
+		Status:     &tracepb.Status{Code: tracepb.Status_STATUS_CODE_UNSET},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A link with a malformed id is dropped, so it also leaves the encoding as the base's.
+	bad := []Link{{TraceID: "xyz", SpanID: "0123456789abcdef"}, {TraceID: "0123456789abcdef0123456789abcdef", SpanID: "01"}}
+	for name, links := range map[string][]Link{"nil": nil, "empty": {}, "malformed": bad} {
+		if got := mk(links); !bytes.Equal(got, ref) {
+			t.Errorf("%s Links: encoding differs from base\n got %x\nwant %x", name, got, ref)
+		}
+	}
+	for b := ref; len(b) > 0; {
+		num, typ, n := protowire.ConsumeTag(b)
+		if num == 13 {
+			t.Fatal("base encoding carries field 13")
+		}
+		b = b[n:]
+		b = b[protowire.ConsumeFieldValue(num, typ, b):]
 	}
 }

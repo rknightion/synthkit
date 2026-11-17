@@ -49,6 +49,10 @@ Logs blocks use `stream_labels` / `structured_metadata` / `body_fields` instead 
 
 The `stats:` field on a CloudWatch block declares the five per-period gauge suffixes that expand each `root` into five separate Mimir series — `aws_applicationelb_request_count_sum`, `aws_applicationelb_request_count_average`, and so on. These are **per-period gauges**, never rate-able counters.
 
+### Default and opt-in blocks
+
+A block fenced exactly `yaml signals` lists what a family emits by default, once it is declared. A series that appears only when you set an optional blueprint field is listed in a separate block fenced `yaml signals opt-in`. That block also carries `opt_in`, the enabling field (for example `cloud.dynamodb.tables[].operations[].throttled_requests_per_second`), and `source`, its provenance. An opt-in name never appears in a default block. `just test` runs the engine with and without each `opt_in` field and fails if a declared opt-in name is not emitted when the field is set, or is emitted when it is not. The full rules are in [`SIGNALS.md`](https://github.com/rknightion/synthkit/blob/main/SIGNALS.md).
+
 ---
 
 ## Verification legend

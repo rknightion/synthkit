@@ -59,10 +59,15 @@ func (l *beylaLaneHelper) tick(now time.Time, world *core.World) {
 	shp := world.Shape
 
 	intervalSec := interval.Seconds()
-	rps := w.m.rpsAt(now, shp)
-	totalCalls := ledger.StochasticRound(rps*intervalSec, shp.Float64())
-	if totalCalls <= 0 && !w.nonProd {
-		totalCalls = 1
+	// Explicit master volume 0 is a pause: no calls and no prod keep-alive call. Paused is read
+	// once so the rate and the keep-alive cannot disagree within a tick.
+	totalCalls := 0
+	if !shp.Paused() {
+		rps := w.m.rpsAt(now, shp)
+		totalCalls = ledger.StochasticRound(rps*intervalSec, shp.Float64())
+		if totalCalls <= 0 && !w.nonProd {
+			totalCalls = 1
+		}
 	}
 	routes := w.activeRoutes(now, world)
 

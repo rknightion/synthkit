@@ -48,6 +48,30 @@ type Span struct {
 	Attrs     map[string]any
 	Status    StatusCode
 	StatusMsg string
+	// Events are the span's timestamped events (OTLP Span.events, field 11), e.g. the
+	// OTel "exception" event. nil or empty encodes byte-identically to a span without them.
+	Events []Event `json:",omitempty"`
+	// Links are the span's links to other spans' contexts (OTLP Span.links, field 13), e.g. a
+	// messaging CONSUMER span's link to the message's creation context. nil or empty encodes
+	// byte-identically to a span without them.
+	Links []Link `json:",omitempty"`
+}
+
+// Link is one OTLP Span.Link: a reference to another span's context. TraceID is 32 hex chars and
+// SpanID 16 hex chars; a link with a malformed id is dropped (the span is kept). Attrs values
+// follow the same rules as Span.Attrs.
+type Link struct {
+	TraceID string
+	SpanID  string
+	Attrs   map[string]any
+}
+
+// Event is one OTLP Span.Event: a named, timestamped annotation on a span. Attrs values
+// follow the same rules as Span.Attrs. A zero Time encodes as time_unix_nano 0.
+type Event struct {
+	Name  string
+	Time  time.Time
+	Attrs map[string]any
 }
 
 // Scope is the OTLP InstrumentationScope (the real instrumentation library name+version,

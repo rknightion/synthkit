@@ -38,6 +38,34 @@ This reference is generated from the live Go types via `just gen` and reflects t
 | `incidents[]` | object | no | Scheduled or interval-recurring failure activations. |
 | `scenarios[]` | object | no | Named, reusable failure bundles composed of effects. |
 | `hosts[]` | object | no | Traditional non-Kubernetes machines. |
+| `agent_observability` | object | no | Manual Agent Observability management declarations for `agento11y-provision`. Never enables runtime emission. See [agent_observability](#agent_observability). |
+
+
+---
+
+## agent_observability
+
+Optional top-level block read only by the source-built
+[agent-observability provisioning command](agent-observability-provisioning.md). The emitter ignores
+it: loading a blueprint with this block does not install runtime admission or change emission.
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `closures[]` | object | yes | One closure per real agent owner. |
+| `closures[].key` | string | yes | Blueprint-unique local key. |
+| `closures[].agent.instance` | string | yes | Post-fanout workload instance that declares the agent. |
+| `closures[].agent.agent_name` | string | yes | Declared agent name; it must have a real producer. |
+| `closures[].evaluators[]`, `hooks[]`, `rules[]`, `collections[]`, `suites[]` | object | no | `{key, spec}` entries; `spec` uses the exact management API request fields. |
+| `closures[].actions[]` | object | no | `{key, parent_rule, spec}`; `parent_rule` is a rule key in the same closure. |
+| `closures[].suites[].draft` | object | yes, per suite | `{key, spec, cases[], bindings: {key, bindings[]}, publication: {key, spec}}`. |
+
+Decoding is stricter than the rest of the blueprint: anchors, aliases, merge keys, duplicate or
+case-variant keys, lossy numbers and trailing documents refuse. Scalars must resolve to plain
+string, integer, float, boolean or null (explicit `!!str`/`!!int`/`!!float`/`!!bool`/`!!null` tags
+are accepted but must match the field type), and `null` is kept only inside open case maps. Evaluator
+`config` and hook/rule `match` also accept a JSON-object string; a hook's `blocked_tools` and list
+form of `redact` are aliases for `tool_filter.blocked_names` and `redact.patterns`. The full field
+list is in [BLUEPRINT-SCHEMA.md](https://github.com/rknightion/synthkit/blob/main/BLUEPRINT-SCHEMA.md).
 
 ---
 
@@ -69,6 +97,52 @@ This reference is generated from the live Go types via `just gen` and reflects t
 | `cloud.glue` | object | no | AWS Glue ETL config. Absent ⇒ not emitted. See [glue config](#glue-config). |
 | `cloud.bedrock` | object | no | AWS Bedrock CloudWatch config. Absent ⇒ not emitted. See [bedrock config](#bedrock-config). |
 | `cloud.agentcore` | object | no | AWS Bedrock AgentCore CloudWatch config. Absent ⇒ not emitted. See [agentcore config](#agentcore-config). |
+| `cloud.lambda` | object | no | Function list and account concurrency; [captured config](#captured-cloudwatch-config), remote-write only. |
+| `cloud.sqs` | object | no | Ordinary queue list; [captured config](#captured-cloudwatch-config), remote-write only. |
+| `cloud.dynamodb` | object | no | Provisioned table list and account quotas; [captured config](#captured-cloudwatch-config), remote-write only. |
+| `cloud.redshift` | object | no | Provisioned cluster snapshots, named queues and optional I/O latency; [captured config](#captured-cloudwatch-config), remote-write only. |
+| `cloud.cloudwatch_logs` | object | no | Log-group uncompressed intake and optional independent Lambda delivery observations; [captured config](#captured-cloudwatch-config), remote-write only. |
+| `cloud.scheduler` | object | no | EventBridge Scheduler fixed-rate schedules with an opt-in target-error mode; [captured config](#captured-cloudwatch-config), remote-write only. |
+
+### Captured CloudWatch config
+
+`cloud.lambda`, `cloud.sqs`, `cloud.dynamodb`, `cloud.redshift` and `cloud.cloudwatch_logs` are
+optional strict-decoded objects; absent means no instance. They require `cloudwatch_export: remote_write` (the default) and explicit cloud identity.
+Only one declaration per blueprint/account/region/kind is admitted, even across environments with
+disjoint resources. See [authoring and value assumptions](blueprints.md#captured-cloudwatch-consumers)
+and the [canonical emitted subset](https://github.com/rknightion/synthkit/blob/main/signals/cw.md#initial-captured-service-emitters-slug-cw-captured-emitted).
+These engineering bounds are not AWS service quotas.
+
+| Object | Accepted fields / constraints |
+|---|---|
+| `cloud.lambda` | `functions` (1..1000); `reserved_concurrency` (whole 0..1,000,000). |
+| `functions[]` | `name` (unique unqualified 1..64 letters/digits/underscore/hyphen); `invocations_per_min`, `throttles_per_min`, `async_received_per_min`, `stream_batches_per_min` (0..1e9); `duration_ms` (0..60000); `async_age_ms`, `iterator_age_ms` (0..604800000); `error_fraction`, `async_dropped_fraction` (0..1); optional `duration_ms_min`/`duration_ms_max` (0..60000, declared together, bracketing `duration_ms`, which stays the mean) widen Duration Minimum/Maximum; optional `load: business` scales the four arrival rates by the business curve (default `constant`); with `load: business`, optional `duration_ms_idle` (positive, at most `duration_ms`) makes the mean Duration follow the same curve from that idle value up to `duration_ms` at the plateau, and any `duration_ms_min`/`duration_ms_max` bounds scale with it (omitted keeps constant duration); `duration_load: business` (requires `duration_ms_idle`) applies that duration curve without `load: business`, so a scheduled function keeps its constant invocations while its batch duration follows the curve. Total executions cover admitted async plus stream rates. Optional `zero_valued_samples: true` makes `Throttles` and `Errors` observe every request (executions plus throttled requests) with 0 or 1, as a lab capture reported, instead of only when an event occurs; default output is unchanged. |
+| `cloud.sqs` | `queues` (1..64). |
+| `queues[]` | Unique `name`, unique non-global `collector_name`; `arrivals_per_second`, `receives_per_second` (0..1e6); whole `message_bytes` (0..1048576, at least 1 for positive arrivals); `delay_seconds` (integer 0..900), `processing_seconds` (integer 0..43200); optional `load: business` scales arrivals by the business curve, with `receives_per_second` as the consumer throughput ceiling (default `constant`); optional `burst: {period, duty, phase}` (unbound queues only; `period` a Go duration 1s..168h, `duty` in (0,1], optional `phase` in [0,period), all epoch-aligned on the tick clock) delivers the same mean `arrivals_per_second` inside the first `duty` of each period, offset by `phase`, at `arrivals_per_second / duty` (at most 1e6) and none in the rest, so a backlog forms while that exceeds `receives_per_second` and drains after (default absent: arrivals evenly spread; needs positive arrivals); optional `enrichment`. |
+| `queues[].enrichment` | Optional explicit `asserts_env`, `asserts_site`, `service`, `environment`, `owner`, `purpose`, `terraform`; the last four project `tag_*` labels, not dimensions. |
+| `cloud.dynamodb` | `account`, `tables` (empty permits account-only snapshots). All numeric inputs finite/nonnegative and at most 1e9 unless constrained further. |
+| `account` | Positive `max_reads`, `max_writes`, `max_table_reads`, `max_table_writes`; table maxima cannot exceed account maxima. |
+| `tables[]` | Unique `name`, unique non-global `collector_name`; positive `provisioned_reads`, `provisioned_writes` within table/account quotas; optional `write_source`, `replication`, `conditional_failures_per_second`, `operations`, `stream`. |
+| `operations[]` | Unique `name` (GetItem, PutItem, UpdateItem, Query, Scan, SELECT-only ExecuteStatement); `requests_per_second`, `read_units`, `write_units`, positive `latency_ms`, whole `returned_items`. Read operations require read units only; PutItem and UpdateItem write units only (UpdateItem emits only `SuccessfulRequestLatency` on TableName+Operation, takes no `throttled_requests_per_second` and is excluded from GlobalTable customer writes); returned items only for selection operations. Optional `load: business` (also on the table, where an operation's own `load` overrides it) makes `requests_per_second` the peak rate and scales it, and a GlobalTable's `replication.writes_per_second`, by the blueprint business curve (default `constant`); the Build capacity guard still applies to the peak. Optional `latency_min_ms` and `latency_max_ms` (both or neither, `latency_min_ms <= latency_ms <= latency_max_ms`) spread Minimum/Maximum around a mean that drifts per window; omitted keeps constant latency. Optional `throttled_requests_per_second` (GetItem or PutItem only, 0..1e9, follows the operation's load) adds throttled requests that consume no capacity and emit `ThrottledRequests` (TableName+Operation) plus table-level `ReadThrottleEvents` (GetItem) or `WriteThrottleEvents` (PutItem), one sample of 1 per throttled request and no zero samples; omitted emits none of the three. Optional `resource` (GetItem or PutItem only) binds the operation to a declared `quota` resource and requires `quota_unit` (`requests`, `read_units` for GetItem or `write_units` for PutItem; only with `resource`): the quota's admitted volume becomes the successful requests and its rejected volume the throttled requests, divided by the operation's `read_units` or `write_units` when the quota counts capacity units (one RCU is one strongly consistent or two eventually consistent reads of an item up to 4 KB, one WCU one write of an item up to 1 KB, per AWS). A bound operation omits `requests_per_second`, `throttled_requests_per_second` and `load`; one quota binds one operation; its `limit_rps`, in units, counts toward the provisioned-capacity guard. |
+| `replication` | GlobalTable-only required `writes_per_second`, positive `units_per_write`; GlobalTable cannot also declare customer write operations. Demand must fit provisioned capacity. |
+| `stream` | Nonblank `label`; `requests_per_second`, whole `records_per_request` (0..1000), whole `bytes_per_record`; positive `latency_ms`; response size at most 1 MiB. GetRecords operation is selected by this block, not authored. |
+| `cloud.redshift` | `clusters` (1..100), no inferred inventory. |
+| `clusters[]` (Redshift) | Unique unpadded `name` and unique non-global `collector_name`; required `snapshot`; optional `read_io`, `write_io`, `wlm_queues` (at most 100). |
+| `snapshot` | All fields required: finite `cpu_percent`, `disk_used_percent` (0..100); whole `database_connections`, `total_tables` (0..1e9); boolean `healthy`, `maintenance`. Explicit zero/false is valid. |
+| `read_io`, `write_io` | Finite `operations_per_second` (0..1e6, omitted=0); required finite `latency_seconds` ((0,3600]). Independent sparse completed-I/O assumptions, not throughput. |
+| `wlm_queues[]` | Unique unpadded `name` within cluster; required whole `waiting`, `running` (0..1e9). |
+| `cloud.cloudwatch_logs` | `log_groups` (1..100), no inferred inventory. |
+| `log_groups[]` | Unique unpadded `name`; required finite `events_per_second` (0..1e6, explicit zero valid); required finite whole `uncompressed_bytes_per_event` (1..65536); optional `subscription_filters`. |
+| `subscription_filters[]` | At most 100 total across log groups; unique unpadded `name` within group; required `destination_type: Lambda`; required `period_observation`. No target identity or joins. |
+| `period_observation` | All four required, whole finite nonnegative: `delivery_errors`, `delivery_throttling`, `forwarded_log_events` (0..60000001), `forwarded_bytes` (0..3932160065536, already compressed). No defaults; explicit zero valid. One observation per active minute, four value stats=x, sample_count=1. |
+| `cloud.scheduler` | `schedules` (1..1000), no inferred inventory. Same one-declaration-per-blueprint/account/region rule as the kinds above. |
+| `schedules[]` | `name` (1..64 letters/digits/`.`/`_`/`-`, unique within its group); optional `group` (same character rule, default `default`); required `rate` as `rate(<whole value> minute(s)\|hour(s)\|day(s))`, period at most 366 days, no `cron()`/`at()`; optional `target_error_fraction` (0..1, default 0) makes that fraction of runs target errors, each also counted as dropped (no retries modelled). A function-side failure belongs on the target's `cloud.lambda` entry instead. |
+
+Unspecified traffic is zero only where the Config permits omission; required Redshift/Logs
+assumptions reject absence. No ESM/fair/info/native switches or cross-service joins exist in these
+configs. Logs other delivery selectors/profiles and by-data-source, and Redshift
+user-query/NodeID/managed-storage expansions remain withheld. The [generated schema](https://github.com/rknightion/synthkit/blob/main/BLUEPRINT-SCHEMA.md)
+reflects the registered Config types; the loader and Build enforce semantic constraints.
 
 ### environments[].cluster
 
@@ -118,6 +192,7 @@ This reference is generated from the live Go types via `just gen` and reflects t
 | `databases[].version` | string | yes | Engine version string. |
 | `databases[].name` | string | yes | Instance name. Must be globally unique across all enabled blueprints. |
 | `databases[].instance_class` | string | no | e.g. `"db.t3.medium"`. Empty ⇒ resolver default. |
+| `databases[].resource` | string | no | Name of a declared `dependency` or `pool` resource (`environments[].resources`) that drives the database's CloudWatch lane: read and write latency scale with the resource's latency factor and, for a pool, `DatabaseConnections` follows its in-use connections. A bound database takes no legacy `database`-axis mode and still needs the CloudWatch lane. PostgreSQL/MySQL may also enable `observability.dbo11y`: both lanes agree on same-minute pool connections, and dbo11y statement-seconds increments plus existing synthetic query/wait durations follow mean latency without server Lock/IO or SQL-error attribution. DocumentDB/Neptune dbo11y remains unsupported. See [database bindings](blueprints.md#the-emission-switch). Supported for `postgres`, `mysql` and `docdb`; a pool-bound `docdb` cluster reports the pool's in-use connections on its `WRITER` row only. |
 | `databases[].observability` | object | no | Emission switch. Nil ⇒ CloudWatch only. |
 | `databases[].observability.cloudwatch` | bool | no | Emit `aws_rds_*` CloudWatch family. Default `true`. |
 | `databases[].observability.dbo11y` | bool | no | Emit `database_observability_*` lane. Default `false`. |
@@ -232,12 +307,20 @@ The `app` workload declares a multi-service graph. See [workloads.md](workloads.
 | `services[].volume_claims[]` | string | no | PVC template names for `kube_persistentvolumeclaim_*` and kubelet volume stats. |
 | `services[].metrics[]` | object | no | Inline custom metric definitions (DSL). |
 | `services[].logs[]` | object | no | Inline custom log stream definitions (DSL). |
+| `services[].logs[].when` | object | no | Writes the line only for requests whose per-request draw is listed. See [gated and dwelled log lines](workloads.md#gated-and-dwelled-log-lines). |
+| `services[].logs[].when.request_draw` | object | — | An `enum` `request_draw` (`key`, `enum[]`; no `format`), with the same weights in the same order as every other `request_draw` of that `key` in the workload's logs. |
+| `services[].logs[].when.in[]` | string | — | One or more of the enum's values, no repeats. |
+| `services[].logs[].dwell_seconds` | value model | no | Seconds the request spent before this line; a bundle's earlier lines are backdated from its completion by their successors' dwells. Numeric models only (`const`, `int_range`, `float_range`, `normal`, `lognormal`); a draw is clamped to `[0, 86400]` s. Keep a bundle's summed dwell well under 1 h (Loki's out-of-order window); the sum is not checked at load. |
 | `services[].spans[]` | object | no | Inline custom span attribute definitions (DSL). |
 | `traffic` | object | no | Entry node invocation volume shaping. |
 | `traffic.shape` | string | — | Shape profile name. |
 | `traffic.off_peak_rps` | float | — | Trough rate. Default `5`. |
 | `traffic.peak_rps` | float | — | Plateau rate. Default `50`. |
 | `traffic.request_latency_p95_ms` | float | — | Base end-to-end latency p95. Default `0` ⇒ `200ms`. LLM/agentic apps should set this to seconds (e.g. `9000`). |
+| `traffic.client_retry` | object | no | Entry-client re-send of a failed request as a new request of the same logical request (the logical request's per-request draws repeat). Graph apps only: rejected with `automation`, `agent_pipeline` and `traffic.from_resource`. Omitted re-sends nothing. See [entry-client retry](workloads.md#entry-client-retry). |
+| `traffic.client_retry.retries` | int | — | Re-sends after the first attempt, `1` to `3`. |
+| `traffic.client_retry.backoff_seconds` | float | — | Delay before the first re-send, in `(0, 600]`; doubled for each further re-send. |
+| `traffic.client_retry.retry_on[]` | string | — | One or more of `5xx` (any 5xx status) and `throttle` (429); no repeats. |
 | `models[]` | object | no | Valid `(model, provider)` routing pairs for AI apps. Empty ⇒ non-AI app. |
 | `models[].model` | string | — | `gen_ai.request.model` value (e.g. `gpt-4o`, `claude-3.5-sonnet`). |
 | `models[].provider` | string | — | `gen_ai.provider.name` value (e.g. `azure-openai`, `bedrock`). |
@@ -256,7 +339,25 @@ The DSL value model is a one-of; exactly one of these keys must be present per v
 | `normal` | `{mean, stddev}` | Normal distribution. |
 | `bool` | `{p_true}` | Bernoulli with given probability. |
 | `shape` | `{base, mode}` | Incident-responsive value driven by the shape engine. |
+| `shape.batch` | `{period, phase}` | Counter metric values only: releases the accumulated arrivals once per `period` (`(0, 24h]`), boundaries offset by `phase` (`[0, period)`), zero between releases. Not valid with `stock_of`, `count_of` or `incident_value` on the same metric. See [batch arrivals](workloads.md#batch-arrivals). |
+| `now` | `{stall_mode, arrivals_only, period, phase}` | Gauge metric values only: the tick time in Unix seconds. `stall_mode` holds it while that incident mode is active; `arrivals_only` advances it only on ticks where the node's source had arrivals; `period` (`(0, 24h]`) and `phase` (`[0, period)`) read the last schedule boundary, held under a stall. An enum label value may add its own `stall_mode` (one label per metric). See [collector self-telemetry](workloads.md#collector-self-telemetry). |
+| `source_read` | `{measure, per_tick, stall_mode}` | Counter metric values only. `measure` is `records_inspected`, `checkpoint` (both stop while stalled) or `read_failures` (only while stalled, needs a `stall_mode`); `per_tick` is finite and above 0 and is added per metric tick. See [collector self-telemetry](workloads.md#collector-self-telemetry). |
 | `ref` | string | Correlation field reference (high-card). **Metric/stream labels reject this.** |
+
+Two further metric keys derive a metric from a counter (see
+[stock gauges](workloads.md#stock-gauges)): `stock_of` derives a gauge and replaces its `value`;
+`count_of` sets how many values a histogram observes and keeps the histogram's `value`:
+
+| Key | Type | Description |
+|---|---|---|
+| `stock_of.metric` | string | The counter to stock (not the gauge itself). Resolves every same-named counter spec on the node. |
+| `stock_of.dwell_seconds` | float | Fluid stock: finite and above 0. Set exactly one of this and `stock_of.residence`. |
+| `stock_of.residence` | `{median, p95}` | Item stock of whole items with a lognormal residence: `median > 0`, `p95 >= median`, finite. At most 100,000 items per series; arrivals above that are dropped. |
+| `stock_of.stall_mode` | string | Item stock only: while that incident mode is active at intensity `i`, residences advance at `1 - i` of real time. |
+| `stock_of.field` | string | Item stock only: `count` (default) or `oldest_age_seconds`. |
+| `labels` (on a `stock_of` gauge) | map | Optional projection: each label must be a counter label with values the counter takes, and every combination must match a counter series. `value_scale` is rejected. Omitted inherits the counter's series. |
+| `count_of` | string | Histogram only: the name of a counter on the same service node (or the node named by `count_of_service`); each tick the histogram observes as many values (drawn from its `value`) as that counter incremented, so `_count` tracks the counter. Labels must be a subset of the counter's, each value one it takes, and every combination must match a counter series. At most 10,000 observations per series per tick; a batched counter's whole-window release counts (rejected at load). See [histogram counts from a counter](workloads.md#stock-gauges). |
+| `count_of_service` | string | With `count_of` only: the service node whose counter `count_of` reads. It must be declared before the histogram's service; unknown or later services are rejected at load. A source that is paused records nothing for the tick. |
 
 ---
 
@@ -447,6 +548,7 @@ Add-ons are listed under `cluster.addons[]`. Most have no configurable fields; o
 |---|---|---|
 | `agents[]` | string | Agent logical names for resource-usage dimensions. Default: `["planner","retriever"]`. |
 | `sub_signals[]` | string | Families to emit. Valid: `runtime`, `resource_usage`, `usage_logs`. Empty ⇒ `runtime` + `resource_usage` + app logs. `usage_logs` is opt-in. |
+| `runtimes[]` | object | Binds an agent's runtime to a causal resource: `{agent, resource}`. `agent` names an entry of `agents`; `resource` names a `concurrency` resource under `environments[].resources` (one runtime per resource). The runtime then emits its own `invocations`, `throttles`, `system_errors`, `total_errors` and `latency` series, named by the runtime ARN, from the resource model. Needs the `runtime` family. Absent ⇒ unchanged output. |
 
 ### aoss config
 

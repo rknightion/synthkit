@@ -1,0 +1,8 @@
+{"at":"0s","event":{"kind":"synthkit_activated"}}
+{"at":"60s","event":{"kind":"message","channel":"C0OPS","from":"irm","text":"[FIRING:1] Alert group #12: content-gen p95 latency high. p95 2400ms on acme-backend-api-content-gen","ts":"1000.0001"}}
+{"at":"75s","event":{"kind":"message_changed","channel":"C0OPS","from":"irm","text":"Alert group #12 acknowledged by Casey","ts":"1000.0001"}}
+{"at":"80s","event":{"kind":"message","channel":"C0OPS","from":"operator","user":"U0OPERATOR","text":"on it. alex can we get jordan in here?","ts":"1000.0002"}}
+{"at":"100s","event":{"kind":"channel_created","channel":"C0INCIDENT","channel_name":"incident-12-content-gen-latency"}}
+{"at":"200s","event":{"kind":"message","channel":"C0INCIDENT","from":"operator","user":"U0OPERATOR","text":"jordan, p95 is 2400ms on content-gen since the alert fired","ts":"1000.0003"}}
+{"at":"160s","event":{"kind":"message","channel":"C0ELSEWHERE","from":"other","user":"U0OTHER","text":"unrelated chatter in a room we do not own","ts":"1000.0004"}}
+{"at":"420s","event":{"kind":"synthkit_deactivated"}}

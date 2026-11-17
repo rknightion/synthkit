@@ -546,3 +546,32 @@ func TestPublicReadinessOffNeverConsultsSchema(t *testing.T) {
 		t.Fatalf("schema consulted %d times with the setting off", cs.calls)
 	}
 }
+
+// TestBlueprintEmittingIgnoresVolumeZero pins the documented SKT-0147 behaviour: a master volume
+// of 0 pauses request-shaped volume but is neither an enablement change nor a readiness reason,
+// so blueprint_emitting stays true for scheduled blueprints and the probe is unchanged.
+func TestBlueprintEmittingIgnoresVolumeZero(t *testing.T) {
+	report := servingReport()
+	loaded := []string{"alpha", "beta"}
+	for _, vol := range []float64{1, 0} {
+		st := DefaultState()
+		st.VolumeMultiplier = vol
+		st.DisabledBlueprints = []string{"beta"}
+		got := BlueprintEmittingFlags(report, loaded, st, nil, false, true)
+		if !got["alpha"] || got["beta"] {
+			t.Errorf("volume %v: flags = %v, want alpha true and beta false", vol, got)
+		}
+	}
+
+	store := NewStore(filepath.Join(t.TempDir(), "state.json"))
+	store.Update(func(s *State) { s.VolumeMultiplier = 0 })
+	lister := &fixedBlueprints{names: []string{"alpha", "beta"}}
+	h := NewHandler(store, nil, "").
+		SetStatus(StatusSources{Readiness: func() ReadinessReport { return report }}).
+		SetReadinessBlueprintFlags(lister)
+	rec := getReadiness(t, h)
+	want := strings.TrimSuffix(goldenProbeOff, "}\n") + `,"blueprint_emitting":{"alpha":true,"beta":true}}` + "\n"
+	if rec.Code != http.StatusServiceUnavailable || rec.Body.String() != want {
+		t.Fatalf("volume 0 probe changed: %d %s\nwant %s", rec.Code, rec.Body.String(), want)
+	}
+}

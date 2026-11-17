@@ -4,11 +4,14 @@ package blueprint
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/failuremode"
 	"github.com/rknightion/synthkit/internal/fixture"
+	"github.com/rknightion/synthkit/internal/pipelinerun"
 
 	yaml "gopkg.in/yaml.v3"
 )
@@ -55,6 +58,9 @@ func buildTargets(d *Decl) []Target {
 	}
 	for _, e := range d.Environments {
 		for _, db := range e.Databases {
+			if db.Resource != "" {
+				continue // bound to a causal resource: the resource-axis modes move it, not the database axis
+			}
 			out = append(out, Target{Name: db.Name, Axis: failuremode.AxisDatabase})
 		}
 		for _, c := range e.Caches {
@@ -65,6 +71,190 @@ func buildTargets(d *Decl) []Target {
 		}
 		if e.Cloud != nil {
 			out = append(out, Target{Name: e.Name, Axis: failuremode.AxisCloud})
+			for _, p := range e.Cloud.Pipelines {
+				for _, st := range p.Stages {
+					out = append(out, Target{Name: pipelinerun.StageScope(p.Name, st.Name), Axis: pipelinerun.AxisStage})
+				}
+			}
+		}
+	}
+	return out
+}
+
+// resourceRef is one declared resource a resource-axis target name reaches.
+type resourceRef struct {
+	name string
+	kind causal.Kind
+}
+
+// resourceTargets enumerates the declared causal resources as `resource`-axis targets: every
+// resource name, then each environment base alias (a resource named `<base>-<lower(env)>` is
+// also reached by `<base>`, in every environment that declares one; see causal.EnvAlias). The
+// aliases set marks the alias-only names so an "resource:*" schedule expands to the declared
+// resources alone (an alias would only repeat them). refs maps every target name to the
+// resources it reaches (itself, or every resource carrying the alias) so an effect's mode can
+// be checked against their kinds. Resource targets may share a name with a target on another
+// axis: an effect naming it resolves on the axis that declares its mode, as construct-declared
+// function and queue targets do.
+func resourceTargets(d *Decl) (targets []Target, aliases map[string]bool, refs map[string][]resourceRef) {
+	aliases = map[string]bool{}
+	refs = map[string][]resourceRef{}
+	declared := map[string]bool{}
+	for _, e := range d.Environments {
+		for _, r := range e.Resources {
+			declared[r.Name] = true
+			targets = append(targets, Target{Name: r.Name, Axis: causal.AxisResource})
+			refs[r.Name] = []resourceRef{{r.Name, r.Kind}}
+		}
+	}
+	for _, e := range d.Environments {
+		for _, r := range e.Resources {
+			base := causal.EnvAlias(r.Name, e.Name)
+			if base == "" || declared[base] {
+				continue
+			}
+			refs[base] = append(refs[base], resourceRef{r.Name, r.Kind})
+			if aliases[base] {
+				continue
+			}
+			aliases[base] = true
+			targets = append(targets, Target{Name: base, Axis: causal.AxisResource})
+		}
+	}
+	return targets, aliases, refs
+}
+
+// validateResourceKind rejects a resource-axis mode aimed at a resource of a kind it does not
+// act on (it would silently move nothing). A named target is checked against every resource it
+// reaches: a base name that expands to several environments' resources must reach only the
+// accepted kind in each. A "resource:*" target selects the declared resources of the
+// accepted kind alone (see expandEffectScopes), so it is valid when at least one exists and
+// rejected when none does (it would match nothing). Modes outside the resource vocabulary, and
+// names that resolve on another axis, are not checked.
+func validateResourceKind(e EffectDecl, axes map[string][]failuremode.Axis, refs map[string][]resourceRef) error {
+	want, ok := causal.ModeKind(e.Mode)
+	if !ok {
+		return nil
+	}
+	switch {
+	case e.Target == string(causal.AxisResource)+":*":
+		for name, rs := range refs {
+			if len(rs) == 1 && rs[0].name == name && rs[0].kind == want {
+				return nil
+			}
+		}
+		return fmt.Errorf("effect %q: target %q matches no %s resource; the mode acts only on %s resources (accepted kind: %s)", e.Mode, e.Target, want, want, want)
+	case !slices.Contains(axes[e.Target], causal.AxisResource):
+		return nil
+	}
+	for _, r := range refs[e.Target] {
+		if r.kind != want {
+			return fmt.Errorf("effect %q: target %q resolves to resource %q of kind %q; the mode acts only on %q resources (accepted kind: %s)", e.Mode, e.Target, r.name, r.kind, want, want)
+		}
+	}
+	return nil
+}
+
+// expandEffectScopes is expandScopes for a mode: a "resource:*" target of a resource-axis mode
+// expands to the declared resources of the kind the mode acts on, so the wildcard stays usable
+// across a blueprint that declares several kinds. Everything else expands as expandScopes does.
+func expandEffectScopes(mode, target string, targets []Target, refs map[string][]resourceRef) []string {
+	want, ok := causal.ModeKind(mode)
+	if !ok || target != string(causal.AxisResource)+":*" {
+		return expandScopes(target, targets)
+	}
+	var out []string
+	for _, t := range targets {
+		if t.Axis != causal.AxisResource {
+			continue
+		}
+		if rs := refs[t.Name]; len(rs) == 1 && rs[0].name == t.Name && rs[0].kind == want {
+			out = append(out, t.Name)
+		}
+	}
+	return out
+}
+
+// ValidateResourceKind applies the loader's resource-kind rule to one mode and target of this
+// resolved blueprint and returns the loader's error. The live control plane calls it so a runtime
+// incident is held to the rule a declared one is.
+// It reads the resource references Resolve recorded from resourceTargets (empty when the
+// blueprint declares no causal resource).
+func (r *Resolved) ValidateResourceKind(mode, target string) error {
+	return validateResourceKind(EffectDecl{Mode: mode, Target: target}, targetAxes(r.Targets), r.resRefs)
+}
+
+// ExpandEffectScopes expands a mode's target against this resolved blueprint as the loader does
+// for a scheduled effect: "resource:*" of a resource-axis mode becomes the declared resources of
+// the mode's kind, and any other target expands as an ordinary name or "<axis>:*".
+func (r *Resolved) ExpandEffectScopes(mode, target string) []string {
+	return expandEffectScopes(mode, target, r.Targets, r.resRefs)
+}
+
+// failureTargeter is implemented by a construct Config whose declaration owns failure targets
+// (Lambda functions, Solace queues). Duck-typed: the blueprint package imports no construct.
+type failureTargeter interface {
+	FailureTargets() []failuremode.Target
+}
+
+// declaredConstructTargets collects the failure targets owned by the built construct
+// declarations, in BoM order, once per (name, axis). A name the incident schedule grammar
+// cannot carry as a scope (it contains '@', '/', '#', whitespace, or ends in ":*") is not
+// addressable; naming it in an effect is the ordinary loud unknown-target error. Every skipped
+// name is warned and returned by axis, so an "<axis>:*" effect can say what it does not reach.
+// A name that is also a target on another axis (an app service node and its Lambda function,
+// say) is kept on both: an effect naming it resolves on the axis that declares its mode.
+func declaredConstructTargets(cs []ConstructInstance, existing []Target) ([]Target, []string, map[failuremode.Axis][]string) {
+	var out []Target
+	var warns []string
+	skipped := map[failuremode.Axis][]string{}
+	seen := map[failuremode.Target]bool{}
+	for _, t := range existing {
+		seen[failuremode.Target{Name: t.Name, Axis: t.Axis}] = true
+	}
+	for _, ci := range cs {
+		ft, ok := ci.Config.(failureTargeter)
+		if !ok {
+			continue
+		}
+		for _, x := range ft.FailureTargets() {
+			if !scopeSafe(x.Name) {
+				warns = append(warns, fmt.Sprintf("%s %q is not an incident target: the name contains '@', '/', '#' or whitespace, or ends in \":*\"", x.Axis, x.Name))
+				skipped[x.Axis] = append(skipped[x.Axis], x.Name)
+				continue
+			}
+			if seen[x] {
+				continue
+			}
+			seen[x] = true
+			out = append(out, Target{Name: x.Name, Axis: x.Axis})
+		}
+	}
+	return out, warns, skipped
+}
+
+// wildcardSkipWarning reports the declared names an "<axis>:*" target does not reach.
+func wildcardSkipWarning(where, target string, skipped map[failuremode.Axis][]string) (string, bool) {
+	if !strings.HasSuffix(target, ":*") {
+		return "", false
+	}
+	names := skipped[failuremode.Axis(strings.TrimSuffix(target, ":*"))]
+	if len(names) == 0 {
+		return "", false
+	}
+	return fmt.Sprintf("%s: %q does not reach the declared names that are not incident targets: %s", where, target, strings.Join(names, ", ")), true
+}
+
+func scopeSafe(name string) bool {
+	return name != "" && !strings.ContainsAny(name, "@/# \t\n\r") && !strings.HasSuffix(name, ":*")
+}
+
+// targetAxes maps every target name to the axes it is a target on, in inventory order.
+func targetAxes(targets []Target) map[string][]failuremode.Axis {
+	out := map[string][]failuremode.Axis{}
+	for _, t := range targets {
+		if !slices.Contains(out[t.Name], t.Axis) {
+			out[t.Name] = append(out[t.Name], t.Axis)
 		}
 	}
 	return out
@@ -87,7 +277,8 @@ func targetIndex(targets []Target) (map[string]failuremode.Axis, error) {
 var knownAxes = map[failuremode.Axis]bool{
 	failuremode.AxisWorkload: true, failuremode.AxisCluster: true,
 	failuremode.AxisDatabase: true, failuremode.AxisCache: true, failuremode.AxisCloud: true,
-	failuremode.AxisService: true, failuremode.AxisNetwork: true,
+	failuremode.AxisService: true, failuremode.AxisNetwork: true, pipelinerun.AxisStage: true,
+	failuremode.AxisFunction: true, failuremode.AxisQueue: true, failuremode.AxisTable: true, causal.AxisResource: true,
 	fixture.AxisGPU: true, fixture.AxisGPUNode: true, fixture.AxisGPURack: true, fixture.AxisGPUTray: true,
 	fixture.AxisNVLinkDomain: true, fixture.AxisNVLinkPartition: true, fixture.AxisNVLinkSwitch: true, fixture.AxisNVLinkPort: true,
 	fixture.AxisGPUFabric: true, fixture.AxisGPUSwitch: true, fixture.AxisGPUPort: true, fixture.AxisGPUDevice: true,
@@ -202,9 +393,20 @@ func soleAxis(vocab []failuremode.Mode, mode string) (failuremode.Axis, bool) {
 	return found, n == 1
 }
 
-// validateEffect checks one (mode, target, intensity) against the target index + vocabulary.
+// validateEffect checks one (mode, target, intensity) against a single-axis target index.
 func validateEffect(e EffectDecl, axes map[string]failuremode.Axis, vocab []failuremode.Mode, multi map[string]bool) error {
-	if e.Intensity < 0 || e.Intensity > 1 {
+	byName := make(map[string][]failuremode.Axis, len(axes))
+	for name, axis := range axes {
+		byName[name] = []failuremode.Axis{axis}
+	}
+	return validateEffectAxes(e, byName, vocab, multi)
+}
+
+// validateEffectAxes checks one (mode, target, intensity) against the target inventory +
+// vocabulary. A named target on several axes resolves on the one axis that declares the mode;
+// none or several such axes is a loud error.
+func validateEffectAxes(e EffectDecl, axes map[string][]failuremode.Axis, vocab []failuremode.Mode, multi map[string]bool) error {
+	if !(e.Intensity >= 0 && e.Intensity <= 1) {
 		return fmt.Errorf("effect %q: intensity %v out of [0,1]", e.Mode, e.Intensity)
 	}
 	switch {
@@ -226,21 +428,95 @@ func validateEffect(e EffectDecl, axes map[string]failuremode.Axis, vocab []fail
 		}
 		return nil
 	default:
-		axis, ok := axes[e.Target]
+		named, ok := axes[e.Target]
 		if !ok {
 			return fmt.Errorf("effect %q: unknown target %q", e.Mode, e.Target)
 		}
-		if !modeOnAxis(vocab, e.Mode, axis) {
-			return fmt.Errorf("effect %q: mode not declared on target %q's axis %q", e.Mode, e.Target, axis)
+		var declaring []string
+		for _, axis := range named {
+			if modeOnAxis(vocab, e.Mode, axis) {
+				declaring = append(declaring, string(axis))
+			}
 		}
-		return nil
+		switch {
+		case len(declaring) == 1:
+			return nil
+		case len(declaring) > 1:
+			return fmt.Errorf("effect %q: target %q is ambiguous: the mode is declared on its axes %s", e.Mode, e.Target, strings.Join(declaring, ", "))
+		case len(named) == 1:
+			return fmt.Errorf("effect %q: mode not declared on target %q's axis %q", e.Mode, e.Target, named[0])
+		default:
+			list := make([]string, len(named))
+			for i, a := range named {
+				list[i] = string(a)
+			}
+			return fmt.Errorf("effect %q: mode not declared on any of target %q's axes %s", e.Mode, e.Target, strings.Join(list, ", "))
+		}
 	}
 }
 
-// scheduleEntry builds a shape-engine schedule entry: kind@at/for[#intensity][@scope].
-func scheduleEntry(kind, at, forDur string, intensity float64, scope string) string {
+// UnmarshalYAML preserves authored intensity presence without changing the numeric
+// value used by live scenario activation. The callback form retains the caller's
+// KnownFields policy and document-wide YAML anchors (unlike a node round-trip).
+func (inc *IncidentDecl) UnmarshalYAML(unmarshal func(any) error) error {
+	type plain IncidentDecl
+	var decoded plain
+	if err := unmarshal(&decoded); err != nil {
+		return err
+	}
+	var present intensityPresence
+	if err := unmarshal(&present); err != nil {
+		return err
+	}
+	*inc = IncidentDecl(decoded)
+	inc.intensitySet = bool(present)
+	return nil
+}
+
+func (e *EffectDecl) UnmarshalYAML(unmarshal func(any) error) error {
+	type plain EffectDecl
+	var decoded plain
+	if err := unmarshal(&decoded); err != nil {
+		return err
+	}
+	var present intensityPresence
+	if err := unmarshal(&present); err != nil {
+		return err
+	}
+	*e = EffectDecl(decoded)
+	e.intensitySet = bool(present)
+	return nil
+}
+
+type intensityPresence bool
+
+func (p *intensityPresence) UnmarshalYAML(node *yaml.Node) error {
+	var presence struct {
+		Intensity *float64 `yaml:"intensity"`
+	}
+	// The full declaration has already passed strict decoding. Decode presence
+	// separately so YAML aliases/merges follow the same rules as the numeric value.
+	if err := node.Decode(&presence); err != nil {
+		return err
+	}
+	*p = presence.Intensity != nil
+	return nil
+}
+
+// scheduledIntensity keeps programmatic zero-value declarations at their legacy
+// default, while an authored zero remains a no-op. Nonzero declarations are unchanged.
+func scheduledIntensity(value float64, present bool) float64 {
+	if value == 0 && !present {
+		return 1
+	}
+	return value
+}
+
+// scheduleEntry builds a shape-engine schedule entry, retaining an explicit zero
+// while leaving omitted single-mode intensities to the engine's default of one.
+func scheduleEntry(kind, at, forDur string, intensity float64, scope string, intensitySet bool) string {
 	entry := kind + "@" + at + "/" + forDur
-	if intensity > 0 {
+	if intensitySet || intensity != 0 {
 		entry += "#" + strconv.FormatFloat(intensity, 'g', -1, 64)
 	}
 	if scope != "" {

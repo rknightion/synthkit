@@ -10,6 +10,12 @@ promotion, resource-attribute → Prometheus label promotion, unit suffix).
 > correct and must NOT be pre-mangled. All shapes documented here are the expected
 > post-gateway Prometheus forms per the OTel → Prom translation spec.
 
+The August dual-ingest capture in [Expected post-gateway Prometheus shape](#expected-post-gateway-prometheus-shape-slug-otlp-gateway-prom)
+supersedes the June resource-promotion annotations elsewhere on this page for application
+datapoint series. Resource attributes remain available on `target_info`; their presence on the
+OTLP wire does not imply promotion onto each application series. Queries that filter by environment
+must use the captured identity projection rather than assuming a datapoint environment label.
+
 ---
 
 ## Kubernetes native receiver metrics [slug: k8s-native-otlp-metrics]
@@ -218,6 +224,16 @@ Two instruments per workload instance per tick (60 s interval):
 Cumulative histogram (DELTA not used; cumulative since cold-start). One series per
 `(http.request.method, http.route, http.response.status_code)` triple.
 
+The synthetic value model uses each endpoint's `p95_ms` distribution and the workload-scoped
+`latency_spike` multiplier. Removing the fault restores the healthy distribution for subsequent
+observations; cumulative buckets and sum retain observations made during the fault. Aggregate
+request volume and the minted trace/log population both come from the traffic model at their own
+cadences. Histogram duration draws are independent of individual request durations.
+A bounded set of representative draws carries integer weights, so the histogram retains every
+modeled request across route and status splits without doing one draw per request. Its quantiles
+remain a sampled approximation, not an exact replay of individual trace durations. Native HTTP
+histograms carry no trace exemplars.
+
 **Datapoint attributes (per series):**
 
 | Attribute | Example values |
@@ -261,6 +277,10 @@ metrics:
 Instantaneous in-flight request count (derived via Little's Law: rps × service time). One
 series per distinct `http.request.method` value drawn from the declared endpoints.
 
+This gauge uses a separate synthetic service-time estimate. It does not derive concurrency from
+the duration histogram or reproduce a `latency_spike` incident response; use the duration
+histogram and HTTP traces to verify that control.
+
 **Datapoint attributes:**
 
 | Attribute | Example values |
@@ -295,8 +315,9 @@ metrics:
 
 *Provenance: v: ok — captured on a live Grafana Cloud stack 2026-06-18*
 
-These are the OTLP **resource attributes** on the emitted ResourceMetrics. The gateway
-promotes them onto every Prometheus series it produces (plus `target_info`).
+These are the OTLP **resource attributes** on the emitted ResourceMetrics. Their post-gateway
+placement is defined by [the current captured projection](#expected-post-gateway-prometheus-shape-slug-otlp-gateway-prom); this list alone
+does not establish labels on application datapoint series.
 
 ### naked mode
 
@@ -533,6 +554,15 @@ gcx metrics query 'http_server_active_requests'
 ```
 
 
+## CloudWatch consumer implementation boundary
+
+The initial `lambda`, `sqs` and `dynamodb` constructs emit only remote-write metrics and reject
+`cloudwatch_export: otlp` at Build. AWS has a native Metric Streams source form; the
+[source-form verdict matrix](otlp-native-verdicts.md) must not be mistaken for implemented export.
+Their [35-base emitted subset](cw.md#initial-captured-service-emitters-slug-cw-captured-emitted)
+installs no native aliases. Historical Lambda unit cases do not establish full native profiles;
+SQS/DynamoDB source-ready units/dimensions alone do not establish complete native envelopes.
+
 ## Captured native infrastructure emitters
 
 - Beyla internal metrics: [`beyla.md`](beyla.md) [slug: beyla-internal-otlp] records the captured names, instruments and units, plus explicit remaining contract boundaries.
@@ -638,18 +668,32 @@ absent-filesystem-size default, with the existing standalone Linux device names.
 This is a representative fixture, not selected host hardware. Disk capacity retains
 the Agent KiB convention; disk cumulative time converts seconds to milliseconds and
 uses elapsed time from the receiver start with a stable initial rate. It does not
-integrate changing disk rates. The five families system.io.rrqm_s, system.io.wrqm_s,
-system.fs.file_handles.allocated_unused, system.fs.file_handles.in_use and
-system.fs.file_handles.used remain unimplemented because merged-operation counters
-and the file-nr unused breakdown have no admissible value source. Host CPU and memory
-remain blocked on selected capacity; the Kubernetes lane is unchanged. The seven
+integrate changing disk rates. Host mode also emits system.fs.file_handles.allocated_unused,
+system.fs.file_handles.used and system.fs.file_handles.in_use. Linux 2.6 and later always reports 0
+free file handles (Documentation/admin-guide/sysctl/fs.rst), so allocated_unused is 0 and used
+equals the nodeexp-backed allocated value. in_use is used divided by max, as file_handles.go
+computes it. The two families system.io.rrqm_s and system.io.wrqm_s remain unimplemented
+because no merged-operation counter has an admissible value source. SKT-0165 tracks them.
+Host mode emits the 31 CPU, load, uptime and core memory families through the same helpers
+as the Kubernetes lane. They use the declared host hardware, the integration's required
+`cpus` and `memory_gb`. The shipped host blueprint declares 2 vCPU and 8 GiB as a
+representative EC2 `.large` size because the capture elides the real values.
+Host mode also emits eight Linux memory families from memory_nix.go: system.mem.buffered,
+cached, shared, slab, slab_reclaimable, page_tables, commit_limit and committed_as. Their
+values come from the nodeexp meminfo partitions. With used = total - usable:
+Buffers is 256 MiB, Shmem is used * 0.05, Slab is used * 0.06, SReclaimable is used * 0.04,
+PageTables is used * 0.01, CommitLimit is total * 0.5 and Committed_AS is used * 1.2.
+cached is (usable - free) + slab_reclaimable, because gopsutil adds SReclaimable to Cached.
+The Kubernetes lane is unchanged. The seven
 `system.swap.*` verdict families emit zero-valued gauges for the explicitly permitted
 disabled-swap fixture, including a degenerate zero `pct_free` with zero total capacity.
 No paging rate or enabled-swap capacity is inferred. The historical
 classification remains immutable evidence, rather than a current implementation status.
 Agent conversion sources: pkg/collector/corechecks/system/disk/disk/disk_nix.go,
 pkg/collector/corechecks/system/disk/io/iostats_nix.go and
-pkg/collector/corechecks/system/filehandles/file_handles.go (read 2026-09-11).
+pkg/collector/corechecks/system/filehandles/file_handles.go (read 2026-09-11), and
+pkg/collector/corechecks/system/memory/memory_nix.go with gopsutil mem/mem_linux.go
+(read 2026-10-22).
 
 ```yaml signals
 family: datadog_receiver_system
@@ -691,16 +735,20 @@ metrics:
 The standalone declaration in `blueprints/datadog-receiver-host.yaml` selects
 `integrations.datadog_receiver` with `mode: host`. Empty mode keeps Kubernetes
 behavior. Host mode requires no cluster and an explicit `deployment_environment`;
-it emits only `example_metric.increment`, with resource keys `host.name`,
-`service.name`, `source`, and `deployment.environment.name`, and no datapoint keys.
-The scope, empty unit, and non-monotonic cumulative Sum match the independent
-host artifact directly. Its producer is `datadog-receiver-host`, distinct from
+it also requires `cpus` and `memory_gb`, which size the host's CPU, load and memory
+families. It emits `example_metric.increment`, with resource keys `host.name`,
+`service.name`, `source`, and `deployment.environment.name`, and no datapoint keys;
+its scope, empty unit, and non-monotonic cumulative Sum match the independent
+host artifact directly. It also emits 78 of the verdict's 80 non-network
+fixture-mechanics system families with their verdict envelopes; only
+`system.io.rrqm_s` and `system.io.wrqm_s` stay unemitted for lack of a
+merged-request source. Its producer is `datadog-receiver-host`, distinct from
 the Kubernetes producer, so the two observed attribute placements remain separate.
 The capture records 281 names, 300 metric envelopes, 4080 datapoints, 14 spans and
 three trace envelopes across 39 requests. Agent 7.83.0 and Alloy 1.19.2 ran on an
 isolated standalone host. The named gateway read-back retains
 `deployment_environment_name`, `job`, and `service_name`; host/source are absent.
 Gateway version and trace ingestion remain unknown; timestamp-zero internal
-samples were rejected. Host system families and synthetic traces are not emitted.
+samples were rejected. Synthetic traces are not emitted in host mode.
 The host corpus projection below covers only the supported example envelope;
 the full native artifact retains every observed but unimplemented family.

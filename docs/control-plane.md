@@ -10,7 +10,8 @@ synthkit embeds an operator control plane served on port **8088** (configured vi
 - **Operator UI** at `/control/ui` — a browser dashboard for live runtime management.
 - **HTTP API** — a JSON API used by the UI, the Grafana Infinity datasource, and curl/automation.
 
-With `CONTROL_TOKEN` set, every control route except sanitized `GET /control/readiness` requires
+With `CONTROL_TOKEN` set, every control route except sanitized `GET /control/readiness` and
+minimal `GET /control/startup` requires
 HTTP Basic auth. The sibling Infinity JSON host keeps only `/healthz` public. Loopback may remain
 token-free; non-loopback exposure has an additional fail-closed acknowledgement gate.
 
@@ -90,7 +91,7 @@ The UI provides:
 - **Scenarios** — activate and deactivate named incident scenarios defined in blueprints.
 - **Scaling** — set live workload pod counts within blueprint-declared bounds.
 - **Failures** — ad-hoc failure injection (any mode, any target, any intensity).
-- **Load** — master volume multiplier (scales all synthetic volume coherently across blueprints).
+- **Load** — master volume multiplier (scales the shape-driven synthetic volume across blueprints; the `ai_agent` workload is paused by `0` but not scaled by other values, see [Pausing volume with 0](#pausing-volume-with-0)).
 - **Blueprints** — enable/disable blueprints; manage custom and git-sourced blueprints.
 - **Constructs / Kinds** — toggle individual construct instances or all constructs of a kind.
 - **Diagnostics** — load-time problems (skipped blueprints, dropped config entries).
@@ -109,7 +110,7 @@ has completed its intended delivery lanes.
 
 When `CONTROL_TOKEN` is set:
 
-- All control reads except sanitized `/control/readiness`, all Infinity data routes except
+- All control reads except sanitized `/control/readiness` and minimal `/control/startup`, all Infinity data routes except
   `/healthz`, and every mutation require **HTTP Basic auth**: username `control`, password =
   `CONTROL_TOKEN`.
 - A browser hitting a guarded route for the first time triggers Chrome/Firefox's native credential dialog.
@@ -180,13 +181,14 @@ when the target node has no matching emitted metric or log family.
 
 ## Endpoint reference
 
-### Read-only (GET; authenticated when `CONTROL_TOKEN` is set, except readiness)
+### Read-only (GET; authenticated when `CONTROL_TOKEN` is set, except startup/readiness)
 
 | Endpoint | Description |
 |---|---|
 | `GET /control/ui/` | Embedded operator UI (SPA). Redirect from `/control/ui`. |
+| `GET /control/startup` | Public boot-completion probe with only `started`; HTTP 200 when boot is complete, otherwise 503. No delivery or admission claim. See [Startup versus delivery readiness](#startup-versus-delivery-readiness). |
 | `GET /control/readiness` | Public sanitized readiness probe: process, HTTP, blueprint counts, and state-writable boolean only. With `READINESS_BLUEPRINT_FLAGS=true` it also carries `blueprint_emitting`, one boolean per loaded blueprint name; see [Per-blueprint flags on the public probe](#per-blueprint-flags-on-the-public-probe). |
-| `GET /control/schema` | Blueprint-derived schema: all modes, addressable targets, scenarios, scalable workloads, construct instances, and startup cost projections for explicit high-DPM blueprints. Add `?audience=customer` for a reduced view without operator-internal fields. |
+| `GET /control/schema` | Blueprint-derived schema: all modes, addressable targets, scenarios, scalable workloads, construct instances, declared causal resources with their bound consumers (`resources`, omitted when no blueprint declares one), and startup cost projections for explicit high-DPM blueprints. Add `?audience=customer` for a reduced view without operator-internal fields. |
 | `GET /control/state` | Current control snapshot (volume multiplier, active scenarios, failures, scaling, disabled blueprints/constructs/kinds). |
 | `GET /control/status` | Sink readiness strip: `last_success_ms`, failure counts, dry-run flag, per-blueprint emission, Fleet Management health, persist health. |
 | `GET /control/health` | Per-construct tick health and process metrics. |
@@ -207,7 +209,7 @@ auth when `CONTROL_TOKEN` is set; only `/healthz` remains public.
 
 | Endpoint | Body | Description |
 |---|---|---|
-| `POST /control/load` | `{"volume_multiplier": 1.5}` | Set the master volume multiplier. Scales all synthetic volume coherently. |
+| `POST /control/load` | `{"volume_multiplier": 1.5}` | Set the master volume multiplier (0 to 100). Scales the shape-driven synthetic volume of every workload except `ai_agent`, which runs on its own `sessions_per_min` and only honours `0`. An explicit `0` pauses request-shaped volume, including `ai_agent` sessions; see [Pausing volume with 0](#pausing-volume-with-0). |
 | `POST /control/scenarios` | `{"active_scenarios": ["bp/name", ...]}` | Full replacement of the active scenario list. Kept for backward compatibility; use the item operations for ordinary UI/client toggles. Each id must match a `blueprint/scenario-name` pair in the derived schema. |
 | `POST /control/scenarios/activate` | `{"scenario": "bp/name"}` | Add one active scenario. Idempotent; validates the scenario against the derived schema. |
 | `POST /control/scenarios/deactivate` | `{"scenario": "bp/name"}` | Remove one active scenario. Idempotent; validates the scenario against the derived schema. |
@@ -238,6 +240,55 @@ changes, use `/control/scenarios/{activate,deactivate}` and
 another operator's change.
 
 ---
+
+### Startup versus delivery readiness
+
+`/app/synthkit -startupcheck` makes a credential-free GET to `/control/startup` and succeeds
+only on HTTP 200. The JSON body contains only `{"started":true}` or `{"started":false}`.
+An unwired/incomplete boot predicate returns 503; an unstarted process or fatal initialization
+failure cannot serve a successful probe. The endpoint is available at the root control mount
+and the configured `CONTROL_BASE_PATH` mount, like readiness. POST is not supported.
+
+In ordinary mode, startup means the existing fatal boot checks and runner/control construction
+finished and HTTP is serving. In lease mode, the existing config/build/credential preflight
+boundary must also have completed before the view is published. It does **not** require election,
+a writable state volume, every selected source loading successfully, or a first event/ACK.
+Existing fail-closed configuration and source-admission rules are not bypassed or redefined.
+A degraded process that the existing startup rules allow to run can pass this check.
+
+Both CLI probes use `JSON_HTTP_ADDR` directly (default `127.0.0.1:8088`, unspecified binds mapped
+to loopback), without reading `-env` or starting telemetry. Both retain a five-second context
+and four-second HTTP-client timeout. `-startupcheck` cannot be combined with another operating
+mode or `-one-shot-deadline`.
+
+Startup success is **not** ongoing liveness, delivery readiness, backend readback, state
+writability, HA leadership/fencing authority, or source/custody admission. A selected
+`DRY_RUN=true` process can finish boot while `-healthcheck` still exits nonzero and
+`/control/readiness` reports `ready=false`, `live_ready=false`. A sparse live request lane has
+no guaranteed first-event deadline: missing delivery must still hold readiness red. Do not raise
+traffic rates, synthesize an event, disable a probe, or relax readiness to finish boot.
+
+Older images do not recognize `-startupcheck`. Chart defaults retain the existing `-healthcheck`
+for startup and readiness for compatibility with their pinned image. Only opt into a startup-only
+command after verifying the exact compatible image; do not change readiness to this command or
+claim that a successful startup probe makes a selected dry-run deployment live-ready.
+
+### Delivery lanes in readiness
+
+Readiness requires every `expected` lane of the
+[delivery manifest](self-observability.md#delivery-manifest) to be live-ready. Each lane in
+`readiness.lanes` of authenticated `GET /control/status` carries the manifest's freshness class as
+`request_driven`, and the class decides what live-ready means:
+
+| Lane class | Live-ready when | Fails readiness with |
+|---|---|---|
+| Scheduled (`request_driven: false`): constructs, workload metric and profile lanes | The last push succeeded and is younger than the slowest declared interval plus `SEND_BATCH_DEADLINE` | `delivery_not_attempted` before the first push, `delivery_error` on a current error, `delivery_stale` past the bound |
+| Request-driven (`request_driven: true`): workload trace, log, Sigil and RUM lanes | The last push succeeded, however long ago | `delivery_not_attempted` before the first push, `delivery_error` on a current error; never `delivery_stale` |
+
+A request-driven lane pushes only when requests were minted, so at a real low-traffic rate a
+quiet period after a success is not evidence of a fault and keeps readiness green. Its first push
+is still required: a request-driven lane that has never pushed holds readiness red, as above.
+A lane fed by both a scheduled and a request-driven contributor is scheduled.
 
 ### Per-blueprint flags on the public probe
 
@@ -355,6 +406,50 @@ curl -fsS "${control_auth[@]}" -X POST http://127.0.0.1:8088/control/load \
   -H "Content-Type: application/json" \
   -d '{"volume_multiplier": 3.0}'
 ```
+
+### Pausing volume with 0
+
+`volume_multiplier` accepts 0 to 100. An explicit `0` is applied as a multiplier of zero: it is
+never read as unset (full volume) and never rejected with a `400`:
+
+- **Scaling.** The multiplier multiplies the shape factor (diurnal, weekly and environment
+  weight) that volume-shaped series draw on, so at `0` that factor is exactly `0`, below the
+  deepest overnight trough, and series computed as a multiple of it read zero. The `web_service`
+  and `app` workloads treat exactly `0` as a pause instead of settling at their `off_peak_rps`
+  floor or the one-call keep-alive of a prod trough, and the `ai_agent` workload mints no
+  conversations at `0` (see below):
+    - no requests are minted, so no correlated traces, logs or RUM events are produced, and the
+      derived span, RED and service-graph call counts, including the Beyla lane's, add nothing;
+    - no Pyroscope profile samples are pushed;
+    - an `app` node's spec metrics (inline or from a profile) change as follows. Counters and
+      histograms observe nothing and stay flat at their last value. A gauge whose value is a
+      shape value reads `0`. A gauge with any other value (const, normal or a range) describes
+      the process itself and keeps emitting, which today means `go_goroutines`,
+      `node_process_resident_memory_bytes`, `node_eventloop_lag_seconds` and
+      `nodejs_eventloop_lag_seconds` from the catalog profiles plus any such gauge a blueprint
+      declares. Constant `target_info` identity series also keep emitting.
+
+  Any non-zero value, such as `0.01`, scales exactly as before. The `ai_agent` workload is driven
+  by its own `sessions_per_min` and no non-zero value scales it; at `0` it mints no conversations, so
+  no sessions, generations, workflow steps, scores or spans are written and its `gen_ai` metrics
+  hold their last cumulative value on both the Prometheus and native OTLP lanes. The
+  `k8s_profiling` construct pushes no cluster profiles at `0`. Constructs
+  whose series are not scaled by volume, such as inventory gauges, keep emitting. It is a volume
+  pause, not a process or blueprint stop.
+- **Unset is different from 0.** A control snapshot that has no `volume_multiplier` key means `1.0`,
+  as does a fresh store. A persisted `0` reloads as `0` after a restart; a negative persisted value
+  is treated as corrupt and falls back to `1.0`. `POST /control/reset` returns to `1.0`.
+- **Upgrade note.** Before this behaviour, a persisted `0` (in the file store or an HA state
+  backend) was read back as the unset default and ran at full volume. After upgrading, such a
+  persisted `0` pauses volume on the next start. Check `volume_multiplier` in
+  `GET /control/state` if an old snapshot may hold a `0` you did not mean as a pause, and post
+  `{"volume_multiplier": 1}` to restore it.
+- **Readiness.** `GET /control/readiness` is unchanged at `0`: volume is not an input to `ready`,
+  `live_ready` or `reason_codes`. `blueprint_emitting` is also unchanged: it reports scheduling
+  state (see [Per-blueprint flags on the public probe](#per-blueprint-flags-on-the-public-probe)),
+  so a loaded, enabled blueprint stays `true` at `0` because it still ticks. Read the live
+  multiplier from `GET /control/state` (`volume_multiplier`) or the `synthkit_volume_multiplier`
+  self-observability gauge, and restore volume with `{"volume_multiplier": 1}`.
 
 ---
 

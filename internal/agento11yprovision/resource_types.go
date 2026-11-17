@@ -8,16 +8,16 @@ import "time"
 // explicit false/zero/empty values. No semantic update is exposed.
 // Wire schemas follow grafana/sigil bc963fb09, eval/control/http.go and eval/types.go.
 type RuleSpec struct {
-	RuleID            string          `json:"rule_id"`
-	Enabled           *bool           `json:"enabled,omitempty"`
-	Selector          string          `json:"selector,omitempty"`
-	Match             *map[string]any `json:"match,omitempty"`
-	SampleRate        *float64        `json:"sample_rate,omitempty"`
-	EvaluatorIDs      []string        `json:"evaluator_ids"`
-	ExecutionMode     string          `json:"execution_mode,omitempty"`
-	AlertRuleUIDs     *[]string       `json:"alert_rule_uids,omitempty"`
-	FilterableTagKeys *[]string       `json:"filterable_tag_keys,omitempty"`
-	MinIdleSeconds    *int            `json:"min_idle_seconds,omitempty"`
+	RuleID            string          `json:"rule_id" yaml:"rule_id"`
+	Enabled           *bool           `json:"enabled,omitempty" yaml:"enabled"`
+	Selector          string          `json:"selector,omitempty" yaml:"selector"`
+	Match             *map[string]any `json:"match,omitempty" yaml:"match"`
+	SampleRate        *float64        `json:"sample_rate,omitempty" yaml:"sample_rate"`
+	EvaluatorIDs      []string        `json:"evaluator_ids" yaml:"evaluator_ids"`
+	ExecutionMode     string          `json:"execution_mode,omitempty" yaml:"execution_mode"`
+	AlertRuleUIDs     *[]string       `json:"alert_rule_uids,omitempty" yaml:"alert_rule_uids"`
+	FilterableTagKeys *[]string       `json:"filterable_tag_keys,omitempty" yaml:"filterable_tag_keys"`
+	MinIdleSeconds    *int            `json:"min_idle_seconds,omitempty" yaml:"min_idle_seconds"`
 }
 
 // RuleSnapshot is the backend's configuration history shape.
@@ -55,8 +55,8 @@ type Rule struct {
 
 // CollectionSpec has no caller-assigned ID or actor (collection_service.go).
 type CollectionSpec struct {
-	Name        string  `json:"name"`
-	Description *string `json:"description,omitempty"`
+	Name        string  `json:"name" yaml:"name"`
+	Description *string `json:"description,omitempty" yaml:"description"`
 }
 
 type Collection struct {
@@ -73,16 +73,16 @@ type Collection struct {
 
 // RuleActionCondition deliberately excludes score_value expansion.
 type RuleActionCondition struct {
-	Kind string `json:"kind"`
+	Kind string `json:"kind" yaml:"kind"`
 }
 type RuleActionConfig struct {
-	Kind          string   `json:"kind"`
-	CollectionIDs []string `json:"collection_ids"`
+	Kind          string   `json:"kind" yaml:"kind"`
+	CollectionIDs []string `json:"collection_ids" yaml:"collection_ids"`
 }
 type RuleActionSpec struct {
-	Condition    RuleActionCondition `json:"condition"`
-	ActionConfig RuleActionConfig    `json:"action_config"`
-	Enabled      *bool               `json:"enabled,omitempty"`
+	Condition    RuleActionCondition `json:"condition" yaml:"condition"`
+	ActionConfig RuleActionConfig    `json:"action_config" yaml:"action_config"`
+	Enabled      *bool               `json:"enabled,omitempty" yaml:"enabled"`
 }
 type RuleAction struct {
 	TenantID     string              `json:"tenant_id"`
@@ -101,10 +101,10 @@ type RuleAction struct {
 // Suite DTOs follow eval/suite.go and control/suite_service.go. These are
 // transport representations, not authority to publish or execute evaluations.
 type SuiteSpec struct {
-	SuiteID     string    `json:"suite_id"`
-	Name        string    `json:"name"`
-	Description *string   `json:"description,omitempty"`
-	Tags        *[]string `json:"tags,omitempty"`
+	SuiteID     string    `json:"suite_id" yaml:"suite_id"`
+	Name        string    `json:"name" yaml:"name"`
+	Description *string   `json:"description,omitempty" yaml:"description"`
+	Tags        *[]string `json:"tags,omitempty" yaml:"tags"`
 }
 type Suite struct {
 	TenantID      string         `json:"tenant_id"`
@@ -122,7 +122,7 @@ type Suite struct {
 
 // DraftSpec cannot request cloning of a previous checkpoint.
 type DraftSpec struct {
-	Changelog *string `json:"changelog,omitempty"`
+	Changelog *string `json:"changelog,omitempty" yaml:"changelog"`
 }
 type SuiteVersion struct {
 	TenantID      string         `json:"tenant_id,omitempty"`
@@ -139,49 +139,49 @@ type SuiteVersion struct {
 	Bindings      []SuiteBinding `json:"bindings,omitempty"`
 }
 type SuiteBinding struct {
-	BindingID        string            `json:"binding_id"`
-	EvaluatorID      string            `json:"evaluator_id"`
-	EvaluatorVersion string            `json:"evaluator_version"`
-	InputMappings    map[string]string `json:"input_mappings"`
-	ReportRole       string            `json:"report_role,omitempty"`
+	BindingID        string            `json:"binding_id" yaml:"binding_id"`
+	EvaluatorID      string            `json:"evaluator_id" yaml:"evaluator_id"`
+	EvaluatorVersion string            `json:"evaluator_version" yaml:"evaluator_version"`
+	InputMappings    map[string]string `json:"input_mappings" yaml:"input_mappings"`
+	ReportRole       string            `json:"report_role,omitempty" yaml:"report_role"`
 }
 
 // ArtifactRef is observed metadata only; this client has no upload surface.
 type ArtifactRef struct {
-	ArtifactID string `json:"artifact_id"`
-	Name       string `json:"name"`
-	Kind       string `json:"kind"`
+	ArtifactID string `json:"artifact_id" yaml:"artifact_id"`
+	Name       string `json:"name" yaml:"name"`
+	Kind       string `json:"kind" yaml:"kind"`
 }
 
 // CaseSpec cannot upsert an existing case: CreateCase always sends create_only.
 // Nonempty artifact references are outside this initial transport slice.
 type CaseSpec struct {
-	TestCaseID                string          `json:"test_case_id"`
-	Name                      *string         `json:"name,omitempty"`
-	Description               *string         `json:"description,omitempty"`
-	Tags                      *[]string       `json:"tags,omitempty"`
-	Category                  *string         `json:"category,omitempty"`
-	Input                     map[string]any  `json:"input"`
-	Expected                  *map[string]any `json:"expected,omitempty"`
-	Metadata                  *map[string]any `json:"metadata,omitempty"`
-	ArtifactRefs              *[]ArtifactRef  `json:"artifact_refs,omitempty"`
-	SanitizationReviewed      *bool           `json:"sanitization_reviewed,omitempty"`
-	SanitizationContentDigest *string         `json:"sanitization_content_digest,omitempty"`
+	TestCaseID                string          `json:"test_case_id" yaml:"test_case_id"`
+	Name                      *string         `json:"name,omitempty" yaml:"name"`
+	Description               *string         `json:"description,omitempty" yaml:"description"`
+	Tags                      *[]string       `json:"tags,omitempty" yaml:"tags"`
+	Category                  *string         `json:"category,omitempty" yaml:"category"`
+	Input                     map[string]any  `json:"input" yaml:"input"`
+	Expected                  *map[string]any `json:"expected,omitempty" yaml:"expected"`
+	Metadata                  *map[string]any `json:"metadata,omitempty" yaml:"metadata"`
+	ArtifactRefs              *[]ArtifactRef  `json:"artifact_refs,omitempty" yaml:"artifact_refs"`
+	SanitizationReviewed      *bool           `json:"sanitization_reviewed,omitempty" yaml:"sanitization_reviewed"`
+	SanitizationContentDigest *string         `json:"sanitization_content_digest,omitempty" yaml:"sanitization_content_digest"`
 }
 
 // CaseSnapshot contains only reviewed content, not storage timestamps/tenant.
 type CaseSnapshot struct {
-	TestCaseID   string         `json:"test_case_id"`
-	SuiteID      string         `json:"suite_id,omitempty"`
-	SuiteVersion string         `json:"suite_version,omitempty"`
-	Name         string         `json:"name,omitempty"`
-	Description  string         `json:"description,omitempty"`
-	Tags         []string       `json:"tags"`
-	Category     string         `json:"category,omitempty"`
-	Input        map[string]any `json:"input"`
-	Expected     map[string]any `json:"expected"`
-	Metadata     map[string]any `json:"metadata"`
-	ArtifactRefs []ArtifactRef  `json:"artifact_refs"`
+	TestCaseID   string         `json:"test_case_id" yaml:"test_case_id"`
+	SuiteID      string         `json:"suite_id,omitempty" yaml:"suite_id"`
+	SuiteVersion string         `json:"suite_version,omitempty" yaml:"suite_version"`
+	Name         string         `json:"name,omitempty" yaml:"name"`
+	Description  string         `json:"description,omitempty" yaml:"description"`
+	Tags         []string       `json:"tags" yaml:"tags"`
+	Category     string         `json:"category,omitempty" yaml:"category"`
+	Input        map[string]any `json:"input" yaml:"input"`
+	Expected     map[string]any `json:"expected" yaml:"expected"`
+	Metadata     map[string]any `json:"metadata" yaml:"metadata"`
+	ArtifactRefs []ArtifactRef  `json:"artifact_refs" yaml:"artifact_refs"`
 }
 type SuiteCase struct {
 	CaseSnapshot
@@ -193,6 +193,6 @@ type SuiteCase struct {
 // PublicationReview must be a complete reviewed checkpoint. Empty slices are
 // explicit; nil cannot fall back to the backend's legacy unreviewed publication.
 type PublicationReview struct {
-	Cases    []CaseSnapshot `json:"cases"`
-	Bindings []SuiteBinding `json:"bindings"`
+	Cases    []CaseSnapshot `json:"cases" yaml:"cases"`
+	Bindings []SuiteBinding `json:"bindings" yaml:"bindings"`
 }

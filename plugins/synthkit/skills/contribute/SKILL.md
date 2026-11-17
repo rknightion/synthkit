@@ -24,6 +24,11 @@ another contributor's home directory, credentials, or personal agent setup.
    `just skills-sync`, then review the diff. For renderer changes, retain an explicitly selected
    `just dump` inventory and compare it with sourced signal contracts; registration-gated families
    need a controlled registered fixture. An absent series is not evidence of correct emission.
+   Database causal wiring additionally needs a real loaded blueprint/runner proof across cloud and
+   dbo11y output: same-minute pool connections, onset and recovery duration/counter increments,
+   unbound isolation and legacy-mode exclusion. Follow the
+   [canonical projection boundary](https://github.com/rknightion/synthkit/blob/main/signals/dbo11y.md#causal-database-bindings);
+   a unit golden is not selected public-entrypoint inventory proof.
 4. Run `just check </dev/null` on the final candidate. Use the contributor guide's Docker/CI and
    change-specific slow-tier instructions. Keep hosted CI results bound to the submitted revision;
    local and hosted gates are not identical. Report unavailable or failed checks explicitly and

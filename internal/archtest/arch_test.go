@@ -189,32 +189,49 @@ func TestCatalogReferencesNoBlueprintName(t *testing.T) {
 	}
 }
 
+// catalogAllowedImports lists the internal import surface a catalog package may use.
+// Every entry is slash-terminated so it admits the package and its subpackages only.
+var catalogAllowedImports = []string{
+	"github.com/rknightion/synthkit/internal/core/",
+	"github.com/rknightion/synthkit/internal/beyla/",     // shared Beyla (eBPF) vocabulary mechanic (peer lib, like cw/genai); the web_service Beyla lane + beyla_agent build their series from it
+	"github.com/rknightion/synthkit/internal/pyroscope/", // shared Pyroscope profiling mechanic (peer lib, like cw/genai); constructs build pprof profiles + flamegraph vocab from it
+	"github.com/rknightion/synthkit/internal/syslog/",    // shared source-backed syslog rendering mechanic
+	"github.com/rknightion/synthkit/internal/cw/",        // shared CloudWatch emission mechanic (peer lib, like state); trailing slash + the exact-match branch covers the bare import without matching internal/cwXxx
+	"github.com/rknightion/synthkit/internal/genai/",     // shared gen_ai semconv vocabulary mechanic (peer lib, like cw); workload-AI lane builds gen_ai spans/metrics from it
+	"github.com/rknightion/synthkit/internal/sigil/",     // shared sigil AI-Observability vocabulary + content-corpus mechanic (peer lib, like genai/cw); the aiagent workload builds generations/spans/metrics from it
+	"github.com/rknightion/synthkit/internal/semconv/",   // shared OTEL semconv resource-attr + correlation key names (peer lib, like genai/cw); emit lanes build identity labels/attrs from it
+	"github.com/rknightion/synthkit/internal/nodeexp/",   // shared node/windows/macos/cadvisor emission mechanic (peer lib, like cw/genai); host construct + k8scluster adapters delegate here
+	"github.com/rknightion/synthkit/internal/k8saddon/",  // shared k8s-addon pod↔metric correlation mechanic (peer lib, like cw/genai); addon constructs stamp per-pod join labels from it
+	"github.com/rknightion/synthkit/internal/allowlist/", // version-pinned upstream family projections shared by isolated catalog emitters
+	"github.com/rknightion/synthkit/internal/failuremode/",
+	"github.com/rknightion/synthkit/internal/fixture/",
+	"github.com/rknightion/synthkit/internal/ledger/",
+	"github.com/rknightion/synthkit/internal/scale/",
+	"github.com/rknightion/synthkit/internal/shape/",
+	"github.com/rknightion/synthkit/internal/state/",
+	"github.com/rknightion/synthkit/internal/sink/",
+	"github.com/rknightion/synthkit/internal/highcard/",      // canonical high-card label set (leaf); sinks + the DSL capability matrix share it
+	"github.com/rknightion/synthkit/internal/telemetryspec/", // custom-telemetry DSL mechanic (peer lib, like cw/genai); the app workload + its profiles subpkg build telemetry from it
+	"github.com/rknightion/synthkit/internal/pipelinerun/",   // shared declared-pipeline run mechanic (peer lib, like cw); AWS data-service constructs read stage windows from it
+	"github.com/rknightion/synthkit/internal/causal/",        // shared causal resource-state mechanic (peer lib, like pipelinerun); request consumers and bound constructs read one declared model from it
+}
+
+// importAllowed reports whether path is one of allowed or lives below one: each entry
+// matches itself (without its trailing slash) and anything under it, never a sibling that
+// merely shares the string prefix.
+func importAllowed(path string, allowed []string) bool {
+	for _, a := range allowed {
+		if path == strings.TrimSuffix(a, "/") || strings.HasPrefix(path, a) {
+			return true
+		}
+	}
+	return false
+}
+
 // TestCatalogImportIsolation: no construct imports another construct, any workload,
 // the blueprint package, or the runner; workloads likewise (fixtures/core/ledger/
 // state/shape/sinks are the only internal surface).
 func TestCatalogImportIsolation(t *testing.T) {
-	allowedPrefixes := []string{
-		"github.com/rknightion/synthkit/internal/core",
-		"github.com/rknightion/synthkit/internal/beyla/",     // shared Beyla (eBPF) vocabulary mechanic (peer lib, like cw/genai); the web_service Beyla lane + beyla_agent build their series from it
-		"github.com/rknightion/synthkit/internal/pyroscope/", // shared Pyroscope profiling mechanic (peer lib, like cw/genai); constructs build pprof profiles + flamegraph vocab from it
-		"github.com/rknightion/synthkit/internal/syslog/",    // shared source-backed syslog rendering mechanic
-		"github.com/rknightion/synthkit/internal/cw/",        // shared CloudWatch emission mechanic (peer lib, like state); trailing slash + the exact-match branch covers the bare import without matching internal/cwXxx
-		"github.com/rknightion/synthkit/internal/genai/",     // shared gen_ai semconv vocabulary mechanic (peer lib, like cw); workload-AI lane builds gen_ai spans/metrics from it
-		"github.com/rknightion/synthkit/internal/sigil/",     // shared sigil AI-Observability vocabulary + content-corpus mechanic (peer lib, like genai/cw); the aiagent workload builds generations/spans/metrics from it
-		"github.com/rknightion/synthkit/internal/semconv/",   // shared OTEL semconv resource-attr + correlation key names (peer lib, like genai/cw); emit lanes build identity labels/attrs from it
-		"github.com/rknightion/synthkit/internal/nodeexp/",   // shared node/windows/macos/cadvisor emission mechanic (peer lib, like cw/genai); host construct + k8scluster adapters delegate here
-		"github.com/rknightion/synthkit/internal/k8saddon/",  // shared k8s-addon pod↔metric correlation mechanic (peer lib, like cw/genai); addon constructs stamp per-pod join labels from it
-		"github.com/rknightion/synthkit/internal/allowlist/", // version-pinned upstream family projections shared by isolated catalog emitters
-		"github.com/rknightion/synthkit/internal/failuremode",
-		"github.com/rknightion/synthkit/internal/fixture",
-		"github.com/rknightion/synthkit/internal/ledger",
-		"github.com/rknightion/synthkit/internal/scale",
-		"github.com/rknightion/synthkit/internal/shape",
-		"github.com/rknightion/synthkit/internal/state",
-		"github.com/rknightion/synthkit/internal/sink/",
-		"github.com/rknightion/synthkit/internal/highcard",       // canonical high-card label set (leaf); sinks + the DSL capability matrix share it
-		"github.com/rknightion/synthkit/internal/telemetryspec/", // custom-telemetry DSL mechanic (peer lib, like cw/genai); the app workload + its profiles subpkg build telemetry from it
-	}
 	root := repoRoot(t)
 	fset := token.NewFileSet()
 	for _, f := range goFilesUnder(t, catalogDirs(t)...) {
@@ -235,14 +252,7 @@ func TestCatalogImportIsolation(t *testing.T) {
 			if path == ownImportPath {
 				continue // external test packages (foo_test) import their own package
 			}
-			ok := false
-			for _, allowed := range allowedPrefixes {
-				if path == strings.TrimSuffix(allowed, "/") || strings.HasPrefix(path, allowed) {
-					ok = true
-					break
-				}
-			}
-			if !ok {
+			if !importAllowed(path, catalogAllowedImports) {
 				t.Errorf("%s imports %q — catalog packages may only import core/fixture/ledger/shape/state/sink", f, path)
 			}
 		}
@@ -320,6 +330,81 @@ func TestDashboardSDKIsolation(t *testing.T) {
 	}
 }
 
+// TestChatSimIsolation: the chat-scenario engine is offline tooling. Only cmd/synthkit-chat and
+// internal/chatsim may import internal/chatsim; only the Slack transport may import slack-go; and
+// the engine imports none of the emit path (runner, catalog, blueprint, sinks, selfobs, control).
+// It decodes its own view of the control plane's state instead of linking internal/control.
+func TestChatSimIsolation(t *testing.T) {
+	root := repoRoot(t)
+	const mod = "github.com/rknightion/synthkit/"
+	chatsim := mod + "internal/chatsim"
+	slackGo := "github.com/slack-go/slack"
+	slackDir := filepath.Join(root, "internal", "chatsim", "transport", "slack") + string(filepath.Separator)
+	allowed := []string{
+		filepath.Join(root, "cmd", "synthkit-chat") + string(filepath.Separator),
+		filepath.Join(root, "internal", "chatsim") + string(filepath.Separator),
+	}
+	var emitPath []string
+	for _, p := range []string{"runner", "construct", "workload", "blueprint", "sink", "selfobs", "control"} {
+		emitPath = append(emitPath, mod+"internal/"+p)
+	}
+	under := func(path string, prefixes ...string) bool {
+		for _, p := range prefixes {
+			if strings.HasPrefix(path, p) {
+				return true
+			}
+		}
+		return false
+	}
+	is := func(path, pkg string) bool { return path == pkg || strings.HasPrefix(path, pkg+"/") }
+	fset := token.NewFileSet()
+	scanned := 0
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			switch d.Name() {
+			case ".git", "node_modules", "codex", ".tools", "dist", "site":
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(path, ".go") {
+			return nil
+		}
+		astF, perr := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
+		if perr != nil {
+			return perr
+		}
+		scanned++
+		inChat := under(path, allowed[1])
+		for _, imp := range astF.Imports {
+			ip := strings.Trim(imp.Path.Value, `"`)
+			switch {
+			case is(ip, chatsim) && !under(path, allowed...):
+				t.Errorf("%s imports %q: only cmd/synthkit-chat and internal/chatsim may import the chat engine", path, ip)
+			case is(ip, slackGo) && !under(path, slackDir):
+				t.Errorf("%s imports %q: slack-go is confined to internal/chatsim/transport/slack", path, ip)
+			}
+			if inChat {
+				for _, bad := range emitPath {
+					if is(ip, bad) {
+						t.Errorf("%s imports %q: the chat engine must stay off the emit path", path, ip)
+					}
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if scanned == 0 {
+		t.Fatal("no Go sources scanned")
+	}
+}
+
 func TestPodLogTransportsAreExplicitAndExclusive(t *testing.T) {
 	type monitoring struct {
 		Features struct {
@@ -365,5 +450,33 @@ func TestPodLogTransportsAreExplicitAndExclusive(t *testing.T) {
 		if !seen[method] {
 			t.Errorf("blueprint catalogue has no explicit pod_logs_method %q", method)
 		}
+	}
+}
+
+// TestImportAllowedRejectsPrefixSharingSiblings: an allowlist entry admits its own package
+// and subpackages, never a sibling whose path only shares the string prefix.
+func TestImportAllowedRejectsPrefixSharingSiblings(t *testing.T) {
+	const mod = "github.com/rknightion/synthkit/internal/"
+	for _, entry := range catalogAllowedImports {
+		pkg := strings.TrimSuffix(entry, "/")
+		if !importAllowed(pkg, catalogAllowedImports) {
+			t.Errorf("%s: the package itself must pass", pkg)
+		}
+		if !importAllowed(pkg+"/sub", catalogAllowedImports) {
+			t.Errorf("%s: a subpackage must pass", pkg)
+		}
+		for _, sibling := range []string{pkg + "x", pkg + "causal", pkg + "_other", pkg + "2"} {
+			if importAllowed(sibling, catalogAllowedImports) {
+				t.Errorf("%s: prefix-sharing sibling must be rejected (entry %q)", sibling, entry)
+			}
+		}
+	}
+	for _, p := range []string{mod + "shapecausal", mod + "coreutil", mod + "statefoo", mod + "highcardx"} {
+		if importAllowed(p, catalogAllowedImports) {
+			t.Errorf("%s must be rejected", p)
+		}
+	}
+	if importAllowed("github.com/rknightion/synthkit/internal/runner", catalogAllowedImports) {
+		t.Error("runner must stay rejected")
 	}
 }

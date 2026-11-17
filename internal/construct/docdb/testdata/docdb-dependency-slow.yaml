@@ -1,0 +1,50 @@
+# Test-only declaration, not a deployable blueprint. Three DocumentDB clusters: one bound to a
+# `dependency` resource, one bound to a `pool` held across that dependency, and one unbound
+# (the legacy path, the control). A scenario slows the dependency for ten minutes. Loaded through
+# the real blueprint loader by internal/integration (a construct directory may not import the
+# loader).
+name: docdb-causal-dependency-slow
+label: docdb-causal-dependency-slow
+environments:
+  - name: prod
+    cloud:
+      provider: aws
+      account_id: "111122223333"
+      region: eu-west-1
+      vpc_id: vpc-fixture
+      cloudwatch: {albs: 0, s3_buckets: 0, nlb: false, ebs: false, nat_gateway: false, eks: false, firehose: false, private_link: false}
+    databases:
+      - {engine: docdb, version: "5.0", name: docdb-dependency, resource: records-db, observability: {cloudwatch: true}}
+      - {engine: docdb, version: "5.0", name: docdb-pool, resource: records-pool, observability: {cloudwatch: true}}
+      - {engine: docdb, version: "5.0", name: docdb-plain, observability: {cloudwatch: true}}
+    resources:
+      # A document read on a healthy cluster takes about 5 ms. dependency_slow at intensity 1
+      # (lock contention, 5 ms -> 30 ms) stretches it six-fold.
+      - name: records-db
+        kind: dependency
+        latency_ms: 5
+        slow_factor: 6
+      # A service connection pool in front of that cluster: 100 requests per second each holding
+      # a connection for one 5 ms query plus 5 ms of driver overhead keeps 1.0 of 20 connections
+      # busy; the held-across dependency at 30 ms stretches the hold to 35 ms, 3.5 busy.
+      - name: records-pool
+        kind: pool
+        size: 20
+        hold_ms: 10
+        held_across: records-db
+        acquire_timeout_ms: 2000
+        demand: {off_peak_rps: 100, peak_rps: 100, load: constant}
+      # A resource of the wrong kind, bound only by the rejection tests.
+      - name: intake-quota
+        kind: quota
+        limit_rps: 150
+        demand: {off_peak_rps: 100, peak_rps: 100, load: constant}
+scenarios:
+  - name: records-slowdown
+    title: Records database slowed
+    effects:
+      - {mode: dependency_slow, target: records-db, intensity: 1}
+incidents:
+  - scenario: records-slowdown
+    at: "2026-10-24T10:30"
+    for: 10m

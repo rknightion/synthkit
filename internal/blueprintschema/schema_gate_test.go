@@ -5,21 +5,21 @@ package blueprintschema_test
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/rknightion/synthkit/internal/blueprintschema"
 	"github.com/rknightion/synthkit/internal/runner"
 )
 
-// moduleRoot locates the repo root from this test file's location.
+// moduleRoot locates the repo root by walking up from the test's working directory (go test
+// runs with cwd = the package directory; runtime.Caller is module-relative under -trimpath).
 func moduleRoot(t *testing.T) string {
 	t.Helper()
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller failed")
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
 	}
-	root, err := blueprintschema.FindModuleRoot(filepath.Dir(file))
+	root, err := blueprintschema.FindModuleRoot(wd)
 	if err != nil {
 		t.Fatalf("find module root: %v", err)
 	}
@@ -128,9 +128,59 @@ func TestCustomDecodeKeysPresent(t *testing.T) {
 		"workloads[].type", "workloads[].name", "workloads[].runs_on",
 		"workloads[].replicas", "workloads[].calls[].db", "workloads[].calls[].cache",
 		"environments[].cluster.addons[].name",
+		"agent_observability.closures[].agent.agent_name",
+		"agent_observability.closures[].evaluators[].spec.evaluator_id",
+		"agent_observability.closures[].hooks[].spec.blocked_tools[]",
+		"agent_observability.closures[].hooks[].spec.redact.patterns[].regex",
+		"agent_observability.closures[].actions[].parent_rule",
+		"agent_observability.closures[].suites[].draft.bindings.bindings[].evaluator_version",
+		"agent_observability.closures[].suites[].draft.publication.spec.cases[].artifact_refs[].artifact_id",
 	} {
 		if !keys[want] {
 			t.Errorf("schema missing custom-decode key %q (customDecodeFields override dropped?)", want)
+		}
+	}
+}
+
+// TestTelemetrySpecFieldsDescribed pins that the custom-telemetry DSL (internal/telemetryspec) feeds
+// the generated schema: its field doc comments reach the committed index, so a DSL field such as
+// stock_of.residence is described rather than blank. Removing the package from the generator's
+// sources empties these descriptions and fails here.
+func TestTelemetrySpecFieldsDescribed(t *testing.T) {
+	root := moduleRoot(t)
+	docs, err := blueprintschema.ExtractDocs(root)
+	if err != nil {
+		t.Fatalf("extract docs: %v", err)
+	}
+	d := blueprintschema.Build(runner.Catalog(), docs)
+
+	described := map[string]string{}
+	var walk func(prefix string, fs []blueprintschema.Field)
+	walk = func(prefix string, fs []blueprintschema.Field) {
+		for _, f := range fs {
+			k := prefix + f.Key
+			if f.Repeated {
+				k += "[]"
+			}
+			if f.Doc != "" {
+				described[k] = f.Doc
+			}
+			walk(k+".", f.Fields)
+		}
+	}
+	for _, s := range d.Sections {
+		walk("", s.Fields)
+	}
+
+	for _, want := range []string{
+		"services[].metrics[].stock_of.residence",
+		"services[].metrics[].stock_of.dwell_seconds",
+		"services[].metrics[].value.now.period",
+		"services[].logs[].dwell_seconds",
+		"services[].logs[].when",
+	} {
+		if described[want] == "" {
+			t.Errorf("telemetry DSL field %q has no description in the generated schema", want)
 		}
 	}
 }

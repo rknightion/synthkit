@@ -4,6 +4,8 @@ package app
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/rknightion/synthkit/internal/fixture"
@@ -113,6 +115,18 @@ type node struct {
 	// / server.address). nil ⇒ the leaf carries no DB identity. Resolved in build() from the binding
 	// (the resolver owns the per-env identity; the workload only reads it — no minting).
 	dbIdentity map[string]any
+	// load is the node's effective shape_profile (nil: the blueprint Engine curve).
+	load *loadProfile
+	// seriesLoads parallels metrics: for a spec declaring a shape_profile on itself or on an enum
+	// value, one entry per label combination (scaledLabelCombos order) holding that series' own
+	// load profile, nil where it follows the node. A nil slice means no series of the spec has one.
+	seriesLoads [][]*loadProfile
+	// exportsInc is set at load when a later node's count_of_service names this one: the node then
+	// records its counters' per-tick increments for that reader (metrics.go Tick allocates them
+	// through hasDerived; observeMetricStates publishes them).
+	exportsInc bool
+	// vols is the master volume history a batched series' release scales its accumulated ticks by.
+	vols volumeLog
 }
 
 // graph is the validated service graph: nodes in declaration order + a name index + the entry node.
@@ -174,6 +188,173 @@ func checkCustomMetricNames(existing []telemetryspec.MetricSpec, custom telemetr
 	return nil
 }
 
+// checkDerivedMetrics resolves each stock_of / count_of reference to the counter series of every
+// same-named counter spec on the node. A stock_of gauge's labels, when declared, must be counter
+// labels with values the counter takes, and each combination must match a counter series. For
+// count_of the histogram's labels must be counter labels, each value one the counter takes, and
+// each label combination must match at least one counter series (the histogram series observes
+// the summed increments of the series that match it). A count_of_service names another node of
+// the workload as the counter's source; byName holds the nodes declared before n, so the source's
+// increments are always recorded earlier in the same tick, and that node is marked as an exporter.
+func checkDerivedMetrics(n *node, byName map[string]*node) error {
+	for _, m := range n.metrics {
+		ref := m.CountOf
+		if m.StockOf != nil {
+			ref = m.StockOf.Metric
+		}
+		if ref == "" {
+			continue
+		}
+		from, where := n, "this service"
+		if m.CountOfService != "" && m.CountOfService != n.decl.Name {
+			from = byName[m.CountOfService]
+			if from == nil {
+				return fmt.Errorf("metric %q: count_of_service %q is not a service declared before %q in this workload (a cross-node count_of source must be declared earlier)", m.Name, m.CountOfService, n.decl.Name)
+			}
+			where = fmt.Sprintf("service %q", m.CountOfService)
+		}
+		src := from.counterSeries(ref)
+		if len(src) == 0 {
+			return fmt.Errorf("metric %q: %q is not a counter on %s", m.Name, ref, where)
+		}
+		if from != n {
+			from.exportsInc = true
+		}
+		srcLabels := make([]map[string]string, len(src))
+		for i, c := range src {
+			srcLabels[i] = c.labels
+		}
+		domains := labelDomains(srcLabels)
+		if m.CountOf == "" {
+			if err := checkStockLabels(m, ref, src, domains); err != nil {
+				return err
+			}
+			continue
+		}
+		histCombos := labelCombos(m.Labels)
+		for _, k := range sortedValueModelKeys(m.Labels) {
+			if _, ok := domains[k]; !ok {
+				return fmt.Errorf("metric %q: count_of label %q is not a label of counter %q (histogram labels must be a subset of the counter's)", m.Name, k, ref)
+			}
+		}
+		for _, h := range histCombos {
+			for _, k := range slices.Sorted(maps.Keys(h)) {
+				if !domains[k][h[k]] {
+					return fmt.Errorf("metric %q: count_of label %q value %q is not a value of counter %q", m.Name, k, h[k], ref)
+				}
+			}
+			matched := false
+			for _, c := range src {
+				if projects(h, c.labels) {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				return fmt.Errorf("metric %q: count_of label combination %v matches no series of counter %q", m.Name, h, ref)
+			}
+		}
+		// The most one histogram series can observe in a tick is the sum of the largest
+		// increments of the counter series it projects (one series when the labels are equal).
+		// A batched counter's one release carries a whole window of arrivals (counterSeries.max
+		// counts them at the default metric cadence). A series with an unbounded model leaves its
+		// histogram series to the runtime clamp.
+		worst := 0.0
+		for _, h := range histCombos {
+			rate, bounded := 0.0, true
+			for _, c := range src {
+				if projects(h, c.labels) {
+					rate += c.max
+					bounded = bounded && c.bounded
+				}
+			}
+			if bounded {
+				worst = max(worst, rate)
+			}
+		}
+		if worst > telemetryspec.MaxObservationsPerTick {
+			return fmt.Errorf("metric %q: count_of counter %q can increment %v per tick, above %d observations per series per tick", m.Name, ref, worst, telemetryspec.MaxObservationsPerTick)
+		}
+	}
+	return nil
+}
+
+// checkStockLabels validates a stock_of gauge's label projection against its counter's series.
+func checkStockLabels(m telemetryspec.MetricSpec, ref string, src []counterSeries, domains map[string]map[string]bool) error {
+	for _, k := range sortedValueModelKeys(m.Labels) {
+		if _, ok := domains[k]; !ok {
+			return fmt.Errorf("metric %q: stock_of label %q is not a label of counter %q (stock labels must be a subset of the counter's)", m.Name, k, ref)
+		}
+	}
+	for _, combo := range labelCombos(m.Labels) {
+		for _, k := range slices.Sorted(maps.Keys(combo)) {
+			if !domains[k][combo[k]] {
+				return fmt.Errorf("metric %q: stock_of label %q value %q is not a value of counter %q", m.Name, k, combo[k], ref)
+			}
+		}
+		matched := false
+		for _, c := range src {
+			if projects(combo, c.labels) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return fmt.Errorf("metric %q: stock_of label combination %v matches no series of counter %q", m.Name, combo, ref)
+		}
+	}
+	return nil
+}
+
+// labelDomains collects the set of values each label name takes across the combinations.
+func labelDomains(combos []map[string]string) map[string]map[string]bool {
+	out := map[string]map[string]bool{}
+	for _, c := range combos {
+		for k, v := range c {
+			if out[k] == nil {
+				out[k] = map[string]bool{}
+			}
+			out[k][v] = true
+		}
+	}
+	return out
+}
+
+// projects reports whether a counter series (its DSL label combination) belongs to the histogram
+// series with the given label combination: every histogram label carries the same value.
+func projects(hist, counter map[string]string) bool {
+	for k, v := range hist {
+		if counter[k] != v {
+			return false
+		}
+	}
+	return true
+}
+
+// nominalMax is a counter value model's largest per-tick increment at master volume 1, or false
+// for an unbounded model (normal, lognormal), which only the interpreter's clamp bounds.
+func nominalMax(v telemetryspec.ValueModel) (float64, bool) {
+	switch v.Kind() {
+	case telemetryspec.KindConst:
+		return *v.Const, true
+	case telemetryspec.KindIntRange:
+		return float64(v.IntRange.Max), true
+	case telemetryspec.KindFloatRange:
+		return v.FloatRange.Max, true
+	case telemetryspec.KindBool:
+		return 1, true
+	case telemetryspec.KindShape:
+		if v.Shape.IncidentValue != nil {
+			return max(v.Shape.Base, *v.Shape.IncidentValue), true
+		}
+		if v.Shape.Mode != "" {
+			return v.Shape.Base * incidentAmplification, true
+		}
+		return v.Shape.Base, true
+	}
+	return 0, false
+}
+
 // buildGraph resolves + validates the declared services into a graph: unique names, one entry,
 // edges reference declared nodes, leaves make no calls, every effective spec passes the DSL
 // capability matrix. Loud load errors (like the rest of the loader).
@@ -226,6 +407,9 @@ func buildGraph(services []ServiceNode) (*graph, error) {
 			if err := m.Validate(); err != nil {
 				return nil, fmt.Errorf("app service %q: %w", s.Name, err)
 			}
+		}
+		if err := checkDerivedMetrics(n, g.byName); err != nil {
+			return nil, fmt.Errorf("app service %q: %w", s.Name, err)
 		}
 		for _, l := range n.logs {
 			if err := l.Validate(); err != nil {
@@ -312,8 +496,8 @@ func buildGraph(services []ServiceNode) (*graph, error) {
 // server.address). Resolution mirrors the blueprint's same-env SERVICE resolution: prefer the
 // per-env instance "<db_instance>-<lower(env)>" (env names are UPPERCASE, db names use a lowercase
 // suffix → case-insensitive), falling back to an exact name match. A db_instance that resolves to
-// no declared database is a loud build error (the blueprint listed a backing db that does not exist
-// in this env). Deterministic: no rand; identity comes from the resolver-built fixtures.
+// no declared database or an unsupported engine is a loud build error rather than a fabricated
+// trace identity. Deterministic: no rand; identity comes from the resolver-built fixtures.
 func (g *graph) resolveDBIdentities(env string, dbs []*fixture.DB) error {
 	byName := make(map[string]*fixture.DB, len(dbs))
 	for _, db := range dbs {
@@ -338,6 +522,10 @@ func (g *graph) resolveDBIdentities(env string, dbs []*fixture.DB) error {
 			return fmt.Errorf("app: service %q db_instance %q resolves to no database in env %q (declared: %s)",
 				n.decl.Name, base, env, strings.Join(declared, ", "))
 		}
+		if dbSystemName(db.Engine) == "" {
+			return fmt.Errorf("app: service %q db_instance %q resolves to database %q in env %q with unsupported engine %q",
+				n.decl.Name, base, db.Name, env, db.Engine)
+		}
 		n.dbIdentity = dbSpanIdentity(db)
 	}
 	return nil
@@ -359,7 +547,8 @@ func dbSpanIdentity(db *fixture.DB) map[string]any {
 	return a
 }
 
-// dbSystemName maps a DB engine to the stable OTel db.system.name value.
+// dbSystemName maps a supported DB engine to the stable OTel db.system.name value.
+// An empty result means the engine has no supported trace identity.
 func dbSystemName(engine string) string {
 	switch engine {
 	case "mysql":
@@ -369,7 +558,7 @@ func dbSystemName(engine string) string {
 	case "postgres":
 		return "postgresql"
 	}
-	return "postgresql"
+	return ""
 }
 
 // instanceKeyHost extracts the endpoint FQDN host from a dbo11y InstanceKey

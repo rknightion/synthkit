@@ -1,0 +1,22 @@
+{
+  "blueprint": "fleet-management",
+  "digest": "per family: [row count, first 16 hex digits of sha256 over the sorted canonical masked rows]; numbers quantised to 6 significant digits",
+  "families": {
+    "metrics": {
+      "alloy_build_info": [19, "1ef668c64d413acb"],
+      "alloy_component_controller_running_components": [76, "c8f519678a9e1086"],
+      "alloy_component_evaluation_seconds_bucket": [247, "c92c867890e81eed"],
+      "alloy_component_evaluation_seconds_count": [19, "466f7f3431b652c7"],
+      "alloy_component_evaluation_seconds_sum": [19, "3bf863c547028147"],
+      "alloy_config_hash": [19, "cd84026a595a195f"],
+      "alloy_resources_machine_rx_bytes_total": [19, "f285016bb444f64c"],
+      "alloy_resources_machine_tx_bytes_total": [19, "66a4d8e479df6794"],
+      "alloy_resources_process_cpu_seconds_total": [19, "21672291443d7f82"],
+      "alloy_resources_process_resident_memory_bytes": [19, "2488754036410f6c"],
+      "go_goroutines": [19, "df1388dc2b07e94b"],
+      "go_memstats_heap_inuse_bytes": [19, "b8eaa055661ae271"],
+      "scrape_duration_seconds": [19, "48ad7e01532d904a"],
+      "up": [19, "250202e482193d07"]
+    }
+  }
+}

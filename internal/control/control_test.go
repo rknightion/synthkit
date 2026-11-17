@@ -16,6 +16,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/rknightion/synthkit/internal/ha"
 	"github.com/rknightion/synthkit/internal/optionallane"
 	"github.com/rknightion/synthkit/internal/pushstatus"
 )
@@ -1235,5 +1236,81 @@ func TestCloneStateBlueprintSourceSlicesIndependent(t *testing.T) {
 	c.BlueprintSources[0].Skipped[0] = "mutated"
 	if s.BlueprintSources[0].EffectiveNames[0] != "team/app" || s.BlueprintSources[0].LoadedNames[0] != "team/app" || s.BlueprintSources[0].Skipped[0] != "bad.yaml" {
 		t.Fatalf("cloneState shared source lifecycle slices: original=%+v clone=%+v", s.BlueprintSources[0], c.BlueprintSources[0])
+	}
+}
+
+// TestExplicitZeroVolumeSurvivesReload pins SKT-0147: an explicit volume_multiplier of 0 means
+// zero volume, persists as 0 and reloads as 0, while a snapshot that omits the key still means
+// 1.0 and a negative persisted value is treated as corrupt and falls back to 1.0.
+func TestExplicitZeroVolumeSurvivesReload(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "control-state.json")
+	var applied []State
+	h := NewHandler(NewStore(path), func(s State) { applied = append(applied, s) }, "")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("POST", "/control/load", strings.NewReader(`{"volume_multiplier": 0}`)))
+	if rec.Code != 200 {
+		t.Fatalf("POST load 0: %d %s", rec.Code, rec.Body)
+	}
+	if len(applied) != 1 || applied[0].VolumeMultiplier != 0 {
+		t.Fatalf("apply hook saw %+v, want one apply with volume 0", applied)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(data, []byte(`"volume_multiplier": 0`)) && !bytes.Contains(data, []byte(`"volume_multiplier":0`)) {
+		t.Fatalf("persisted snapshot lost the explicit 0: %s", data)
+	}
+	if got := NewStore(path).Snapshot().VolumeMultiplier; got != 0 {
+		t.Fatalf("reloaded volume = %v, want 0 (explicit pause must survive restart)", got)
+	}
+	strict, err := NewHAStore(path, ha.AlwaysLeader{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strict.Snapshot().VolumeMultiplier; got != 0 {
+		t.Fatalf("strict reload volume = %v, want 0", got)
+	}
+
+	for name, tc := range map[string]struct {
+		body string
+		want float64
+	}{
+		"key absent":     {`{"disabled_blueprints": []}`, 1.0},
+		"key null":       {`{"volume_multiplier": null}`, 1.0},
+		"explicit 2.5":   {`{"volume_multiplier": 2.5}`, 2.5},
+		"negative saved": {`{"volume_multiplier": -1}`, 1.0},
+	} {
+		p := filepath.Join(t.TempDir(), "s.json")
+		if err := os.WriteFile(p, []byte(tc.body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if got := NewStore(p).Snapshot().VolumeMultiplier; got != tc.want {
+			t.Errorf("%s: reloaded volume = %v, want %v", name, got, tc.want)
+		}
+	}
+}
+
+// TestDecodeControlVolumeZeroVersusAbsent pins the same distinction for the backend document
+// decoder (legacy bare state and schema_version 1 documents).
+func TestDecodeControlVolumeZeroVersusAbsent(t *testing.T) {
+	for name, tc := range map[string]struct {
+		doc  string
+		want float64
+	}{
+		"legacy absent":   {`{"disabled_blueprints": []}`, 1.0},
+		"legacy zero":     {`{"volume_multiplier": 0}`, 0},
+		"v1 absent":       {`{"schema_version":1,"state":{"disabled_blueprints":[]}}`, 1.0},
+		"v1 zero":         {`{"schema_version":1,"state":{"volume_multiplier":0}}`, 0},
+		"legacy negative": {`{"volume_multiplier": -1}`, 1.0},
+		"v1 negative":     {`{"schema_version":1,"state":{"volume_multiplier":-1}}`, 1.0},
+	} {
+		d, err := decodeControl([]byte(tc.doc))
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if d.State.VolumeMultiplier != tc.want {
+			t.Errorf("%s: volume = %v, want %v", name, d.State.VolumeMultiplier, tc.want)
+		}
 	}
 }

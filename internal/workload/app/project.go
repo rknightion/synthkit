@@ -5,6 +5,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/rknightion/synthkit/internal/sink/loki"
 	"github.com/rknightion/synthkit/internal/sink/otlp"
 	"github.com/rknightion/synthkit/internal/telemetryspec"
+	"github.com/rknightion/synthkit/internal/telemetryspec/profiles"
 )
 
 // ProjectBatch is the trace/log/RUM lane: handed EXACTLY this instance's freshly minted batch,
@@ -63,24 +65,37 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 	}
 
 	for _, r := range batch {
-		base := r.RenderStart()
+		base := w.renderStart(r)
 		dur := r.Duration
 		if dur <= 0 {
 			dur = time.Millisecond
 		}
 		entry := w.graph.entry
+		rootKind := w.entryRootKind()
+		layout := causalLayout(r)
 		entryContext := ""
 		if entry.decl.tracesEnabled() && !entry.kind.leaf {
 			er := get(entry)
-			eName, eAttrs, eChildren := w.nodeSpan(entry, entry.kind.rootKind, r.SpanID, r.Route, r, nil, base, base.Add(dur), world)
-			er.Spans = append(er.Spans, otlp.Span{
+			eName, eAttrs, eChildren := w.nodeSpan(entry, rootKind, r.SpanID, w.entryRootName(r.Route), r, nil, base, base.Add(dur), world)
+			root := otlp.Span{
 				Name:    eName,
 				TraceID: r.TraceID, SpanID: r.SpanID, ParentID: "",
-				Kind:  entry.kind.rootKind,
+				Kind:  rootKind,
 				Start: base, End: base.Add(dur),
-				Status: spanStatus(r.Outcome),
+				Status: rootStatus(rootKind, protoOf(entry), r),
 				Attrs:  eAttrs,
-			})
+			}
+			decorateRoot(&root, r, httpNode(entry))
+			if t, ok := w.triggerOf(r); ok {
+				// A worker request that took a queue message continues the producing request's
+				// trace under the publisher's span, and links to that creation context. A
+				// synchronous invocation is an ordinary child of the caller's CLIENT span.
+				root.ParentID = t.span
+				if t.start.IsZero() {
+					root.Links = []otlp.Link{{TraceID: t.trace, SpanID: t.span}}
+				}
+			}
+			er.Spans = append(er.Spans, root)
 			er.Spans = append(er.Spans, eChildren...)
 			entryContext = r.SpanID
 			// In-process agentic flow on the ENTRY node (parent = the entry span; full request window).
@@ -90,14 +105,14 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 		} else if !entry.decl.tracesEnabled() && !entry.kind.leaf {
 			// Hidden spans still evaluate their declared values so disabling this node does not shift
 			// the deterministic draws used by later nodes' projections.
-			w.nodeSpan(entry, entry.kind.rootKind, r.SpanID, r.Route, r, nil, base, base.Add(dur), world)
+			w.nodeSpan(entry, rootKind, r.SpanID, w.entryRootName(r.Route), r, nil, base, base.Add(dur), world)
 		}
 
 		// Each hop NESTS within its caller's span window (children start shortly after the parent
 		// starts, not after it ends — a correct waterfall for chains deeper than one hop, review M1).
 		// r.Calls is DFS pre-order, so a parent hop's start is always recorded before its children.
 		reqEnd := base.Add(dur)
-		startOf := map[string]time.Time{r.SpanID: base}
+		wins := hopWindows(r, base, reqEnd, layout)
 		hopContexts := make([]string, len(r.Calls))
 		for i := range r.Calls {
 			call := r.Calls[i]
@@ -106,33 +121,15 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 				continue
 			}
 			caller := entry
-			callerSpanID := r.SpanID
 			callerContext := entryContext
 			if call.ParentHopIndex >= 0 && call.ParentHopIndex < len(r.Calls) {
 				p := r.Calls[call.ParentHopIndex]
 				if pn := w.graph.byName[p.Target]; pn != nil {
 					caller = pn
-					callerSpanID = p.PeerSpanID
 					callerContext = hopContexts[call.ParentHopIndex]
 				}
 			}
-			parentStart := startOf[callerSpanID]
-			if parentStart.IsZero() {
-				parentStart = base
-			}
-			hopStart := parentStart.Add(time.Duration(float64(reqEnd.Sub(parentStart)) * 0.1))
-			cd := call.Duration
-			if cd < time.Millisecond {
-				cd = time.Millisecond
-			}
-			end := hopStart.Add(cd)
-			if end.After(reqEnd) {
-				end = reqEnd
-			}
-			startOf[call.SpanID] = hopStart
-			if call.PeerSpanID != "" {
-				startOf[call.PeerSpanID] = hopStart
-			}
+			hopStart, end, serverEnd, innerEnd := wins[i].start, wins[i].end, wins[i].serverEnd, wins[i].innerEnd
 			// CLIENT span in the CALLER's resource (the caller's outbound view — universal correlation
 			// attrs; for a db/cache leaf with a resolved db_instance the stable-semconv DB identity
 			// (db.system.name / db.namespace / server.address) decorates THIS span — the caller's
@@ -147,14 +144,16 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 					}
 				}
 				cr := get(caller)
-				cr.Spans = append(cr.Spans, otlp.Span{
+				client := otlp.Span{
 					Name:    "call " + call.Target,
 					TraceID: r.TraceID, SpanID: call.SpanID, ParentID: callerContext,
 					Kind:  otlp.KindClient,
 					Start: hopStart, End: end,
 					Status: callStatus(call),
 					Attrs:  cAttrs,
-				})
+				}
+				decorateClient(&client, r, i, callee)
+				cr.Spans = append(cr.Spans, client)
 				calleeContext = call.SpanID
 			}
 			// SERVER span in the CALLEE's resource (instrumented services only) — the callee's structural
@@ -162,24 +161,26 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 			if callee.kind.serverSpan && call.PeerSpanID != "" {
 				if callee.decl.tracesEnabled() {
 					sr := get(callee)
-					sName, sAttrs, sChildren := w.nodeSpan(callee, otlp.KindServer, call.PeerSpanID, serverSpanName(callee, call), r, &r.Calls[i], hopStart, end, world)
-					sr.Spans = append(sr.Spans, otlp.Span{
+					sName, sAttrs, sChildren := w.nodeSpan(callee, otlp.KindServer, call.PeerSpanID, serverSpanName(callee, call), r, &r.Calls[i], hopStart, innerEnd, world)
+					server := otlp.Span{
 						Name:    sName,
 						TraceID: r.TraceID, SpanID: call.PeerSpanID, ParentID: calleeContext,
 						Kind:  otlp.KindServer,
-						Start: hopStart, End: end,
-						Status: callStatus(call),
+						Start: hopStart, End: serverEnd,
+						Status: serverStatus(r, i, protoOf(callee)),
 						Attrs:  sAttrs,
-					})
+					}
+					decorateServer(&server, r, i, callee)
+					sr.Spans = append(sr.Spans, server)
 					sr.Spans = append(sr.Spans, sChildren...)
 					calleeContext = call.PeerSpanID
 					// In-process agentic flow on this CALLEE node (parent = its SERVER span; hop window).
 					if callee.agenticFlow != nil {
-						sr.Spans = append(sr.Spans, emitAgentFlow(callee.agenticFlow, r, call.PeerSpanID, hopStart, end)...)
+						sr.Spans = append(sr.Spans, emitAgentFlow(callee.agenticFlow, r, call.PeerSpanID, hopStart, innerEnd)...)
 					}
 				} else {
 					// Keep the established draw sequence for later projections while suppressing this node's spans.
-					w.nodeSpan(callee, otlp.KindServer, call.PeerSpanID, serverSpanName(callee, call), r, &r.Calls[i], hopStart, end, world)
+					w.nodeSpan(callee, otlp.KindServer, call.PeerSpanID, serverSpanName(callee, call), r, &r.Calls[i], hopStart, innerEnd, world)
 				}
 			}
 			hopContexts[i] = calleeContext
@@ -196,6 +197,58 @@ func (w *Workload) projectTraces(ctx context.Context, world *core.World, batch [
 		return nil
 	}
 	return world.Traces.Write(ctx, resources)
+}
+
+// hopWindow is one hop's placement on the request timeline: the caller's CLIENT span runs
+// [start, end), the callee's SERVER span [start, serverEnd). innerEnd is the end of the window the
+// hop was drawn with, which the callee's in-process spans (declared spans, agentic flow) use.
+type hopWindow struct {
+	start, end, serverEnd, innerEnd time.Time
+}
+
+// hopWindows places every hop of r. Each hop is drawn on the legacy nesting (a short lead into the
+// caller's window, then its own duration, clipped at the request end) or, on the causal timeline,
+// at its Offset. The hop durations are drawn independently, so a nested hop can outlast the hop
+// that calls it; a blocking call cannot, so on the legacy nesting an outlasted caller's spans are
+// widened (end only, never the start) to cover the call. The request end bounds every hop, so the
+// root already covers them all. Only ends of hops that overrun their caller move; the in-process
+// windows and every start keep their drawn values.
+func hopWindows(r *ledger.Request, base, reqEnd time.Time, layout bool) []hopWindow {
+	wins := make([]hopWindow, len(r.Calls))
+	startOf := make([]time.Time, len(r.Calls))
+	for i, call := range r.Calls {
+		parentStart := base
+		if p := call.ParentHopIndex; p >= 0 && p < len(r.Calls) && !startOf[p].IsZero() {
+			parentStart = startOf[p]
+		}
+		hopStart := parentStart.Add(time.Duration(float64(reqEnd.Sub(parentStart)) * 0.1))
+		cd := max(call.Duration, time.Millisecond)
+		end := hopStart.Add(cd)
+		if end.After(reqEnd) {
+			end = reqEnd
+		}
+		serverEnd := end
+		if layout {
+			// The causal timeline places each attempt by its offset; a timed-out call's
+			// server span keeps its own duration (clipped at the request end).
+			hopStart, end, serverEnd = causalHopWindow(base, reqEnd, call)
+		}
+		startOf[i] = hopStart
+		wins[i] = hopWindow{start: hopStart, end: end, serverEnd: serverEnd, innerEnd: serverEnd}
+	}
+	if layout {
+		return wins
+	}
+	// DFS pre-order: every child follows its parent, so one backward pass settles each hop's end
+	// before its caller reads it.
+	for i := len(r.Calls) - 1; i >= 0; i-- {
+		p := r.Calls[i].ParentHopIndex
+		if p < 0 || p >= len(r.Calls) || !wins[i].end.After(wins[p].end) {
+			continue
+		}
+		wins[p].end, wins[p].serverEnd = wins[i].end, wins[i].end
+	}
+	return wins
 }
 
 // universalAttrs is the correlation attr set stamped on every app span (stampCorrelation parity).
@@ -220,6 +273,11 @@ func (w *Workload) nodeSpan(n *node, structuralKind otlp.SpanKind, structuralSpa
 	name = defaultName
 	attrs = universalAttrs(r)
 	ctx := telemetryspec.EvalCtx{Ref: reqRefs(r, call), Rand: world.Shape.Float64, Norm: world.Shape.NormFloat64}
+	if onResendPath(r, call) {
+		// A resend attempt (or a span under one) has no legacy counterpart: its values draw from
+		// the request's hash unit, never the engine (design §4.1), so later draws do not shift.
+		ctx.Rand, ctx.Norm = unitRand(r.TraceID + "\x00" + structuralSpanID)
+	}
 	childStart := start.Add(time.Duration(float64(end.Sub(start)) * 0.1))
 	for _, sp := range n.spans {
 		spAttrs := make(map[string]any, len(sp.Attributes))
@@ -323,6 +381,84 @@ func (w *Workload) projectLogs(ctx context.Context, world *core.World, batch []*
 	type key struct{ node, source, level string }
 	streams := map[key]*loki.Stream{}
 	var order []key
+	// pending holds one bundle's written lines until flush gives them their event times: a bundle
+	// is the lines of one request (the whole request on the legacy path, one node's attempt on the
+	// causal path). Streams take the lines only at flush.
+	type pendingLine struct {
+		n      *node
+		spec   telemetryspec.LogSpec
+		level  string
+		at     time.Time
+		dwell  time.Duration
+		body   string
+		meta   map[string]string
+		dwells bool
+	}
+	var pending []pendingLine
+	// flush stamps and writes the pending bundle. A bundle with no dwell keeps every line at its
+	// own base time. Otherwise the last written line keeps its base time (the request's completion)
+	// and each earlier line is its successor's time minus the successor's dwell, so the dwells are
+	// the gaps between consecutive lines and nothing lands after the completion.
+	flush := func() {
+		anyDwell := false
+		for _, p := range pending {
+			anyDwell = anyDwell || p.dwells
+		}
+		if anyDwell {
+			t := pending[len(pending)-1].at
+			for i := len(pending) - 1; i >= 0; i-- {
+				pending[i].at = t
+				t = t.Add(-pending[i].dwell)
+			}
+		}
+		for _, p := range pending {
+			k := key{p.n.decl.Name, p.spec.Source, p.level}
+			stream := streams[k]
+			if stream == nil {
+				stream = &loki.Stream{Labels: w.streamLabels(w.identity(p.n), p.spec, p.level)}
+				streams[k] = stream
+				order = append(order, k)
+			}
+			stream.Lines = append(stream.Lines, loki.Line{T: p.at, Body: p.body, Meta: p.meta})
+		}
+		pending = pending[:0]
+	}
+	// emit evaluates one log spec into its (node, source, level) stream. failStatus is the node's
+	// own failing status on a causal request that failed through it (0 = the node did not fail).
+	// at is this line's base timestamp (its bundle's flush moves it back by the bundle's dwells). A
+	// line whose when gate the request's draw does not meet still evaluates its body and dwell (so
+	// its draws never shift a later line's) but is not written and adds no dwell.
+	emit := func(n *node, spec telemetryspec.LogSpec, level string, at time.Time, ctxEval telemetryspec.EvalCtx, failStatus int) {
+		body := map[string]any{}
+		meta := map[string]string{}
+		for _, bk := range sortedValueModelKeys(spec.Body) {
+			vm := spec.Body[bk]
+			if vm.IsHighCardRef() {
+				if _, sv := vm.Eval(ctxEval); sv != "" {
+					meta[bk] = sv
+				}
+				continue
+			}
+			v := evalAttr(vm, ctxEval)
+			// A gateway export line of a request that failed through its node reports that failure
+			// rather than the profile's independent draw (taken above, so later draws do not shift).
+			if failStatus != 0 && spec.Source == profiles.GatewayLogSource && bk == profiles.GatewayStatusField {
+				v = strconv.Itoa(failStatus)
+			}
+			// A ref the line's request does not set (an error field on a healthy line, a model on
+			// a request without one) is an absent dimension: omitted, never written as "".
+			if vm.Kind() == telemetryspec.KindRef && v == "" {
+				continue
+			}
+			body[bk] = v
+		}
+		secs, dwells := spec.DwellSecondsOf(ctxEval)
+		if !n.decl.logsEnabled() || !spec.Writes(ctxEval) {
+			return
+		}
+		pending = append(pending, pendingLine{n: n, spec: spec, level: level, at: at,
+			dwell: time.Duration(secs * float64(time.Second)), body: jsonBody(body), meta: meta, dwells: dwells})
+	}
 
 	for _, r := range batch {
 		// Request logs are COMPLETION events ("… served"): timestamp them at the trace's end
@@ -332,46 +468,31 @@ func (w *Workload) projectLogs(ctx context.Context, world *core.World, batch []*
 		if dur <= 0 {
 			dur = time.Millisecond
 		}
-		completedAt := r.RenderStart().Add(dur)
+		completedAt := w.renderStart(r).Add(dur)
 		level := logLevel(r.Outcome)
+		if causalFailing(r) {
+			w.projectCausalLogs(r, func(n *node, level string, t time.Time, ctxEval telemetryspec.EvalCtx, failStatus int) {
+				for _, spec := range n.logs {
+					emit(n, spec, level, t, ctxEval, failStatus)
+				}
+				flush()
+			})
+			continue
+		}
 		for _, n := range w.graph.nodes {
 			if len(n.logs) == 0 {
 				continue
 			}
-			id := w.identity(n)
 			refs := reqRefs(r, nil)
 			if !n.decl.tracesEnabled() {
 				delete(refs, "span_id")
 			}
-			ctxEval := telemetryspec.EvalCtx{Ref: refs, Rand: world.Shape.Float64, Norm: world.Shape.NormFloat64}
+			ctxEval := telemetryspec.EvalCtx{Ref: refs, Rand: world.Shape.Float64, Norm: world.Shape.NormFloat64, Draw: requestDraw(r)}
 			for _, spec := range n.logs {
-				var stream *loki.Stream
-				if n.decl.logsEnabled() {
-					k := key{n.decl.Name, spec.Source, level}
-					stream = streams[k]
-					if stream == nil {
-						stream = &loki.Stream{Labels: w.streamLabels(id, spec, level)}
-						streams[k] = stream
-						order = append(order, k)
-					}
-				}
-				body := map[string]any{}
-				meta := map[string]string{}
-				for _, bk := range sortedValueModelKeys(spec.Body) {
-					vm := spec.Body[bk]
-					if vm.IsHighCardRef() {
-						if _, sv := vm.Eval(ctxEval); sv != "" {
-							meta[bk] = sv
-						}
-						continue
-					}
-					body[bk] = evalAttr(vm, ctxEval)
-				}
-				if stream != nil {
-					stream.Lines = append(stream.Lines, loki.Line{T: completedAt, Body: jsonBody(body), Meta: meta})
-				}
+				emit(n, spec, level, completedAt, ctxEval, 0)
 			}
 		}
+		flush()
 	}
 
 	out := make([]loki.Stream, 0, len(order))

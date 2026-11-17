@@ -1,0 +1,32 @@
+# OFFLINE TEST FIXTURE ONLY. One-second tasks and minute cadence deliberately exercise
+# outcome observations inside one CLI tick, not plausible deployment rates. Never ship.
+name: mwaa-outcomes
+label: mwaa-outcomes
+shape: business_hours_plateau
+timezone: UTC
+environments:
+  - name: prod
+    weight: 1
+    cloud:
+      provider: aws
+      account_id: "111122223333"
+      region: us-east-1
+      vpc_id: vpc-outcomes
+      mwaa:
+        environments: [fixture-airflow, fixture-plain]
+      pipelines:
+        - name: successful
+          environment: fixture-airflow
+          every: 1m
+          offset: 0s
+          stages:
+            - {name: task, service: airflow, duration: 1s}
+        - name: failing
+          environment: fixture-airflow
+          every: 1m
+          offset: 0s
+          stages:
+            - {name: task, service: airflow, duration: 1s}
+incidents:
+  # Near-continuous failure is intentional fixture coverage, not a shipped incident.
+  - {kind: run_failure, target: failing.task, every: 24h, for: 23h59m59s, intensity: 1}

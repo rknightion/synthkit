@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -463,17 +462,12 @@ func TestHAActivationAppliesStartupDisabledKinds(t *testing.T) {
 	cfg.HANamespace, cfg.HALeaseName, cfg.PodUID = "test", "lease", "process"
 	cfg.MasterTick = time.Hour
 	cfg.HARetryPeriod = 50 * time.Millisecond
-	cfg.HARenewDeadline = 300 * time.Millisecond
-	cfg.HAKubeRequestTimeout = 100 * time.Millisecond
+	cfg.HARenewDeadline = fleetHARenewDeadline
+	cfg.HAKubeRequestTimeout = fleetHAKubeRequestTimeout
 	cfg.HAReleaseTimeout = time.Second
 	cfg.SendDrainDeadline = 2 * time.Second
 	cfg.GitPollInterval = 0
-	listen, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.HTTPAddr = listen.Addr().String()
-	listen.Close()
+	cfg.HTTPAddr = childHTTPAddr
 	cfgPath := filepath.Join(root, "config.json")
 	writeHAJSON(t, cfgPath, cfg)
 	proof := filepath.Join(root, "proof.json")

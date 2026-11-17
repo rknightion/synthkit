@@ -1262,15 +1262,17 @@ def inspect_running(
         repo_digests = json.loads(repo_digests_raw)
     except json.JSONDecodeError as exc:
         raise DeployError("running_repo_digest_invalid") from exc
+    if not isinstance(repo_digests, list):
+        raise DeployError("running_repo_digest_invalid")
     matching = [value for value in repo_digests if isinstance(value, str) and value.startswith(IMAGE_REPOSITORY + "@")]
-    if len(matching) != 1:
+    if not matching:
         raise DeployError("running_repo_digest_invalid")
-    index_ref = matching[0]
-    index_digest = index_ref.rsplit("@", 1)[1]
-    if not DIGEST_RE.fullmatch(index_digest):
-        raise DeployError("running_repo_digest_invalid")
-    if expected_reference.rsplit("@", 1)[1] != index_digest:
+    # A platform pull can add a second repository digest to the same local image. Bind the
+    # registry walk to the expected index, never the number or ordering of local aliases.
+    if expected_reference not in matching:
         raise DeployError("running_index_mismatch")
+    index_ref = expected_reference
+    index_digest = index_ref.rsplit("@", 1)[1]
     try:
         platform_os, platform_arch = platform.split("/", 1)
     except ValueError as exc:

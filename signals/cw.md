@@ -9,7 +9,10 @@ and lives here `[slug: cw-naming]`.
 > `metrics:`; the 5-stat suffix expansion is declared once per block as `stats:` and is NOT
 > repeated per metric. All CW stat series are per-period **gauges** (`type: gauge`) — never
 > `rate()` a `_sum` (canon `[slug: cardinality]`). Families/series marked 📋 (documented, not yet
-> modelled) stay in prose and are deliberately ABSENT from `metrics:`.
+> modelled) stay in prose and are deliberately ABSENT from `metrics:`. A block fenced exactly
+> `yaml signals` is the **default-emission** contract; bases emitted only when a blueprint field
+> opts in live in a separate `yaml signals opt-in` block (schema in `SIGNALS.md`) and never in a
+> default block.
 
 ---
 
@@ -46,10 +49,11 @@ series_name      = "aws_" + namespace_prefix + "_" + metric_part + "_" + stat_su
 - New word at an uppercase→lowercase transition following a single preceding uppercase:
   `UnHealthy`→`un_healthy` (but `Unhealthy`→`unhealthy`).
 
-**Universal labels on every CW metric series:** `account_id`, `region`, `namespace` (original CW
-string, verbatim), `job`=`cloud/aws/<lowercased service>`, `name` (resource ARN or `"global"`),
-`dimension_<DimName>` (one per CW dimension, CW casing preserved), `tag_*` (resource tags joined by
-the metadata scraper). The scraper also emits a per-namespace `aws_<ns>_info` series (gauge=1, no
+**Core collector labels:** `account_id`, `region`, `namespace` (original CW string, verbatim),
+`job`=`cloud/aws/<lowercased service>`, `name` (resource ARN or `"global"`).
+`dimension_<DimName>` labels are metric-specific, not universal; `tag_*` labels are optional
+resource-tag enrichment joined by the metadata scraper. See `[slug: cw-captured]` for exact
+observed profiles, including collector/backend enrichment that is not a vendor dimension. The scraper also emits a per-namespace `aws_<ns>_info` series (gauge=1, no
 stat suffix) with `scrape_job`; it does not add resource dimensions or `tag_VpcId`.
 
 > ✅ **SKT-0024 `_info` correction (EKS live-readback corpus captured 2026-08-27, reviewed
@@ -62,17 +66,872 @@ stat suffix) with `scrape_job`; it does not add resource dimensions or `tag_VpcI
 > families.
 
 > ⚠ **Per-period GAUGE invariant (I5).** `_sum`-suffixed CW series are per-period GAUGES — the
-> sum/count within the 1-minute reporting window, NOT a monotonic counter. **Never `rate()`/`increase()`
+> sum/count within the reporting window (not universally one minute), NOT a monotonic counter. **Never `rate()`/`increase()`
 > any `_sum` series** — use the raw value or `delta()`. Applies to ALL CW families without exception.
 
 > ⚠ **No histogram buckets on any CW family** — CW metric-stream series have only the 5 stat
 > suffixes; there are NO `_bucket` series. (Lab-confirmed across 21,958 series: zero `_bucket` on any
-> CW family.) Metrics are absent during idle periods (no traffic = no CW data point).
+> CW family.) Publication is metric-specific: sparse traffic families may be absent when idle,
+> but this is not a universal zero-traffic rule (see DynamoDB consumed-capacity sample counts below).
 
 **Namespace → prefix quick reference:** `AWS/ApplicationELB`→`aws_applicationelb_` ·
 `AWS/NetworkELB`→`aws_networkelb_` · `AWS/EC2`→`aws_ec2_` · `AWS/EBS`→`aws_ebs_` ·
 `AWS/NATGateway`→`aws_natgateway_` · `AWS/S3`→`aws_s3_` · `AWS/EKS`→`aws_eks_` ·
 `AWS/Firehose`→`aws_firehose_` · `AWS/RDS`→`aws_rds_` · `AWS/ElastiCache`→`aws_elasticache_`.
+
+## Initial captured-service emitters [slug: cw-captured-emitted]
+
+The optional `cloud.lambda`, `cloud.sqs`, `cloud.dynamodb`, `cloud.redshift` and
+`cloud.cloudwatch_logs` declarations emit **only these 51 bases (255 final statistic names)**
+over remote-write (35 original bases plus ten Redshift, two Logs intake and four optional Logs delivery bases). They are separate blueprint-scoped
+constructs, not pipeline-stage adapters. Omission emits nothing for that kind. One declaration
+per blueprint/account/region/kind owns the entire resource list; duplicate declarations across
+environments reject even with disjoint resources. Different kinds and blueprints remain distinct.
+Build rejects `cloudwatch_export: otlp` for all five: this is an implementation boundary, not a
+claim that AWS lacks native Metric Streams. No native aliases are installed by these consumers.
+The source tables below remain positive-only source evidence, **not emission allowlists**.
+Three further DynamoDB bases (`aws_dynamodb_throttled_requests`, `aws_dynamodb_read_throttle_events`,
+`aws_dynamodb_write_throttle_events`) are opt-in per operation and are absent from the default
+set; they are specified under the throttle capture section [slug: cw-throttle-capture], whose
+`yaml signals opt-in` block declares them. They are deliberately not in the canonical yaml block
+below, which stays the default emission contract. Lambda gains no base.
+
+All statistics are independent per-period gauges. Inputs are explicit synthetic operator
+assumptions, not captured numeric distributions or verified native fidelity. Sparse arrivals
+retain active fractional carry. Master volume zero emits no batches and accrues no traffic;
+observed resume establishes a new active boundary without paused-time backfill. Positive master
+volume retains fixed configured rates (no new diurnal or positive scaling guarantee). A pause
+and resume entirely between observations cannot be detected. Sample counts count observations,
+never duration/byte magnitudes. Missed intervals are not replayed.
+
+In these five blocks, `dimension_profiles` and each metric's `profiles` describe **exact
+alternative vendor-dimension key sets**, not their union. The common labels are `account_id`,
+`region`, `namespace`, `job`, `name`, plus the writer-stamped `blueprint`. No caller metadata is
+guessed. The public fixture exercises all profiles without enrichment. SQS alone permits optional
+explicit P2-vocabulary enrichment (`asserts_env`, `asserts_site`, `service`, `tag_Environment`,
+`tag_Owner`, `tag_Purpose`, `tag_Terraform`); omitted keys stay absent and these are not dimensions.
+
+### Lambda emitted subset [slug: cw-lambda-emitted]
+
+Function resources use FunctionName only and `name=global`; no Resource aliases, versions,
+EventSourceMappingUUID or tags are inferred. Account concurrency is emitted once without resource
+dimensions. Total execution attempts comprise admitted async executions (received minus dropped),
+stream batches and a nonnegative synchronous residual. Duration observes each execution; async
+age observes admitted async executions, iterator age observes stream batches. Errors are a
+subset of executions; throttles are separate. Ages are explicit constants; durations are constant
+unless `duration_ms_min`/`duration_ms_max` declare operator-assumed bounds (the mean stays
+`duration_ms`); `load: business` is an opt-in operator assumption scaling arrival rates by the
+business curve, not a sourced AWS behaviour; with `load: business`, an opt-in `duration_ms_idle` also moves the mean
+duration with that curve from the idle value up to `duration_ms`; `duration_load: business` applies the same duration curve while arrival rates stay constant (a scheduled function). By default Errors and Throttles are emitted only when an
+event occurs; a function's opt-in `zero_valued_samples` instead observes every request with 0 or 1
+as in the throttle capture section [slug: cw-throttle-capture]; concurrency
+is a synthetic snapshot, not an AWS scheduler simulation. Reserved concurrency must be whole.
+Units retain the exact historical U1–U9 scope below; the modeled FunctionName-only profile does
+not authorize other historical/native profiles.
+
+```yaml signals
+family: aws_lambda
+scope: blueprint
+sink: promrw
+stats: [_sum, _average, _maximum, _minimum, _sample_count]
+labels: {account_id: <account>, region: <region>, namespace: AWS/Lambda, job: cloud/aws/lambda, name: global}
+dimension_profiles:
+  account: []
+  function: [dimension_FunctionName]
+metrics:
+  - {root: async_event_age, type: gauge, unit: milliseconds, profiles: [function], note: U1 only}
+  - {root: async_events_dropped, type: gauge, unit: count, profiles: [function], note: U2 only}
+  - {root: async_events_received, type: gauge, unit: count, profiles: [function], note: U3 only}
+  - {root: claimed_account_concurrency, type: gauge, unit: count, profiles: [account], note: U4 only}
+  - {root: concurrent_executions, type: gauge, unit: count, profiles: [function], note: U5 only}
+  - {root: duration, type: gauge, unit: milliseconds, profiles: [function]}
+  - {root: errors, type: gauge, unit: count, profiles: [function], note: U6 only}
+  - {root: invocations, type: gauge, unit: count, profiles: [function], note: U7 only}
+  - {root: iterator_age, type: gauge, unit: milliseconds, profiles: [function]}
+  - {root: throttles, type: gauge, unit: count, profiles: [function], note: U8 only}
+  - {root: unreserved_concurrent_executions, type: gauge, unit: count, profiles: [account], note: U9 only}
+```
+
+Withheld: `deleted_event_count`, `failed_invoke_event_count`, `invoked_event_count`,
+`polled_event_count` (ESM identity/unit barriers) and unsuffixed `aws_lambda_info` (no admitted
+metadata projection). Their positive source observations remain unchanged below.
+
+### SQS emitted subset [slug: cw-sqs-emitted]
+
+Every resource requires QueueName and an explicit non-global `collector_name` for `name`;
+that value is not an inferred ARN. Each receive attempt handles at most one message. Successful
+deliveries delete after the declared processing delay; no retries, DLQ or tenant-group attribution
+is modeled. Fractional arrivals and receive capacity persist across active windows, but unused
+whole idle receive tokens are empty receives, not banked service capacity. Stock is sampled once
+per synthetic active second; default four-day retention and six-hour activity retention are model
+assumptions, not captured publication/sample-count guarantees. Message size is whole bytes.
+A queue bound to a declared `queue` resource (`resource:`) takes its sends, receives, deletes,
+visible messages and oldest-message age from the causal model's per-window arrivals, served count,
+backlog and FIFO oldest age (stock sampled once per 5 s model step); it emits no NotVisible,
+Delayed or EmptyReceives series, which have no model derivation.
+
+```yaml signals
+family: aws_sqs
+scope: blueprint
+sink: promrw
+stats: [_sum, _average, _maximum, _minimum, _sample_count]
+labels: {account_id: <account>, region: <region>, namespace: AWS/SQS, job: cloud/aws/sqs, name: <declared-collector-name>}
+dimension_profiles:
+  queue: [dimension_QueueName]
+metrics:
+  - {root: approximate_age_of_oldest_message, type: gauge, unit: seconds, profiles: [queue]}
+  - {root: approximate_number_of_messages_delayed, type: gauge, unit: count, profiles: [queue]}
+  - {root: approximate_number_of_messages_not_visible, type: gauge, unit: count, profiles: [queue]}
+  - {root: approximate_number_of_messages_visible, type: gauge, unit: count, profiles: [queue]}
+  - {root: number_of_empty_receives, type: gauge, unit: count, profiles: [queue]}
+  - {root: number_of_messages_deleted, type: gauge, unit: count, profiles: [queue]}
+  - {root: number_of_messages_received, type: gauge, unit: count, profiles: [queue]}
+  - {root: number_of_messages_sent, type: gauge, unit: count, profiles: [queue]}
+  - {root: sent_message_size, type: gauge, unit: bytes, profiles: [queue]}
+```
+
+Withheld: `approximate_age_of_oldest_message_in_quiet_groups`,
+`approximate_number_of_messages_delayed_in_quiet_groups`,
+`approximate_number_of_messages_not_visible_in_quiet_groups`,
+`approximate_number_of_messages_visible_in_quiet_groups`, `approximate_number_of_noisy_groups`
+(no fair-queue model) and unsuffixed `aws_sqs_info` (no admitted metadata projection).
+
+### DynamoDB emitted subset [slug: cw-dynamodb-emitted]
+
+Provisioned tables require explicit TableName and non-global `collector_name`. Account quotas and
+utilization snapshots emit once without table identity. Consumed capacity is sampled per second,
+including idle zero traffic; request latency/items/Streams observations are sparse. Latency is
+service-side only, never client/network time. Supported successful table operations are GetItem,
+PutItem, UpdateItem, Query, Scan and SELECT-only ExecuteStatement. UpdateItem is documented by AWS as an
+Operation value but not captured (source: AWS DynamoDB metrics and dimensions,
+https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/metrics-dimensions.html, fetched
+2026-10-25): it is a customer write that emits only SuccessfulRequestLatency
+(TableName+Operation) and shares the table write demand with PutItem (split, never added), with no
+throttle or ReturnedItemCount series. ReturnedItemCount belongs only to Query,
+Scan and SELECT ExecuteStatement. Declared Streams GetRecords uses StreamLabel+Operation+TableName;
+it is never union-filled into table-operation observations. Write Source is omitted, Customer or
+GlobalTable; GlobalTable replication is independently declared applied writes, not PutItem calls.
+Quotas, provisioned capacity, per-request capacity/latency and fixed whole returned items/records/
+bytes are explicit assumptions. Already-earned operation, conditional-failure, Streams-poll and
+replication fractions survive cadence jitter and long observation gaps; new accrual is capped at
+60 seconds per observation without replaying the gap. Fractional rates/read units are valid;
+floating-point floor can delay a request at a decimal exact boundary. No overload, on-demand or
+cross-service join is claimed. An operation's opt-in `throttled_requests_per_second` (GetItem or
+PutItem only) additionally emits the three throttle bases described under
+the throttle capture section [slug: cw-throttle-capture]. A GetItem or PutItem bound to a causal
+`quota` resource (`resource` with `quota_unit`) emits the same bases from the quota's rejected
+volume instead, and its successful requests from the quota's admitted volume; capacity-unit quotas
+convert to requests by the operation's declared units per request.
+
+```yaml signals
+family: aws_dynamodb
+scope: blueprint
+sink: promrw
+stats: [_sum, _average, _maximum, _minimum, _sample_count]
+labels: {account_id: <account>, region: <region>, namespace: AWS/DynamoDB, job: cloud/aws/dynamodb, name: global|<declared-collector-name>}
+dimension_profiles:
+  account: []
+  table: [dimension_TableName]
+  source_table: [dimension_Source, dimension_TableName]
+  operation_table: [dimension_Operation, dimension_TableName]
+  stream: [dimension_Operation, dimension_StreamLabel, dimension_TableName]
+metrics:
+  - {root: account_max_reads, type: gauge, unit: count, profiles: [account]}
+  - {root: account_max_writes, type: gauge, unit: count, profiles: [account]}
+  - {root: account_max_table_level_reads, type: gauge, unit: count, profiles: [account]}
+  - {root: account_max_table_level_writes, type: gauge, unit: count, profiles: [account]}
+  - {root: account_provisioned_read_capacity_utilization, type: gauge, unit: percent, profiles: [account]}
+  - {root: account_provisioned_write_capacity_utilization, type: gauge, unit: percent, profiles: [account]}
+  - {root: max_provisioned_table_read_capacity_utilization, type: gauge, unit: percent, profiles: [account]}
+  - {root: max_provisioned_table_write_capacity_utilization, type: gauge, unit: percent, profiles: [account]}
+  - {root: conditional_check_failed_requests, type: gauge, unit: count, profiles: [table]}
+  - {root: consumed_read_capacity_units, type: gauge, unit: count, profiles: [table]}
+  - {root: consumed_write_capacity_units, type: gauge, unit: count, profiles: [table, source_table]}
+  - {root: returned_bytes, type: gauge, unit: bytes, profiles: [stream]}
+  - {root: returned_records_count, type: gauge, unit: count, profiles: [stream]}
+  - {root: returned_item_count, type: gauge, unit: count, profiles: [operation_table]}
+  - {root: successful_request_latency, type: gauge, unit: milliseconds, profiles: [operation_table, stream]}
+```
+
+Unsuffixed `aws_dynamodb_info` remains withheld; the observed metadata shape does not establish
+an explicit synthetic metadata projection. See [authoring](../docs/blueprints.md#captured-cloudwatch-consumers)
+for configuration and model limits. These blocks add no Glue expansion, new source/unit evidence
+or native admission.
+
+### Redshift emitted subset [slug: cw-redshift-emitted]
+
+Provisioned clusters require explicit ClusterIdentifier and unique non-global `collector_name`.
+The six snapshot fields are required, including zero/false: CPU and disk usage are percentages
+0–100 (not fractions); connections/tables and queue waiting/running are whole counts; healthy
+and maintenance project explicit boolean 0/1. Each stock observes once per active reporting
+window: sum/average/minimum/maximum equal the stock and sample_count is 1. Optional named WLM
+queues have ClusterIdentifier+QueueName; no queue dimension leaks into cluster/latency metrics.
+Optional independent read/write completed-I/O rates observe a fixed positive latency in **seconds**:
+N newly earned observations at L give sum=N×L, average/minimum/maximum=L, sample_count=N.
+N=0 omits that latency family. Neither queue stocks nor CPU infer arrivals or I/O throughput.
+
+The selected vendor-dimension projections are P18 (cluster) and P14 (named queue), independently
+confirmed by API forms and [AWS Redshift metrics](https://docs.aws.amazon.com/redshift/latest/mgmt/metrics-listing.html).
+These are not full captured collector envelopes: captured tags and `asserts_env` are omitted.
+No ARN syntax is inferred for collector names. Stock sampling and per-I/O observation counts are
+explicit synthetic assumptions, not AWS sample-count/publication or captured numerical fidelity.
+
+```yaml signals
+family: aws_redshift
+scope: blueprint
+sink: promrw
+stats: [_sum, _average, _maximum, _minimum, _sample_count]
+labels: {account_id: <account>, region: <region>, namespace: AWS/Redshift, job: cloud/aws/redshift, name: <declared-collector-name>}
+dimension_profiles:
+  cluster: [dimension_ClusterIdentifier]
+  queue: [dimension_ClusterIdentifier, dimension_QueueName]
+metrics:
+  - {root: cpuutilization, type: gauge, unit: percent, profiles: [cluster]}
+  - {root: database_connections, type: gauge, unit: count, profiles: [cluster]}
+  - {root: health_status, type: gauge, unit: count, profiles: [cluster]}
+  - {root: maintenance_mode, type: gauge, unit: count, profiles: [cluster]}
+  - {root: percentage_disk_space_used, type: gauge, unit: percent, profiles: [cluster]}
+  - {root: total_table_count, type: gauge, unit: count, profiles: [cluster]}
+  - {root: read_latency, type: gauge, unit: seconds, profiles: [cluster]}
+  - {root: write_latency, type: gauge, unit: seconds, profiles: [cluster]}
+  - {root: wlmqueue_length, type: gauge, unit: count, profiles: [queue]}
+  - {root: wlmrunning_queries, type: gauge, unit: count, profiles: [queue]}
+```
+
+Withheld: NodeID, service-class/wlmid/priority/stage alternatives, user-query families (SELECT is
+observed in P13 only, but numerical population/timing/statistic semantics remain held),
+managed-storage associations (no naming exception), info and all other
+unselected families. No automatic cluster pause, failure-mode, pipeline or cross-service adapter.
+
+### CloudWatch Logs emitted subset [slug: cw-logs-emitted]
+
+Intake from each independently declared log group selects only LogGroupName, the P36 vendor-dimension
+projection with `name=global`; no captured enrichment is copied. Source names/units and the
+uncompressed-byte meaning are confirmed by [AWS Logs metrics](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch-Logs-Monitoring-CloudWatch-Metrics.html).
+For N newly earned upload events, event observations have sum=N, average/minimum/maximum=1,
+sample_count=N. Byte observations have sum=N×B, average/minimum/maximum=B, sample_count=N,
+where B is the explicit whole **uncompressed** bytes per event. N=0 omits both families. The
+AWS event unit is **None**, not Count; neither a unit label nor a scaling factor is introduced.
+These are operator-supplied per-event sampling assumptions, not captured numerical fidelity or
+AWS datapoint cadence. No log bodies or collector/Loki wire are rendered.
+
+```yaml signals
+family: aws_logs
+scope: blueprint
+sink: promrw
+stats: [_sum, _average, _maximum, _minimum, _sample_count]
+labels: {account_id: <account>, region: <region>, namespace: AWS/Logs, job: cloud/aws/logs, name: global}
+dimension_profiles:
+  log_group: [dimension_LogGroupName]
+  subscription: [dimension_DestinationType, dimension_FilterName, dimension_LogGroupName]
+metrics:
+  - {root: incoming_bytes, type: gauge, unit: bytes, profiles: [log_group]}
+  - {root: incoming_log_events, type: gauge, unit: none, profiles: [log_group]}
+  - {root: delivery_errors, type: gauge, unit: none, profiles: [subscription]}
+  - {root: delivery_throttling, type: gauge, unit: none, profiles: [subscription]}
+  - {root: forwarded_log_events, type: gauge, unit: none, profiles: [subscription]}
+  - {root: forwarded_bytes, type: gauge, unit: bytes, profiles: [subscription]}
+```
+
+Optional `subscription_filters[]` under an existing log group select **P21 vendor dimensions
+only**, with explicit FilterName and DestinationType **exactly `Lambda`**, and `name=global`.
+The safe literal-positive projection of retained response SHA-256
+`16565c9f119377f6385f1a7e39292ccdf44bea3c4c0b81dc43df0eb0c39e18bc`
+establishes Lambda for each of DeliveryErrors, DeliveryThrottling, ForwardedLogEvents and
+ForwardedBytes, all five suffixes each, in P21 and P24 (one positive row per suffix/profile).
+P24 corroborates the selector, never union-fills tags or collector identity into P21. These are
+positive/truncated names/keys/literal facts, not captured values, cadence, units or completeness.
+The existing API dimension-name and official source references supply the raw names/dimensions
+and documented meanings/units. Other destination literals/profiles remain unselected.
+
+Delivery is **independent explicitly authored period-observation synthesis, not a delivery
+simulator**. All four whole nonnegative finite values must be supplied: `delivery_errors` means
+errored log events, not permanent losses; `delivery_throttling` means throttled log events, not
+API requests; `forwarded_log_events` means forwarded events, not invocations/batches;
+`forwarded_bytes` means **already-compressed bytes**. No compression multiplier, retry/loss,
+subset/disjointness, temporal-lag, batch or intake relationship is inferred. Each metric observes
+its supplied x once per synthetic active minute: sum/average/minimum/maximum=x, sample_count=1,
+not x. Explicit x=0 is an authored zero observation, not an AWS idle-publication claim. Even a
+zero-intake group progresses independently. Omitted filters preserve intake output unchanged.
+
+The first ordinary active tick may observe exactly one bootstrap period under the existing
+startup convention. Integer active-nanosecond progress retains earned fractions; only new elapsed
+progress is capped at 60 seconds, with at most one observation per tick and no gap replay. The
+pause/silent-resume/repeated-timestamp/attempt-consumption rules below apply equally. Positive
+master amplitude does not scale authored snapshots. At most 100 filters total reuse the existing
+resource safety bound; each event observation is at most 60,000,001 and compressed bytes at most
+3,932,160,065,536, reusing the admitted intake-window/product bounds. These are engineering refusal
+bounds, not AWS quotas or recommended values. No function ARN/identity, tags, native, by-data-source,
+account aggregate, info, pipeline, log-wire or lifecycle attribution is added.
+
+For these two new consumers, resource lists and required numerical pointers have no defaults.
+The first ordinary active tick explicitly models a synthetic bootstrap minute, not prior measured
+activity. Later strictly increasing observations cap **new** accrual at 60 seconds; missed windows
+are not replayed and earned fractions survive gaps. Exact rational carry over the decoded binary
+float rate and integer nanoseconds avoids epsilon-created events; decimal-intent boundaries may
+still be delayed. Observed real master-zero pause emits nothing (including stocks), advances the
+boundary and accrues nothing. First positive observation after a pause is silent, retaining carry;
+initially paused instances do not bootstrap on resume. Positive master values leave rates and authored period values fixed;
+pause/resume wholly between observations is unobservable. Writer failure consumes the attempted
+window with no replay. No durable checkpoint, native/backend or deployment acceptance is implied.
+
+### EventBridge Scheduler emitted subset [slug: cw-scheduler]
+
+The optional `cloud.scheduler` declaration builds a separate blueprint-scoped construct for
+fixed-rate EventBridge Scheduler schedules, under the same one-declaration-per-blueprint/account/
+region/kind, remote-write-only and `name=global` rules as the five consumers above. It is not one
+of their 51 bases.
+
+**Provenance.** Raw CloudWatch API capture (`list-metrics` plus `get-metric-data`, 60 s period, all
+five statistics) in a lab account, eu-west-1, 2026-10-24: one `rate(1 minute)` schedule in its own
+schedule group, retry policy of zero attempts, targeting a Lambda function with reserved
+concurrency 1 that was being throttled by a concurrent burst. Observed: `InvocationAttemptCount`
+only, as a dimensionless account series and per `ScheduleGroup` (the declared group and an
+unrelated `default` group). Each attempt is one observation of 1: one attempt per minute gave
+sum = average = minimum = maximum = sample_count = 1 per group; a minute with attempts in two
+groups gave the account series sum = sample_count = 2, average = minimum = maximum = 1, so the
+account series aggregates every group. Minutes without an attempt had no datapoint (a schedule
+group with attempts in two minutes listed two datapoints). The function's Lambda `Throttles`
+reached 149 per minute during the burst while no Scheduler error metric was listed: EventBridge
+Scheduler invokes a Lambda target asynchronously
+([Lambda with EventBridge Scheduler](https://docs.aws.amazon.com/lambda/latest/dg/with-eventbridge-scheduler.html)),
+so function-side throttles and errors stay on `AWS/Lambda`. The Prometheus base names follow
+`[slug: cw-naming]`; no remote-write capture of this namespace exists yet.
+
+`TargetErrorCount` and `InvocationDroppedCount` are **documented, not observed**
+([Scheduler CloudWatch metrics](https://docs.aws.amazon.com/scheduler/latest/UserGuide/monitoring-cloudwatch.html),
+retrieved 2026-10-24: unit Count, dimension `ScheduleGroup`, account metrics without it). They are
+emitted only under the opt-in `target_error_fraction`: a failed run is one attempt whose target
+API call errors, adding one `TargetErrorCount` and, because retries are not modelled (the captured
+zero-retry policy), one `InvocationDroppedCount`. Their one-observation-of-1 statistics mirror the
+observed attempt shape and are an assumption. A run that fails inside a Lambda function is a
+Lambda `Errors` observation, not a Scheduler error: declare it on that function's `cloud.lambda`
+entry (asynchronous receipt at the schedule's rate, plus `error_fraction`).
+
+Cadence: each schedule fires once per declared `rate(...)` period at a stable whole-minute offset
+derived from its group and name (a stand-in for its creation time), so one minute window holds at
+most one attempt per schedule at the 1-minute minimum rate. Cron and `at()` expressions are not
+modelled. Publication is sparse: a group or the account emits only in a window with an attempt,
+and error metrics only in a window with a failed run. Missed windows are not replayed; master
+volume zero pauses emission and the first resumed tick only re-establishes the window boundary.
+
+```yaml signals
+family: aws_scheduler
+scope: blueprint
+sink: promrw
+stats: [_sum, _average, _maximum, _minimum, _sample_count]
+labels: {account_id: <account>, region: <region>, namespace: AWS/Scheduler, job: cloud/aws/scheduler, name: global}
+dimension_profiles:
+  account: []
+  group: [dimension_ScheduleGroup]
+metrics:
+  - {root: invocation_attempt_count, type: gauge, unit: count, profiles: [account, group], v: ok}
+```
+
+The two failure bases are emitted only when a schedule declares `target_error_fraction`:
+
+```yaml signals opt-in
+family: aws_scheduler
+scope: blueprint
+sink: promrw
+opt_in: cloud.scheduler.schedules[].target_error_fraction
+source: "signals/cw.md [slug: cw-scheduler]; AWS Scheduler CloudWatch metrics page, retrieved 2026-10-24"
+stats: [_sum, _average, _maximum, _minimum, _sample_count]
+labels: {account_id: <account>, region: <region>, namespace: AWS/Scheduler, job: cloud/aws/scheduler, name: global}
+dimension_profiles:
+  account: []
+  group: [dimension_ScheduleGroup]
+metrics:
+  - {root: target_error_count, type: gauge, unit: count, profiles: [account, group], v: assumed, note: documented-not-observed}
+  - {root: invocation_dropped_count, type: gauge, unit: count, profiles: [account, group], v: assumed, note: documented-not-observed; no retries modelled}
+```
+
+Withheld (documented, not modelled): `TargetErrorThrottledCount` (whether it is a subset of
+`TargetErrorCount` is not documented), `InvocationThrottleCount` (Scheduler service-quota
+throttling), the dead-letter-queue metrics `InvocationsSentToDeadLetterCount`,
+`InvocationsFailedToBeSentToDeadLetterCount`, `InvocationsFailedToBeSentToDeadLetterCount_<error_code>`
+and `InvocationsSentToDeadLetterCount_Truncated_MessageSizeExceeded`, the usage metrics, and
+unsuffixed `aws_scheduler_info` (no admitted metadata projection).
+
+## Retained positive CloudWatch observations — 2026-10-23 [slug: cw-captured]
+
+This identity-elided series-key catalogue freezes **141 observed bases, 56 exact label-key
+profiles and 308 namespace/base/profile/attribution shapes** across Lambda, SQS, DynamoDB,
+Redshift, CloudWatch Logs and Glue. These are **positive observations only**: both Mimir
+responses warned that results may be truncated (`querier.max-series-query-limit`). An unlisted
+name, suffix or profile is not proof of absence, nor is source-filter membership proof of
+resource ownership. Lexical ownership classification is inference; account aggregates and
+unattributed observations must not be attributed to a declared resource. No identifying resource,
+account, tag or other identity values are published here; the identity projection below retains
+only whitelisted technology enums and aggregate equality/global counts.
+
+Provenance: retained series responses SHA-256
+`16565c9f119377f6385f1a7e39292ccdf44bea3c4c0b81dc43df0eb0c39e18bc` and
+`290899b3c2430b798eb324b499bcbfde86c3e1d2c89cb105ec039f91811db56f`.
+The series API supplies **names and keys, not sample values, AWS units or instrument types**.
+Every non-`_info` base below was observed with **all five** suffixes
+`_average`, `_maximum`, `_minimum`, `_sample_count`, `_sum` for every listed profile.
+Every `_info` name was observed **unsuffixed only**. Gauge semantics come from the canonical
+CW contract above, not from the series API. This table is a source/consumer contract, **not
+an emitted-family declaration**: no new construct is implemented by this documentation.
+
+Common exact keys (including the series-name key): `__name__`, `account_id`, `asserts_env`, `job`, `name`, `namespace`, `region`.
+Each profile is exactly those keys **plus** the keys below. Profiles are alternatives, never
+union-filled. A key omitted from a profile was absent only in those observed rows.
+`asserts_env`, `asserts_site`, `service`, `scrape_job`, `name`, `job`, account/region metadata
+and `tag_*` are collector/backend enrichment, **not vendor dimensions**. In particular,
+`asserts_*` and the captured tag-key sets are not mandatory synthetic labels or values.
+`blueprint` is synthkit scoping, not a captured AWS label. Only `dimension_*` keys project
+vendor dimensions, subject to exact source-name confirmation; never derive native AWS spelling
+by reversing a mangled label. The additional safe CloudWatch API listing independently confirms
+Redshift's raw dimension `service class` for the observed `dimension_service_class` key, including
+NodeID forms; it is not inferred from that key. Info series have no resource dimensions and are
+metadata, not CloudWatch source metrics.
+
+Additional source evidence: an identity-elided, positive-only CloudWatch API listing retains
+actual MetricName and dimension **names**, but no values or units. Recently-active listing can
+retain old/deleted identities: it proves neither present resources, complete coverage, numeric
+behavior nor cleanup status. It confirms the numeric Glue executor spellings and
+`glue.driver.aggregate.jvmGCTime`, `glue.driver.bytesWritten`,
+`glue.driver.disk.used.percentage`, plus Redshift `UserQueriesSucceeded`/`UserQueryDuration`.
+Units still require independent official references or scoped historical unit evidence below. The listing's
+`RedshiftManagedStorage{BilledUsedSpace,DsUsedSpace,TotalCapacity}` names do **not** map to the
+observed `aws_redshift_managed_storage_*` bases under the canonical naming law (which would
+retain the extra `redshift` token); these three associations remain PENDING, not a guessed
+collector-prefix exception. API source SHA-256: Glue
+`e7bd7434b006f382cb1c015a87082cf741d8db2bd8e2c60ee53dc70dbea57b11`, Redshift
+`becc3f58f5abab2ed3cc4d56060df92bcb2b3ae6086080ec2a5016658f419615`.
+
+### Positive identity-relation projections
+
+A second safe projection retains only namespace/profile row counts, `name == global`,
+FunctionName/Resource equality counts and whitelisted technology enums. These are grouped
+**response rows**, not unique resources, metric values or per-metric identity rules. They
+remain positive/truncated evidence; profiles outside this metric catalogue are not admitted.
+
+- Lambda P29: FunctionName equals Resource in all 135 compared rows; P28: equal in all
+  70 compared rows. Do **not** append a version or alias to Resource by assumption. P29/P30
+  have zero global-name rows (135 rows each); P28/P27 have all 70 rows global each, despite
+  carrying function dimensions. A non-global name establishes neither ARN syntax nor its
+  relation to FunctionName. Equality is not asserted for unobserved functions or profiles.
+- DynamoDB P44 (20 rows) retains Operation values `GetItem`, `PutItem`, `Query`; do not
+  distribute this grouped set to every metric or infer missing values. P43's empty retained
+  enum set does not prove an absent Operation value. Observed DynamoDB tagged profiles have
+  zero global-name rows, without establishing the non-global string's format.
+- Glue P35/P34/P33/P32 have respectively 260/240/60/60 rows, all `name=global`, even with
+  job/run dimensions. P35/P34 retain Type values `count`, `gauge`; P33/P32 retain `gauge`.
+  These sets are profile-level, not per-metric assignments. Vendor Type does not change the
+  canonical per-period Prometheus gauge instrument.
+- Logs P21/P36 have all 20/40 rows global; tagged P24/P40 have zero global-name rows out of
+  20/40. SQS P1/P4 likewise have zero global-name rows out of 135/2. Do not infer that metadata
+  tags alone determine name projection or that every non-global name is a resource ARN.
+
+These facts constrain consumer identity assumptions without publishing any actual resource,
+account, tag, function, queue, table, job or run identity. They neither widen attribution nor
+constitute collector/Loki output or cleanup evidence.
+
+### Positive historical unit metadata — per raw dimension-name profile only
+
+A safe projection of historical CloudWatch datapoints supplies the following positive unit
+metadata, point counts and raw-response hashes. **No complete-corpus or all-profile unit claim**:
+each U row is limited to its raw dimension-name case, with real identities elided. It does not
+establish units for every resource or collector-enrichment profile sharing those keys, numerical
+sample values, statistic relationships, scaling behavior, native-wire units or live publication.
+Unit cells marked `(U# only)` below reference this table; other label-key profiles in the same
+metric row stay unverified by this evidence. Unqualified unit cells remain vendor-doc sourced.
+An empty raw dimension list is an account aggregate, not a per-function metric.
+Namespaces are AWS/Lambda for U1–U9, AWS/Redshift for U10–U11 and Glue for U12.
+
+| Ref | Raw AWS name | Raw dimension names | Observed Unit | Points | Raw response SHA-256 |
+|---|---|---|---|---:|---|
+| U1 | `AsyncEventAge` | FunctionName | Milliseconds | 18 | `1eb17956f3bd4e7278ed14b132a443e4dc2541d51897545375b080bb409a6d94` |
+| U2 | `AsyncEventsDropped` | FunctionName | Count | 18 | `a0ec45270b14b9300557160b03907e9072bb7403bb7be4e002171e9a78c5a51a` |
+| U3 | `AsyncEventsReceived` | FunctionName | Count | 19 | `bb15d650a731cc6e13d88253e4bf8081b350794b062f8c8935492b8865bb4b5a` |
+| U4 | `ClaimedAccountConcurrency` | none | Count | 19 | `4851e22249201d10c3c7a377356c15d33ee2f270a2eb2434bd3e6be11d6675cb` |
+| U5 | `ConcurrentExecutions` | FunctionName | Count | 18 | `3cddd9bc797d3c47f8a33805a2d5e7ee6b9534ca1b36394c767f227365a7037f` |
+| U6 | `Errors` | FunctionName | Count | 19 | `f7ba7e8125858ed04d4dbabc2c13ece3b98f3765c4a44944d1987909a6c2307d` |
+| U7 | `Invocations` | FunctionName | Count | 19 | `b1f40bd08c3edb5cc605b7fe3d84c39f793ecd3e0cdb7b836cd09404db5ce2df` |
+| U8 | `Throttles` | FunctionName | Count | 19 | `bb5593d639f512f2c5b33665cc5eb00f917a3193ea89da6053be748c479943e0` |
+| U9 | `UnreservedConcurrentExecutions` | none | Count | 19 | `646e244ff45d12870947496d6d0ea54f77ca7fd52938b37dd9895ac061189a9e` |
+| U10 | `UserQueriesSucceeded` | ClusterIdentifier, QueryType | Count | 18 | `806fc2ab3e564705804d4847031fd69157e18ed7cc4c1e38afb6da1fd93c2d2b` |
+| U11 | `UserQueryDuration` | ClusterIdentifier, QueryType | Microseconds | 18 | `f23bd4de869bfc21361e0cc7284950087668548834721f395dc635dd7bdd378a` |
+| U12 | `glue.driver.aggregate.jvmGCTime` | JobName, JobRunId, Type | Count | 1 | `256f1998b4b0043158069077c903dc7e30e36ce4594efefcc01cbe030bdc1ccb` |
+
+`DeletedEventCount`, `FailedInvokeEventCount`, `InvokedEventCount` and `PolledEventCount` have
+**no datapoints in the scoped historical candidates**. Their units remain PENDING, not inferred
+Count from their names; this is not evidence that those metrics never publish. U12 says Count,
+not milliseconds despite `Time` in the name; do not infer elapsed GC duration or a conversion
+from it. The documented CW-to-UCUM translations are ms/us/{Count} for the corresponding units,
+but these historical unit strings are not a native-wire capture or all-profile admission.
+
+### Official source references and consumer rules
+
+Current official AWS pages were retrieved with `curl` on 2026-10-23:
+
+- [Lambda metric types](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-metrics-types.html):
+  “Invocation metrics are binary indicators of the outcome” and “Lambda sends the Errors metric
+  with a value of 1”; `Duration` is “time in milliseconds” and `IteratorAge` is “age ... in
+  milliseconds”. The page names all 15 observed non-info metrics, but omits a formal AWS unit
+  for the count metrics and `AsyncEventAge`. U1–U9 now supply positive historical units for
+  their specific raw dimension-name cases, including Milliseconds for AsyncEventAge. Four ESM
+  units and all unobserved profile extrapolations remain PENDING; numeric scale is not captured.
+  [Viewing Lambda metrics](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-metrics-view.html)
+  names `FunctionName`, `Resource`, `EventSourceMappingUUID` and “Across All Functions (none)”.
+  Event-count metrics require explicit event-source-mapping metrics opt-in. The UUID-only
+  profiles are unattributed; do not associate them with a particular captured function.
+- [SQS metrics](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-available-cloudwatch-metrics.html):
+  “Amazon SQS metrics in CloudWatch use a single dimension: QueueName.” The table explicitly
+  gives Seconds for both observed age metrics, Bytes for `SentMessageSize`, and Count for
+  the other observed metrics. “All metrics emit non-negative values only when the queue is
+  active.” Quiet-group/noisy-group metrics require fair queues; do not infer that every
+  queue publishes them. `service` and `asserts_site` in the profiles are not SQS dimensions.
+- [DynamoDB metrics and dimensions](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/metrics-dimensions.html):
+  “Not all statistics, such as Average or Sum, are applicable for every metric. However, all
+  of these values are available”. The observed five suffixes do not override recommended
+  statistics. `ConsumedWriteCapacityUnits` documents `Source` as `Customer` or `GlobalTable`;
+  the key-only evidence does not select a value. `StreamLabel` is used with DynamoDB Streams
+  `GetRecords`, not arbitrary table operations. `SuccessfulRequestLatency` is Milliseconds
+  and “doesn't consider network latency or client-side activity”. Account metrics are
+  account/region aggregates, not table-tagged series. Consumed-capacity sample counts can
+  exist at zero traffic; do not apply the earlier idle-absence generalization to these rows.
+- [Redshift metrics](https://docs.aws.amazon.com/redshift/latest/mgmt/metrics-listing.html):
+  `QueryRuntimeBreakdown` has “Units: Milliseconds”; `ReadLatency`/`WriteLatency` have
+  “Units: Seconds”. `ReadThroughput`/`WriteThroughput` say “Units: Bytes” despite their
+  rate descriptions: retain that documented unit, do not silently substitute Bytes/Second.
+  The five original source gaps are not established by this page; the safe API listing confirms
+  `UserQueriesSucceeded`/`UserQueryDuration` spellings but supplies no units. Historical U10/U11
+  independently supply Count/Microseconds for ClusterIdentifier+QueryType only. In particular
+  `RedshiftManagedStorageTotalCapacity` is not evidence for the differently named observed
+  `managed_storage_total_capacity`. Some observed NodeID profiles exceed this page's
+  documented dimension forms; the safe API listing independently confirms those raw NodeID
+  forms. Mimir observation alone would not establish their AWS spelling.
+- [CloudWatch Logs metrics](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch-Logs-Monitoring-CloudWatch-Metrics.html):
+  `IncomingBytes` is “uncompressed bytes”; `ForwardedBytes` is “compressed bytes”. The
+  event/error/count rows below explicitly say “Units: None”, **not Count**. The two
+  `*_by_data_source` source-name/unit pairs remain PENDING in this retrieved reference.
+- [Glue profiler metrics](https://docs.aws.amazon.com/glue/latest/dg/monitoring-awsglue-with-cloudwatch-metrics.html)
+  explicitly names the `Glue` namespace, dotted source names and units below; “AWS Glue reports
+  metrics to CloudWatch every 30 seconds”. Existing exact native aliases are retained.
+  Its heap-usage/CPU wording describes “fraction ... (scale: 0-1)” but gives “Unit: Percentage”;
+  this capture has no values to resolve the scale. Do not rescale values from the series keys.
+- [Glue observability metrics](https://docs.aws.amazon.com/glue/latest/dg/monitor-observability.html)
+  names `glue.succeed.ALL`: “Total number of successful job runs”, `Unit: Count`, dimensions
+  JobName/JobRunId/Type/ObservabilityGroup. This is positive outcome-metric evidence, not a
+  general EventBridge/API-only verdict. Literal/enumerated names below follow this page.
+  The page spells `glue.driver.bytesWrittten` (three t's) and
+  `glue.driver.disk.used.percentage]` (trailing bracket). The additional safe API listing supplies
+  the actual spellings independently, resolving these two name discrepancies; the corresponding
+  documented rows give Bytes and Percentage respectively. The profiler's `executorId` template
+  supplies units for the API-confirmed executor `1` names. `glue.driver.aggregate.jvmGCTime`
+  is API-confirmed; historical U12 supplies Count for JobName+JobRunId+Type only, with no
+  elapsed-time interpretation. “Percentage” is retained verbatim.
+- [CloudWatch OTLP translation](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-metric-streams-formats-opentelemetry-translation-100.html):
+  “The Summary datapoint enables CloudWatch to export all of these statistics using one
+  datapoint.” Count maps to `{Count}`, Milliseconds to `ms`, Bytes to `By`, None to `1`.
+  This is a documented native contract, not native-wire evidence from these series queries.
+  Existing Glue aliases map Percentage to `%`; the current translation table lists Percent,
+  not Percentage. New Percentage aliases need a source decision before native admission.
+
+**Frozen first-consumer seam:** Lambda, SQS and DynamoDB consumers pass the literal bases below
+and independently built per-metric `cw.StatSet` values to `cw.EmitStats`; never use cumulative
+`Add`, invent stat relationships from names, or merge dimension profiles. All five outputs
+are per-period gauges; `_sample_count` is a count, not a duration/byte/percent value. Native
+OTLP additionally needs the exact raw name, unit translation and allowed AWS dimensions;
+PENDING cells authorize no native alias. `_info` is a separate metadata gauge, not input to
+`cw.EmitStats`. No captured metadata value or inferred ownership may become fixture identity.
+These observations contain **no collector or Loki wire** evidence: raw AWS log-event samples
+establish neither Loki stream labels, collector profiles, nor output body shape.
+
+### Exact observed label-key profiles
+
+| Profile | Additional label keys (besides common keys) |
+|---|---|
+| P0 | none |
+| P1 | `asserts_site`, `dimension_QueueName`, `service`, `tag_Capture`, `tag_ManagedBy`, `tag_Root` |
+| P2 | `asserts_site`, `dimension_QueueName`, `service`, `tag_Environment`, `tag_Owner`, `tag_Purpose`, `tag_Terraform` |
+| P3 | `asserts_site`, `dimension_QueueName`, `service`, `tag_Name`, `tag_alpha_eksctl_io_cluster_name`, `tag_alpha_eksctl_io_eksctl_version`, `tag_alpha_eksctl_io_karpenter_name`, `tag_alpha_eksctl_io_karpenter_version`, `tag_eksctl_cluster_k8s_io_v1alpha1_cluster_name`, `tag_karpenter_sh_discovery` |
+| P4 | `asserts_site`, `scrape_job`, `tag_Capture`, `tag_ManagedBy`, `tag_Root` |
+| P5 | `asserts_site`, `scrape_job`, `tag_Environment`, `tag_Owner`, `tag_Purpose`, `tag_Terraform` |
+| P6 | `asserts_site`, `scrape_job`, `tag_Name`, `tag_alpha_eksctl_io_cluster_name`, `tag_alpha_eksctl_io_eksctl_version`, `tag_alpha_eksctl_io_karpenter_name`, `tag_alpha_eksctl_io_karpenter_version`, `tag_eksctl_cluster_k8s_io_v1alpha1_cluster_name`, `tag_karpenter_sh_discovery` |
+| P7 | `dimension_Class`, `dimension_Resource`, `dimension_Service`, `dimension_Type` |
+| P8 | `dimension_ClusterIdentifier`, `dimension_NodeID`, `dimension_QueueName`, `tag_Capture`, `tag_ManagedBy`, `tag_Root` |
+| P9 | `dimension_ClusterIdentifier`, `dimension_NodeID`, `dimension_service_class`, `tag_Capture`, `tag_ManagedBy`, `tag_Root` |
+| P10 | `dimension_ClusterIdentifier`, `dimension_NodeID`, `dimension_stage`, `tag_Capture`, `tag_ManagedBy`, `tag_Root` |
+| P11 | `dimension_ClusterIdentifier`, `dimension_NodeID`, `tag_Capture`, `tag_ManagedBy`, `tag_Root` |
+| P12 | `dimension_ClusterIdentifier`, `dimension_QueryPriority`, `tag_Capture`, `tag_ManagedBy`, `tag_Root` |
+| P13 | `dimension_ClusterIdentifier`, `dimension_QueryType`, `tag_Capture`, `tag_ManagedBy`, `tag_Root` |
+| P14 | `dimension_ClusterIdentifier`, `dimension_QueueName`, `tag_Capture`, `tag_ManagedBy`, `tag_Root` |
+| P15 | `dimension_ClusterIdentifier`, `dimension_service_class`, `tag_Capture`, `tag_ManagedBy`, `tag_Root` |
+| P16 | `dimension_ClusterIdentifier`, `dimension_stage`, `tag_Capture`, `tag_ManagedBy`, `tag_Root` |
+| P17 | `dimension_ClusterIdentifier`, `dimension_wlmid`, `tag_Capture`, `tag_ManagedBy`, `tag_Root` |
+| P18 | `dimension_ClusterIdentifier`, `tag_Capture`, `tag_ManagedBy`, `tag_Root` |
+| P19 | `dimension_DataSourceName` |
+| P20 | `dimension_DataSourceName`, `dimension_DataSourceType` |
+| P21 | `dimension_DestinationType`, `dimension_FilterName`, `dimension_LogGroupName` |
+| P22 | `dimension_DestinationType`, `dimension_FilterName`, `dimension_LogGroupName`, `tag_Application`, `tag_Environment`, `tag_ManagedBy`, `tag_Repository`, `tag_Root` |
+| P23 | `dimension_DestinationType`, `dimension_FilterName`, `dimension_LogGroupName`, `tag_Application`, `tag_ManagedBy`, `tag_Name`, `tag_Repository`, `tag_Root` |
+| P24 | `dimension_DestinationType`, `dimension_FilterName`, `dimension_LogGroupName`, `tag_Capture`, `tag_ManagedBy`, `tag_Root` |
+| P25 | `dimension_DestinationType`, `dimension_FilterName`, `dimension_LogGroupName`, `tag_Environment`, `tag_Namespace`, `tag_Owner`, `tag_Purpose`, `tag_Terraform` |
+| P26 | `dimension_EventSourceMappingUUID` |
+| P27 | `dimension_FunctionName` |
+| P28 | `dimension_FunctionName`, `dimension_Resource` |
+| P29 | `dimension_FunctionName`, `dimension_Resource`, `tag_Capture`, `tag_ManagedBy`, `tag_Root` |
+| P30 | `dimension_FunctionName`, `tag_Capture`, `tag_ManagedBy`, `tag_Root` |
+| P31 | `dimension_InstanceType` |
+| P32 | `dimension_JobName`, `dimension_JobRunId`, `dimension_ObservabilityGroup`, `dimension_Sink`, `dimension_Type` |
+| P33 | `dimension_JobName`, `dimension_JobRunId`, `dimension_ObservabilityGroup`, `dimension_Source`, `dimension_Type` |
+| P34 | `dimension_JobName`, `dimension_JobRunId`, `dimension_ObservabilityGroup`, `dimension_Type` |
+| P35 | `dimension_JobName`, `dimension_JobRunId`, `dimension_Type` |
+| P36 | `dimension_LogGroupName` |
+| P37 | `dimension_LogGroupName`, `tag_Application`, `tag_Environment`, `tag_ManagedBy`, `tag_Repository`, `tag_Root` |
+| P38 | `dimension_LogGroupName`, `tag_Application`, `tag_ManagedBy`, `tag_Name`, `tag_Repository`, `tag_Root` |
+| P39 | `dimension_LogGroupName`, `tag_Application`, `tag_Purpose` |
+| P40 | `dimension_LogGroupName`, `tag_Capture`, `tag_ManagedBy`, `tag_Root` |
+| P41 | `dimension_LogGroupName`, `tag_Environment`, `tag_Name`, `tag_Owner`, `tag_Purpose`, `tag_Terraform` |
+| P42 | `dimension_LogGroupName`, `tag_Environment`, `tag_Namespace`, `tag_Owner`, `tag_Purpose`, `tag_Terraform` |
+| P43 | `dimension_Operation`, `dimension_StreamLabel`, `dimension_TableName`, `tag_Capture`, `tag_ManagedBy`, `tag_Root` |
+| P44 | `dimension_Operation`, `dimension_TableName`, `tag_Capture`, `tag_ManagedBy`, `tag_Root` |
+| P45 | `dimension_QueryType` |
+| P46 | `dimension_Source`, `dimension_TableName`, `tag_Capture`, `tag_ManagedBy`, `tag_Root` |
+| P47 | `dimension_TableName`, `tag_Capture`, `tag_ManagedBy`, `tag_Root` |
+| P48 | `scrape_job`, `tag_Application`, `tag_Environment`, `tag_ManagedBy`, `tag_Repository`, `tag_Root` |
+| P49 | `scrape_job`, `tag_Application`, `tag_ManagedBy`, `tag_Name`, `tag_Repository`, `tag_Root` |
+| P50 | `scrape_job`, `tag_Application`, `tag_ManagedBy`, `tag_Repository`, `tag_Root` |
+| P51 | `scrape_job`, `tag_Application`, `tag_Purpose` |
+| P52 | `scrape_job`, `tag_Capture`, `tag_ManagedBy`, `tag_Root` |
+| P53 | `scrape_job`, `tag_Environment`, `tag_Name`, `tag_Owner`, `tag_Purpose`, `tag_Terraform` |
+| P54 | `scrape_job`, `tag_Environment`, `tag_Namespace`, `tag_Owner`, `tag_Purpose`, `tag_Terraform` |
+| P55 | `scrape_job`, `tag_aws_cloudformation_logical_id`, `tag_aws_cloudformation_stack_id`, `tag_aws_cloudformation_stack_name`, `tag_dt_CreatedBy`, `tag_dt_EnvironmentID` |
+
+### AWS/Lambda positive series-key observations [slug: cw-lambda]
+
+| Observed Prometheus base | Raw AWS name | AWS unit | Exact profiles |
+|---|---|---|---|
+| `aws_lambda_async_event_age` | `AsyncEventAge` | Milliseconds (U1 only) | P0, P27, P28, P29, P30 |
+| `aws_lambda_async_events_dropped` | `AsyncEventsDropped` | Count (U2 only) | P0, P27, P28, P29, P30 |
+| `aws_lambda_async_events_received` | `AsyncEventsReceived` | Count (U3 only) | P0, P27, P28, P29, P30 |
+| `aws_lambda_claimed_account_concurrency` | `ClaimedAccountConcurrency` | Count (U4 only) | P0 |
+| `aws_lambda_concurrent_executions` | `ConcurrentExecutions` | Count (U5 only) | P0, P27, P28, P29, P30 |
+| `aws_lambda_deleted_event_count` | `DeletedEventCount` | PENDING | P26 |
+| `aws_lambda_duration` | `Duration` | Milliseconds | P0, P27, P28, P29, P30 |
+| `aws_lambda_errors` | `Errors` | Count (U6 only) | P0, P27, P28, P29, P30 |
+| `aws_lambda_failed_invoke_event_count` | `FailedInvokeEventCount` | PENDING | P26 |
+| `aws_lambda_info` | collector metadata | not a CW unit | P52, P55 |
+| `aws_lambda_invocations` | `Invocations` | Count (U7 only) | P0, P27, P28, P29, P30 |
+| `aws_lambda_invoked_event_count` | `InvokedEventCount` | PENDING | P26 |
+| `aws_lambda_iterator_age` | `IteratorAge` | Milliseconds | P26, P27, P28, P29, P30 |
+| `aws_lambda_polled_event_count` | `PolledEventCount` | PENDING | P26 |
+| `aws_lambda_throttles` | `Throttles` | Count (U8 only) | P0, P27, P28, P29, P30 |
+| `aws_lambda_unreserved_concurrent_executions` | `UnreservedConcurrentExecutions` | Count (U9 only) | P0 |
+
+### AWS/SQS positive series-key observations [slug: cw-sqs]
+
+| Observed Prometheus base | Raw AWS name | AWS unit | Exact profiles |
+|---|---|---|---|
+| `aws_sqs_approximate_age_of_oldest_message` | `ApproximateAgeOfOldestMessage` | Seconds | P1, P2, P3 |
+| `aws_sqs_approximate_age_of_oldest_message_in_quiet_groups` | `ApproximateAgeOfOldestMessageInQuietGroups` | Seconds | P1, P2, P3 |
+| `aws_sqs_approximate_number_of_messages_delayed` | `ApproximateNumberOfMessagesDelayed` | Count | P1, P2, P3 |
+| `aws_sqs_approximate_number_of_messages_delayed_in_quiet_groups` | `ApproximateNumberOfMessagesDelayedInQuietGroups` | Count | P1, P2, P3 |
+| `aws_sqs_approximate_number_of_messages_not_visible` | `ApproximateNumberOfMessagesNotVisible` | Count | P1, P2, P3 |
+| `aws_sqs_approximate_number_of_messages_not_visible_in_quiet_groups` | `ApproximateNumberOfMessagesNotVisibleInQuietGroups` | Count | P1, P2, P3 |
+| `aws_sqs_approximate_number_of_messages_visible` | `ApproximateNumberOfMessagesVisible` | Count | P1, P2, P3 |
+| `aws_sqs_approximate_number_of_messages_visible_in_quiet_groups` | `ApproximateNumberOfMessagesVisibleInQuietGroups` | Count | P1, P2, P3 |
+| `aws_sqs_approximate_number_of_noisy_groups` | `ApproximateNumberOfNoisyGroups` | Count | P1, P2, P3 |
+| `aws_sqs_info` | collector metadata | not a CW unit | P4, P5, P6 |
+| `aws_sqs_number_of_empty_receives` | `NumberOfEmptyReceives` | Count | P1, P2, P3 |
+| `aws_sqs_number_of_messages_deleted` | `NumberOfMessagesDeleted` | Count | P1, P2, P3 |
+| `aws_sqs_number_of_messages_received` | `NumberOfMessagesReceived` | Count | P1, P2, P3 |
+| `aws_sqs_number_of_messages_sent` | `NumberOfMessagesSent` | Count | P1, P2, P3 |
+| `aws_sqs_sent_message_size` | `SentMessageSize` | Bytes | P1, P2, P3 |
+
+### AWS/DynamoDB positive series-key observations [slug: cw-dynamodb]
+
+| Observed Prometheus base | Raw AWS name | AWS unit | Exact profiles |
+|---|---|---|---|
+| `aws_dynamodb_account_max_reads` | `AccountMaxReads` | Count | P0 |
+| `aws_dynamodb_account_max_table_level_reads` | `AccountMaxTableLevelReads` | Count | P0 |
+| `aws_dynamodb_account_max_table_level_writes` | `AccountMaxTableLevelWrites` | Count | P0 |
+| `aws_dynamodb_account_max_writes` | `AccountMaxWrites` | Count | P0 |
+| `aws_dynamodb_account_provisioned_read_capacity_utilization` | `AccountProvisionedReadCapacityUtilization` | Percent | P0 |
+| `aws_dynamodb_account_provisioned_write_capacity_utilization` | `AccountProvisionedWriteCapacityUtilization` | Percent | P0 |
+| `aws_dynamodb_conditional_check_failed_requests` | `ConditionalCheckFailedRequests` | Count | P47 |
+| `aws_dynamodb_consumed_read_capacity_units` | `ConsumedReadCapacityUnits` | Count | P47 |
+| `aws_dynamodb_consumed_write_capacity_units` | `ConsumedWriteCapacityUnits` | Count | P46, P47 |
+| `aws_dynamodb_info` | collector metadata | not a CW unit | P52 |
+| `aws_dynamodb_max_provisioned_table_read_capacity_utilization` | `MaxProvisionedTableReadCapacityUtilization` | Percent | P0 |
+| `aws_dynamodb_max_provisioned_table_write_capacity_utilization` | `MaxProvisionedTableWriteCapacityUtilization` | Percent | P0 |
+| `aws_dynamodb_read_throttle_events` | `ReadThrottleEvents` | Count | T1 |
+| `aws_dynamodb_returned_bytes` | `ReturnedBytes` | Bytes | P43 |
+| `aws_dynamodb_returned_item_count` | `ReturnedItemCount` | Count | P44 |
+| `aws_dynamodb_returned_records_count` | `ReturnedRecordsCount` | Count | P43 |
+| `aws_dynamodb_successful_request_latency` | `SuccessfulRequestLatency` | Milliseconds | P43, P44 |
+| `aws_dynamodb_throttled_requests` | `ThrottledRequests` | Count | T1 |
+| `aws_dynamodb_write_throttle_events` | `WriteThrottleEvents` | Count | T1 |
+
+### Lambda and DynamoDB throttle capture [slug: cw-throttle-capture]
+
+**Provenance.** Live CloudWatch capture in a lab AWS account, region eu-west-1, 2026-10-24
+(`get-metric-data` window 16:26:21Z to 16:49:56Z, period 60 s, statistics Sum, Average, Maximum,
+Minimum and SampleCount, raw output retained by the maintainer outside the repository). Method: a
+128 MB Python Lambda function with reserved concurrency 1 and no retries, driven with 300 synchronous
+invocations at 8 in flight (so most were rejected for lack of concurrency; one invocation raised on
+purpose) plus a one-per-minute schedule, writing and consistently reading a 1 KB item per
+operation against a **provisioned 1 RCU / 1 WCU** table (on-demand tables only throttle far past
+what a short burst reaches). Identifiers are deliberately omitted; the profile labels below are
+`T1`, this capture, and are not part of the historical P-numbering. The units (Count) are from the
+[DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/metrics-dimensions.html)
+and [Lambda](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-metrics-types.html) pages,
+retrieved 2026-10-24; `get-metric-data` returns none.
+
+**Lambda (FunctionName, and also FunctionName+Resource with Resource equal to the function name).**
+Over 13 one-minute points: `Invocations` Sum 46, SampleCount 46, Minimum = Maximum = 1;
+`Throttles` Sum 268, SampleCount 314, Minimum 0, Maximum 1; `Errors` Sum 1, SampleCount 314,
+Minimum 0, Maximum 1. In **every** minute `Throttles` and `Errors` SampleCount equalled
+`Invocations` plus throttled requests (1 + 7 = 8, 20 + 149 = 169, 15 + 112 = 127), so each request
+contributes one 0 or 1 sample to both, throttled requests contributing 0 to `Errors`. A minute with
+a single invocation and no throttle reported `Throttles` and `Errors` with Sum 0, SampleCount 1,
+Minimum = Maximum = 0 (AWS documents that throttled requests are not recorded as Invocations or
+Errors; the capture shows Errors zero samples for them regardless). Opt-in `zero_valued_samples`
+reproduces this: Sum = events, SampleCount = invocations + throttles, Minimum 0 unless every
+request was the event, Maximum 1 only when an event occurred; no request emits neither series.
+
+**DynamoDB (provisioned table).** `ReadThrottleEvents` and `WriteThrottleEvents` (TableName) had Sum
+77 and 556; `ThrottledRequests` (TableName+Operation) had Operation `GetItem` 77 and `PutItem` 556.
+Each was present in only the 2 of 19 minutes with throttling, with Sum = SampleCount and
+Minimum = Maximum = Average = 1: **no zero-valued samples** for unthrottled requests, unlike
+`ConsumedReadCapacityUnits`/`ConsumedWriteCapacityUnits`, whose zero samples continue. Operations
+`Query`, `Scan` and `ExecuteStatement` were not captured and are not admitted. For single-item
+requests (no batch, no secondary index) each throttled request is one `ThrottledRequests` and one
+`ReadThrottleEvents` (GetItem) or `WriteThrottleEvents` (PutItem) event; batch and index-fan-out
+divergence documented by AWS is not modelled. Opt-in `throttled_requests_per_second`, or a bound
+quota's rejected volume, emits exactly
+this and consumes no capacity and no successful-request latency.
+
+```yaml signals opt-in
+family: aws_dynamodb
+scope: blueprint
+sink: promrw
+opt_in: cloud.dynamodb.tables[].operations[].throttled_requests_per_second
+source: "signals/cw.md [slug: cw-throttle-capture], profile T1 (lab capture, eu-west-1, 2026-10-24)"
+stats: [_sum, _average, _maximum, _minimum, _sample_count]
+labels: {account_id: <account>, region: <region>, namespace: AWS/DynamoDB, job: cloud/aws/dynamodb, name: <declared-collector-name>}
+dimension_profiles:
+  table: [dimension_TableName]
+  operation_table: [dimension_Operation, dimension_TableName]
+metrics:
+  - {root: read_throttle_events, type: gauge, unit: count, profiles: [table], v: ok, note: GetItem throttles only}
+  - {root: throttled_requests, type: gauge, unit: count, profiles: [operation_table], v: ok, note: Operation GetItem or PutItem only}
+  - {root: write_throttle_events, type: gauge, unit: count, profiles: [table], v: ok, note: PutItem throttles only}
+```
+
+### AWS/Redshift positive series-key observations [slug: cw-redshift]
+
+| Observed Prometheus base | Raw AWS name | AWS unit | Exact profiles |
+|---|---|---|---|
+| `aws_redshift_commit_queue_length` | `CommitQueueLength` | Count | P11, P18 |
+| `aws_redshift_concurrency_scaling_active_clusters` | `ConcurrencyScalingActiveClusters` | Count | P18 |
+| `aws_redshift_cpuutilization` | `CPUUtilization` | Percent | P11, P18 |
+| `aws_redshift_database_connections` | `DatabaseConnections` | Count | P11, P18 |
+| `aws_redshift_health_status` | `HealthStatus` | Count | P11, P18 |
+| `aws_redshift_info` | collector metadata | not a CW unit | P52 |
+| `aws_redshift_maintenance_mode` | `MaintenanceMode` | Count | P11, P18 |
+| `aws_redshift_managed_storage_billed_used_space` | PENDING | PENDING | P18, P31 |
+| `aws_redshift_managed_storage_ds_used_space` | PENDING | PENDING | P18, P31 |
+| `aws_redshift_managed_storage_total_capacity` | PENDING | PENDING | P18 |
+| `aws_redshift_max_configured_concurrency_scaling_clusters` | `MaxConfiguredConcurrencyScalingClusters` | Count | P18 |
+| `aws_redshift_network_receive_throughput` | `NetworkReceiveThroughput` | Bytes/Second | P11, P18 |
+| `aws_redshift_network_transmit_throughput` | `NetworkTransmitThroughput` | Bytes/Second | P11, P18 |
+| `aws_redshift_num_exceeded_schema_quotas` | `NumExceededSchemaQuotas` | Count | P18 |
+| `aws_redshift_percentage_disk_space_used` | `PercentageDiskSpaceUsed` | Percent | P11, P18 |
+| `aws_redshift_query_runtime_breakdown` | `QueryRuntimeBreakdown` | Milliseconds | P10, P16 |
+| `aws_redshift_read_iops` | `ReadIOPS` | Count/Second | P11, P18 |
+| `aws_redshift_read_latency` | `ReadLatency` | Seconds | P11, P18 |
+| `aws_redshift_read_throughput` | `ReadThroughput` | Bytes | P11, P18 |
+| `aws_redshift_total_table_count` | `TotalTableCount` | Count | P11, P18 |
+| `aws_redshift_user_queries_succeeded` | `UserQueriesSucceeded` | Count (U10 only) | P13, P45 |
+| `aws_redshift_user_query_duration` | `UserQueryDuration` | Microseconds (U11 only) | P13, P45 |
+| `aws_redshift_wlmqueue_length` | `WLMQueueLength` | Count | P8, P9, P14, P15 |
+| `aws_redshift_wlmqueue_wait_time` | `WLMQueueWaitTime` | Milliseconds | P12, P17 |
+| `aws_redshift_wlmrunning_queries` | `WLMRunningQueries` | Count | P14, P17 |
+| `aws_redshift_write_iops` | `WriteIOPS` | Count/Second | P11, P18 |
+| `aws_redshift_write_latency` | `WriteLatency` | Seconds | P11, P18 |
+| `aws_redshift_write_throughput` | `WriteThroughput` | Bytes | P11, P18 |
+
+### AWS/Logs positive series-key observations [slug: cw-logs]
+
+| Observed Prometheus base | Raw AWS name | AWS unit | Exact profiles |
+|---|---|---|---|
+| `aws_logs_call_count` | `CallCount` | None | P0, P7 |
+| `aws_logs_delivery_errors` | `DeliveryErrors` | None | P21, P22, P23, P24, P25 |
+| `aws_logs_delivery_throttling` | `DeliveryThrottling` | None | P21, P22, P23, P24 |
+| `aws_logs_forwarded_bytes` | `ForwardedBytes` | Bytes | P21, P22, P23, P24 |
+| `aws_logs_forwarded_log_events` | `ForwardedLogEvents` | None | P21, P22, P23, P24 |
+| `aws_logs_incoming_bytes` | `IncomingBytes` | Bytes | P0, P36, P37, P38, P39, P40, P41, P42 |
+| `aws_logs_incoming_bytes_by_data_source` | PENDING | PENDING | P19, P20 |
+| `aws_logs_incoming_log_events` | `IncomingLogEvents` | None | P0, P36, P37, P38, P39, P40, P41, P42 |
+| `aws_logs_incoming_log_events_by_data_source` | PENDING | PENDING | P19, P20 |
+| `aws_logs_info` | collector metadata | not a CW unit | P48, P49, P50, P51, P52, P53, P54, P55 |
+
+### Glue positive series-key observations [slug: cw-glue-captured]
+
+| Observed Prometheus base | Raw AWS name | AWS unit | Exact profiles |
+|---|---|---|---|
+| `aws_glue_1_jvm_heap_usage` | `glue.1.jvm.heap.usage` | Percentage | P35 |
+| `aws_glue_1_jvm_heap_used` | `glue.1.jvm.heap.used` | Bytes | P35 |
+| `aws_glue_1_s3_filesystem_read_bytes` | `glue.1.s3.filesystem.read_bytes` | Bytes | P35 |
+| `aws_glue_1_s3_filesystem_write_bytes` | `glue.1.s3.filesystem.write_bytes` | Bytes | P35 |
+| `aws_glue_1_system_cpu_system_load` | `glue.1.system.cpuSystemLoad` | Percentage | P35 |
+| `aws_glue_all_disk_available_gb` | `glue.ALL.disk.available_GB` | Gigabytes | P34 |
+| `aws_glue_all_disk_used_gb` | `glue.ALL.disk.used_GB` | Gigabytes | P34 |
+| `aws_glue_all_disk_used_percentage` | `glue.ALL.disk.used.percentage` | Percentage | P34 |
+| `aws_glue_all_jvm_heap_usage` | `glue.ALL.jvm.heap.usage` | Percentage | P35 |
+| `aws_glue_all_jvm_heap_used` | `glue.ALL.jvm.heap.used` | Bytes | P35 |
+| `aws_glue_all_memory_heap_available` | `glue.ALL.memory.heap.available` | Bytes | P34 |
+| `aws_glue_all_memory_heap_used` | `glue.ALL.memory.heap.used` | Bytes | P34 |
+| `aws_glue_all_memory_heap_used_percentage` | `glue.ALL.memory.heap.used.percentage` | Percentage | P34 |
+| `aws_glue_all_memory_non_heap_used` | `glue.ALL.memory.non-heap.used` | Bytes | P34 |
+| `aws_glue_all_memory_non_heap_used_percentage` | `glue.ALL.memory.non-heap.used.percentage` | Percentage | P34 |
+| `aws_glue_all_memory_total_used` | `glue.ALL.memory.total.used` | Bytes | P34 |
+| `aws_glue_all_memory_total_used_percentage` | `glue.ALL.memory.total.used.percentage` | Percentage | P34 |
+| `aws_glue_all_s3_filesystem_read_bytes` | `glue.ALL.s3.filesystem.read_bytes` | Bytes | P35 |
+| `aws_glue_all_s3_filesystem_write_bytes` | `glue.ALL.s3.filesystem.write_bytes` | Bytes | P35 |
+| `aws_glue_all_system_cpu_system_load` | `glue.ALL.system.cpuSystemLoad` | Percentage | P35 |
+| `aws_glue_driver_aggregate_bytes_read` | `glue.driver.aggregate.bytesRead` | Bytes | P35 |
+| `aws_glue_driver_aggregate_elapsed_time` | `glue.driver.aggregate.elapsedTime` | Milliseconds | P35 |
+| `aws_glue_driver_aggregate_jvm_gctime` | `glue.driver.aggregate.jvmGCTime` | Count (U12 only) | P35 |
+| `aws_glue_driver_aggregate_num_completed_stages` | `glue.driver.aggregate.numCompletedStages` | Count | P35 |
+| `aws_glue_driver_aggregate_num_completed_tasks` | `glue.driver.aggregate.numCompletedTasks` | Count | P35 |
+| `aws_glue_driver_aggregate_num_failed_tasks` | `glue.driver.aggregate.numFailedTasks` | Count | P35 |
+| `aws_glue_driver_aggregate_num_killed_tasks` | `glue.driver.aggregate.numKilledTasks` | Count | P35 |
+| `aws_glue_driver_aggregate_records_read` | `glue.driver.aggregate.recordsRead` | Count | P35 |
+| `aws_glue_driver_aggregate_shuffle_bytes_written` | `glue.driver.aggregate.shuffleBytesWritten` | Bytes | P35 |
+| `aws_glue_driver_aggregate_shuffle_local_bytes_read` | `glue.driver.aggregate.shuffleLocalBytesRead` | Bytes | P35 |
+| `aws_glue_driver_block_manager_disk_disk_space_used_mb` | `glue.driver.BlockManager.disk.diskSpaceUsed_MB` | Megabytes | P35 |
+| `aws_glue_driver_bytes_read` | `glue.driver.bytesRead` | Bytes | P33 |
+| `aws_glue_driver_bytes_written` | `glue.driver.bytesWritten` | Bytes | P32 |
+| `aws_glue_driver_disk_available_gb` | `glue.driver.disk.available_GB` | Gigabytes | P34 |
+| `aws_glue_driver_disk_used_gb` | `glue.driver.disk.used_GB` | Gigabytes | P34 |
+| `aws_glue_driver_disk_used_percentage` | `glue.driver.disk.used.percentage` | Percentage | P34 |
+| `aws_glue_driver_files_read` | `glue.driver.filesRead` | Count | P33 |
+| `aws_glue_driver_files_written` | `glue.driver.filesWritten` | Count | P32 |
+| `aws_glue_driver_jvm_heap_usage` | `glue.driver.jvm.heap.usage` | Percentage | P35 |
+| `aws_glue_driver_jvm_heap_used` | `glue.driver.jvm.heap.used` | Bytes | P35 |
+| `aws_glue_driver_memory_heap_available` | `glue.driver.memory.heap.available` | Bytes | P34 |
+| `aws_glue_driver_memory_heap_used` | `glue.driver.memory.heap.used` | Bytes | P34 |
+| `aws_glue_driver_memory_heap_used_percentage` | `glue.driver.memory.heap.used.percentage` | Percentage | P34 |
+| `aws_glue_driver_memory_non_heap_used` | `glue.driver.memory.non-heap.used` | Bytes | P34 |
+| `aws_glue_driver_memory_non_heap_used_percentage` | `glue.driver.memory.non-heap.used.percentage` | Percentage | P34 |
+| `aws_glue_driver_memory_total_used` | `glue.driver.memory.total.used` | Bytes | P34 |
+| `aws_glue_driver_memory_total_used_percentage` | `glue.driver.memory.total.used.percentage` | Percentage | P34 |
+| `aws_glue_driver_records_read` | `glue.driver.recordsRead` | Count | P33 |
+| `aws_glue_driver_records_written` | `glue.driver.recordsWritten` | Count | P32 |
+| `aws_glue_driver_s3_filesystem_read_bytes` | `glue.driver.s3.filesystem.read_bytes` | Bytes | P35 |
+| `aws_glue_driver_s3_filesystem_write_bytes` | `glue.driver.s3.filesystem.write_bytes` | Bytes | P35 |
+| `aws_glue_driver_skewness_job` | `glue.driver.skewness.job` | Count | P34 |
+| `aws_glue_driver_skewness_stage` | `glue.driver.skewness.stage` | Count | P34 |
+| `aws_glue_driver_system_cpu_system_load` | `glue.driver.system.cpuSystemLoad` | Percentage | P35 |
+| `aws_glue_driver_worker_utilization` | `glue.driver.workerUtilization` | Percentage | P34 |
+| `aws_glue_succeed_all` | `glue.succeed.ALL` | Count | P34 |
 
 ## ALB — `aws_applicationelb_*` ✅ [slug: cw-alb]
 *Provenance: predecessor SIGNALS §2.9 + `research/aws-metric-streams.md` ALB (25 base names, lab-verified) + `emit/aws.go` + live EKS readback `reality-corpus/cw/eks-live-readback.json` (captured 2026-08-27; coverage roots emitted 2026-09-02).*
@@ -519,6 +1378,11 @@ info_series: aws_firehose_info
 
 **Aurora MySQL (`engine=aurora-mysql`; writer/reader/serverless-v2) — 📋 not modelled, largest family (~105):** full DML set `{commit,ddl,dml,delete,insert,select,update}_latency` + `*_throughput` (⚠ **milliseconds**), `queries, active_transactions, num_active_transactions, blocked_transactions, deadlocks, aborted_clients, connection_attempts, login_failures, row_lock_time, rollback_segment_history_list_length, num_undo_row_operations`; write-forwarding `forwarding_writer_{dmllatency,dmlthroughput,open_sessions}`, `forwarding_replica_{dmllatency,dmlthroughput,open_sessions,read_wait_latency,read_wait_throughput,select_latency,select_throughput}`; parallel-query `aurora_pq_request_*` (~30 variants incl. `_attempted/_executed/_failed/_in_progress/_throttled/_chosen_pk_range_scan` and ~24 `_not_chosen_*` reasons); Aurora memory/OOM `aurora_memory_{health_state,num_declined_sql_total,num_kill_conn_total,num_kill_query_total}, aurora_num_oom_recovery_{successful,triggered}, aurora_milliseconds_spent_in_oom_recovery, aurora_slow_connection_handle_count, aurora_slow_handshake_count`; binlog `num_binary_log_files, sum_binary_log_size, aurora_binlog_replica_lag`; storage/volume `aurora_volume_bytes_left_total, volume_bytes_used, volume_read_iops, volume_write_iops`; lifecycle `purge_boundary, purge_finished_point, truncate_finished_point, transaction_age_maximum, aurora_dmlrejected_writer_full`.
 
+A database bound to a declared causal `dependency` or `pool` resource (`databases[].resource`) scales
+`read_latency` and `write_latency` by the resource's latency factor (mean over the 5 s model steps of
+the 60 s window) and, when bound to a pool, takes `database_connections` from the pool's mean in-use
+connections; it emits no new family or label, and every other family is unchanged.
+
 Instance class is a blueprint `instance_class` knob (default `db.t3.medium`; SK-4 â declared attribute on `fixture.DB`, no class-derived series). (Raw per-engine/role capture taken 2026-06-14; full inventory not retained in-repo — signals/cw.md is now the contract of record.)
 
 ```yaml signals
@@ -657,6 +1521,36 @@ note: "✅-emitted 24-set above is a subset of the ~55 live-captured Redis/Valke
 - `AWS/MWAA` → prefix `aws_mwaa_*`: infra (Aurora-metadata-DB + worker/scheduler host metrics). `active_connection_count, approximate_age_of_oldest_task, queued_tasks, running_tasks` (env-level); `cpuutilization, memory_utilization` (`dimension_Cluster` ∈ {`AdditionalWorker`,`BaseWorker`,`Scheduler`,`WebServer`}); `database_connections, disk_queue_depth, freeable_memory, read_iops, write_iops, read_latency, write_latency, read_throughput, write_throughput, network_receive_throughput, network_transmit_throughput` (`dimension_DatabaseRole` ∈ {`READER`,`WRITER`}). All carry `dimension_Environment`.
 - `AmazonMWAA` → prefix `aws_amazonmwaa_*`: Airflow StatsD operational metrics. `scheduler_heartbeat, scheduler_loop_duration, dag_bag_size, total_parse_time, dagfile_processing_last_{duration,num_of_db_queries,run_seconds_ago}, file_path_queue_{size,update_count}, import_errors, processes, queued_tasks, running_tasks, tasks_executable, tasks_starving, orphaned, orphaned_tasks_{adopted,cleared}, open_slots, job_end, triggers_running, triggerer_heartbeat, celery_worker_heartbeat, critical_section_{busy,duration,query_duration}, pool_{open,running,queued,scheduled,deferred}_slots`.
 
+**Declared-pipeline outcomes (vendor-doc sourced, not live-captured).** Current
+[AWS MWAA Airflow metrics](https://docs.aws.amazon.com/mwaa/latest/userguide/access-metrics-cw.html#available-metrics-cw)
+retrieved through Firecrawl on 2026-10-23 confirm namespace `AmazonMWAA` and:
+
+| Raw CloudWatch name | Canonical synthkit base | Unit | Dimensions (besides Environment) |
+|---|---|---|---|
+| `DAGDurationSuccess` | `aws_amazonmwaa_dagduration_success` | Milliseconds | `DAG=<pipeline-name>` |
+| `DAGDurationFailed` | `aws_amazonmwaa_dagduration_failed` | Milliseconds | `DAG=<pipeline-name>` |
+| `TaskInstanceFailures` | `aws_amazonmwaa_task_instance_failures` | Count | `DAG=All`, `Task=All` |
+
+The bases follow the naming law above (`[slug: cw-naming]`):
+consecutive capitals in `DAGDuration` stay joined (`dagduration`, **not** `dag_duration`).
+This mapping is derived from the established naming law, not a new captured inventory.
+The AWS timer rows name Airflow `dagrun.duration.success.{dag_id}` and
+`dagrun.duration.failed.{dag_id}`; the counter row names `ti_failures` with literal `All`
+dimensions, not task identity. No Function, State, Job, Operator or Task dimension is
+added to the DAG timers. Environment comes from the documented environment grouping.
+
+Only environments with declared pipelines emit these additive families. Actual shared
+run-window terminal observations drive trigger-to-terminal timers (including waiting),
+not nominal stage durations. Sum/min/max and mean are converted from seconds to ms;
+sample count is the matching terminal count. Failed stage executions across the declared
+pipelines in an environment supply Count=1 observations to `TaskInstanceFailures`:
+sum and sample count equal failures; average/minimum/maximum equal 1. These are synthetic
+observation mechanics, not a claim about a particular deployed StatsD aggregation cadence.
+No completion/failure means no corresponding observation: all five suffixes are absent,
+including after a prior nonempty window. No cumulative or stale values and no fabricated
+zero-duration samples. Both remote-write and native OTLP preserve this contract. Legacy
+families and environments without declared pipelines remain unchanged.
+
 ⚠ `_p90/_p95/_p99` suffixes seen on `aws_mwaa_*` series are OPERATOR-ADDED metric-stream statistics — NOT default (default is the five-stat set); do not bake percentiles into a synthkit MWAA family.
 
 ```yaml signals
@@ -710,8 +1604,13 @@ labels:
   dimension_DAG_Filename: <dag-filename>
   dimension_Job: <job-name>
   dimension_HostName: <hostname>
+  dimension_DAG: <pipeline-name>|All
+  dimension_Task: All
   tag_*: <resource-tags>
 metrics:
+  - {root: dagduration_success, type: gauge, unit: milliseconds, v: ok}
+  - {root: dagduration_failed, type: gauge, unit: milliseconds, v: ok}
+  - {root: task_instance_failures, type: gauge, unit: count, v: ok}
   - {root: scheduler_heartbeat, type: gauge, unit: count, v: ok}
   - {root: scheduler_loop_duration, type: gauge, unit: seconds, v: ok}
   - {root: dag_bag_size, type: gauge, unit: count, v: ok}
@@ -754,6 +1653,13 @@ info_series: aws_amazonmwaa_info
 Namespace `AWS/DocDB`. Dimensions: `dimension_DBClusterIdentifier`, `dimension_Role` ∈ {`WRITER`,`READER`}, `dimension_DBInstanceIdentifier`.
 
 ⚠ `ReadLatency`/`WriteLatency` units documented ambiguously; treat as seconds (same as RDS). `_sum` never `rate()`.
+
+A cluster bound to a declared causal `dependency` or `pool` resource (`databases[].resource`) scales
+`aws_docdb_read_latency` and `aws_docdb_write_latency` by the resource's latency factor (mean over the
+5 s model steps of the 60 s window). When bound to a pool, `aws_docdb_database_connections` takes the
+pool's mean in-use connections on the `WRITER` row only; the `READER` row keeps its baseline, so summing
+the roles counts the pool's connections once (the construct declares no role weights to split them by).
+It emits no new family or label, and every other family is unchanged.
 
 ```yaml signals
 family: aws_docdb
@@ -883,9 +1789,15 @@ info_series: aws_aoss_info
 ---
 
 ## Glue — `aws_glue_*` ✅ [slug: cw-glue]
-*Provenance: predecessor SIGNALS.md §2.9 + `research/aws-infra-cloudwatch.md` §11 (Glue). Brought in from predecessor research dossier; no synthkit live capture yet — see cantfind SK-34. All metrics marked `v: assumed`. ⚠ Namespace is literally `"Glue"` (no `AWS/` prefix); Prometheus prefix is still `aws_glue_`.*
+*Provenance: predecessor SIGNALS.md §2.9 + `research/aws-infra-cloudwatch.md` §11 (Glue), supplemented by retained positive series-key observations on 2026-10-23 (`[slug: cw-glue-captured]`). All 20 emitted legacy bases below have observed five-stat names and exact JobName/JobRunId/Type keys. Their existing `v: assumed` annotations do not certify numeric behavior or live parity of the construct. SK-34 (Glue source-name and shape verification) is partially resolved, not closed. ⚠ Namespace is literally `"Glue"` (no `AWS/` prefix); Prometheus prefix is still `aws_glue_`.*
 
-⚠ No CloudWatch metric for job SUCCEEDED/FAILED (outcome is EventBridge/API only). `aggregate.*` metrics are delta values; `jvm.*`/`system.*`/executor counts are absolute.
+The legacy model below emits no terminal-outcome family. The broader claim that Glue has no
+CloudWatch outcome metric is false: current observability docs and the retained positive
+`aws_glue_succeed_all` family establish `glue.succeed.ALL`. Failure/error-family absence is not
+established by the truncated catalogue. `aggregate.*` profiler metrics are delta values;
+JVM heap/CPU metrics are absolute, while S3 filesystem read/write metrics are deltas despite
+`Type=gauge`, per current AWS docs. This is distinct from the shared per-period Prometheus
+GAUGE instrument rule; no renderer behavior is changed here.
 
 ```yaml signals
 family: aws_glue
@@ -1122,7 +2034,7 @@ Provenance: AWS CloudWatch OpenTelemetry 1.0.0 format and translation documentat
 
 ### Verified mappings and current skipped inventory
 
-The lookup now contains **284** exact AWS Metric Streams pairs. The original gateway
+The lookup now contains **287** exact AWS Metric Streams pairs. The original gateway
 read-back verified `aws_ec2_cpuutilization` and `aws_rds_database_connections`; the
 remaining pairs below are verified from the current AWS metric reference and the AWS
 Metric Streams OpenTelemetry unit-translation table. Their exact namespace, metric-name,
@@ -1138,11 +2050,11 @@ UCUM unit, and construct-specific dimensions are recorded in the owning
 | `neptune` | 13 | 0 | — |
 | `elasticache` | 22 | 2 | `Number` and `Boolean` are not in the permitted OTLP translation table |
 | `aoss` | 0 | 16 | the current page supplies names/dimensions but no units |
-| `mwaa` | 39 | 9 | six AWS/MWAA and three AmazonMWAA rows remain ambiguous or undocumented |
+| `mwaa` | 42 | 9 | six AWS/MWAA and three AmazonMWAA rows remain ambiguous or undocumented |
 | `glue` | 20 | 0 | — |
 | `bedrock` | 32 | 6 | model-invocation logging rows have no unit/dimension contract |
 | `agentcore` | 0 | 12 | current runtime pages do not establish the required unit/dimension pairs |
-| **total** | **284** | **52** | **336** five-stat bases in the catalogue |
+| **total** | **287** | **52** | **339** five-stat bases in the catalogue |
 
 Every base below is emitted by its construct on the remote-write path but is withheld from
 the Metric Streams path because `Lookup` has no verified AWS metric-name and UCUM-unit pair.
@@ -1260,7 +2172,7 @@ aws_bedrock_agentcore_user_errors
 ```
 
 The `dimension_` label suffix is **not** a generic CloudWatch Dimension converter. For each
-of the 284 emitted entries, the table carries the exact AWS spellings for the construct's
+of the 287 emitted entries, the table carries the exact AWS spellings for the construct's
 documented form: for example, EC2 uses `AutoScalingGroupName` and `InstanceId`, RDS uses
 `DBInstanceIdentifier`, ElastiCache uses `CacheClusterId` and `CacheNodeId`, and the
 service-specific tables carry their documented dimension pairs. The existing Prometheus

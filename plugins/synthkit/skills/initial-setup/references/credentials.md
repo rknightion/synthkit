@@ -1,9 +1,10 @@
 # synthkit credential and environment reference
 
-This is the complete supported `.env` surface in the shipped checkout. It mirrors
-`.env.example` and `internal/config`; do not invent keys. “Secret” means use the hidden prompt
-path (`add-secret.sh` or an operator-owned terminal), never `set-env.sh`, chat, logs, or a
-blueprint. A value marked **credential** is sensitive even when it is not technically a password.
+Use the variables below for setup; the verified checkout's `.env.example` and
+`$SYNTHKIT_CHECKOUT/docs/configuration.md` own the complete environment surface. Do not invent
+keys. A secret goes directly into the private `.env` through the operator's editor or hidden
+terminal prompt, never through chat, command arguments, logs, a blueprint or `set-env.sh`.
+A value marked **credential** is sensitive even when it is not technically a password.
 
 Two data destinations must never share a token: the **customer/synthetic-data stack** receives
 the fake signals; the **staff self-observability stack** receives synthkit's own process telemetry.
@@ -12,16 +13,37 @@ the fake signals; the **staff self-observability stack** receives synthkit's own
 
 | Variable | Classification | Purpose / source |
 |---|---|---|
-| `GC_PROM_RW` | endpoint | Prometheus remote-write URL; Grafana Cloud Connections → Prometheus. |
-| `GC_PROM_USER` | identifier | Mimir instance ID / Basic-auth user. |
-| `GC_OTLP_ENDPOINT` | endpoint | OTLP gateway base ending in `/otlp`. |
-| `GC_OTLP_USER` | identifier | OTLP stack ID / Basic-auth user. |
-| `GC_LOKI` | endpoint | Loki push URL. |
-| `GC_LOKI_USER` | identifier | Loki instance ID / Basic-auth user. |
+| `GC_PROM_RW` | endpoint | HTTPS Prometheus remote-write URL ending in `/api/prom/push`; synthetic-data stack's Prometheus connection details. |
+| `GC_PROM_USER` | identifier | Positive decimal Mimir instance ID / Basic-auth user from those Prometheus details. |
+| `GC_OTLP_ENDPOINT` | endpoint | HTTPS OTLP gateway base ending in `/otlp`; synthkit appends the signal path. |
+| `GC_OTLP_USER` | identifier | Positive decimal stack ID / Basic-auth user from that stack's OpenTelemetry connection details. |
+| `GC_LOKI` | endpoint | HTTPS Loki push URL ending in `/loki/api/v1/push`; synthetic-data stack's Loki connection details. |
+| `GC_LOKI_USER` | identifier | Positive decimal Loki instance ID / Basic-auth user from those Loki details. |
 | `GC_TOKEN` | **secret** | Customer CAP token with `metrics:write`, `logs:write`, and `traces:write`. |
 
 All seven are required for a normal live synthetic sink. `DRY_RUN=true` permits offline work
 without them; do not turn it off until they are present and validated.
+
+### Obtain the seven values in the browser
+
+Open the intended Grafana Cloud stack, then its Prometheus, OpenTelemetry and Loki connection
+details. Copy each endpoint and its accompanying numeric user ID as a pair. The three IDs are
+different: Mimir instance ID, OTLP stack ID and Loki instance ID. They are digits greater than
+zero, not the organisation ID, stack slug, endpoint URL or token. A token does not supply these
+IDs; obtain them from the stack's connection details.
+
+In that stack's access-policy settings, create or select a policy with `metrics:write`,
+`logs:write` and `traces:write`, then generate its token for `GC_TOKEN`. This is the secret
+Basic-auth password; it is not one of the three numeric users. Keep all endpoint/ID pairs and the
+token bound to the same selected synthetic-data stack. Do not reuse it for process
+self-observability, Sigil or Synthetic Monitoring.
+
+Browser readback uses the operator's normal signed-in Grafana session and does not require a
+query CLI or another token. An optional API query needs the relevant read scopes and per-signal
+instance ID; a write-only ingest token and the OTLP stack ID do not establish query access.
+The browser setup and verification steps are sufficient without specialised documentation or
+Grafana query tools. If the portal layout differs, use the local
+`$SYNTHKIT_CHECKOUT/docs/credentials.md` reference before the harness's ordinary web search.
 
 ## Optional synthetic-data lanes
 

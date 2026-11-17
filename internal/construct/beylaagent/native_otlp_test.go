@@ -138,11 +138,7 @@ func readCapturedBeylaMetrics(t *testing.T) []struct {
 	unit string
 } {
 	t.Helper()
-	_, sourceFile, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller failed while locating the Beyla capture")
-	}
-	capturePath := filepath.Join(filepath.Dir(sourceFile), "..", "..", "..", "e2e", "lab", "captures", "beyla-envoygateway-otlp-588571dc6a53c4e4.md")
+	capturePath := filepath.Join("..", "..", "..", "e2e", "lab", "captures", "beyla-envoygateway-otlp-588571dc6a53c4e4.md")
 	data, err := os.ReadFile(capturePath)
 	if err != nil {
 		t.Fatalf("read Beyla capture %s: %v", capturePath, err)

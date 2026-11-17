@@ -80,10 +80,15 @@ func (w *Workload) Tick(ctx context.Context, now time.Time, world *core.World) e
 	// Aggregate request VOLUME this tick from the traffic config (NOT the ledger sample):
 	// expected = rps(now) × intervalSec, stochastically rounded. The shape factor is
 	// already folded into rps(now) via the minter's interpolation.
-	rps := w.m.rpsAt(now, world.Shape)
-	totalCalls := ledger.StochasticRound(rps*intervalSec, world.Shape.Float64())
-	if totalCalls <= 0 && !w.nonProd {
-		totalCalls = 1 // keep prod series alive across troughs
+	// An explicit master volume of 0 is a pause: no calls, not even the prod keep-alive call.
+	// Paused is read once so the rate and the keep-alive cannot disagree within a tick.
+	totalCalls := 0
+	if !world.Shape.Paused() {
+		rps := w.m.rpsAt(now, world.Shape)
+		totalCalls = ledger.StochasticRound(rps*intervalSec, world.Shape.Float64())
+		if totalCalls <= 0 && !w.nonProd {
+			totalCalls = 1 // keep prod series alive across troughs
+		}
 	}
 
 	// Narrative consistency: the active sample informs which routes are "live" so the metric
@@ -156,6 +161,10 @@ func (w *Workload) activeRoutes(now time.Time, world *core.World) []routeStat {
 		}
 		out = append(out, *rs)
 	}
+	// Stable order: the callers draw from the shared shape RNG once per route (spanmetrics latency,
+	// OTLP http.server.request.duration), so the stats map's randomised iteration would change which
+	// route receives which draw, and the point order, on every run.
+	sort.Slice(out, func(i, j int) bool { return out[i].route < out[j].route })
 	return out
 }
 

@@ -1,0 +1,50 @@
+{
+  "blueprint": "high-dpm-churn",
+  "digest": "per family: [row count, first 16 hex digits of sha256 over the sorted canonical masked rows]; numbers quantised to 6 significant digits",
+  "families": {
+    "metrics": {
+      "network_topology_change_total": [1, "867f5b2c99683655"],
+      "network_topology_credential_trials_total": [1, "1d5125b327efb50d"],
+      "network_topology_cycle_budget_skips_total": [1, "8ce8d465315ef03b"],
+      "network_topology_device_info": [3, "4b7c6c7db2306e53"],
+      "network_topology_device_uptime_seconds": [3, "916d888736cea9e7"],
+      "network_topology_discovery_cycle_duration_seconds_bucket": [11, "8e56b138307c1ba8"],
+      "network_topology_discovery_cycle_duration_seconds_count": [1, "d7180be3a64b9beb"],
+      "network_topology_discovery_cycle_duration_seconds_sum": [1, "7c132d9bacebc58d"],
+      "network_topology_discovery_devices_total": [1, "ee75fc76c8f5f4ee"],
+      "network_topology_discovery_module_duration_seconds_bucket": [22, "06145ddfa31eac5c"],
+      "network_topology_discovery_module_duration_seconds_count": [2, "4b7bbfdebb2b1519"],
+      "network_topology_discovery_module_duration_seconds_sum": [2, "2132f1b088f11e61"],
+      "network_topology_edge_info": [1, "8d7ad4081f63e29d"],
+      "network_topology_fdb_suppressed_macs_total": [1, "332598f34f9bd7d1"],
+      "network_topology_goroutines": [1, "383c9b816a647c72"],
+      "network_topology_graph_devices_total": [1, "4b8afda7a6b3f301"],
+      "network_topology_graph_edges_total": [1, "744b3d365cff3444"],
+      "network_topology_graph_stale": [1, "82c86b3595c40255"],
+      "network_topology_last_scrape_duration_seconds": [1, "6622dae2ae1cefd2"],
+      "network_topology_last_scrape_samples_total": [1, "7c9d1e91422c2295"],
+      "network_topology_metrics_payload_bytes_bucket": [10, "5e948acee379f574"],
+      "network_topology_metrics_payload_bytes_count": [1, "da909171ee33644e"],
+      "network_topology_metrics_payload_bytes_sum": [1, "3705f0dada16766a"],
+      "network_topology_metrics_render_duration_seconds_bucket": [17, "55a7388d11bd0b37"],
+      "network_topology_metrics_render_duration_seconds_count": [1, "5e78ae6723b5da77"],
+      "network_topology_metrics_render_duration_seconds_sum": [1, "e2c98616b595f631"],
+      "network_topology_module_last_status": [2, "85ffa12cd4da5b37"],
+      "network_topology_out_of_scope_neighbours_total": [1, "1d087860ec917a00"],
+      "network_topology_panics_total": [1, "e936ea27c8d3e92e"],
+      "network_topology_snapshot_drops_total": [2, "053057e83a18bbd9"],
+      "network_topology_snapshot_last_written_timestamp_seconds": [1, "7f6007c965b38cc3"],
+      "network_topology_snapshot_loaded_devices_total": [1, "2722ba74df55c984"],
+      "network_topology_snapshot_queue_depth": [1, "726e86f1d0b6a239"],
+      "network_topology_snmp_rate_limit_wait_seconds_bucket": [13, "6d80c9e366fecfdc"],
+      "network_topology_snmp_rate_limit_wait_seconds_count": [1, "4f4ccfedc3ffbb83"],
+      "network_topology_snmp_rate_limit_wait_seconds_sum": [1, "a16450334196a643"],
+      "network_topology_snmp_walks_total": [1, "fc9508174e0555cd"],
+      "network_topology_system_walk_anomaly_total": [1, "fcfab49924ddfc76"],
+      "network_topology_walker_outcome_total": [1, "c6ace88ee2d1cbc9"]
+    },
+    "logs": {
+      "job=integrations/network-topology-exporter": [1, "ac68c3ee57b53739"]
+    }
+  }
+}

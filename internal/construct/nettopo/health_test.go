@@ -952,3 +952,41 @@ func TestFault_SpokeDown_SpokeSideEmitsFailures(t *testing.T) {
 		t.Errorf("federation_spoke_push_failures_total want >0, got %v under nettopo_spoke_down", s.Value)
 	}
 }
+
+// TestBGPWalkerLabel_VendorTieDeterministic: with two vendors tied for most devices the bgp
+// walker label must not depend on Go's randomised map order. Tie rule: the lexicographically
+// smallest vendor name wins (arista < cisco), so the label is always vendor_arista here.
+func TestBGPWalkerLabel_VendorTieDeterministic(t *testing.T) {
+	for i := 0; i < 64; i++ {
+		c := makeHealthConstruct()
+		c.graph.Devices = []Device{
+			{ID: "a1", Vendor: "cisco", Site: "dc1"},
+			{ID: "a2", Vendor: "arista", Site: "dc1"},
+			{ID: "a3", Vendor: "cisco", Site: "dc1"},
+			{ID: "a4", Vendor: "arista", Site: "dc1"},
+		}
+		series := runHealthOnce(c, healthNow, shape.New("", nil))
+		var walkers []string
+		for _, s := range series {
+			if s.Name == "network_topology_bgp_walker_outcome_total" {
+				walkers = append(walkers, s.Labels["walker"])
+			}
+		}
+		if len(walkers) != 1 || walkers[0] != "vendor_arista" {
+			t.Fatalf("run %d: bgp walker labels = %v, want [vendor_arista] (tie -> smallest vendor name)", i, walkers)
+		}
+	}
+}
+
+// TestDominantVendor_TieBreakAndFallback pins the documented rule directly.
+func TestDominantVendor_TieBreakAndFallback(t *testing.T) {
+	if got := dominantVendor(nil); got != "arista" {
+		t.Errorf("empty graph: got %q, want arista", got)
+	}
+	devs := []Device{{Vendor: "nokia"}, {Vendor: "juniper"}, {Vendor: "cisco"}, {Vendor: "cisco"}, {Vendor: "juniper"}}
+	for i := 0; i < 64; i++ {
+		if got := dominantVendor(devs); got != "cisco" {
+			t.Fatalf("run %d: got %q, want cisco (cisco and juniper tie at 2; smallest name wins)", i, got)
+		}
+	}
+}

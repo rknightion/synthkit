@@ -440,6 +440,9 @@ the native cadvisor identity labels **`name`** (container name), **`image`** (`i
 `{instance, job}`. The two machine identity labels never propagate to container or primary
 host-exporter series, and `system_uuid` remains absent.
 
+The Docker profile shares the [cAdvisor baseline memory budget](k8s.md) with the Kubernetes
+profile; its narrower metric allowlist remains unchanged.
+
 Provenance: standalone cAdvisor 0.55.1 capture
 `reality-corpus/host/docker-standalone-cadvisor.json` (2026-09-08), paired producer
 `promrw/integrations/docker`, and upstream `metrics/prometheus_machine.go` at

@@ -1,0 +1,31 @@
+# Test-only declaration, not a deployable blueprint. fixture-whole serves all its write demand as
+# PutItem; fixture-split serves the same total write demand as half PutItem and half UpdateItem.
+# Loaded through the real blueprint loader by internal/integration (a construct directory may
+# not import the loader).
+name: ddb-update-item
+label: ddb-update-item
+environments:
+  - name: prod
+    cloud:
+      provider: aws
+      account_id: "111122223333"
+      region: us-east-1
+      vpc_id: vpc-fixture
+      cloudwatch: {albs: 0, s3_buckets: 0, nlb: false, ebs: false, nat_gateway: false, eks: false, firehose: false, private_link: false}
+      dynamodb:
+        # Explicit synthetic quotas with headroom for the test inventory, not AWS defaults.
+        account: {max_reads: 1000, max_writes: 1000, max_table_reads: 500, max_table_writes: 500}
+        tables:
+          - name: fixture-whole
+            collector_name: declared-whole-collector
+            provisioned_reads: 10
+            provisioned_writes: 10
+            operations:
+              - {name: PutItem, requests_per_second: 1, write_units: 1, latency_ms: 6}
+          - name: fixture-split
+            collector_name: declared-split-collector
+            provisioned_reads: 10
+            provisioned_writes: 10
+            operations:
+              - {name: PutItem, requests_per_second: 0.5, write_units: 1, latency_ms: 6}
+              - {name: UpdateItem, requests_per_second: 0.5, write_units: 1, latency_ms: 8}

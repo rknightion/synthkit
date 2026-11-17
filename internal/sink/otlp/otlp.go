@@ -281,6 +281,8 @@ func convertSpans(in []Span) ([]*tracepb.Span, int) {
 			StartTimeUnixNano: uint64(sp.Start.UnixNano()),
 			EndTimeUnixNano:   uint64(sp.End.UnixNano()),
 			Attributes:        kvs(sp.Attrs),
+			Events:            convertEvents(sp.Events),
+			Links:             convertLinks(sp.Name, sp.Links),
 			Status: &tracepb.Status{
 				Code:    mapStatusCode(sp.Status),
 				Message: sp.StatusMsg,
@@ -288,6 +290,54 @@ func convertSpans(in []Span) ([]*tracepb.Span, int) {
 		})
 	}
 	return out, skipped
+}
+
+// convertEvents converts span events to OTLP Span.Event messages. nil or empty input
+// returns nil so the encoded span is byte-identical to one without events.
+func convertEvents(in []Event) []*tracepb.Span_Event {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]*tracepb.Span_Event, 0, len(in))
+	for _, ev := range in {
+		var ts uint64
+		if !ev.Time.IsZero() {
+			ts = uint64(ev.Time.UnixNano())
+		}
+		out = append(out, &tracepb.Span_Event{
+			TimeUnixNano: ts,
+			Name:         ev.Name,
+			Attributes:   kvs(ev.Attrs),
+		})
+	}
+	return out
+}
+
+// convertLinks converts span links to OTLP Span.Link messages. nil or empty input returns nil so
+// the encoded span is byte-identical to one without links. A link whose TraceID or SpanID is not
+// the right length of hex is logged and dropped; the span itself is kept.
+func convertLinks(span string, in []Link) []*tracepb.Span_Link {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]*tracepb.Span_Link, 0, len(in))
+	for _, l := range in {
+		traceID, err := hex.DecodeString(l.TraceID)
+		if err != nil || len(traceID) != 16 {
+			log.Printf("[otlp] dropping link of span %q: TraceID %q must be exactly 32 hex chars (16 bytes)", span, l.TraceID)
+			continue
+		}
+		spanID, err := hex.DecodeString(l.SpanID)
+		if err != nil || len(spanID) != 8 {
+			log.Printf("[otlp] dropping link of span %q: SpanID %q must be exactly 16 hex chars (8 bytes)", span, l.SpanID)
+			continue
+		}
+		out = append(out, &tracepb.Span_Link{TraceId: traceID, SpanId: spanID, Attributes: kvs(l.Attrs)})
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // kvs converts a map[string]any into a []*commonpb.KeyValue slice. Value types

@@ -17,6 +17,24 @@ import (
 	appworkload "github.com/rknightion/synthkit/internal/workload/app"
 )
 
+// TestAgentObservabilityAuthoringBoundary exercises the existing public loader,
+// without building a workload or depending on a new command's existence.
+func TestAgentObservabilityAuthoringBoundary(t *testing.T) {
+	for name, body := range map[string]string{
+		"empty": "agent_observability: {closures: []}\n",
+		"strict-closure": "agent_observability:\n closures:\n - key: closure\n   agent: {instance: worker, agent_name: Planner}\n" +
+			"   evaluators:\n   - key: eval\n     spec: {evaluator_id: e, version: \"1\", kind: regex, config: '{\"pattern\":\"fiction\",\"reject\":false}', output_keys: [{key: passes, type: bool, pass_value: false}]}\n" +
+			"   hooks:\n   - key: hook\n     spec: {rule_id: h, priority: 0, enabled: false, short_circuit: false, match: '{\"agent_name\":\"Planner\"}', evaluator_ids: [eval], blocked_tools: [], redact: []}\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := Load([]byte("name: fictional\nenvironments: [{name: test}]\n"+body), testRegistry(t))
+			if err != nil {
+				t.Fatalf("manual declaration must load without runtime activation: %v", err)
+			}
+		})
+	}
+}
+
 // testWsCfg is the package-level config type for the "web_service" workload registered
 // in testRegistry. Declared at package level so tests can cast to *testWsCfg without
 // a type mismatch (inline type declarations in different functions are distinct types).
@@ -788,6 +806,48 @@ func TestAlloyVersionCanonicalized(t *testing.T) {
 	cl := findCluster(t, load(t, y), "mini-prod-use1")
 	if cl.K8sMonitoring.AlloyVersion != "v1.16.3" {
 		t.Fatalf("alloy version not canonicalized: %q", cl.K8sMonitoring.AlloyVersion)
+	}
+}
+
+// Exercise YAML decoding and shared effect validation through the public loader.
+func TestLoadIncidentIntensityRange(t *testing.T) {
+	for _, form := range []string{"inline", "scenario"} {
+		for _, tc := range []struct {
+			name  string
+			value string
+			valid bool
+		}{
+			{"nan", ".nan", false},
+			{"positive infinity", ".inf", false},
+			{"negative infinity", "-.inf", false},
+			{"negative", "-0.1", false},
+			{"above one", "1.1", false},
+			{"omitted", "", true},
+			{"zero", "0", true},
+			{"fraction", "0.35", true},
+			{"one", "1", true},
+		} {
+			t.Run(form+"/"+tc.name, func(t *testing.T) {
+				field := ""
+				if tc.value != "" {
+					field = ", intensity: " + tc.value
+				}
+				y := strings.Replace(minimalYAML, ", intensity: 0.8", field, 1)
+				if form == "scenario" {
+					y = strings.Replace(minimalYAML, "kind: latency_spike, target: mini-api", "scenario: intensity_test", 1)
+					y = strings.Replace(y, ", intensity: 0.8", "", 1)
+					y += "scenarios:\n  - name: intensity_test\n    effects:\n      - { mode: latency_spike, target: mini-api" + field + " }\n"
+				}
+				_, err := Load([]byte(y), testRegistry(t))
+				if tc.valid {
+					if err != nil {
+						t.Fatalf("valid intensity rejected: %v", err)
+					}
+				} else if err == nil || !strings.Contains(err.Error(), "intensity") || !strings.Contains(err.Error(), "[0,1]") {
+					t.Fatalf("want intensity range error for %s, got %v", tc.value, err)
+				}
+			})
+		}
 	}
 }
 

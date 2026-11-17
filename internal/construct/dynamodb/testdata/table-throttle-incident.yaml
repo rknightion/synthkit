@@ -1,0 +1,39 @@
+# Test-only declaration, not a deployable blueprint. Two provisioned tables with modest steady
+# request streams; the scenario throttles only the first. Loaded through the real blueprint
+# loader by internal/integration (a construct directory may not import the loader).
+name: ddb-throttle-incident
+label: ddb-throttle-incident
+environments:
+  - name: prod
+    cloud:
+      provider: aws
+      account_id: "111122223333"
+      region: us-east-1
+      vpc_id: vpc-fixture
+      cloudwatch: {albs: 0, s3_buckets: 0, nlb: false, ebs: false, nat_gateway: false, eks: false, firehose: false, private_link: false}
+      dynamodb:
+        # Explicit synthetic quotas with headroom for the test inventory, not AWS defaults.
+        account: {max_reads: 1000, max_writes: 1000, max_table_reads: 500, max_table_writes: 500}
+        tables:
+          - name: fixture-orders
+            collector_name: declared-orders-collector
+            provisioned_reads: 10
+            provisioned_writes: 10
+            operations:
+              - {name: GetItem, requests_per_second: 1, read_units: 1, latency_ms: 4}
+              - {name: PutItem, requests_per_second: 0.5, write_units: 1, latency_ms: 6}
+          - name: fixture-audit
+            collector_name: declared-audit-collector
+            provisioned_reads: 10
+            provisioned_writes: 10
+            operations:
+              - {name: GetItem, requests_per_second: 1, read_units: 1, latency_ms: 4}
+scenarios:
+  - name: orders_throttled
+    title: Orders table throttled
+    effects:
+      - {mode: table_throttle_storm, target: fixture-orders, intensity: 1}
+incidents:
+  - scenario: orders_throttled
+    at: "2026-10-24T09:10"
+    for: 10m

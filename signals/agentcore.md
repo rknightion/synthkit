@@ -44,6 +44,32 @@ metrics:   # prose-derived names (no CW table); dims undocumented → omitted
   - {root: outbound_streaming_bytes_processed, type: gauge, unit: bytes, v: assumed}
 ```
 
+**Bound runtimes (causal resources).** A runtime declared under `runtimes:` with a `resource:` emits
+`invocations`, `throttles`, `system_errors`, `total_errors` and `latency` from the blueprint's
+causal model, with `name` set to the runtime ARN (`arn:aws:bedrock-agentcore:<region>:<account>:runtime/<agent>`,
+the allowed `<resource-arn|global>` form) and no other dimension. `invocations` = admitted requests,
+`throttles` = rejected requests, `system_errors` = admitted requests that failed (a held-across
+dependency's unavailability or its credentials), `total_errors` = `system_errors` + `throttles`
+(the model has no client-error source). Bound `latency` measures invocation elapsed time in
+milliseconds: completed invocations use the effective hold, while model-failed invocations end at
+their failed call. Each population's duration is the window's step holds weighted by its step rates;
+`_average` is the invocation-weighted mean across the populations present, consistent with the
+model's in-use concurrency. `_minimum` and `_maximum` are the shorter and longer population durations
+present (one population alone supplies both). The existing per-period gauge convention is retained:
+`_sum` equals that mean, not total invocation milliseconds, and `_sample_count` is 60, not the number
+of invocations. This differs from bound Lambda Duration's execution-total sum and execution count.
+A window with no admitted request has no latency observation. The other invocation-class names have no modelled source and are
+not emitted for a bound runtime. The `name=…/runtime/global` series is unchanged. The derivations
+are synthkit's, `v: assumed` like the names. Blueprint loading rejects legacy
+`agentcore_throttle` incidents and scenario effects that reach a bound runtime, including mixed
+bound/unbound deployments, `cloud:*` and omitted targets. Use `concurrency_reduced` on the bound
+resource or a resource-axis fault on its dependency instead. Unrelated unbound deployments retain
+legacy throttle admission; deployment-global series and their legacy throttle response are unchanged.
+Before checking bindings, every expanded cloud scope must satisfy the scheduler-safe name rules
+(no `@`, `/`, `#`, space, tab, newline, carriage return or `:*` suffix) and remain unchanged by Unicode
+whitespace trimming. Invalid names are rejected, not normalized or skipped. This loader fence does
+not change raw runtime shape schedules; see the [cloud-axis guide](../docs/incidents.md#cloud-axis).
+
 ## Resource-usage — `aws_bedrock_agentcore_*` (hyphen+unit names) [slug: agentcore-resource-usage]
 
 ⚠ Resource-usage CW names are ✅ **exact with hyphens + embedded units** (`CPUUsed-vCPUHours`,

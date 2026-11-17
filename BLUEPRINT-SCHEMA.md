@@ -12,6 +12,138 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 
 | key | type | optional | description |
 |---|---|---|---|
+| `agent_observability` | object | yes | manual management authoring; never runtime admission |
+| `agent_observability.closures[]` | object |  |  |
+| `agent_observability.closures[].key` | string |  |  |
+| `agent_observability.closures[].agent` | object |  |  |
+| `agent_observability.closures[].agent.instance` | string |  |  |
+| `agent_observability.closures[].agent.agent_name` | string |  |  |
+| `agent_observability.closures[].evaluators[]` | object |  |  |
+| `agent_observability.closures[].evaluators[].key` | string |  |  |
+| `agent_observability.closures[].evaluators[].spec` | object |  |  |
+| `agent_observability.closures[].evaluators[].spec.evaluator_id` | string |  |  |
+| `agent_observability.closures[].evaluators[].spec.version` | string |  |  |
+| `agent_observability.closures[].evaluators[].spec.kind` | string |  |  |
+| `agent_observability.closures[].evaluators[].spec.description` | string |  |  |
+| `agent_observability.closures[].evaluators[].spec.config` | object or JSON-object string |  | Regex or heuristic initial subset only; native object or bounded provider JSON-object string alias, translated once. No judge/schema/human/template/fork. |
+| `agent_observability.closures[].evaluators[].spec.output_keys[]` | object |  |  |
+| `agent_observability.closures[].evaluators[].spec.output_keys[].key` | string |  |  |
+| `agent_observability.closures[].evaluators[].spec.output_keys[].type` | string |  |  |
+| `agent_observability.closures[].evaluators[].spec.output_keys[].description` | string |  |  |
+| `agent_observability.closures[].evaluators[].spec.output_keys[].unit` | string |  |  |
+| `agent_observability.closures[].evaluators[].spec.output_keys[].pass_threshold` | float | yes |  |
+| `agent_observability.closures[].evaluators[].spec.output_keys[].enum[]` | string |  |  |
+| `agent_observability.closures[].evaluators[].spec.output_keys[].min` | float | yes |  |
+| `agent_observability.closures[].evaluators[].spec.output_keys[].max` | float | yes |  |
+| `agent_observability.closures[].evaluators[].spec.output_keys[].pass_match[]` | string |  |  |
+| `agent_observability.closures[].evaluators[].spec.output_keys[].pass_value` | bool | yes |  |
+| `agent_observability.closures[].hooks[]` | object |  |  |
+| `agent_observability.closures[].hooks[].key` | string |  |  |
+| `agent_observability.closures[].hooks[].spec` | object |  |  |
+| `agent_observability.closures[].hooks[].spec.rule_id` | string |  |  |
+| `agent_observability.closures[].hooks[].spec.enabled` | bool | yes |  |
+| `agent_observability.closures[].hooks[].spec.phase` | string |  |  |
+| `agent_observability.closures[].hooks[].spec.priority` | int | yes |  |
+| `agent_observability.closures[].hooks[].spec.selector` | string |  |  |
+| `agent_observability.closures[].hooks[].spec.match` | object or JSON-object string |  | Required own literal agent_name subset; native object or bounded provider JSON-object string alias. No tool_name selector. |
+| `agent_observability.closures[].hooks[].spec.evaluator_ids[]` | string |  |  |
+| `agent_observability.closures[].hooks[].spec.action_on_fail` | string |  |  |
+| `agent_observability.closures[].hooks[].spec.short_circuit` | bool | yes |  |
+| `agent_observability.closures[].hooks[].spec.tool_filter` | object | yes |  |
+| `agent_observability.closures[].hooks[].spec.tool_filter.blocked_names[]` | string |  |  |
+| `agent_observability.closures[].hooks[].spec.redact` | object or ordered pattern list | yes | Canonical {patterns:[{id,regex}]} or provider repeated-block alias [{id,regex}]. Backend-owned replacement; no mixed forms. |
+| `agent_observability.closures[].hooks[].spec.redact.patterns[]` | object |  |  |
+| `agent_observability.closures[].hooks[].spec.redact.patterns[].id` | string |  |  |
+| `agent_observability.closures[].hooks[].spec.redact.patterns[].regex` | string |  |  |
+| `agent_observability.closures[].hooks[].spec.blocked_tools[]` | string | yes | Provider alias for tool_filter.blocked_names (DENY effect, not positive selection). Conflicts with tool_filter even if equal or empty. |
+| `agent_observability.closures[].rules[]` | object |  |  |
+| `agent_observability.closures[].rules[].key` | string |  |  |
+| `agent_observability.closures[].rules[].spec` | object |  |  |
+| `agent_observability.closures[].rules[].spec.rule_id` | string |  |  |
+| `agent_observability.closures[].rules[].spec.enabled` | bool | yes |  |
+| `agent_observability.closures[].rules[].spec.selector` | string |  |  |
+| `agent_observability.closures[].rules[].spec.match` | object or JSON-object string | yes | Required own literal agent_name subset; native object or bounded provider JSON-object string alias. No tool_name selector. |
+| `agent_observability.closures[].rules[].spec.sample_rate` | float | yes |  |
+| `agent_observability.closures[].rules[].spec.evaluator_ids[]` | string |  |  |
+| `agent_observability.closures[].rules[].spec.execution_mode` | string |  |  |
+| `agent_observability.closures[].rules[].spec.alert_rule_uids[]` | string | yes |  |
+| `agent_observability.closures[].rules[].spec.filterable_tag_keys[]` | string | yes |  |
+| `agent_observability.closures[].rules[].spec.min_idle_seconds` | int | yes |  |
+| `agent_observability.closures[].collections[]` | object |  |  |
+| `agent_observability.closures[].collections[].key` | string |  |  |
+| `agent_observability.closures[].collections[].spec` | object |  |  |
+| `agent_observability.closures[].collections[].spec.name` | string |  |  |
+| `agent_observability.closures[].collections[].spec.description` | string | yes |  |
+| `agent_observability.closures[].actions[]` | object |  |  |
+| `agent_observability.closures[].actions[].key` | string |  |  |
+| `agent_observability.closures[].actions[].parent_rule` | string |  |  |
+| `agent_observability.closures[].actions[].spec` | object |  |  |
+| `agent_observability.closures[].actions[].spec.condition` | object |  |  |
+| `agent_observability.closures[].actions[].spec.condition.kind` | string |  |  |
+| `agent_observability.closures[].actions[].spec.action_config` | object |  |  |
+| `agent_observability.closures[].actions[].spec.action_config.kind` | string |  |  |
+| `agent_observability.closures[].actions[].spec.action_config.collection_ids[]` | string |  |  |
+| `agent_observability.closures[].actions[].spec.enabled` | bool | yes |  |
+| `agent_observability.closures[].suites[]` | object |  |  |
+| `agent_observability.closures[].suites[].key` | string |  |  |
+| `agent_observability.closures[].suites[].spec` | object |  |  |
+| `agent_observability.closures[].suites[].spec.suite_id` | string |  |  |
+| `agent_observability.closures[].suites[].spec.name` | string |  |  |
+| `agent_observability.closures[].suites[].spec.description` | string | yes |  |
+| `agent_observability.closures[].suites[].spec.tags[]` | string | yes |  |
+| `agent_observability.closures[].suites[].draft` | object |  |  |
+| `agent_observability.closures[].suites[].draft.key` | string |  |  |
+| `agent_observability.closures[].suites[].draft.spec` | object |  |  |
+| `agent_observability.closures[].suites[].draft.spec.changelog` | string | yes |  |
+| `agent_observability.closures[].suites[].draft.cases[]` | object |  |  |
+| `agent_observability.closures[].suites[].draft.cases[].key` | string |  |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec` | object |  |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.test_case_id` | string |  |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.name` | string | yes |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.description` | string | yes |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.tags[]` | string | yes |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.category` | string | yes |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.input` | map[string]interface |  |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.expected` | map[string]interface | yes |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.metadata` | map[string]interface | yes |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.artifact_refs[]` | object | yes |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.artifact_refs[].artifact_id` | string |  |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.artifact_refs[].name` | string |  |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.artifact_refs[].kind` | string |  |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.sanitization_reviewed` | bool | yes |  |
+| `agent_observability.closures[].suites[].draft.cases[].spec.sanitization_content_digest` | string | yes |  |
+| `agent_observability.closures[].suites[].draft.bindings` | object |  |  |
+| `agent_observability.closures[].suites[].draft.bindings.key` | string |  |  |
+| `agent_observability.closures[].suites[].draft.bindings.bindings[]` | object |  |  |
+| `agent_observability.closures[].suites[].draft.bindings.bindings[].binding_id` | string |  |  |
+| `agent_observability.closures[].suites[].draft.bindings.bindings[].evaluator_id` | string |  |  |
+| `agent_observability.closures[].suites[].draft.bindings.bindings[].evaluator_version` | string |  |  |
+| `agent_observability.closures[].suites[].draft.bindings.bindings[].input_mappings` | map[string]string |  |  |
+| `agent_observability.closures[].suites[].draft.bindings.bindings[].report_role` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication` | object |  |  |
+| `agent_observability.closures[].suites[].draft.publication.key` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec` | object |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[]` | object |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].test_case_id` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].suite_id` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].suite_version` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].name` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].description` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].tags[]` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].category` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].input` | map[string]interface |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].expected` | map[string]interface |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].metadata` | map[string]interface |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].artifact_refs[]` | object |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].artifact_refs[].artifact_id` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].artifact_refs[].name` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.cases[].artifact_refs[].kind` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.bindings[]` | object |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.bindings[].binding_id` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.bindings[].evaluator_id` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.bindings[].evaluator_version` | string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.bindings[].input_mappings` | map[string]string |  |  |
+| `agent_observability.closures[].suites[].draft.publication.spec.bindings[].report_role` | string |  |  |
 | `gpu_compute` | object | yes |  |
 | `gpu_compute.racks[]` | object |  |  |
 | `gpu_compute.racks[].name` | string |  |  |
@@ -430,6 +562,22 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `environments[].cloud.glue` | raw yaml (see per-kind config sections) |  | AWS Glue ETL (jobs:); absent ⇒ not emitted |
 | `environments[].cloud.bedrock` | raw yaml (see per-kind config sections) |  | AWS Bedrock CloudWatch (models:/sub_signals:); absent ⇒ not emitted |
 | `environments[].cloud.agentcore` | raw yaml (see per-kind config sections) |  | AWS Bedrock-AgentCore CloudWatch (agents:/sub_signals:); absent ⇒ not emitted |
+| `environments[].cloud.lambda` | raw yaml (see per-kind config sections) |  | FunctionName-only CloudWatch (functions:); remote-write only; absent ⇒ not emitted |
+| `environments[].cloud.sqs` | raw yaml (see per-kind config sections) |  | Ordinary CloudWatch queue metrics (queues:); remote-write only; absent ⇒ not emitted |
+| `environments[].cloud.dynamodb` | raw yaml (see per-kind config sections) |  | Provisioned CloudWatch table metrics (tables:); remote-write only; absent ⇒ not emitted |
+| `environments[].cloud.redshift` | raw yaml (see per-kind config sections) |  | Provisioned cluster snapshots and sparse I/O (clusters:); remote-write only; absent ⇒ not emitted |
+| `environments[].cloud.cloudwatch_logs` | raw yaml (see per-kind config sections) |  | Log-group intake metrics (log_groups:); remote-write only; absent ⇒ not emitted |
+| `environments[].cloud.scheduler` | raw yaml (see per-kind config sections) |  | EventBridge Scheduler fixed-rate schedules (schedules:); remote-write only; absent ⇒ not emitted |
+| `environments[].cloud.pipelines[]` | object |  | Pipelines declares the env's batch data pipelines once (internal/pipelinerun). The resolver hands them to every consuming cloud-service construct (glue, mwaa) and adds each stage as a pipeline_stage failure target named <pipeline>.<stage>. Pipeline names must be unique across all blueprint environments. A glue stage needs a glue block; an orchestrating environment needs an mwaa block that lists it. |
+| `environments[].cloud.pipelines[].name` | string |  | Name is the pipeline identity (the Airflow DAG id when MWAA orchestrates it). It must be unique across all blueprint environments, not only this consumer's pipeline list. |
+| `environments[].cloud.pipelines[].environment` | string |  | Environment is the MWAA environment orchestrating the pipeline; "" when none does. |
+| `environments[].cloud.pipelines[].every` | string |  | Every is the run cadence as a Go duration, 1m to 168h. Real batch pipelines run hourly or daily; sub-hour cadences belong in e2e fixtures. |
+| `environments[].cloud.pipelines[].offset` | string |  | Offset is the trigger phase inside Every; "" derives a minute-aligned phase from the seed. |
+| `environments[].cloud.pipelines[].stages[]` | object |  | Stages run in order; each run passes through every stage unless one fails. |
+| `environments[].cloud.pipelines[].stages[].name` | string |  | Name is the stage (Airflow task) id. |
+| `environments[].cloud.pipelines[].stages[].service` | string |  | Service is glue, airflow, lambda, sqs or redshift. |
+| `environments[].cloud.pipelines[].stages[].resource` | string |  | Resource is the executing resource: Glue job name, function, queue or cluster. Required except for airflow stages (which run on the orchestrating environment's workers). |
+| `environments[].cloud.pipelines[].stages[].duration` | string |  | Duration is the nominal run time of the stage, a Go duration of at least 1s. |
 | `environments[].cluster` | object | yes |  |
 | `environments[].cluster.emit` | bool | yes | Emit gates all cluster-derived constructs (Kubernetes, EC2, profiling, addons and Fleet Management), not the declaration or workload bindings. Omitted defaults to true. False retains topology without collecting it. |
 | `environments[].cluster.nodes[]` | object |  |  |
@@ -492,6 +640,7 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `environments[].databases[].observability.cloudwatch` | bool | yes | emit aws_rds_* CloudWatch family (default true) |
 | `environments[].databases[].observability.dbo11y` | bool |  | emit database_observability_* lane (default false) |
 | `environments[].databases[].observability.digests` | int |  | dbo11y query-catalogue size (default 40); ignored unless dbo11y |
+| `environments[].databases[].resource` | string |  | Resource binds the database's CloudWatch and optional PostgreSQL/MySQL dbo11y constructs to a declared causal `dependency` or `pool` resource (environments[].resources), so they follow the shared model instead of the database-axis failure modes. Optional. A bound database is no longer a database-axis incident target (slow_query_storm, connection_saturation and the other database modes name an unknown target at load); the resource-axis modes move it. Needs the CloudWatch lane and constructs that support binding. DocumentDB/Neptune dbo11y remains unsupported. Pool connections use the trailing-minute mean busy count; dbo11y query and existing synthetic wait durations scale with mean latency, without cause attribution. |
 | `environments[].caches[]` | object |  |  |
 | `environments[].caches[].engine` | string |  | "redis" |
 | `environments[].caches[].version` | string |  |  |
@@ -499,6 +648,31 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `environments[].caches[].instance_class` | string |  | e.g. "cache.r6g.large"; empty → resolver default |
 | `environments[].caches[].observability` | object | yes |  |
 | `environments[].caches[].observability.cloudwatch` | bool | yes | emit the CloudWatch lane (default true) |
+| `environments[].resources[]` | object |  | Resources opts the environment into the causal request model (internal/causal): the pools, concurrency limits, queues, quotas, dependencies, credentials and rules requests meet. Names are unique across the blueprint and are incident targets on the `resource` axis; a name `<base>-<lower(env)>` is also reached by the base name in every environment. The resolver hands the blueprint's whole set to every consuming construct and workload. Omitted = no causal model and unchanged output. |
+| `environments[].resources[].name` | string |  | Name is the resource identity and its incident target on axis `resource`. Unique across the whole blueprint. A name of the form `<base>-<lower(env)>` is also reachable through the base name, which then targets that resource in every environment. |
+| `environments[].resources[].kind` | string |  | Kind is pool, concurrency, queue, quota, dependency, credential or rule. |
+| `environments[].resources[].demand` | object | yes | Demand is the offered load in requests (or messages) per second, or the upstream resource it comes from. Required for pool, concurrency, queue and quota. It must cover every request that passes through the resource; callers' retries add to it. |
+| `environments[].resources[].demand.off_peak_rps` | float |  | OffPeakRPS is the rate at the bottom of the business curve. |
+| `environments[].resources[].demand.peak_rps` | float |  | PeakRPS is the rate at the top of the business curve. |
+| `environments[].resources[].demand.load` | string |  | Load is business (default: the environment's diurnal and weekly curve, as the app workload's traffic) or constant (peak_rps scaled by the volume multiplier). |
+| `environments[].resources[].demand.from` | string |  | From names an upstream capacity resource (pool, concurrency, queue or quota) whose served rate is this resource's demand (a queue's processed rate, the others' admitted rate). With from, off_peak_rps, peak_rps and load are omitted. |
+| `environments[].resources[].size` | int |  | Size is the connection count (pool), concurrency limit (concurrency) or consumer count (queue). Integer >= 1. |
+| `environments[].resources[].hold_ms` | float |  | HoldMS is the mean hold, execution or processing time per request at baseline, in ms, including the held-across dependency's baseline latency, so it is at least that latency_ms. Required for pool, concurrency and queue. |
+| `environments[].resources[].held_across` | string |  | HeldAcross names a dependency resource (pool, concurrency, queue; optional). The effective hold is hold_ms + latency_ms(dependency) x (latency factor - 1), and the dependency's unavailability and its credentials' failures fail admitted work. |
+| `environments[].resources[].acquire_timeout_ms` | float |  | AcquireTimeoutMS bounds how long a request waits for a pool connection before the acquisition fails. Required for pool. |
+| `environments[].resources[].limit_rps` | float |  | LimitRPS is the admitted rate of a quota. Required for quota. |
+| `environments[].resources[].max_depth` | float |  | MaxDepth bounds a queue's backlog in messages; arrivals beyond it are rejected. Omitted means unbounded. |
+| `environments[].resources[].latency_ms` | float |  | LatencyMS is a dependency's baseline latency in ms. It is the base duration of a node bound to the dependency, and the unit by which dependency_slow stretches every pool, concurrency or queue held across it: effective hold = hold_ms + latency_ms x (latency factor - 1). Must be > 0 when any resource names the dependency in held_across. |
+| `environments[].resources[].slow_factor` | float |  | SlowFactor is a dependency's latency multiplier under dependency_slow at intensity 1. Default 4, at least 1. |
+| `environments[].resources[].of` | string |  | Of names the dependency a credential authenticates. Required for credential. |
+| `environments[].resources[].credential_type` | string |  | CredentialType is server_certificate, client_certificate or token. Required for credential. |
+| `environments[].resources[].reject_share` | float |  | RejectShare is the share of arrivals a fully regressed rule rejects, in (0,1]. Required for rule. |
+| `environments[].resources[].knee` | float |  | Knee is the utilization where waiting begins (pool, queue). Default 0.8, in (0,1). |
+| `environments[].resources[].error` | object | yes | Error optionally overrides the default failure status, error type, exception type and message. Values only, never names. |
+| `environments[].resources[].error.status` | int |  | Status is the HTTP status of the failure, 400 to 599. Not allowed on a dependency or a certificate credential (their failures have no HTTP status). |
+| `environments[].resources[].error.type` | string |  | Type is the error.type value. |
+| `environments[].resources[].error.exception` | string |  | Exception is the exception.type value; empty means none unless Type is class-like. |
+| `environments[].resources[].error.message` | string |  | Message is the human message naming the cause. |
 | `workloads[]` | object |  |  |
 | `workloads[].type` | string |  | workload kind — the registry key (e.g. web_service) |
 | `workloads[].name` | string |  | unique workload instance name |
@@ -517,7 +691,7 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `incidents[].at` | string |  | RFC3339 or "2006-01-02T15:04[:05]" (blueprint timezone) |
 | `incidents[].every` | string |  | Every, when set, makes the incident INTERVAL-RECURRING: it fires for For out of every Every (a Go duration, e.g. "10m"), repeating continuously and anchored on the Unix epoch. At is ignored and must be empty when Every is set (load rejects setting both). |
 | `incidents[].for` | string |  | Go duration ("20m") |
-| `incidents[].intensity` | float |  |  |
+| `incidents[].intensity` | float |  | [0,1]; scheduled default 1.0 only when omitted |
 | `scenarios[]` | object |  |  |
 | `scenarios[].name` | string |  |  |
 | `scenarios[].title` | string |  | human display; defaults to Name |
@@ -525,7 +699,7 @@ The blueprint YAML document. Strict-decoded: any key not listed here fails to lo
 | `scenarios[].effects[]` | object |  |  |
 | `scenarios[].effects[].mode` | string |  |  |
 | `scenarios[].effects[].target` | string |  |  |
-| `scenarios[].effects[].intensity` | float |  | [0,1]; default 1.0 when <= 0 |
+| `scenarios[].effects[].intensity` | float |  | [0,1]; scheduled default 1.0 only when omitted |
 | `hosts[]` | object |  | traditional non-k8s machines (node/windows/macos exporter + optional docker) |
 | `hosts[].name` | string |  | Name is the hostname — the `instance` label and identity. Required, unique. |
 | `hosts[].os` | string |  | OS selects the exporter vocabulary: linux \| windows \| macos. Default: linux. |
@@ -550,6 +724,9 @@ aws_bedrock_agentcore_* CloudWatch metrics for Bedrock AgentCore (invocation-cla
 |---|---|---|---|
 | `agents[]` | string |  | Agents is the list of agent logical names rendered for resource-usage dims. Default: ["planner","retriever"] — generic, no customer/blueprint strings. |
 | `sub_signals[]` | string |  | SubSignals selects which families to emit. Valid: runtime, resource_usage, usage_logs, gateway (deferred Spec 3). Empty ⇒ runtime + resource_usage + app_logs (always) emit; usage_logs is opt-in. |
+| `runtimes[]` | object |  | Runtimes binds declared agents' runtimes to causal `concurrency` resources of the blueprint (environments[].resources). A bound runtime emits its own invocation-class series, named by the runtime ARN, read from the shared causal model's window: throttles are the rejected requests, invocations the admitted ones, system_errors the admitted requests that failed (held-across dependency unavailability and credential failures), total_errors their sum and latency the invocations' elapsed time: the effective hold for those that complete and, for those the model fails, the time until their failed call. Nothing is re-simulated. The other invocation-class families have no modelled source and are omitted for a bound runtime. The deployment-wide series (name `.../runtime/global`) and every other family are unchanged, and keep responding to the region-scoped agentcore_throttle mode, which a bound runtime ignores: its capacity constraint is concurrency_reduced on its resource, and a held-across dependency's faults reach it through the resource. Omitted keeps today's output byte for byte. |
+| `runtimes[].agent` | string |  | Agent names an entry of Config.Agents (including the default list when agents is empty). One runtime appears at most once. |
+| `runtimes[].resource` | string |  | Resource names a `concurrency` resource of environments[].resources; one resource binds at most one runtime. The runtime's request, throttle and error families are its window. |
 
 ## alloy_health config
 
@@ -671,6 +848,27 @@ Cloudflare zone + tunnel metrics (lablabs exporter shape)
 | `tunnels[]` | object |  |  |
 | `tunnels[].name` | string |  |  |
 
+## cloudwatch_logs config
+
+**Location:** `(config-gated by env/cloud/cluster/database declarations)`  ·  **group:** topology
+
+AWS/Logs intake and optional Lambda delivery observations (remote-write only)
+
+| key | type | optional | description |
+|---|---|---|---|
+| `log_groups[]` | object |  |  |
+| `log_groups[].name` | string |  |  |
+| `log_groups[].events_per_second` | float | yes |  |
+| `log_groups[].uncompressed_bytes_per_event` | float | yes |  |
+| `log_groups[].subscription_filters[]` | object |  | SubscriptionFilters optionally declare independent Lambda delivery observations; omitted emits only legacy intake. At most 100 filters total across all groups. |
+| `log_groups[].subscription_filters[].name` | string |  | Name is required, unpadded and unique within the owning log group. |
+| `log_groups[].subscription_filters[].destination_type` | string |  | DestinationType must be exactly Lambda, the observed P21 selector literal. |
+| `log_groups[].subscription_filters[].period_observation` | object |  | PeriodObservation requires all four whole finite nonnegative values, including explicit zero. Per active minute four value stats=x, sample_count=1, never x. |
+| `log_groups[].subscription_filters[].period_observation.delivery_errors` | float | yes | DeliveryErrors counts errored log events, not terminal losses; maximum 60000001. |
+| `log_groups[].subscription_filters[].period_observation.delivery_throttling` | float | yes | DeliveryThrottling counts throttled log events, not API requests; maximum 60000001. |
+| `log_groups[].subscription_filters[].period_observation.forwarded_log_events` | float | yes | ForwardedLogEvents counts forwarded log events, not invocations; maximum 60000001. |
+| `log_groups[].subscription_filters[].period_observation.forwarded_bytes` | float | yes | ForwardedBytes is already-compressed bytes, not intake bytes; maximum 3932160065536. |
+
 ## cluster_autoscaler config
 
 **Location:** `(config-gated by env/cloud/cluster/database declarations)`  ·  **group:** topology
@@ -753,6 +951,8 @@ Host or Kubernetes Datadog Agent to Alloy Datadog receiver native metric egress
 | `service_name` | string |  |  |
 | `source` | string |  |  |
 | `increments_per_minute` | float |  |  |
+| `cpus` | int |  | host mode only, required: logical CPUs |
+| `memory_gb` | int |  | host mode only, required: total RAM in GiB |
 
 ## dbo11y_mysql config
 
@@ -802,6 +1002,50 @@ Pinned H100 SXM HGX DCGM exporter telemetry
 aws_docdb_* CloudWatch metrics for one DocumentDB cluster (WRITER/READER role split)
 
 _(no configurable fields)_
+
+## dynamodb config
+
+**Location:** `(config-gated by env/cloud/cluster/database declarations)`  ·  **group:** topology
+
+Explicit provisioned DynamoDB tables (remote-write only)
+
+| key | type | optional | description |
+|---|---|---|---|
+| `account` | object |  |  |
+| `account.max_reads` | float |  |  |
+| `account.max_writes` | float |  |  |
+| `account.max_table_reads` | float |  |  |
+| `account.max_table_writes` | float |  |  |
+| `tables[]` | object |  |  |
+| `tables[].name` | string |  |  |
+| `tables[].collector_name` | string |  |  |
+| `tables[].provisioned_reads` | float |  |  |
+| `tables[].provisioned_writes` | float |  |  |
+| `tables[].write_source` | string |  | Omitted selects TableName-only. Customer selects customer-origin writes; GlobalTable selects replicated writes, excluding customer-origin writes. The declared operation write demand belongs exclusively to that source. |
+| `tables[].replication` | object | yes | Replication is required only with GlobalTable; replica writes are not successful customer PutItem API calls and produce no PutItem latency. |
+| `tables[].replication.writes_per_second` | float |  |  |
+| `tables[].replication.units_per_write` | float |  |  |
+| `tables[].conditional_failures_per_second` | float |  |  |
+| `tables[].operations[]` | object |  |  |
+| `tables[].operations[].name` | string |  |  |
+| `tables[].operations[].requests_per_second` | float |  |  |
+| `tables[].operations[].read_units` | float |  |  |
+| `tables[].operations[].write_units` | float |  |  |
+| `tables[].operations[].latency_ms` | float |  |  |
+| `tables[].operations[].returned_items` | float |  |  |
+| `tables[].operations[].load` | string |  | Load overrides the table's load for this operation: "constant" or "business" (see Table.Load). Omitted inherits the table. |
+| `tables[].operations[].latency_min_ms` | float |  | LatencyMinMS optionally declares the lower per-request latency bound around LatencyMS (the mean), as an explicit operator assumption. Declared together with LatencyMaxMS (both or neither), with LatencyMinMS <= LatencyMS <= LatencyMaxMS. Declared, the reported Minimum/Maximum differ from the Average (and the Average drifts slightly per window) instead of all three equalling LatencyMS. Omitted keeps constant latency. |
+| `tables[].operations[].latency_max_ms` | float |  | LatencyMaxMS is the upper per-request latency bound; see LatencyMinMS. |
+| `tables[].operations[].throttled_requests_per_second` | float |  | ThrottledRequestsPerSecond optionally declares requests of this operation rejected for exceeding provisioned throughput, an explicit operator assumption (omitted or zero: no throttling and no throttle series). Throttled requests are separate from requests_per_second: they consume no capacity and have no latency or returned items. Admitted only for GetItem and PutItem, the operations a lab capture of a provisioned table observed. Each throttled request is one sample of 1 in ThrottledRequests (TableName+Operation) and in ReadThrottleEvents (GetItem) or WriteThrottleEvents (PutItem) on TableName; unthrottled requests add no zero samples. Follows the operation's load. |
+| `tables[].operations[].resource` | string |  | Resource binds the operation to a declared `quota` resource of the blueprint's causal model (environments[].resources), counted in QuotaUnit. The quota is then the operation's whole arrival declaration: its admitted volume is the successful requests (consuming capacity and observing latency) and its rejected volume the throttled requests (ThrottledRequests, and ReadThrottleEvents for GetItem or WriteThrottleEvents for PutItem), read from the shared model, never re-simulated. A bound operation omits requests_per_second, throttled_requests_per_second and load; read_units or write_units, latency and the latency bounds keep their meaning. Admitted only for GetItem and PutItem, the operations whose throttle families a lab capture observed. One resource binds at most one operation. A table whose GetItem and PutItem operations are all bound is not a table-axis target: quota_reduced on the resource throttles it instead. Omitted keeps the declared-rate behaviour, so default output is unchanged. |
+| `tables[].operations[].quota_unit` | string |  | QuotaUnit is the unit the bound quota's demand and limit_rps count, per second: requests, read_units (GetItem) or write_units (PutItem). Required with resource and only with it. Capacity units convert to requests by the operation's own read_units or write_units per request, the AWS provisioned-capacity rule (https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/provisioned-capacity-mode.html): one RCU is one strongly consistent read per second, or two eventually consistent reads, of an item up to 4 KB, and one WCU is one write per second of an item up to 1 KB, item sizes rounding up to the next unit. A quota in units is the table capacity the operation draws on, so its limit_rps (with the table's other declared demand) must fit the provisioned capacity. |
+| `tables[].stream` | object | yes |  |
+| `tables[].stream.label` | string |  |  |
+| `tables[].stream.requests_per_second` | float |  |  |
+| `tables[].stream.records_per_request` | float |  |  |
+| `tables[].stream.bytes_per_record` | float |  |  |
+| `tables[].stream.latency_ms` | float |  |  |
+| `tables[].load` | string |  | Load selects how the table's operation rates (and GlobalTable replicated writes) follow time. Omitted or "constant" keeps the fixed operator rates. "business" treats each declared rate as the PEAK (plateau) rate and scales it by the blueprint business curve (never above 1, so the provisioned-capacity guard checked at Build still holds). An operation's own load overrides this. |
 
 ## ebs_csi config
 
@@ -941,6 +1185,34 @@ KSM kube_ingress_* metrics with mandatory cluster label injection (I16)
 | `ingresses[].service_port` | int |  | default: 80 |
 | `ingresses[].tls` | bool |  | default: false |
 
+## lambda config
+
+**Location:** `(config-gated by env/cloud/cluster/database declarations)`  ·  **group:** topology
+
+FunctionName-only Lambda CloudWatch metrics (remote-write only)
+
+| key | type | optional | description |
+|---|---|---|---|
+| `functions[]` | object |  |  |
+| `functions[].name` | string |  |  |
+| `functions[].invocations_per_min` | float |  |  |
+| `functions[].duration_ms` | float |  |  |
+| `functions[].error_fraction` | float |  |  |
+| `functions[].throttles_per_min` | float |  |  |
+| `functions[].async_received_per_min` | float |  |  |
+| `functions[].async_dropped_fraction` | float |  |  |
+| `functions[].async_age_ms` | float |  |  |
+| `functions[].stream_batches_per_min` | float |  |  |
+| `functions[].iterator_age_ms` | float |  |  |
+| `functions[].load` | string |  | Load selects how the arrival rates follow time. Empty or "constant" keeps every rate fixed (the default). "business" scales invocations_per_min, async_received_per_min, stream_batches_per_min and throttles_per_min together by the blueprint's business curve (diurnal x weekly x master volume), so the disjoint populations stay coherent and error_fraction applies to the scaled executions. The configured rates are then the rate at a curve value of 1.0 (weekday business-hours plateau). Operator assumption, not an AWS behaviour. |
+| `functions[].duration_ms_min` | float |  | DurationMSMin is the lower bound of the per-execution duration distribution, in milliseconds. duration_ms stays the mean (Duration _sum and _average unchanged). Must be declared together with duration_ms_max (both zero means constant duration) and not exceed duration_ms. The observed Minimum moves from the mean toward this bound as executions per window increase and is limited so a sample set with the window's sum exists; one execution has no spread. A bound equal to duration_ms leaves no room for spread on either side. |
+| `functions[].duration_ms_max` | float |  | DurationMSMax is the upper bound of the per-execution duration distribution, in milliseconds, with the same rules as duration_ms_min. It must not be below duration_ms. |
+| `functions[].duration_ms_idle` | float |  | DurationMSIdle opts the function into load-following batch duration: with `load: business`, the mean per-execution duration moves with the business curve from this idle (curve value 0) duration up to duration_ms (curve value 1.0, the weekday business-hours plateau), so a scheduled batch does less work per run overnight and on weekends. The curve factor is capped at 1, so duration_ms stays the ceiling. duration_ms_min/duration_ms_max, when declared, scale with the mean so they keep bracketing it. Positive and not above duration_ms, and only valid with `load: business` or `duration_load: business`. Zero (omitted) keeps the constant duration, so default output is unchanged. Operator assumption, not an AWS behaviour. |
+| `functions[].duration_load` | string |  | DurationLoad selects whether duration_ms_idle follows the business curve without the arrival rates doing so. Empty or "constant" leaves the duration switch to `load: business`. "business" makes the mean duration follow the curve (as duration_ms_idle describes) while the four arrival rates stay at their configured constants, which models a scheduled function that fires at a fixed cadence but does less work per run off-peak. It requires duration_ms_idle and is valid with any `load`; with `load: business` it changes nothing. Operator assumption, not an AWS behaviour. |
+| `functions[].zero_valued_samples` | bool |  | ZeroValuedSamples makes Throttles and Errors observe every request (execution attempts plus throttled requests) with 1 for the event and 0 otherwise, as a lab capture of this service reported, instead of only the events. Throttles then has Sum = throttles and SampleCount = requests; Errors has Sum = errors and the same SampleCount, throttled requests contributing 0. A window with no request still emits neither. Omitted keeps the event-only observations, so default output is unchanged. |
+| `functions[].resource` | string |  | Resource binds the function to a declared `concurrency` resource of the blueprint's causal model (environments[].resources). The resource is then the function's whole declaration: Throttles are the window's rejected requests, Invocations the admitted ones, Errors the admitted executions that failed (held-across dependency unavailability and credential failures, plus the optional error_fraction background share below), ConcurrentExecutions the in-use concurrency and Duration the executions' elapsed time: the effective hold for those that complete and, for those the model fails, the time until their failed call, so Duration agrees with ConcurrentExecutions. They are read from the shared model, never re-simulated. A bound function omits every arrival-rate and duration field (invocations_per_min, async_received_per_min, async_dropped_fraction, async_age_ms, stream_batches_per_min, iterator_age_ms, throttles_per_min, duration_ms, duration_ms_min, duration_ms_max, duration_ms_idle, duration_load, load) except error_fraction, which a bound function may declare as a background share of its admitted invocations that fail regardless of faults (an operator assumption for the captured baseline; the model fails work only through faults). Errors are that share of the admitted executions plus the model's failures, never more than the admitted executions, selected by the same fractional carry as an unbound function (deterministic, no random draw). A bound function is not a target of the function-axis modes; incidents reach it through the resource-axis modes (concurrency_reduced, dependency_slow, dependency_unavailable, credential_expired). One resource binds at most one function. Omitted keeps the function-axis behaviour, so default output is unchanged. |
+| `reserved_concurrency` | float |  | ReservedConcurrency is account capacity reserved/provisioned outside these unreserved functions. Must be an integer capacity count. Claimed concurrency = this allocation + modelled activity. |
+
 ## langsmith_eval config
 
 **Location:** `integrations.langsmith_eval`  ·  **group:** integration
@@ -1016,7 +1288,7 @@ fake network-topology-exporter (SNMP topology discovery: devices/edges + discove
 | `devices[].model` | string |  | Model is accepted for back-compat parsing of existing blueprints but NOT emitted — the real exporter has no model source (no ENTITY-MIB walk). Setting this field has no effect on emitted metrics or labels. |
 | `devices[].os_version` | string |  |  |
 | `devices[].site` | string |  |  |
-| `devices[].uptime` | int |  |  |
+| `devices[].uptime` | duration |  |  |
 | `links[]` | object |  | Links are explicit link declarations that augment/override generated links. |
 | `links[].src_device` | string |  |  |
 | `links[].src_port` | string |  |  |
@@ -1079,6 +1351,49 @@ aws_rds_* CloudWatch metrics for one database instance
 
 _(no configurable fields)_
 
+## redshift config
+
+**Location:** `(config-gated by env/cloud/cluster/database declarations)`  ·  **group:** topology
+
+Provisioned AWS/Redshift snapshots and sparse I/O latency (remote-write only)
+
+| key | type | optional | description |
+|---|---|---|---|
+| `clusters[]` | object |  |  |
+| `clusters[].name` | string |  |  |
+| `clusters[].collector_name` | string |  |  |
+| `clusters[].snapshot` | object | yes |  |
+| `clusters[].snapshot.cpu_percent` | float | yes |  |
+| `clusters[].snapshot.database_connections` | float | yes |  |
+| `clusters[].snapshot.healthy` | bool | yes |  |
+| `clusters[].snapshot.maintenance` | bool | yes |  |
+| `clusters[].snapshot.disk_used_percent` | float | yes |  |
+| `clusters[].snapshot.total_tables` | float | yes |  |
+| `clusters[].read_io` | object | yes |  |
+| `clusters[].read_io.operations_per_second` | float |  |  |
+| `clusters[].read_io.latency_seconds` | float | yes |  |
+| `clusters[].write_io` | object | yes |  |
+| `clusters[].write_io.operations_per_second` | float |  |  |
+| `clusters[].write_io.latency_seconds` | float | yes |  |
+| `clusters[].wlm_queues[]` | object |  |  |
+| `clusters[].wlm_queues[].name` | string |  |  |
+| `clusters[].wlm_queues[].waiting` | float | yes |  |
+| `clusters[].wlm_queues[].running` | float | yes |  |
+
+## scheduler config
+
+**Location:** `(config-gated by env/cloud/cluster/database declarations)`  ·  **group:** topology
+
+EventBridge Scheduler fixed-rate schedule CloudWatch metrics (remote-write only)
+
+| key | type | optional | description |
+|---|---|---|---|
+| `schedules[]` | object |  |  |
+| `schedules[].name` | string |  | Name is the schedule name, unique within its group (1..64 letters, digits, '.', '_' or '-'). |
+| `schedules[].group` | string |  | Group is the schedule group and the ScheduleGroup dimension value. Omitted means "default", the group EventBridge Scheduler uses for a schedule created without one. |
+| `schedules[].rate` | string |  | Rate is an EventBridge Scheduler rate expression, rate(<value> <unit>) with a whole positive value and unit minute(s), hour(s) or day(s), for example "rate(5 minutes)". Cron and one-time at() expressions are rejected. |
+| `schedules[].target_error_fraction` | float |  | TargetErrorFraction is the opt-in failure mode: the fraction of runs, in [0,1], whose target API call returns an error. Each failed run adds one TargetErrorCount and, with no retries modelled, one InvocationDroppedCount. Failed runs are evenly spaced with fractional carry. Zero (the default) emits neither metric. |
+
 ## snowflake config
 
 **Location:** `integrations.snowflake`  ·  **group:** integration
@@ -1090,6 +1405,81 @@ Snowflake account telemetry (prometheus.exporter.snowflake → 27 gauges from AC
 | `account` | string |  | Account is the Snowflake account identifier (default "demo-acct"). |
 | `warehouses[]` | string |  | Warehouses is the list of virtual warehouse names to emit per-warehouse metrics for. Default: ["wh_compute","wh_etl"]. |
 | `databases[]` | string |  | Databases is the list of database names to emit per-database metrics for. Default: ["analytics","raw"]. |
+
+## solace config
+
+**Location:** `integrations.solace`  ·  **group:** integration
+
+Solace event-broker telemetry (solace_prometheus_exporter v1.21.0: per-queue and per-VPN spool, flow, rate, discard and connection series)
+
+| key | type | optional | description |
+|---|---|---|---|
+| `job` | string |  | Job is the scrape job label stamped on every series. Default "solace-prometheus-exporter" (the exporter's own name; the job value is an operator choice, not set by the exporter). |
+| `targets[]` | string |  | Targets lists the exporter scrape targets to emulate, by the exporter's own case-sensitive target names: Vpn, VpnStats, VpnSpool, QueueDetails, QueueStats, QueueRates, GlobalStats, GlobalSystemInfo, Spool. Default: all except deprecated QueueRates. GlobalStats emits traffic and connected clients; GlobalSystemInfo emits uptime and declared capacities. |
+| `brokers[]` | object |  | Brokers is the declared event brokers; at least one is required. |
+| `brokers[].name` | string |  | Name identifies the broker; it must be unique and is the default instance host. |
+| `brokers[].instance` | string |  | Instance overrides the scrape instance label. Default "<name>:9628" (9628 is the exporter's default listen port). |
+| `brokers[].cpu_cores` | int |  | CPUCores is the broker's available cores (solace_system_cpu_cores). Omitted when 0. |
+| `brokers[].memory_gib` | float |  | MemoryGiB is the broker's available RAM in GiB (solace_system_memory_bytes). Omitted when 0. |
+| `brokers[].max_connections` | int |  | MaxConnections is the broker-wide client connection limit (solace_system_total_clients_quota). Omitted when 0. |
+| `brokers[].vpns[]` | object |  | VPNs is the message VPNs on this broker; at least one is required. |
+| `brokers[].vpns[].name` | string |  | Name is the message VPN name (the vpn_name label); unique within the broker. |
+| `brokers[].vpns[].publishers` | int | yes | Publishers is the number of publishing client connections, one guaranteed ingress flow each. Default 1. |
+| `brokers[].vpns[].max_connections` | int |  | MaxConnections is the VPN connection limit (solace_vpn_quota_connections). Omitted when 0. |
+| `brokers[].vpns[].spool_quota_mb` | float |  | SpoolQuotaMB is the VPN message-spool quota in MB. Default: the sum of the queue quotas. |
+| `brokers[].vpns[].queues[]` | object |  | Queues is the queues in this VPN; at least one is required. |
+| `brokers[].vpns[].queues[].name` | string |  | Name is the queue name (the queue_name label); unique within the VPN. |
+| `brokers[].vpns[].queues[].resource` | string |  | Resource binds the queue to a causal `queue` resource declared under environments[].resources (opt-in). A bound queue's publishes, deletes, depth and discards follow the resource's model, so a consumer slowdown or a slow held-across dependency grows the spool and it drains after the fault. The consumer count is the resource's size and the depth limit is spool_quota_mb / avg_msg_bytes, so the resource declares no max_depth. publish_msgs_per_sec, consume_msgs_per_sec, rate_scale, shape_profile and the queue-axis failure modes are rejected on a bound queue, and one resource binds one queue. |
+| `brokers[].vpns[].queues[].publish_msgs_per_sec` | float | yes | PublishMsgsPerSec is the business-hours publish rate into the queue, scaled by the shape engine's business factor. Default 2: a master-data change feed is a low-volume stream (about 170k messages a day at this peak), not bulk transfer. 0 declares an idle queue. |
+| `brokers[].vpns[].queues[].consume_msgs_per_sec` | float | yes | ConsumeMsgsPerSec is the consumers' maximum drain rate. Default 3x PublishMsgsPerSec so a healthy queue keeps no backlog, or 0 when Consumers is 0; set it below the publish rate (0 stalls the consumers) to model a growing backlog. With a drain_schedule it is the rate while a window is open. |
+| `brokers[].vpns[].queues[].avg_msg_bytes` | int |  | AvgMsgBytes is the average message size. Default 2048 (a JSON master-data change record). |
+| `brokers[].vpns[].queues[].consumers` | int | yes | Consumers is the number of bound consumer flows (solace_queue_binds). Default 1. A queue with 0 consumers drains nothing unless ConsumeMsgsPerSec is declared. |
+| `brokers[].vpns[].queues[].subscriptions` | int | yes | Subscriptions is the queue's topic subscription count (solace_queue_subscriptions). Default 1. |
+| `brokers[].vpns[].queues[].spool_quota_mb` | float |  | SpoolQuotaMB is the queue's maximum spool usage in MB. Default 5000, the Solace default for a queue's max spool usage. Messages arriving once it is full are discarded and counted in solace_queue_msg_spool_usage_exceeded. |
+| `brokers[].vpns[].queues[].rate_scale` | float | yes | RateScale multiplies this queue's publish rate, and the default drain rate derived from it (3x the publish rate); a declared consume_msgs_per_sec is not scaled. Default 1 (omitted leaves the queue exactly as before). It lets peer queues carry different volumes without restating each rate; 0 declares an idle queue. |
+| `brokers[].vpns[].queues[].shape_profile` | object | yes | ShapeProfile gives this queue its own business-hours load curve in place of the blueprint's (a queue fed by an overnight batch peaks when the rest of the estate is idle). Omitted keeps the blueprint curve. Same keys and defaults as the application workload's shape_profile. |
+| `brokers[].vpns[].queues[].shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty uses the blueprint timezone. |
+| `brokers[].vpns[].queues[].shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `brokers[].vpns[].queues[].shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `brokers[].vpns[].queues[].shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `brokers[].vpns[].queues[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `brokers[].vpns[].queues[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `brokers[].vpns[].queues[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Default 0.3. |
+| `brokers[].vpns[].queues[].drain_schedule` | object | yes | DrainSchedule makes the queue's consumers drain on a schedule instead of continuously (opt-in): a batch consumer that wakes at fixed times. Omitted leaves the queue exactly as before. Rejected on a queue bound to a causal resource, whose drain belongs to the model. |
+| `brokers[].vpns[].queues[].drain_schedule.period` | duration |  | Period is the interval between window openings (> 0), for example 1h. |
+| `brokers[].vpns[].queues[].drain_schedule.window` | duration |  | Window is how long each drain window stays open (> 0 and <= period). |
+| `brokers[].vpns[].queues[].drain_schedule.phase` | duration |  | Phase offsets the window opening from the epoch-aligned period boundary, in [0, period). Default 0. |
+
+## sqs config
+
+**Location:** `(config-gated by env/cloud/cluster/database declarations)`  ·  **group:** topology
+
+AWS/SQS ordinary queue metrics (remote-write only)
+
+| key | type | optional | description |
+|---|---|---|---|
+| `queues[]` | object |  |  |
+| `queues[].name` | string |  |  |
+| `queues[].collector_name` | string |  | CollectorName is the stable non-global collector identity (name label), NOT an ARN inferred from the queue name. Both identities must be supplied. |
+| `queues[].arrivals_per_second` | float |  |  |
+| `queues[].receives_per_second` | float |  |  |
+| `queues[].message_bytes` | float |  | MessageBytes is a fixed whole-byte payload, in the documented 1..1 MiB range: https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/quotas-messages.html |
+| `queues[].delay_seconds` | int |  |  |
+| `queues[].processing_seconds` | int |  |  |
+| `queues[].load` | string |  | Load selects how the queue's traffic follows the blueprint's business curve. Empty (the default) keeps arrivals_per_second and receives_per_second constant. "business" treats arrivals_per_second as the peak-plateau arrival rate and scales it each second by the shape engine's business factor (diurnal x weekly x volume). Consumers then take what is visible, one message per receive, but never faster than receives_per_second, which becomes the maximum consumer throughput: a backlog forms only while scaled arrivals exceed it and drains once they fall back. Receives follow arrivals, so idle consumers add no empty-receive polling. Without a shape engine the factor is 1. |
+| `queues[].burst` | object | yes | Burst, when declared, concentrates the queue's arrivals into the on-fraction of each period instead of spreading them evenly, as an upstream batch pipeline delivers: the same mean volume (arrivals_per_second, scaled by load when that is business) arrives in the first duty x period of each period, offset by phase, and nothing arrives in the rest. Periods are aligned to the Unix epoch on the tick wall clock, so the on-window needs no state and a restart or a master pause resumes on the same schedule. Receives are unchanged, so a backlog forms during a burst while arrivals exceed receives_per_second and drains afterwards. Omitted (the default) leaves arrivals evenly spread. A queue bound to a resource rejects it. |
+| `queues[].burst.period` | string |  | Period is the repeat interval as a Go duration, 1s to 168h ("30m" gives two bursts an hour). |
+| `queues[].burst.duty` | float |  | Duty is the on-fraction of each period, in (0,1]. Arrivals are concentrated into it, so the on-window rate is arrivals_per_second / duty; 1 is a continuous stream. |
+| `queues[].burst.phase` | string |  | Phase offsets the start of the on-window within the period as a Go duration, 0 <= phase < period (default "": the burst starts on each epoch-aligned period boundary). |
+| `queues[].enrichment` | object |  | Enrichment selects only the P2 key vocabulary. All values are declared; omitted keys stay absent. P1/P3 tag alternatives cannot be union-filled. |
+| `queues[].enrichment.asserts_env` | string |  |  |
+| `queues[].enrichment.asserts_site` | string |  |  |
+| `queues[].enrichment.service` | string |  |  |
+| `queues[].enrichment.environment` | string |  |  |
+| `queues[].enrichment.owner` | string |  |  |
+| `queues[].enrichment.purpose` | string |  |  |
+| `queues[].enrichment.terraform` | string |  |  |
+| `queues[].resource` | string |  | Resource binds the queue to a declared `queue` resource (environments[].resources). A bound queue is driven by the causal model: NumberOfMessagesSent is the window's arrivals, NumberOfMessagesReceived and NumberOfMessagesDeleted are what the consumers served, ApproximateNumberOfMessagesVisible is the backlog and ApproximateAgeOfOldestMessage the oldest message's age. The resource owns arrival rate, consumer throughput and processing time, so arrivals_per_second, receives_per_second, processing_seconds, delay_seconds, load and burst must be omitted, and the resource must not set max_depth (a standard queue is unbounded). NotVisible, Delayed and EmptyReceives are not emitted for a bound queue. |
 
 ## synthetic_monitoring config
 
@@ -1262,75 +1652,308 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].signals.logs` | bool | yes | This service's log streams; nil = enabled. |
 | `services[].signals.metrics` | bool | yes | This service's app metrics; nil = enabled. |
 | `services[].custom_metrics[]` | object |  | CustomMetrics are blueprint-owned metric names with mandatory config-only source citations. They reuse the inline metric interpreter, state and optional native OTLP lane. |
-| `services[].custom_metrics[].name` | string |  |  |
-| `services[].custom_metrics[].source` | string |  |  |
-| `services[].custom_metrics[].instrument` | string |  |  |
-| `services[].custom_metrics[].unit` | string |  |  |
-| `services[].custom_metrics[].scope` | string |  |  |
-| `services[].custom_metrics[].labels` | map[string]ValueModel |  |  |
-| `services[].custom_metrics[].value` | object |  |  |
-| `services[].custom_metrics[].value.const` | float | yes |  |
-| `services[].custom_metrics[].value.const_str` | string | yes |  |
-| `services[].custom_metrics[].value.enum[]` | object |  |  |
-| `services[].custom_metrics[].value.enum[].value` | string |  |  |
-| `services[].custom_metrics[].value.enum[].weight` | float |  |  |
-| `services[].custom_metrics[].value.int_range` | object | yes |  |
-| `services[].custom_metrics[].value.int_range.min` | int |  |  |
-| `services[].custom_metrics[].value.int_range.max` | int |  |  |
-| `services[].custom_metrics[].value.int_range.p_zero` | float |  |  |
-| `services[].custom_metrics[].value.float_range` | object | yes |  |
-| `services[].custom_metrics[].value.float_range.min` | float |  |  |
-| `services[].custom_metrics[].value.float_range.max` | float |  |  |
-| `services[].custom_metrics[].value.normal` | object | yes |  |
-| `services[].custom_metrics[].value.normal.mean` | float |  |  |
-| `services[].custom_metrics[].value.normal.stddev` | float |  |  |
-| `services[].custom_metrics[].value.bool` | object | yes |  |
-| `services[].custom_metrics[].value.bool.p_true` | float |  |  |
-| `services[].custom_metrics[].value.shape` | object | yes |  |
-| `services[].custom_metrics[].value.shape.base` | float |  |  |
-| `services[].custom_metrics[].value.shape.mode` | string |  |  |
-| `services[].custom_metrics[].value.ref` | string |  |  |
-| `services[].custom_metrics[].buckets[]` | float |  |  |
-| `services[].custom_metrics[].le_style` | string |  |  |
+| `services[].custom_metrics[].name` | string |  | Name is the metric family name, emitted as declared. |
+| `services[].custom_metrics[].source` | string |  | Source cites where the metric's name and behaviour come from (documentation or an observed capture). It is required on a blueprint-owned custom metric and is never emitted. |
+| `services[].custom_metrics[].instrument` | string |  | Instrument is the metric kind: gauge, counter or histogram. |
+| `services[].custom_metrics[].unit` | string |  | Unit is the unit string carried on a native OTLP metric; it does not rename the series. |
+| `services[].custom_metrics[].scope` | string |  | Scope selects whether the series carries the blueprint selector (blueprint) or is a shared substrate series with none (substrate). Omitted uses the owning node's default. |
+| `services[].custom_metrics[].labels` | map[string]ValueModel |  | Labels are the series dimensions, one value model per label name. Only constant and enum values are allowed, and a label's enum expands to every value on every tick. |
+| `services[].custom_metrics[].value` | object |  | Value is the value model: the reading of a gauge, the per-tick increment of a counter or one observation of a histogram. Omit it only on a stock_of gauge. |
+| `services[].custom_metrics[].value.const` | float | yes | Const is a fixed numeric value. |
+| `services[].custom_metrics[].value.const_str` | string | yes | ConstStr is a fixed string value. |
+| `services[].custom_metrics[].value.enum[]` | object |  | Enum is a weighted categorical value drawn from a fixed set of strings. On a metric label it expands to every value on every tick. |
+| `services[].custom_metrics[].value.enum[].value` | string |  | Value is the categorical value, emitted as a string. |
+| `services[].custom_metrics[].value.enum[].weight` | float |  | Weight is the value's share of per-request draws (log body field, span attribute or stream label). It never divides traffic among metric series. |
+| `services[].custom_metrics[].value.enum[].rate_scale` | float | yes | RateScale (metric labels only) multiplies a counter's per-tick increment or a histogram's observations per tick for series carrying this value. Rejected on a gauge. Omitted means 1. |
+| `services[].custom_metrics[].value.enum[].value_scale` | float | yes | ValueScale (metric labels only) multiplies each observed histogram value or gauge reading for series carrying this value. Rejected on a counter. Omitted means 1. |
+| `services[].custom_metrics[].value.enum[].shape_profile` | object | yes | ShapeProfile gives this value's series its own business clock and curve, laid field by field over the metric's and the node's profile (METRIC labels only; the metric's value must be a `shape`). The label value is unchanged, so the series set is identical. Omitted means the series follows the inherited profile. |
+| `services[].custom_metrics[].value.enum[].shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty keeps the inherited zone. |
+| `services[].custom_metrics[].value.enum[].shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `services[].custom_metrics[].value.enum[].shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `services[].custom_metrics[].value.enum[].shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `services[].custom_metrics[].value.enum[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `services[].custom_metrics[].value.enum[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `services[].custom_metrics[].value.enum[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the default of the reading consumer. |
+| `services[].custom_metrics[].value.enum[].stall_mode` | string |  | StallMode gives this value's series its own stall incident mode in place of the metric's (METRIC labels only; the metric's value must be a `now` or `source_read`). At most one label of a metric may declare it. Omitted means the series follows the metric's stall_mode. |
+| `services[].custom_metrics[].value.int_range` | object | yes | IntRange is a bounded integer draw, with an optional probability of forcing 0. |
+| `services[].custom_metrics[].value.int_range.min` | int |  | Min is the smallest value drawn. |
+| `services[].custom_metrics[].value.int_range.max` | int |  | Max is the largest value drawn; at least Min. |
+| `services[].custom_metrics[].value.int_range.p_zero` | float |  | PZero is the probability, in [0,1], that the draw is forced to 0. |
+| `services[].custom_metrics[].value.float_range` | object | yes | FloatRange is a bounded uniform float draw. |
+| `services[].custom_metrics[].value.float_range.min` | float |  | Min is the lower bound of the uniform draw. |
+| `services[].custom_metrics[].value.float_range.max` | float |  | Max is the upper bound; at least Min. |
+| `services[].custom_metrics[].value.normal` | object | yes | Normal is a gaussian draw; negative draws are clamped to 0. |
+| `services[].custom_metrics[].value.normal.mean` | float |  | Mean is the distribution's mean. |
+| `services[].custom_metrics[].value.normal.stddev` | float |  | Stddev is the standard deviation; at least 0. |
+| `services[].custom_metrics[].value.bool` | object | yes | Bool is a boolean that is true with the given probability. |
+| `services[].custom_metrics[].value.bool.p_true` | float |  | PTrue is the probability, in [0,1], that the value is true. |
+| `services[].custom_metrics[].value.shape` | object | yes | Shape is a base value scaled by the load curve and, when a mode is named, by an incident. |
+| `services[].custom_metrics[].value.shape.base` | float |  | Base is the value at full load with no incident. |
+| `services[].custom_metrics[].value.shape.mode` | string |  | Mode names the incident mode whose scoped intensity moves the value; required with incident_value. Omitted means the value follows load only. |
+| `services[].custom_metrics[].value.shape.incident_value` | float | yes | IncidentValue (metric values only) is the value at incident intensity 1, before load scaling; the value interpolates from base to it as intensity rises. Needs mode. |
+| `services[].custom_metrics[].value.shape.incident_absolute` | bool |  | IncidentAbsolute makes the incident share of the value independent of load, so an outage reads the same at night or on a weekend. Needs incident_value. |
+| `services[].custom_metrics[].value.shape.batch` | object | yes | Batch makes a counter's source deliver in batches: the per-tick arrivals accumulate and are released at the cadence (zero between releases), conserving the smooth curve's total. Counter metric values only, and not with incident_value or on a metric that declares stock_of or count_of (those follow the batched counter instead); the workload resolves the release against the series' own clock. Period is in (0, 24h] and Phase in [0, Period). |
+| `services[].custom_metrics[].value.shape.batch.period` | duration |  | Period is the release cadence (for example 15m or 30m). Required, in (0, 24h]. |
+| `services[].custom_metrics[].value.shape.batch.phase` | duration |  | Phase offsets the release boundaries from the epoch-aligned Period grid, in [0, Period). Default 0: releases land on the wall-clock multiples of Period. |
+| `services[].custom_metrics[].value.ref` | string |  | Ref pulls a request correlation field by name (for example a trace ID, route or status). A high-cardinality ref is rejected on a metric or stream label. |
+| `services[].custom_metrics[].value.lognormal` | object | yes | Lognormal is a right-skewed positive draw given its median and 95th percentile, as latency and dwell times are. |
+| `services[].custom_metrics[].value.lognormal.median` | float |  | Median is the distribution's median; must be above 0. |
+| `services[].custom_metrics[].value.lognormal.p95` | float |  | P95 is the 95th percentile; at least Median (equal degenerates to a constant). |
+| `services[].custom_metrics[].value.now` | object | yes | Now reads the tick time in Unix seconds, for a last-success or heartbeat timestamp (gauge metric value only). |
+| `services[].custom_metrics[].value.now.stall_mode` | string |  | StallMode names the incident mode that stalls the producer: while it is active for the service, the gauge holds its last reading and resumes at the tick time when it ends. Omitted means the gauge always advances. An enum label value may override it for its own series. |
+| `services[].custom_metrics[].value.now.arrivals_only` | bool |  | ArrivalsOnly makes the gauge a source-event time: it advances only on a tick where the source had arrivals and holds its last reading otherwise, so a quiet source reads old. |
+| `services[].custom_metrics[].value.now.period` | duration |  | Period makes the gauge the last success of a job on a schedule: the reading is the most recent epoch-aligned multiple of Period (shifted by Phase) at or before the tick time. At most 24h; omitted or 0 reads the tick time. |
+| `services[].custom_metrics[].value.now.phase` | duration |  | Phase shifts the schedule boundaries from the epoch-aligned grid, in [0, Period), and needs a Period. Default 0. |
+| `services[].custom_metrics[].value.resource` | object | yes | Resource reads a field of a declared resource's model state (metric value only). |
+| `services[].custom_metrics[].value.resource.name` | string |  | Name is the declared resource whose model state is read. |
+| `services[].custom_metrics[].value.resource.field` | string |  | Field is the state field read: a gauge field (demand_rps, capacity, utilization, in_use, waiting, wait_seconds, backlog, oldest_age_seconds, latency_factor, hold_seconds, served_rps, failed_share) on a gauge metric, or a counter field (rejected, admitted, failed) on a counter metric. |
+| `services[].custom_metrics[].value.outcomes` | object | yes | Outcomes reads the service node's hop outcomes in the metric window (metric value only). |
+| `services[].custom_metrics[].value.outcomes.status[]` | string |  | Status lists the hop statuses that match: success, 4xx, 5xx or an exact three-digit HTTP status such as 503. Set exactly one of status and status_label. |
+| `services[].custom_metrics[].value.outcomes.status_label` | string |  | StatusLabel names an enum label of the same metric whose value selects the matching status per series. Set exactly one of status and status_label. |
+| `services[].custom_metrics[].value.outcomes.measure` | string |  | Measure is count (a counter metric, the default), share (a gauge metric) or latency (a histogram metric: each matching hop duration, in seconds, is one observation). |
+| `services[].custom_metrics[].value.request_draw` | object | yes | RequestDraw draws a formatted ID or an enum value once per request and repeats it on every log line of that request that names the same key (log body field only). |
+| `services[].custom_metrics[].value.request_draw.key` | string |  | Key names the draw: every log line of one request that declares the same key repeats the same drawn value. Required. |
+| `services[].custom_metrics[].value.request_draw.format` | string |  | Format draws a generated ID from literal text with runs written {digits:N}, {hex:N} or {upper:N}, for example ORD-{digits:10}. Set exactly one of format and enum. |
+| `services[].custom_metrics[].value.request_draw.enum[]` | object |  | Enum draws one of a weighted set of values; weights select the share of requests. Set exactly one of format and enum. |
+| `services[].custom_metrics[].value.request_draw.enum[].value` | string |  | Value is the categorical value, emitted as a string. |
+| `services[].custom_metrics[].value.request_draw.enum[].weight` | float |  | Weight is the value's share of per-request draws (log body field, span attribute or stream label). It never divides traffic among metric series. |
+| `services[].custom_metrics[].value.request_draw.enum[].rate_scale` | float | yes | RateScale (metric labels only) multiplies a counter's per-tick increment or a histogram's observations per tick for series carrying this value. Rejected on a gauge. Omitted means 1. |
+| `services[].custom_metrics[].value.request_draw.enum[].value_scale` | float | yes | ValueScale (metric labels only) multiplies each observed histogram value or gauge reading for series carrying this value. Rejected on a counter. Omitted means 1. |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile` | object | yes | ShapeProfile gives this value's series its own business clock and curve, laid field by field over the metric's and the node's profile (METRIC labels only; the metric's value must be a `shape`). The label value is unchanged, so the series set is identical. Omitted means the series follows the inherited profile. |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty keeps the inherited zone. |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `services[].custom_metrics[].value.request_draw.enum[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the default of the reading consumer. |
+| `services[].custom_metrics[].value.request_draw.enum[].stall_mode` | string |  | StallMode gives this value's series its own stall incident mode in place of the metric's (METRIC labels only; the metric's value must be a `now` or `source_read`). At most one label of a metric may declare it. Omitted means the series follows the metric's stall_mode. |
+| `services[].custom_metrics[].value.source_read` | object | yes | SourceRead is a collector's own read work, a counter increment that advances with reads and stops (or turns to failures) while its stall_mode incident is active (counter metric value only). |
+| `services[].custom_metrics[].value.source_read.measure` | string |  | Measure selects the counter: records_inspected or checkpoint (advance while the collector is not stalled) or read_failures (advances only while it is stalled). |
+| `services[].custom_metrics[].value.source_read.per_tick` | float |  | PerTick is the increment per metric tick, not per second; records_inspected and checkpoint scale it by the node's load factor. Must be finite and above 0. |
+| `services[].custom_metrics[].value.source_read.stall_mode` | string |  | StallMode names the incident mode that stalls the collector, resolved per service. Required for read_failures unless an enum label value declares its own. |
+| `services[].custom_metrics[].buckets[]` | float |  | Buckets are the histogram's upper bounds in increasing order (histogram only). |
+| `services[].custom_metrics[].le_style` | string |  | LEStyle renders the histogram's le bucket-bound label: bare (default) or dotzero, which writes a whole bound with a trailing .0 as the OTLP to Prometheus translation does. |
+| `services[].custom_metrics[].stock_of` | object | yes | StockOf makes a gauge a derived stock (a level such as items in progress or a queue depth) of a counter on the same service node, instead of reading its own value model. Gauge only; value must be omitted. Without labels the gauge inherits the counter's label combinations (across every same-named counter spec on the node); with labels it is a projection: each label must be a counter label, each value one the counter takes, and a gauge series stocks the arrivals of every counter series that matches it. Labels may not declare value_scale. |
+| `services[].custom_metrics[].stock_of.metric` | string |  | Metric is the name of the counter, declared on the same service node, whose arrivals the stock holds. |
+| `services[].custom_metrics[].stock_of.dwell_seconds` | float |  | DwellSeconds selects the fluid stock: the mean seconds an item stays, so the level settles at the counter rate times this value. Must be finite and above 0; set exactly one of dwell_seconds and residence. |
+| `services[].custom_metrics[].stock_of.residence` | object | yes | Residence selects the item stock: each arriving item stays for its own residence draw (median and 95th percentile, in seconds), so the gauge is a whole-number count. |
+| `services[].custom_metrics[].stock_of.residence.median` | float |  | Median is the distribution's median; must be above 0. |
+| `services[].custom_metrics[].stock_of.residence.p95` | float |  | P95 is the 95th percentile; at least Median (equal degenerates to a constant). |
+| `services[].custom_metrics[].stock_of.stall_mode` | string |  | StallMode (item stock only) names the incident mode that slows completions: at intensity i every item's residence advances at (1 - i) of real time, so intensity 1 stops completions. |
+| `services[].custom_metrics[].stock_of.field` | string |  | Field (item stock only) selects the reading: count (default) or oldest_age_seconds, the seconds since the oldest item still in the stock arrived (0 when empty). |
+| `services[].custom_metrics[].count_of` | string |  | CountOf makes a histogram observe, per label combination and tick, as many values as the named counter on the same service node incremented (fractions carry deterministically), so the histogram's _count tracks the counter. Histogram only; its labels must be a subset of the counter's, each value one the counter takes, and a series observes the summed increments of the counter series that match it (the whole counter when it has no labels). Its labels may not declare rate_scale (the counter owns the rate). A histogram label may select a subset of a counter label's values, so a blueprint that declares one counter spec per series can pair each histogram spec with its own counter series (every combination must match at least one counter series). The most one series can observe in a tick is bounded at load, counting a batched counter's whole-window release as one tick's increment. |
+| `services[].custom_metrics[].count_of_service` | string |  | CountOfService names the service node whose counter count_of reads, for a counter declared on another node of the same app workload (for example a counter a scenario targets by its own service). Omitted reads the histogram's own node. The named service must be declared before the histogram's service in the workload, so its increments are recorded the same tick; there is no reference across workloads. Valid only with count_of. |
+| `services[].custom_metrics[].shape_profile` | object | yes | ShapeProfile gives every series of this metric its own business clock and curve, laid over the node's inherited profile field by field (an enum value's shape_profile lays over this in turn). It moves only a `shape` value, so any other value model rejects it; stock_of and count_of read the counter's series and take none of their own. Omitted keeps the node's load profile and the output unchanged. |
+| `services[].custom_metrics[].shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty keeps the inherited zone. |
+| `services[].custom_metrics[].shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `services[].custom_metrics[].shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `services[].custom_metrics[].shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `services[].custom_metrics[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `services[].custom_metrics[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `services[].custom_metrics[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the default of the reading consumer. |
 | `services[].metrics[]` | object |  | legacy inline metrics (the DSL escape hatch) |
-| `services[].metrics[].name` | string |  |  |
-| `services[].metrics[].source` | string |  |  |
-| `services[].metrics[].instrument` | string |  |  |
-| `services[].metrics[].unit` | string |  |  |
-| `services[].metrics[].scope` | string |  |  |
-| `services[].metrics[].labels` | map[string]ValueModel |  |  |
-| `services[].metrics[].value` | object |  |  |
-| `services[].metrics[].value.const` | float | yes |  |
-| `services[].metrics[].value.const_str` | string | yes |  |
-| `services[].metrics[].value.enum[]` | object |  |  |
-| `services[].metrics[].value.enum[].value` | string |  |  |
-| `services[].metrics[].value.enum[].weight` | float |  |  |
-| `services[].metrics[].value.int_range` | object | yes |  |
-| `services[].metrics[].value.int_range.min` | int |  |  |
-| `services[].metrics[].value.int_range.max` | int |  |  |
-| `services[].metrics[].value.int_range.p_zero` | float |  |  |
-| `services[].metrics[].value.float_range` | object | yes |  |
-| `services[].metrics[].value.float_range.min` | float |  |  |
-| `services[].metrics[].value.float_range.max` | float |  |  |
-| `services[].metrics[].value.normal` | object | yes |  |
-| `services[].metrics[].value.normal.mean` | float |  |  |
-| `services[].metrics[].value.normal.stddev` | float |  |  |
-| `services[].metrics[].value.bool` | object | yes |  |
-| `services[].metrics[].value.bool.p_true` | float |  |  |
-| `services[].metrics[].value.shape` | object | yes |  |
-| `services[].metrics[].value.shape.base` | float |  |  |
-| `services[].metrics[].value.shape.mode` | string |  |  |
-| `services[].metrics[].value.ref` | string |  |  |
-| `services[].metrics[].buckets[]` | float |  |  |
-| `services[].metrics[].le_style` | string |  |  |
+| `services[].metrics[].name` | string |  | Name is the metric family name, emitted as declared. |
+| `services[].metrics[].source` | string |  | Source cites where the metric's name and behaviour come from (documentation or an observed capture). It is required on a blueprint-owned custom metric and is never emitted. |
+| `services[].metrics[].instrument` | string |  | Instrument is the metric kind: gauge, counter or histogram. |
+| `services[].metrics[].unit` | string |  | Unit is the unit string carried on a native OTLP metric; it does not rename the series. |
+| `services[].metrics[].scope` | string |  | Scope selects whether the series carries the blueprint selector (blueprint) or is a shared substrate series with none (substrate). Omitted uses the owning node's default. |
+| `services[].metrics[].labels` | map[string]ValueModel |  | Labels are the series dimensions, one value model per label name. Only constant and enum values are allowed, and a label's enum expands to every value on every tick. |
+| `services[].metrics[].value` | object |  | Value is the value model: the reading of a gauge, the per-tick increment of a counter or one observation of a histogram. Omit it only on a stock_of gauge. |
+| `services[].metrics[].value.const` | float | yes | Const is a fixed numeric value. |
+| `services[].metrics[].value.const_str` | string | yes | ConstStr is a fixed string value. |
+| `services[].metrics[].value.enum[]` | object |  | Enum is a weighted categorical value drawn from a fixed set of strings. On a metric label it expands to every value on every tick. |
+| `services[].metrics[].value.enum[].value` | string |  | Value is the categorical value, emitted as a string. |
+| `services[].metrics[].value.enum[].weight` | float |  | Weight is the value's share of per-request draws (log body field, span attribute or stream label). It never divides traffic among metric series. |
+| `services[].metrics[].value.enum[].rate_scale` | float | yes | RateScale (metric labels only) multiplies a counter's per-tick increment or a histogram's observations per tick for series carrying this value. Rejected on a gauge. Omitted means 1. |
+| `services[].metrics[].value.enum[].value_scale` | float | yes | ValueScale (metric labels only) multiplies each observed histogram value or gauge reading for series carrying this value. Rejected on a counter. Omitted means 1. |
+| `services[].metrics[].value.enum[].shape_profile` | object | yes | ShapeProfile gives this value's series its own business clock and curve, laid field by field over the metric's and the node's profile (METRIC labels only; the metric's value must be a `shape`). The label value is unchanged, so the series set is identical. Omitted means the series follows the inherited profile. |
+| `services[].metrics[].value.enum[].shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty keeps the inherited zone. |
+| `services[].metrics[].value.enum[].shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `services[].metrics[].value.enum[].shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `services[].metrics[].value.enum[].shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `services[].metrics[].value.enum[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `services[].metrics[].value.enum[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `services[].metrics[].value.enum[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the default of the reading consumer. |
+| `services[].metrics[].value.enum[].stall_mode` | string |  | StallMode gives this value's series its own stall incident mode in place of the metric's (METRIC labels only; the metric's value must be a `now` or `source_read`). At most one label of a metric may declare it. Omitted means the series follows the metric's stall_mode. |
+| `services[].metrics[].value.int_range` | object | yes | IntRange is a bounded integer draw, with an optional probability of forcing 0. |
+| `services[].metrics[].value.int_range.min` | int |  | Min is the smallest value drawn. |
+| `services[].metrics[].value.int_range.max` | int |  | Max is the largest value drawn; at least Min. |
+| `services[].metrics[].value.int_range.p_zero` | float |  | PZero is the probability, in [0,1], that the draw is forced to 0. |
+| `services[].metrics[].value.float_range` | object | yes | FloatRange is a bounded uniform float draw. |
+| `services[].metrics[].value.float_range.min` | float |  | Min is the lower bound of the uniform draw. |
+| `services[].metrics[].value.float_range.max` | float |  | Max is the upper bound; at least Min. |
+| `services[].metrics[].value.normal` | object | yes | Normal is a gaussian draw; negative draws are clamped to 0. |
+| `services[].metrics[].value.normal.mean` | float |  | Mean is the distribution's mean. |
+| `services[].metrics[].value.normal.stddev` | float |  | Stddev is the standard deviation; at least 0. |
+| `services[].metrics[].value.bool` | object | yes | Bool is a boolean that is true with the given probability. |
+| `services[].metrics[].value.bool.p_true` | float |  | PTrue is the probability, in [0,1], that the value is true. |
+| `services[].metrics[].value.shape` | object | yes | Shape is a base value scaled by the load curve and, when a mode is named, by an incident. |
+| `services[].metrics[].value.shape.base` | float |  | Base is the value at full load with no incident. |
+| `services[].metrics[].value.shape.mode` | string |  | Mode names the incident mode whose scoped intensity moves the value; required with incident_value. Omitted means the value follows load only. |
+| `services[].metrics[].value.shape.incident_value` | float | yes | IncidentValue (metric values only) is the value at incident intensity 1, before load scaling; the value interpolates from base to it as intensity rises. Needs mode. |
+| `services[].metrics[].value.shape.incident_absolute` | bool |  | IncidentAbsolute makes the incident share of the value independent of load, so an outage reads the same at night or on a weekend. Needs incident_value. |
+| `services[].metrics[].value.shape.batch` | object | yes | Batch makes a counter's source deliver in batches: the per-tick arrivals accumulate and are released at the cadence (zero between releases), conserving the smooth curve's total. Counter metric values only, and not with incident_value or on a metric that declares stock_of or count_of (those follow the batched counter instead); the workload resolves the release against the series' own clock. Period is in (0, 24h] and Phase in [0, Period). |
+| `services[].metrics[].value.shape.batch.period` | duration |  | Period is the release cadence (for example 15m or 30m). Required, in (0, 24h]. |
+| `services[].metrics[].value.shape.batch.phase` | duration |  | Phase offsets the release boundaries from the epoch-aligned Period grid, in [0, Period). Default 0: releases land on the wall-clock multiples of Period. |
+| `services[].metrics[].value.ref` | string |  | Ref pulls a request correlation field by name (for example a trace ID, route or status). A high-cardinality ref is rejected on a metric or stream label. |
+| `services[].metrics[].value.lognormal` | object | yes | Lognormal is a right-skewed positive draw given its median and 95th percentile, as latency and dwell times are. |
+| `services[].metrics[].value.lognormal.median` | float |  | Median is the distribution's median; must be above 0. |
+| `services[].metrics[].value.lognormal.p95` | float |  | P95 is the 95th percentile; at least Median (equal degenerates to a constant). |
+| `services[].metrics[].value.now` | object | yes | Now reads the tick time in Unix seconds, for a last-success or heartbeat timestamp (gauge metric value only). |
+| `services[].metrics[].value.now.stall_mode` | string |  | StallMode names the incident mode that stalls the producer: while it is active for the service, the gauge holds its last reading and resumes at the tick time when it ends. Omitted means the gauge always advances. An enum label value may override it for its own series. |
+| `services[].metrics[].value.now.arrivals_only` | bool |  | ArrivalsOnly makes the gauge a source-event time: it advances only on a tick where the source had arrivals and holds its last reading otherwise, so a quiet source reads old. |
+| `services[].metrics[].value.now.period` | duration |  | Period makes the gauge the last success of a job on a schedule: the reading is the most recent epoch-aligned multiple of Period (shifted by Phase) at or before the tick time. At most 24h; omitted or 0 reads the tick time. |
+| `services[].metrics[].value.now.phase` | duration |  | Phase shifts the schedule boundaries from the epoch-aligned grid, in [0, Period), and needs a Period. Default 0. |
+| `services[].metrics[].value.resource` | object | yes | Resource reads a field of a declared resource's model state (metric value only). |
+| `services[].metrics[].value.resource.name` | string |  | Name is the declared resource whose model state is read. |
+| `services[].metrics[].value.resource.field` | string |  | Field is the state field read: a gauge field (demand_rps, capacity, utilization, in_use, waiting, wait_seconds, backlog, oldest_age_seconds, latency_factor, hold_seconds, served_rps, failed_share) on a gauge metric, or a counter field (rejected, admitted, failed) on a counter metric. |
+| `services[].metrics[].value.outcomes` | object | yes | Outcomes reads the service node's hop outcomes in the metric window (metric value only). |
+| `services[].metrics[].value.outcomes.status[]` | string |  | Status lists the hop statuses that match: success, 4xx, 5xx or an exact three-digit HTTP status such as 503. Set exactly one of status and status_label. |
+| `services[].metrics[].value.outcomes.status_label` | string |  | StatusLabel names an enum label of the same metric whose value selects the matching status per series. Set exactly one of status and status_label. |
+| `services[].metrics[].value.outcomes.measure` | string |  | Measure is count (a counter metric, the default), share (a gauge metric) or latency (a histogram metric: each matching hop duration, in seconds, is one observation). |
+| `services[].metrics[].value.request_draw` | object | yes | RequestDraw draws a formatted ID or an enum value once per request and repeats it on every log line of that request that names the same key (log body field only). |
+| `services[].metrics[].value.request_draw.key` | string |  | Key names the draw: every log line of one request that declares the same key repeats the same drawn value. Required. |
+| `services[].metrics[].value.request_draw.format` | string |  | Format draws a generated ID from literal text with runs written {digits:N}, {hex:N} or {upper:N}, for example ORD-{digits:10}. Set exactly one of format and enum. |
+| `services[].metrics[].value.request_draw.enum[]` | object |  | Enum draws one of a weighted set of values; weights select the share of requests. Set exactly one of format and enum. |
+| `services[].metrics[].value.request_draw.enum[].value` | string |  | Value is the categorical value, emitted as a string. |
+| `services[].metrics[].value.request_draw.enum[].weight` | float |  | Weight is the value's share of per-request draws (log body field, span attribute or stream label). It never divides traffic among metric series. |
+| `services[].metrics[].value.request_draw.enum[].rate_scale` | float | yes | RateScale (metric labels only) multiplies a counter's per-tick increment or a histogram's observations per tick for series carrying this value. Rejected on a gauge. Omitted means 1. |
+| `services[].metrics[].value.request_draw.enum[].value_scale` | float | yes | ValueScale (metric labels only) multiplies each observed histogram value or gauge reading for series carrying this value. Rejected on a counter. Omitted means 1. |
+| `services[].metrics[].value.request_draw.enum[].shape_profile` | object | yes | ShapeProfile gives this value's series its own business clock and curve, laid field by field over the metric's and the node's profile (METRIC labels only; the metric's value must be a `shape`). The label value is unchanged, so the series set is identical. Omitted means the series follows the inherited profile. |
+| `services[].metrics[].value.request_draw.enum[].shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty keeps the inherited zone. |
+| `services[].metrics[].value.request_draw.enum[].shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `services[].metrics[].value.request_draw.enum[].shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `services[].metrics[].value.request_draw.enum[].shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `services[].metrics[].value.request_draw.enum[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `services[].metrics[].value.request_draw.enum[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `services[].metrics[].value.request_draw.enum[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the default of the reading consumer. |
+| `services[].metrics[].value.request_draw.enum[].stall_mode` | string |  | StallMode gives this value's series its own stall incident mode in place of the metric's (METRIC labels only; the metric's value must be a `now` or `source_read`). At most one label of a metric may declare it. Omitted means the series follows the metric's stall_mode. |
+| `services[].metrics[].value.source_read` | object | yes | SourceRead is a collector's own read work, a counter increment that advances with reads and stops (or turns to failures) while its stall_mode incident is active (counter metric value only). |
+| `services[].metrics[].value.source_read.measure` | string |  | Measure selects the counter: records_inspected or checkpoint (advance while the collector is not stalled) or read_failures (advances only while it is stalled). |
+| `services[].metrics[].value.source_read.per_tick` | float |  | PerTick is the increment per metric tick, not per second; records_inspected and checkpoint scale it by the node's load factor. Must be finite and above 0. |
+| `services[].metrics[].value.source_read.stall_mode` | string |  | StallMode names the incident mode that stalls the collector, resolved per service. Required for read_failures unless an enum label value declares its own. |
+| `services[].metrics[].buckets[]` | float |  | Buckets are the histogram's upper bounds in increasing order (histogram only). |
+| `services[].metrics[].le_style` | string |  | LEStyle renders the histogram's le bucket-bound label: bare (default) or dotzero, which writes a whole bound with a trailing .0 as the OTLP to Prometheus translation does. |
+| `services[].metrics[].stock_of` | object | yes | StockOf makes a gauge a derived stock (a level such as items in progress or a queue depth) of a counter on the same service node, instead of reading its own value model. Gauge only; value must be omitted. Without labels the gauge inherits the counter's label combinations (across every same-named counter spec on the node); with labels it is a projection: each label must be a counter label, each value one the counter takes, and a gauge series stocks the arrivals of every counter series that matches it. Labels may not declare value_scale. |
+| `services[].metrics[].stock_of.metric` | string |  | Metric is the name of the counter, declared on the same service node, whose arrivals the stock holds. |
+| `services[].metrics[].stock_of.dwell_seconds` | float |  | DwellSeconds selects the fluid stock: the mean seconds an item stays, so the level settles at the counter rate times this value. Must be finite and above 0; set exactly one of dwell_seconds and residence. |
+| `services[].metrics[].stock_of.residence` | object | yes | Residence selects the item stock: each arriving item stays for its own residence draw (median and 95th percentile, in seconds), so the gauge is a whole-number count. |
+| `services[].metrics[].stock_of.residence.median` | float |  | Median is the distribution's median; must be above 0. |
+| `services[].metrics[].stock_of.residence.p95` | float |  | P95 is the 95th percentile; at least Median (equal degenerates to a constant). |
+| `services[].metrics[].stock_of.stall_mode` | string |  | StallMode (item stock only) names the incident mode that slows completions: at intensity i every item's residence advances at (1 - i) of real time, so intensity 1 stops completions. |
+| `services[].metrics[].stock_of.field` | string |  | Field (item stock only) selects the reading: count (default) or oldest_age_seconds, the seconds since the oldest item still in the stock arrived (0 when empty). |
+| `services[].metrics[].count_of` | string |  | CountOf makes a histogram observe, per label combination and tick, as many values as the named counter on the same service node incremented (fractions carry deterministically), so the histogram's _count tracks the counter. Histogram only; its labels must be a subset of the counter's, each value one the counter takes, and a series observes the summed increments of the counter series that match it (the whole counter when it has no labels). Its labels may not declare rate_scale (the counter owns the rate). A histogram label may select a subset of a counter label's values, so a blueprint that declares one counter spec per series can pair each histogram spec with its own counter series (every combination must match at least one counter series). The most one series can observe in a tick is bounded at load, counting a batched counter's whole-window release as one tick's increment. |
+| `services[].metrics[].count_of_service` | string |  | CountOfService names the service node whose counter count_of reads, for a counter declared on another node of the same app workload (for example a counter a scenario targets by its own service). Omitted reads the histogram's own node. The named service must be declared before the histogram's service in the workload, so its increments are recorded the same tick; there is no reference across workloads. Valid only with count_of. |
+| `services[].metrics[].shape_profile` | object | yes | ShapeProfile gives every series of this metric its own business clock and curve, laid over the node's inherited profile field by field (an enum value's shape_profile lays over this in turn). It moves only a `shape` value, so any other value model rejects it; stock_of and count_of read the counter's series and take none of their own. Omitted keeps the node's load profile and the output unchanged. |
+| `services[].metrics[].shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty keeps the inherited zone. |
+| `services[].metrics[].shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `services[].metrics[].shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `services[].metrics[].shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `services[].metrics[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `services[].metrics[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `services[].metrics[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the default of the reading consumer. |
 | `services[].logs[]` | object |  | inline custom log streams |
-| `services[].logs[].source` | string |  |  |
-| `services[].logs[].stream_labels` | map[string]ValueModel |  |  |
-| `services[].logs[].body` | map[string]ValueModel |  |  |
+| `services[].logs[].source` | string |  | Source names the log line's stream within the service node; required and non-blank. |
+| `services[].logs[].stream_labels` | map[string]ValueModel |  | StreamLabels are the log stream's indexed labels. Only constant and enum values are allowed, and a high-cardinality correlation ref is rejected here. |
+| `services[].logs[].body` | map[string]ValueModel |  | Body holds the fields of the JSON log line, one value model per field. Any value model is allowed, including a high-cardinality correlation ref. |
+| `services[].logs[].when` | object | yes | When, when set, writes this line only for the requests whose per-request draw falls in the listed values, so one bundle's line set follows a drawn route or outcome. Omitted writes the line for every request. |
+| `services[].logs[].when.request_draw` | object |  | RequestDraw is the per-request enum draw the gate reads, declared exactly as the bundle's body fields declare the same key. |
+| `services[].logs[].when.request_draw.key` | string |  | Key names the draw: every log line of one request that declares the same key repeats the same drawn value. Required. |
+| `services[].logs[].when.request_draw.format` | string |  | Format draws a generated ID from literal text with runs written {digits:N}, {hex:N} or {upper:N}, for example ORD-{digits:10}. Set exactly one of format and enum. |
+| `services[].logs[].when.request_draw.enum[]` | object |  | Enum draws one of a weighted set of values; weights select the share of requests. Set exactly one of format and enum. |
+| `services[].logs[].when.request_draw.enum[].value` | string |  | Value is the categorical value, emitted as a string. |
+| `services[].logs[].when.request_draw.enum[].weight` | float |  | Weight is the value's share of per-request draws (log body field, span attribute or stream label). It never divides traffic among metric series. |
+| `services[].logs[].when.request_draw.enum[].rate_scale` | float | yes | RateScale (metric labels only) multiplies a counter's per-tick increment or a histogram's observations per tick for series carrying this value. Rejected on a gauge. Omitted means 1. |
+| `services[].logs[].when.request_draw.enum[].value_scale` | float | yes | ValueScale (metric labels only) multiplies each observed histogram value or gauge reading for series carrying this value. Rejected on a counter. Omitted means 1. |
+| `services[].logs[].when.request_draw.enum[].shape_profile` | object | yes | ShapeProfile gives this value's series its own business clock and curve, laid field by field over the metric's and the node's profile (METRIC labels only; the metric's value must be a `shape`). The label value is unchanged, so the series set is identical. Omitted means the series follows the inherited profile. |
+| `services[].logs[].when.request_draw.enum[].shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty keeps the inherited zone. |
+| `services[].logs[].when.request_draw.enum[].shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `services[].logs[].when.request_draw.enum[].shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `services[].logs[].when.request_draw.enum[].shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `services[].logs[].when.request_draw.enum[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `services[].logs[].when.request_draw.enum[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `services[].logs[].when.request_draw.enum[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the default of the reading consumer. |
+| `services[].logs[].when.request_draw.enum[].stall_mode` | string |  | StallMode gives this value's series its own stall incident mode in place of the metric's (METRIC labels only; the metric's value must be a `now` or `source_read`). At most one label of a metric may declare it. Omitted means the series follows the metric's stall_mode. |
+| `services[].logs[].when.in[]` | string |  | In lists the drawn values for which the line is written; at least one, each one of the draw's enum values, none repeated. |
+| `services[].logs[].dwell_seconds` | object | yes | DwellSeconds, when set, gives the line its own event time. It is the seconds the request spent before this line: the line's time is the previous written line's time plus its dwell, and the bundle's last written line keeps the request's completion time, so earlier lines are backdated and none is future-dated. The first written line's dwell places nothing (no line precedes it). A line without a dwell shares the time of the line before it, and a bundle with no dwell on any line keeps every line at the request's completion. A gated-out line adds no dwell. A negative or NaN draw counts as 0 and a draw above 86400 (including +Inf) is capped at 86400. The model is evaluated after the line's body, so it never shifts a body draw. Numeric models only (const, int_range, float_range, normal, lognormal); it is a separate draw from any body field that reports the same figure. A bundle is the lines of one request on the legacy path and one node's attempt on a causal request. Only log timestamps move: spans and metric durations are unchanged. The bundle's summed dwell is not validated; keep it well inside the log backend's out-of-order acceptance window (about an hour by default for Loki), since the 86400 cap only stops a runaway model. |
+| `services[].logs[].dwell_seconds.const` | float | yes | Const is a fixed numeric value. |
+| `services[].logs[].dwell_seconds.const_str` | string | yes | ConstStr is a fixed string value. |
+| `services[].logs[].dwell_seconds.enum[]` | object |  | Enum is a weighted categorical value drawn from a fixed set of strings. On a metric label it expands to every value on every tick. |
+| `services[].logs[].dwell_seconds.enum[].value` | string |  | Value is the categorical value, emitted as a string. |
+| `services[].logs[].dwell_seconds.enum[].weight` | float |  | Weight is the value's share of per-request draws (log body field, span attribute or stream label). It never divides traffic among metric series. |
+| `services[].logs[].dwell_seconds.enum[].rate_scale` | float | yes | RateScale (metric labels only) multiplies a counter's per-tick increment or a histogram's observations per tick for series carrying this value. Rejected on a gauge. Omitted means 1. |
+| `services[].logs[].dwell_seconds.enum[].value_scale` | float | yes | ValueScale (metric labels only) multiplies each observed histogram value or gauge reading for series carrying this value. Rejected on a counter. Omitted means 1. |
+| `services[].logs[].dwell_seconds.enum[].shape_profile` | object | yes | ShapeProfile gives this value's series its own business clock and curve, laid field by field over the metric's and the node's profile (METRIC labels only; the metric's value must be a `shape`). The label value is unchanged, so the series set is identical. Omitted means the series follows the inherited profile. |
+| `services[].logs[].dwell_seconds.enum[].shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty keeps the inherited zone. |
+| `services[].logs[].dwell_seconds.enum[].shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `services[].logs[].dwell_seconds.enum[].shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `services[].logs[].dwell_seconds.enum[].shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `services[].logs[].dwell_seconds.enum[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `services[].logs[].dwell_seconds.enum[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `services[].logs[].dwell_seconds.enum[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the default of the reading consumer. |
+| `services[].logs[].dwell_seconds.enum[].stall_mode` | string |  | StallMode gives this value's series its own stall incident mode in place of the metric's (METRIC labels only; the metric's value must be a `now` or `source_read`). At most one label of a metric may declare it. Omitted means the series follows the metric's stall_mode. |
+| `services[].logs[].dwell_seconds.int_range` | object | yes | IntRange is a bounded integer draw, with an optional probability of forcing 0. |
+| `services[].logs[].dwell_seconds.int_range.min` | int |  | Min is the smallest value drawn. |
+| `services[].logs[].dwell_seconds.int_range.max` | int |  | Max is the largest value drawn; at least Min. |
+| `services[].logs[].dwell_seconds.int_range.p_zero` | float |  | PZero is the probability, in [0,1], that the draw is forced to 0. |
+| `services[].logs[].dwell_seconds.float_range` | object | yes | FloatRange is a bounded uniform float draw. |
+| `services[].logs[].dwell_seconds.float_range.min` | float |  | Min is the lower bound of the uniform draw. |
+| `services[].logs[].dwell_seconds.float_range.max` | float |  | Max is the upper bound; at least Min. |
+| `services[].logs[].dwell_seconds.normal` | object | yes | Normal is a gaussian draw; negative draws are clamped to 0. |
+| `services[].logs[].dwell_seconds.normal.mean` | float |  | Mean is the distribution's mean. |
+| `services[].logs[].dwell_seconds.normal.stddev` | float |  | Stddev is the standard deviation; at least 0. |
+| `services[].logs[].dwell_seconds.bool` | object | yes | Bool is a boolean that is true with the given probability. |
+| `services[].logs[].dwell_seconds.bool.p_true` | float |  | PTrue is the probability, in [0,1], that the value is true. |
+| `services[].logs[].dwell_seconds.shape` | object | yes | Shape is a base value scaled by the load curve and, when a mode is named, by an incident. |
+| `services[].logs[].dwell_seconds.shape.base` | float |  | Base is the value at full load with no incident. |
+| `services[].logs[].dwell_seconds.shape.mode` | string |  | Mode names the incident mode whose scoped intensity moves the value; required with incident_value. Omitted means the value follows load only. |
+| `services[].logs[].dwell_seconds.shape.incident_value` | float | yes | IncidentValue (metric values only) is the value at incident intensity 1, before load scaling; the value interpolates from base to it as intensity rises. Needs mode. |
+| `services[].logs[].dwell_seconds.shape.incident_absolute` | bool |  | IncidentAbsolute makes the incident share of the value independent of load, so an outage reads the same at night or on a weekend. Needs incident_value. |
+| `services[].logs[].dwell_seconds.shape.batch` | object | yes | Batch makes a counter's source deliver in batches: the per-tick arrivals accumulate and are released at the cadence (zero between releases), conserving the smooth curve's total. Counter metric values only, and not with incident_value or on a metric that declares stock_of or count_of (those follow the batched counter instead); the workload resolves the release against the series' own clock. Period is in (0, 24h] and Phase in [0, Period). |
+| `services[].logs[].dwell_seconds.shape.batch.period` | duration |  | Period is the release cadence (for example 15m or 30m). Required, in (0, 24h]. |
+| `services[].logs[].dwell_seconds.shape.batch.phase` | duration |  | Phase offsets the release boundaries from the epoch-aligned Period grid, in [0, Period). Default 0: releases land on the wall-clock multiples of Period. |
+| `services[].logs[].dwell_seconds.ref` | string |  | Ref pulls a request correlation field by name (for example a trace ID, route or status). A high-cardinality ref is rejected on a metric or stream label. |
+| `services[].logs[].dwell_seconds.lognormal` | object | yes | Lognormal is a right-skewed positive draw given its median and 95th percentile, as latency and dwell times are. |
+| `services[].logs[].dwell_seconds.lognormal.median` | float |  | Median is the distribution's median; must be above 0. |
+| `services[].logs[].dwell_seconds.lognormal.p95` | float |  | P95 is the 95th percentile; at least Median (equal degenerates to a constant). |
+| `services[].logs[].dwell_seconds.now` | object | yes | Now reads the tick time in Unix seconds, for a last-success or heartbeat timestamp (gauge metric value only). |
+| `services[].logs[].dwell_seconds.now.stall_mode` | string |  | StallMode names the incident mode that stalls the producer: while it is active for the service, the gauge holds its last reading and resumes at the tick time when it ends. Omitted means the gauge always advances. An enum label value may override it for its own series. |
+| `services[].logs[].dwell_seconds.now.arrivals_only` | bool |  | ArrivalsOnly makes the gauge a source-event time: it advances only on a tick where the source had arrivals and holds its last reading otherwise, so a quiet source reads old. |
+| `services[].logs[].dwell_seconds.now.period` | duration |  | Period makes the gauge the last success of a job on a schedule: the reading is the most recent epoch-aligned multiple of Period (shifted by Phase) at or before the tick time. At most 24h; omitted or 0 reads the tick time. |
+| `services[].logs[].dwell_seconds.now.phase` | duration |  | Phase shifts the schedule boundaries from the epoch-aligned grid, in [0, Period), and needs a Period. Default 0. |
+| `services[].logs[].dwell_seconds.resource` | object | yes | Resource reads a field of a declared resource's model state (metric value only). |
+| `services[].logs[].dwell_seconds.resource.name` | string |  | Name is the declared resource whose model state is read. |
+| `services[].logs[].dwell_seconds.resource.field` | string |  | Field is the state field read: a gauge field (demand_rps, capacity, utilization, in_use, waiting, wait_seconds, backlog, oldest_age_seconds, latency_factor, hold_seconds, served_rps, failed_share) on a gauge metric, or a counter field (rejected, admitted, failed) on a counter metric. |
+| `services[].logs[].dwell_seconds.outcomes` | object | yes | Outcomes reads the service node's hop outcomes in the metric window (metric value only). |
+| `services[].logs[].dwell_seconds.outcomes.status[]` | string |  | Status lists the hop statuses that match: success, 4xx, 5xx or an exact three-digit HTTP status such as 503. Set exactly one of status and status_label. |
+| `services[].logs[].dwell_seconds.outcomes.status_label` | string |  | StatusLabel names an enum label of the same metric whose value selects the matching status per series. Set exactly one of status and status_label. |
+| `services[].logs[].dwell_seconds.outcomes.measure` | string |  | Measure is count (a counter metric, the default), share (a gauge metric) or latency (a histogram metric: each matching hop duration, in seconds, is one observation). |
+| `services[].logs[].dwell_seconds.request_draw` | object | yes | RequestDraw draws a formatted ID or an enum value once per request and repeats it on every log line of that request that names the same key (log body field only). |
+| `services[].logs[].dwell_seconds.request_draw.key` | string |  | Key names the draw: every log line of one request that declares the same key repeats the same drawn value. Required. |
+| `services[].logs[].dwell_seconds.request_draw.format` | string |  | Format draws a generated ID from literal text with runs written {digits:N}, {hex:N} or {upper:N}, for example ORD-{digits:10}. Set exactly one of format and enum. |
+| `services[].logs[].dwell_seconds.request_draw.enum[]` | object |  | Enum draws one of a weighted set of values; weights select the share of requests. Set exactly one of format and enum. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].value` | string |  | Value is the categorical value, emitted as a string. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].weight` | float |  | Weight is the value's share of per-request draws (log body field, span attribute or stream label). It never divides traffic among metric series. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].rate_scale` | float | yes | RateScale (metric labels only) multiplies a counter's per-tick increment or a histogram's observations per tick for series carrying this value. Rejected on a gauge. Omitted means 1. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].value_scale` | float | yes | ValueScale (metric labels only) multiplies each observed histogram value or gauge reading for series carrying this value. Rejected on a counter. Omitted means 1. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile` | object | yes | ShapeProfile gives this value's series its own business clock and curve, laid field by field over the metric's and the node's profile (METRIC labels only; the metric's value must be a `shape`). The label value is unchanged, so the series set is identical. Omitted means the series follows the inherited profile. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty keeps the inherited zone. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the default of the reading consumer. |
+| `services[].logs[].dwell_seconds.request_draw.enum[].stall_mode` | string |  | StallMode gives this value's series its own stall incident mode in place of the metric's (METRIC labels only; the metric's value must be a `now` or `source_read`). At most one label of a metric may declare it. Omitted means the series follows the metric's stall_mode. |
+| `services[].logs[].dwell_seconds.source_read` | object | yes | SourceRead is a collector's own read work, a counter increment that advances with reads and stops (or turns to failures) while its stall_mode incident is active (counter metric value only). |
+| `services[].logs[].dwell_seconds.source_read.measure` | string |  | Measure selects the counter: records_inspected or checkpoint (advance while the collector is not stalled) or read_failures (advances only while it is stalled). |
+| `services[].logs[].dwell_seconds.source_read.per_tick` | float |  | PerTick is the increment per metric tick, not per second; records_inspected and checkpoint scale it by the node's load factor. Must be finite and above 0. |
+| `services[].logs[].dwell_seconds.source_read.stall_mode` | string |  | StallMode names the incident mode that stalls the collector, resolved per service. Required for read_failures unless an enum label value declares its own. |
 | `services[].spans[]` | object |  | inline custom spans (extra attrs on this node's span) |
-| `services[].spans[].name_template` | string |  |  |
-| `services[].spans[].kind` | string |  |  |
-| `services[].spans[].attributes` | map[string]ValueModel |  |  |
+| `services[].spans[].name_template` | string |  | NameTemplate is the span name; {{attr.key}} placeholders are filled from the span's own evaluated attributes. Required and non-blank. When the span merges into the node's own span (see Kind) a non-empty result renames that span. |
+| `services[].spans[].kind` | string |  | Kind is the span kind: server, client or internal. Omitted, or the node's own span kind, merges this declaration's name and attributes into the node's own span; any other kind adds a child span. |
+| `services[].spans[].attributes` | map[string]ValueModel |  | Attributes are extra span attributes, one value model per key. Any value model is allowed, including a high-cardinality correlation ref; keys the workload stamps itself are rejected. |
 | `services[].calls[]` | string |  | downstream node names (the graph edges / propagation) |
 | `services[].db_instance` | string |  | DBInstance (db/cache leaf nodes only) names the BASE blueprint database this node represents (e.g. "orders-pg"); the workload resolves it per-env against the binding's Databases to the concrete RDS instance "<db_instance>-<lower(env)>" (case-insensitive env suffix; exact name is the primary match). The resolved RDS identity decorates this node's db-CLIENT span (db.system.name / db.namespace / server.address) so the trace links to the env's RDS instance — faithful to real OTel/Beyla DB instrumentation. Empty ⇒ the leaf carries no DB identity (back-compatible: the edge stays the bare node name). |
 | `services[].pages[]` | object |  | RUM navigation inventory (frontend entry only; empty ⇒ single-page behavior). RUM-only page-views, never backend-traced. |
@@ -1359,16 +1982,47 @@ app — blueprint-declared service GRAPH; each node emits custom (DSL) metrics/l
 | `services[].controller` | string |  | Controller/HasHPA/VolumeClaims are placement facts (like Resources): the blueprint resolver copies them onto fixture.Workload so this node is modelled as the right k8s controller kind (Deployment default \| StatefulSet) with optional HPA/PVC. They affect ONLY the k8s substrate lane (KSM family, pod naming, PVC/HPA), never this workload's own emitted telemetry. `controller: daemonset` is rejected on an app service node at resolve time (DaemonSets don't emit app traces — spec Q4); declare a DaemonSet via a `runs_in_cluster` integration instead. |
 | `services[].hpa` | bool |  | opt-in kube_horizontalpodautoscaler_* (Deployment/StatefulSet) |
 | `services[].volume_claims[]` | string |  | PVC template names → kube_persistentvolumeclaim_*/kubelet_volume_stats_*/pv cost |
+| `services[].error_rate` | float | yes | ErrorRate is the service's own failure fraction in [0,1]. On the entry it is the baseline share of requests with a non-success outcome (split 50% 5xx, 30% 4xx, 20% 429, as before), replacing the default 0.01; error_spike still raises from it. On a downstream service it is opt-in: that service's hop fails (server span and span metrics included) on this fraction of requests, independently of the entry, so a request fails with 1-(1-entry)(1-this) overall; a request only the hop failed is an upstream 5xx. The build rejects it on a service the entry cannot reach. |
+| `services[].shape_profile` | object | yes | ShapeProfile overrides the workload's shape_profile for this service's metrics (and, on the entry, the request volume). Each field it sets replaces the workload's; omitted fields keep the workload's, then the blueprint default. Omitted keeps the workload's profile. |
+| `services[].shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty uses the blueprint timezone (the first region's when the blueprint declares regions). |
+| `services[].shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `services[].shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `services[].shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `services[].shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `services[].shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `services[].shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the blueprint defaults: 0.3 for metrics, 0.2 (production) or 0.02 (non-production) for request volume. |
+| `services[].uses[]` | string |  | Uses names the declared environments[].resources a request meets on arrival at this service, in order (resolved as "<name>-<lower(env)>" first, then the exact name). A capacity resource (pool, concurrency, quota) or a rule applies at this service; a dependency (and every credential of it, applied after it) applies to the call into this service, so the entry may not use one. A service bound to a pool or concurrency resource takes its duration from the resource's effective hold, one bound to a dependency from its latency; a queue here is the producer side (an enqueue that fails only when the queue is full). Requires resources. |
+| `services[].call_policies` | map[string]CallPolicy |  | CallPolicies is this service's per-callee client policy, keyed by names in calls: timeout_ms (0 = none), retries (0..3), backoff_ms (doubled per resend), retry_on (5xx, throttle, timeout, connect) and propagate_throttle (pass a callee 429 on as 429, not 503). timeout_ms and backoff_ms are at most 600000. The service that calls the target never resends a rule rejection or a credential failure. A rule rejection slower than timeout_ms reaches the caller as a timeout (the client cannot know the cause), which retry_on timeout resends. An upstream caller sees only the mapped status of an unabsorbed credential failure (a 502) and resends it under retry_on 5xx. Requires resources. |
+| `services[].worker` | bool |  | Worker marks the entry as a message consumer of traffic.from_resource: its root span is a CONSUMER span and each request records the queue's backlog wait. Entry only. |
 | `traffic` | object |  | Traffic shapes the entry node's invocation volume (the correlated narrative sample). |
 | `traffic.shape` | string |  | shape profile name (informational) |
 | `traffic.off_peak_rps` | float |  | trough rate (default 5) |
 | `traffic.peak_rps` | float |  | plateau rate (default 50) |
 | `traffic.request_latency_p95_ms` | float |  | RequestLatencyP95Ms is the entry request's base end-to-end latency p95 (lognormal; the per-hop budget + agentflow span windows derive from it). Default 0 ⇒ 200ms (plain HTTP). LLM/agentic apps should set this to seconds (e.g. 9000) so http_server_request_duration + the in-process invoke_workflow/agent/chat span latencies reflect real LLM-wait time, not HTTP speed. |
+| `traffic.from_resource` | string |  | FromResource names a declared queue resource whose served (processed) rate is this app's request rate, replacing off_peak_rps and peak_rps (which are then ignored); the entry is typically a worker. Requires resources. |
+| `traffic.synchronous` | bool |  | Synchronous marks each from_resource request as a request/response invocation by the hop that published it (an API calling a function and waiting for its answer), not a message consumed later. The entry's root is a SERVER span; a request that takes a published message continues the caller's trace under the caller's CLIENT span and is laid inside that span's window. Requires from_resource; the entry may not also be a worker. |
+| `traffic.success_status` | int |  | SuccessStatus is the HTTP status of a successful entry request, 200 to 299. Omitted is 200. |
+| `traffic.error_mix[]` | object |  | ErrorMix is the weighted set of statuses and codes a failed entry request draws from. Omitted keeps 50% 500 upstream_5xx, 30% 400 bad_request and 20% 429 rate_limited. |
+| `traffic.error_mix[].status` | int |  | Status is the HTTP status of the failed request, 400 to 599 (429 is a throttle). |
+| `traffic.error_mix[].code` | string |  | Code is the error code recorded on the request (log detail); empty records the status. |
+| `traffic.error_mix[].weight` | float |  | Weight is this entry's relative share of failed requests, > 0. |
+| `traffic.client_retry` | object | yes | ClientRetry re-sends a failed entry request as a new request of the same logical request, which repeats that logical request's per-request draws. Omitted re-sends nothing. Graph apps only: rejected with an automation or agent_pipeline workload and with from_resource. Re-sends add to the declared request rate, a paused workload drops its due re-sends, and scheduled re-sends are in memory only (a restart forgets them). It is separate from call_policies. |
+| `traffic.client_retry.retries` | int |  | Retries is the number of re-sends after the first attempt, 1 to 3. |
+| `traffic.client_retry.backoff_seconds` | float |  | BackoffSeconds is the delay before re-send 1, (0, 600], doubled per further re-send (backoff x 2^k). A re-send is minted on the first tick at or after its due time. |
+| `traffic.client_retry.retry_on[]` | string |  | RetryOn lists the failure classes that are re-sent: 5xx (any 5xx status), throttle (429). At least one, no repeats; any other status (such as a 400) is never re-sent. |
 | `otel` | object | yes | OTel enables the native OTLP metrics lane for inline service-node DSL instruments. Absent (nil) or Metrics=false leaves the established promrw path unchanged. Catalog profiles remain on promrw; they are not re-spelled into the native envelope. |
 | `otel.metrics` | bool |  |  |
 | `models[]` | object |  | Models is the set of valid (model, provider) routings this app's requests draw from. The minter picks ONE pair per request and stamps it into the correlation, so the gen_ai spans + gateway export logs of every gen_ai-composed node carry the REAL model AND provider (the names-are-law value behind the gen_ai_client / gateway_export_log profiles). Pairing them (vs two independent lists) prevents impossible combinations like a Claude model on the Azure-OpenAI provider. Empty ⇒ a non-AI app. These feed body/attr FIELDS only (never labels), so the per-request draw does not affect the -dump inventory (I32). Values are blueprint-declared (customer model lists stay out of the catalog). |
 | `models[].model` | string |  | gen_ai.request.model (e.g. gpt-4o, claude-3.5-sonnet) |
 | `models[].provider` | string |  | gen_ai.provider.name (e.g. azure-openai, bedrock) |
+| `shape_profile` | object | yes | ShapeProfile optionally gives this workload its own daily load curve (timezone, business hours, weekend factor) instead of the blueprint's shared curve. It drives entry request volume and every shape-scaled metric of the workload. Omitted keeps the blueprint curve. |
+| `shape_profile.timezone` | string |  | Timezone is the IANA zone the hours are read in. Empty uses the blueprint timezone (the first region's when the blueprint declares regions). |
+| `shape_profile.floor` | float | yes | Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1. |
+| `shape_profile.ramp_up_start_hour` | float | yes | RampUpStartHour is the local hour the morning ramp starts. Default 6. |
+| `shape_profile.plateau_start_hour` | float | yes | PlateauStartHour is the local hour full load is reached. Default 10. |
+| `shape_profile.plateau_end_hour` | float | yes | PlateauEndHour is the local hour the evening ramp starts. Default 16. |
+| `shape_profile.ramp_down_end_hour` | float | yes | RampDownEndHour is the local hour the floor is reached again. Default 20. |
+| `shape_profile.weekend_factor` | float | yes | WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the blueprint defaults: 0.3 for metrics, 0.2 (production) or 0.02 (non-production) for request volume. |
 
 ## web_service workload config
 
@@ -1417,17 +2071,25 @@ The valid `mode:` values an incident or scenario effect may reference (union acr
 |---|---|---|---|
 | `agentcore_throttle` | axis: cloud |  | AgentCore request throttles + system_errors spike (region-scoped capacity constraint) |
 | `bedrock_throttle` | axis: cloud |  | Bedrock invocation throttling climbs |
+| `concurrency_reduced` | axis: resource |  | concurrency: effective limit shrinks to size x (1 - intensity) |
 | `connection_saturation` | axis: database |  | active connections climb toward max |
+| `consumer_slowdown` | axis: resource |  | queue: service rate scales by (1 - intensity); backlog and oldest-message age grow |
 | `cpu_hotspot` | axis: cluster |  | elevated CPU concentrated in a hot frame on the cluster's profiled pods |
-| `cpu_hotspot` | axis: workload |  | elevated CPU concentrated in a hot frame (visible in process_cpu flamegraph) |
 | `cpu_hotspot` | axis: service |  | elevated CPU concentrated in a hot frame on the targeted service node |
+| `cpu_hotspot` | axis: workload |  | elevated CPU concentrated in a hot frame (visible in process_cpu flamegraph) |
+| `credential_expired` | axis: resource |  | credential: share intensity of calls to its dependency fail at handshake or authentication |
 | `dcgm_ecc_error_growth` | axis: gpu |  | Declared ECC and row-remap collection events |
 | `dcgm_health_failure` | axis: gpu |  | Source-supported memory health failure |
+| `dependency_slow` | axis: resource |  | dependency: latency factor 1 + (slow_factor - 1) x intensity; held resources stretch with it |
+| `dependency_unavailable` | axis: resource |  | dependency: share intensity of calls fail to connect |
 | `error_burst` | axis: workload |  | elevated 5xx error rate |
 | `error_spike` | axis: service |  | elevated 5xx error rate on the targeted service node |
 | `eval_quality_degraded` | axis: cloud |  | LangSmith eval quality regresses — faithfulness/completeness/relevance and retrieval scores drop while retry/fallback/HITL rates and error/pending run-outcomes climb |
 | `eval_quality_regression` | axis: workload |  | online-eval quality regresses on the targeted ai_agent fleet — agento11y_eval_scores_total{passed=false} rate rises |
 | `fallback_storm` | axis: service |  | elevated gateway fallback rate on the targeted service node |
+| `function_duration_storm` | axis: function |  | function duration rises up to 4x at full intensity, raising concurrency |
+| `function_error_spike` | axis: function |  | function executions fail: Errors over Invocations rises toward 1 (fraction of successful executions failing = intensity) |
+| `function_throttle_storm` | axis: function |  | function requests are throttled on top of admitted executions (extra Throttles = intensity x executions) |
 | `gateway_cloud_credential_expired` | axis: cluster |  | Cloud send attempts fail (generic authentication failure, no expiry-specific series) |
 | `gateway_config_reload_failure` | axis: cluster |  | Configured member remote configuration load fails |
 | `gateway_instance_loss` | axis: cluster |  | Configured member unavailable; live scrape members redistribute targets |
@@ -1437,43 +2099,43 @@ The valid `mode:` values an incident or scenario effect may reference (union acr
 | `goroutine_leak` | axis: service |  | goroutine accumulation on the targeted service node |
 | `goroutine_leak` | axis: workload |  | goroutine accumulation — raises goroutines/goroutine profile sample values |
 | `gpu_backend_congestion` | axis: gpu_fabric |  | slowdown |
-| `gpu_backend_congestion` | axis: gpu_switch |  | slowdown |
 | `gpu_backend_congestion` | axis: gpu_port |  | slowdown |
-| `gpu_cooling_fault` | axis: gpu_rack |  | cooling |
+| `gpu_backend_congestion` | axis: gpu_switch |  | slowdown |
 | `gpu_cooling_fault` | axis: gpu_device |  | cooling |
-| `gpu_fallen_off_bus` | axis: gpu_tray |  | unavailable |
+| `gpu_cooling_fault` | axis: gpu_rack |  | cooling |
 | `gpu_fallen_off_bus` | axis: gpu |  | unavailable |
 | `gpu_fallen_off_bus` | axis: gpu_node |  | unavailable |
+| `gpu_fallen_off_bus` | axis: gpu_tray |  | unavailable |
+| `gpu_node_drain` | axis: gpu_node |  | unavailable |
 | `gpu_node_drain` | axis: gpu_rack |  | unavailable |
 | `gpu_node_drain` | axis: gpu_tray |  | unavailable |
-| `gpu_node_drain` | axis: gpu_node |  | unavailable |
-| `gpu_nvlink_degraded` | axis: nvlink_partition |  | slowdown |
 | `gpu_nvlink_degraded` | axis: nvlink_domain |  | slowdown |
-| `gpu_nvlink_error_burst` | axis: nvlink_domain |  | confirmed edge errors |
+| `gpu_nvlink_degraded` | axis: nvlink_partition |  | slowdown |
 | `gpu_nvlink_error_burst` | axis: gpu |  | confirmed edge errors |
+| `gpu_nvlink_error_burst` | axis: nvlink_domain |  | confirmed edge errors |
 | `gpu_nvlink_error_burst` | axis: nvlink_partition |  | confirmed edge errors |
-| `gpu_nvlink_error_burst` | axis: nvlink_switch |  | confirmed edge errors |
 | `gpu_nvlink_error_burst` | axis: nvlink_port |  | confirmed edge errors |
+| `gpu_nvlink_error_burst` | axis: nvlink_switch |  | confirmed edge errors |
 | `gpu_nvswitch_tray_failure` | axis: gpu_tray |  | slowdown |
 | `gpu_operand_unavailable` | axis: gpu_node |  | unavailable |
 | `gpu_power_constraint` | axis: gpu |  | Declared workload demand exceeds the configured GPU power budget |
 | `gpu_power_constraint` | axis: gpu_node |  | Declared workload demand exceeds the configured GPU power budget |
 | `gpu_preemption_storm` | axis: gpu_project |  | preemption |
-| `gpu_preemption_storm` | axis: gpu_workload |  | preemption |
 | `gpu_preemption_storm` | axis: gpu_scheduler |  | preemption |
+| `gpu_preemption_storm` | axis: gpu_workload |  | preemption |
 | `gpu_quota_exhaustion` | axis: gpu_project |  | quota |
 | `gpu_storage_latency` | axis: gpu_storage |  | slowdown |
 | `gpu_xid_burst` | axis: gpu |  | nonfatal event |
-| `gpu_xid_burst` | axis: gpu_tray |  | nonfatal event |
 | `gpu_xid_burst` | axis: gpu_node |  | nonfatal event |
 | `gpu_xid_burst` | axis: gpu_rack |  | nonfatal event |
+| `gpu_xid_burst` | axis: gpu_tray |  | nonfatal event |
 | `latency_spike` | axis: workload |  | elevated request latency (up to 4× at full intensity) |
 | `latency_storm` | axis: service |  | elevated request latency on the targeted service node |
 | `lock_contention` | axis: database |  | lock waits climb |
-| `lock_contention` | axis: workload |  | elevated mutex/block contention — raises mutex and block profile sample values |
 | `lock_contention` | axis: service |  | elevated mutex/block contention on the targeted service node |
-| `memory_leak` | axis: workload |  | growing heap — raises memory inuse/alloc profile sample values |
+| `lock_contention` | axis: workload |  | elevated mutex/block contention — raises mutex and block profile sample values |
 | `memory_leak` | axis: service |  | growing heap on the targeted service node — raises memory inuse/alloc profile values |
+| `memory_leak` | axis: workload |  | growing heap — raises memory inuse/alloc profile sample values |
 | `nettopo_auth_failures` | axis: network |  | SNMP credential trials fail (credential_trials_total error rate rises) |
 | `nettopo_devices_unreachable` | axis: network |  | SNMP polling fails for a fraction of devices (walk errors spike, device discovery drops) |
 | `nettopo_discovery_slow` | axis: network |  | discovery cycle duration inflates (cycle_duration_seconds and module walk times rise) |
@@ -1482,11 +2144,19 @@ The valid `mode:` values an incident or scenario effect may reference (union acr
 | `node_not_ready` | axis: cluster |  | a node flips NotReady; its pods go Pending |
 | `oom_kill` | axis: cluster |  | containers OOM-killed; intensity selects fraction of pods affected (low intensity ⇒ a few pods); restart count climbs, status reason OOMKilled |
 | `pod_crashloop` | axis: cluster |  | pods crash-looping; intensity selects fraction of pods affected (low intensity ⇒ a few pods); restarts climb, phase Pending not Running |
+| `pool_exhausted` | axis: resource |  | pool: effective size shrinks to size x (1 - intensity) (connections leaked or held elsewhere) |
 | `portkey_scrape_degraded` | axis: cloud |  | Portkey Analytics scrape degrades — API error_rate and 4xx/5xx share climb, latency rises, and the poller falls behind (poller errors + window lag grow) |
 | `provider_call_error` | axis: workload |  | elevated provider/LLM call-error rate on the targeted ai_agent fleet — call_error generations, ERROR spans, error_type/error_category on operation_duration |
+| `queue_consumer_stall` | axis: queue |  | the queue's consumers stop draining (rate x (1-intensity)): depth and spool usage grow until the spool quota discards |
+| `queue_publish_drop` | axis: queue |  | publishes into the queue stop (rate x (1-intensity)): spooled messages flatten and the backlog drains |
+| `quota_reduced` | axis: resource |  | quota: admitted rate shrinks to limit_rps x (1 - intensity) |
 | `replication_lag` | axis: database |  | replica falls behind primary |
 | `retry_storm` | axis: service |  | elevated gateway retry rate on the targeted service node |
+| `rule_regression` | axis: resource |  | rule: share intensity x reject_share of arrivals fail validation |
+| `run_failure` | axis: pipeline_stage |  | runs completing the stage fail (fraction = intensity) and end with a FAILED outcome |
 | `slow_query_storm` | axis: database |  | query latency right-tail spikes |
+| `stage_stall` | axis: pipeline_stage |  | stage starts nothing: arriving runs wait and age, later stages complete nothing until cleared |
+| `table_throttle_storm` | axis: table |  | table GetItem and PutItem requests are throttled on top of admitted requests (extra ThrottledRequests, ReadThrottleEvents and WriteThrottleEvents = intensity x requests) |
 | `throughput_drop` | axis: service |  | reduced throughput on the targeted service node |
 | `web_vitals_degraded` | axis: service |  | browser web-vitals degrade on the targeted frontend node — LCP/INP/TTFB/FCP and CLS spike |
 

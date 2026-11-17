@@ -2,7 +2,12 @@
 
 package failuremode
 
-import "sort"
+import (
+	"regexp"
+	"slices"
+	"sort"
+	"strings"
+)
 
 // Direction describes the expected movement of an emitted observation while a
 // failure mode is active. It deliberately describes values, rather than control
@@ -16,7 +21,16 @@ const (
 
 // Assertion is one sourced, queryable observation for a failure mode. Query is
 // an instant PromQL or LogQL metric query. The {{target}} placeholder is replaced
-// with the declared effect target; callers must escape it for their query API.
+// with the declared effect target and {{blueprint}} with the scenario's blueprint
+// (a blueprint-scoped family carries that label; a substrate-scoped one does not);
+// callers must escape both for their query API.
+//
+// AnySeries marks an observation whose carrying series cannot be named from the effect target. A
+// resource-axis target is a declared resource, not a service, function or queue label, and the
+// blueprint (not the harness) binds the resource to its consumers. The query is then evaluated as
+// an instant vector with the {{target}} placeholder unused: the assertion passes when at least one
+// series present both before and during the activation moves in Direction, and every series that
+// moved returns near its baseline after deactivation.
 //
 // SiblingQuery is optional. When set, it proves that an environment-scoped
 // effect moved only its target by evaluating the same observation for a supplied
@@ -27,9 +41,59 @@ type Assertion struct {
 	QueryAPI     string
 	Query        string
 	SiblingQuery string
-	Direction    Direction
-	Source       string
-	Priority     int
+	AnySeries    bool
+	// MinActive is an absolute floor for Increase assertions: an observation counts as moved only
+	// once it reaches this value, in addition to the proportional rule. It exists for observations
+	// that sit at zero when healthy, where "any positive value" is a 0 -> small flip that unrelated
+	// telemetry produces. Zero keeps the proportional rule alone. A floored baseline below the floor
+	// clears once the observation is back under the floor.
+	MinActive float64
+	// Scopes narrow the observation to the consumers a blueprint binds to the targeted resource,
+	// where the series carry the consumers' identity (see Scope). Empty means the observation
+	// cannot be narrowed: the series that moves is not the consumer's own.
+	Scopes []ConsumerScope
+	// ScopeJoin joins the per-kind scoped queries: " or " (the default) unions series, " + " sums
+	// single aggregates.
+	ScopeJoin string
+	Direction Direction
+	Source    string
+	Priority  int
+}
+
+// Consumer kinds a ConsumerScope names, as the control schema reports a resource's consumers.
+// ConsumerAppCallers is not a schema kind: it is the caller of a consumer service, flattened by
+// the client that reads the schema.
+const (
+	ConsumerApp        = "app"
+	ConsumerAppCallers = "app.callers"
+	ConsumerLambda     = "lambda"
+	ConsumerSQS        = "sqs"
+	ConsumerSolace     = "solace"
+	ConsumerAgentcore  = "agentcore"
+	ConsumerRDS        = "rds"
+	ConsumerDocDB      = "docdb"
+)
+
+// Consumer is one bound consumer of a resource: its kind and its emitted identity as label name to
+// value (the control schema's ResourceConsumer.Identity).
+type Consumer struct {
+	Kind     string
+	Identity map[string]string
+}
+
+// ConsumerScope is the observation restricted to what one kind of consumer emits. Query carries
+// one {{consumers.<label>}} placeholder per identity label it filters on; Scope replaces each with
+// a regex alternation of the matching consumers' values. A {{consumers?<label>}} placeholder is an
+// optional matcher: it renders as `,<label>=~"<value>"` for a consumer whose identity carries the
+// label and as nothing for one that does not, so a consumer that predates the label is neither
+// dropped from the scope nor narrowed by an invented value. Kinds lists every consumer kind the
+// query is valid for.
+type ConsumerScope struct {
+	Kinds []string
+	Query string
+	// Aggregate, when set, wraps the rendered selectors: {{selectors}} is replaced by the Query
+	// rendered for each consumer group, joined as a union. Query is then a bare selector.
+	Aggregate string
 }
 
 // assertions are deliberately narrow, stable observations for the modes used
@@ -47,6 +111,219 @@ var assertions = []Assertion{
 	{Mode: "eval_quality_degraded", QueryAPI: "prometheus", Query: "avg(langsmith_eval_faithfulness_ratio{env=\"{{target}}\"})", SiblingQuery: "avg(langsmith_eval_faithfulness_ratio{env=\"{{sibling}}\"})", Direction: DirectionDecrease, Source: "signals/langsmith.md [slug: langsmith-eval]", Priority: 100},
 	{Mode: "portkey_scrape_degraded", QueryAPI: "prometheus", Query: "avg(portkey_api_error_rate{env=\"{{target}}\"})", SiblingQuery: "avg(portkey_api_error_rate{env=\"{{sibling}}\"})", Direction: DirectionIncrease, Source: "signals/portkey.md [slug: portkey-analytics]", Priority: 100},
 	{Mode: "web_vitals_degraded", QueryAPI: "loki", Query: "avg(avg_over_time({kind=\"measurement\"} |= \"type=web-vitals\" | logfmt | app_name=\"{{target}}\" | unwrap value_lcp [75s]))", Direction: DirectionIncrease, Source: "signals/logs.md [slug: logs-faro-rum]", Priority: 100},
+	// Causal resource-axis modes (internal/causal; design 3.2 and 5). Their effect targets are
+	// declared resource names, so none of these queries uses {{target}}: each observes the signal
+	// family the mode moves across the whole stack (see Assertion.AnySeries for per-series ones).
+	// Priorities mirror the legacy modes a migrated scenario replaces (latency_storm 70,
+	// error_spike 80), so a scenario that mixes legacy and resource effects selects as before.
+	{Mode: "dependency_slow", QueryAPI: "prometheus", Query: serverLatencyByService, AnySeries: true, Scopes: []ConsumerScope{appLatencyScope}, Direction: DirectionIncrease, Source: "signals/apm.md [slug: apm-latency]; a slow dependency stretches the hop of every node that calls it", Priority: 70},
+	{Mode: "pool_exhausted", QueryAPI: "prometheus", Query: serverLatencyByService, AnySeries: true, Scopes: []ConsumerScope{appLatencyScope}, Direction: DirectionIncrease, Source: "signals/apm.md [slug: apm-latency]; acquire waits stretch the hop of every node that uses the pool", Priority: 70},
+	{Mode: "rule_regression", QueryAPI: "prometheus", Query: "(sum(rate(traces_spanmetrics_calls_total{blueprint=\"{{blueprint}}\",span_kind=~\"SPAN_KIND_SERVER|SPAN_KIND_CLIENT\",status_code=\"STATUS_CODE_ERROR\"}[2m])) or vector(0)) / sum(rate(traces_spanmetrics_calls_total{blueprint=\"{{blueprint}}\",span_kind=~\"SPAN_KIND_SERVER|SPAN_KIND_CLIENT\"}[2m]))", Direction: DirectionIncrease, Source: "signals/apm.md [slug: apm-calls]; a rule with a 5xx error override fails SERVER spans, the default 4xx rejection fails the caller's CLIENT span (a 4xx SERVER span stays UNSET, so a rule met at an entry node with no caller is not visible in span metrics)", Priority: 80},
+	{Mode: "dependency_unavailable", QueryAPI: "prometheus", Query: clientErrorRate, Direction: DirectionIncrease, Source: "signals/apm.md [slug: apm-calls]; a connect failure is a transport failure on the caller's CLIENT span", Priority: 80},
+	{Mode: "credential_expired", QueryAPI: "prometheus", Query: clientErrorRate, Direction: DirectionIncrease, Source: "signals/apm.md [slug: apm-calls]; a handshake or 401 failure fails the caller's CLIENT span", Priority: 80},
+	{Mode: "quota_reduced", QueryAPI: "prometheus", Query: "sum(rate(traces_service_graph_request_failed_total{blueprint=\"{{blueprint}}\"}[2m]) or rate(traces_service_graph_request_failed_total{client_blueprint=\"{{blueprint}}\"}[2m])) or vector(0)", Scopes: []ConsumerScope{{Kinds: []string{ConsumerApp}, Query: quotaFailedEdges}}, Direction: DirectionIncrease, Source: "signals/apm.md [slug: apm-service-graph]; a 429 answer fails the caller's edge; the scoped writer stamps a bare blueprint label on synthkit-emitted edges and a generator-derived edge carries client_blueprint, so both are read", Priority: 80},
+	{Mode: "concurrency_reduced", QueryAPI: "prometheus", Query: "sum(aws_lambda_throttles_sum) or vector(0)", MinActive: throttleFloor, ScopeJoin: " + ", Scopes: []ConsumerScope{
+		{Kinds: []string{ConsumerLambda}, Query: `aws_lambda_throttles_sum{dimension_FunctionName=~"{{consumers.dimension_FunctionName}}"` + accountRegion + `}`, Aggregate: `sum({{selectors}}) or vector(0)`},
+		{Kinds: []string{ConsumerAgentcore}, Query: `sum(aws_bedrock_agentcore_throttles_sum{name=~"{{consumers.name}}"}) or vector(0)`},
+	}, Direction: DirectionIncrease, Source: "signals/cw.md (aws_lambda_throttles); a reduced concurrency limit raises the bound function's Throttles", Priority: 90},
+	{Mode: "consumer_slowdown", QueryAPI: "prometheus", Query: "aws_sqs_approximate_age_of_oldest_message_maximum or solace_queue_spool_usage_msgs", AnySeries: true, MinActive: backlogFloor, Scopes: []ConsumerScope{
+		{Kinds: []string{ConsumerSQS}, Query: `aws_sqs_approximate_age_of_oldest_message_maximum{dimension_QueueName=~"{{consumers.dimension_QueueName}}"` + accountRegion + `}`},
+		{Kinds: []string{ConsumerSolace}, Query: `solace_queue_spool_usage_msgs{instance=~"{{consumers.instance}}",vpn_name=~"{{consumers.vpn_name}}",queue_name=~"{{consumers.queue_name}}"}`},
+	}, Direction: DirectionIncrease, Source: "signals/cw.md (aws_sqs_approximate_age_of_oldest_message) and signals/solace.md (solace_queue_spool_usage_msgs); a slower consumer ages and deepens the bound queue", Priority: 90},
+}
+
+const (
+	// throttleFloor is the least Throttles Sum (per 60-second emission) that counts for
+	// concurrency_reduced. A healthy bound function throttles nothing and a legacy function with a
+	// fractional throttles_per_min flips between 0 and 1 per period. A bound function carries
+	// declared demand of 1 rps or more (design examples run 2 to 15 rps, 120 to 900 arrivals a
+	// minute); once a cut limit bites, the reject share is 1 - limit/offered, so even a modest
+	// shortfall rejects well over 5 a minute.
+	throttleFloor = 5
+	// backlogFloor is the least oldest-message age (seconds) or queue depth (messages) that counts
+	// for consumer_slowdown. The harness settles 130 s after activation, so the oldest age cannot
+	// exceed about that; 30 s needs the consumer to have lost roughly a quarter of the time since
+	// activation (service rate at or under ~0.77 of demand), and 30 messages is the same deficit at
+	// 1 msg/s. It rejects the sub-second ages and one-message blips an idle unrelated queue shows.
+	backlogFloor = 30
+	// serverLatencyByService is the per-series mean SERVER span latency. The 0.05/s floor (about six
+	// observations in the two-minute window) keeps a nearly idle series from passing on noise.
+	serverLatencyByService = "histogram_avg(rate(traces_spanmetrics_latency{" + serverSpans + "}[2m])) and histogram_count(rate(traces_spanmetrics_latency{" + serverSpans + "}[2m])) > 0.05"
+	serverSpans            = `blueprint="{{blueprint}}",span_kind="SPAN_KIND_SERVER"`
+	// scopedServerSpans is serverSpans narrowed to the services a stretch reaches and to the
+	// environment the resource is declared in (span metrics carry both labels).
+	scopedServerSpans = serverSpans + `,service=~"{{consumers.service}}",deployment_environment_name=~"{{consumers.deployment_environment_name}}"`
+	// quotaFailedEdges is the service-graph failure rate of the edges into the services that use
+	// the quota; the server label names the called service.
+	quotaFailedEdges = `sum(rate(traces_service_graph_request_failed_total{blueprint="{{blueprint}}",server=~"{{consumers.service}}"}[2m]) or rate(traces_service_graph_request_failed_total{client_blueprint="{{blueprint}}",server=~"{{consumers.service}}"}[2m])) or vector(0)`
+	clientErrorRate  = "sum(rate(traces_spanmetrics_calls_total{blueprint=\"{{blueprint}}\",span_kind=\"SPAN_KIND_CLIENT\",status_code=\"STATUS_CODE_ERROR\"}[2m])) or vector(0)"
+)
+
+// appLatencyScope narrows a server-latency observation to the services that use the resource and
+// to their callers: a service without a server span of its own (a database or external leaf) shows
+// its stretch on the services above it, whose request includes its hop.
+var appLatencyScope = ConsumerScope{
+	Kinds: []string{ConsumerApp, ConsumerAppCallers},
+	Query: "histogram_avg(rate(traces_spanmetrics_latency{" + scopedServerSpans + "}[2m])) and histogram_count(rate(traces_spanmetrics_latency{" + scopedServerSpans + "}[2m])) > 0.05",
+}
+
+// accountRegion narrows a CloudWatch-family series to the account and region its consumer is
+// declared in: a same-named function or queue elsewhere is another resource. Both are core
+// collector labels on every CloudWatch series (signals/cw.md) and optional in the identity.
+const accountRegion = `{{consumers?account_id}}{{consumers?region}}`
+
+// placeholder matches {{consumers.<label>}} (required) and {{consumers?<label>}} (optional).
+var placeholder = regexp.MustCompile(`\{\{consumers([.?])([A-Za-z0-9_]+)\}\}`)
+
+// Scope narrows the assertion to the given consumers: for each scope whose kinds some consumer
+// matches, the scope's query is rendered from those consumers' identity values (escaped as a
+// PromQL string holding a regex, which the query API anchors), and the rendered queries are joined
+// by ScopeJoin. A scope filtering on one label renders one regex alternation of the values; a
+// scope filtering on several (or carrying an optional matcher) renders the query once per distinct identity, joined by " or ", so a
+// series pairing one consumer's value of a label with another's is not selected. It returns the
+// narrowed assertion and the number of consumers the rendered queries select. A scope renders only
+// for consumers that carry every label its query filters on, so a partial identity never widens
+// the match. When no scope renders the assertion is returned unchanged with 0, and the caller keeps
+// its blueprint-wide observation.
+func (a Assertion) Scope(consumers []Consumer) (Assertion, int) {
+	var parts []string
+	matched := 0
+	for _, sc := range a.Scopes {
+		var labels, required []string
+		optional := map[string]bool{}
+		for _, m := range placeholder.FindAllStringSubmatch(sc.Query, -1) {
+			if !slices.Contains(labels, m[2]) {
+				labels = append(labels, m[2])
+			}
+			if m[1] == "?" {
+				optional[m[2]] = true
+			} else if !slices.Contains(required, m[2]) {
+				required = append(required, m[2])
+			}
+		}
+		sort.Strings(labels)
+		var tuples [][]string // each consumer's rendered values, in label order
+		n := 0
+		for _, c := range consumers {
+			if !kindIn(sc.Kinds, c.Kind) || !hasLabels(c.Identity, required) {
+				continue
+			}
+			n++
+			t := make([]string, len(labels))
+			for i, label := range labels {
+				v, ok := c.Identity[label]
+				switch {
+				case optional[label] && !ok:
+					// absent: the matcher is omitted, never rendered against an empty value
+				case optional[label]:
+					t[i] = `,` + label + `=~"` + promString(regexp.QuoteMeta(v)) + `"`
+				default:
+					t[i] = promString(regexp.QuoteMeta(v))
+				}
+			}
+			tuples = append(tuples, t)
+		}
+		if n == 0 {
+			continue
+		}
+		matched += n
+		parts = append(parts, renderScope(sc, labels, len(required), tuples))
+	}
+	if len(parts) == 0 {
+		return a, 0
+	}
+	join := a.ScopeJoin
+	if join == "" {
+		join = " or "
+	}
+	query := parts[0]
+	if len(parts) > 1 {
+		query = "(" + strings.Join(parts, ")"+join+"(") + ")"
+	}
+	scoped := a
+	scoped.Query, scoped.Scopes, scoped.ScopeJoin = query, nil, ""
+	return scoped, matched
+}
+
+// renderScope fills a scope query's placeholders. With one required label the consumers are
+// grouped by their optional matchers and each group renders one alternation of the label's values
+// (a scope with no optional matcher renders a single alternation); several required labels render
+// once per distinct value tuple, so a series pairing one consumer's value of a label with
+// another's is not selected. Renderings are joined by " or ". A scope with an Aggregate wraps the
+// joined selectors in it, so a sum counts every consumer's series once instead of unioning
+// single-element sums that share a label set.
+func renderScope(sc ConsumerScope, labels []string, required int, tuples [][]string) string {
+	query := sc.Query
+	fill := func(values []string) string {
+		return placeholder.ReplaceAllStringFunc(query, func(ph string) string {
+			return values[slices.Index(labels, placeholder.FindStringSubmatch(ph)[2])]
+		})
+	}
+	var rendered []string
+	if required == 1 {
+		key := slices.IndexFunc(labels, func(l string) bool { return placeholderRequired(query, l) })
+		groups := map[string][]string{}
+		var names []string
+		for _, t := range tuples {
+			rest := slices.Clone(t)
+			rest[key] = ""
+			g := strings.Join(rest, "\x00")
+			if _, ok := groups[g]; !ok {
+				names = append(names, g)
+			}
+			groups[g] = append(groups[g], t[key])
+		}
+		sort.Strings(names)
+		for _, g := range names {
+			vs := groups[g]
+			sort.Strings(vs)
+			values := strings.Split(g, "\x00")
+			values[key] = strings.Join(slices.Compact(vs), "|")
+			rendered = append(rendered, fill(values))
+		}
+	} else {
+		keys := map[string][]string{}
+		for _, t := range tuples {
+			keys[strings.Join(t, "\x00")] = t
+		}
+		sorted := make([]string, 0, len(keys))
+		for k := range keys {
+			sorted = append(sorted, k)
+		}
+		sort.Strings(sorted)
+		for _, k := range sorted {
+			rendered = append(rendered, fill(keys[k]))
+		}
+	}
+	joined := rendered[0]
+	if len(rendered) > 1 {
+		joined = "(" + strings.Join(rendered, ") or (") + ")"
+	}
+	if sc.Aggregate != "" {
+		return strings.ReplaceAll(sc.Aggregate, "{{selectors}}", joined)
+	}
+	return joined
+}
+
+// placeholderRequired reports whether the query names label as a required {{consumers.<label>}}.
+func placeholderRequired(query, label string) bool {
+	return strings.Contains(query, "{{consumers."+label+"}}")
+}
+
+func kindIn(kinds []string, kind string) bool { return slices.Contains(kinds, kind) }
+
+func hasLabels(identity map[string]string, labels []string) bool {
+	for _, label := range labels {
+		if _, ok := identity[label]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// promString escapes a value for the inside of a double-quoted PromQL or LogQL string.
+func promString(v string) string {
+	return strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`).Replace(v)
 }
 
 // Assertions returns a copy so callers cannot mutate the catalogue.

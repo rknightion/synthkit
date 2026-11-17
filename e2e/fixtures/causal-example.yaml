@@ -1,0 +1,63 @@
+# causal-example: the worked example in the authoring guide's "Declaring causes" section.
+# A fixture, not a shipped blueprint: it sits outside blueprints/ so BLUEPRINT_NAMES=* never
+# deploys it, and its tests pin the figures the guide quotes.
+name: causal-example
+label: causal-example
+shape: business_hours_plateau
+timezone: UTC
+
+environments:
+  - name: prod
+    weight: 1.0
+    cloud:
+      provider: aws
+      account_id: "111122223333"
+      region: eu-west-1
+      vpc_id: vpc-causal-example
+    cluster:
+      type: eks
+      name: causal-example-prod
+      node_groups:
+        - { name: general, instance_type: m6i.large, desired: 3 }
+    resources:
+      # A service's database connection pool. One transaction holds a connection for 20 ms
+      # (a 15 ms query plus driver overhead). At the 60 rps business peak that offers
+      # 60 x 0.020 = 1.2 busy connections of 10 (utilization 0.12): comfortable.
+      - name: intake-db-pool
+        kind: pool
+        size: 10                     # service pools are typically 10 to 50 connections
+        hold_ms: 20
+        held_across: records-db      # the hold stretches with records-db's extra latency
+        acquire_timeout_ms: 3000     # a caller waits this long for a connection, then fails
+        demand: { off_peak_rps: 5, peak_rps: 60 }   # must cover the app's traffic below
+        error:
+          status: 503
+          type: SQLTransientConnectionException
+          message: "intake-db-pool: connection is not available, request timed out after 3000ms"
+      # The database the pool's connections are spent on. dependency_slow multiplies its
+      # latency by up to slow_factor (lock contention: 15 ms becomes 180 ms at intensity 1).
+      - { name: records-db, kind: dependency, latency_ms: 15, slow_factor: 12 }
+
+workloads:
+  - type: app
+    name: intake
+    runs_on: causal-example-prod
+    traffic: { off_peak_rps: 5, peak_rps: 60 }
+    services:
+      - name: intake-api
+        entry: true
+        uses: [intake-db-pool]       # every request takes a connection on arrival
+        calls: [records-db]
+      - { name: records-db, type: db, uses: [records-db] }   # the query's latency is the dependency's
+
+scenarios:
+  - name: records-db-lock-contention
+    title: Lock contention on the records database
+    summary: >
+      Queries slow from 15 ms to 180 ms, each connection is held 9 times longer, and the
+      intake pool runs out of connections at peak.
+    effects:
+      - { mode: dependency_slow, target: records-db }   # intensity defaults to 1
+
+incidents:
+  - { scenario: records-db-lock-contention, at: "10:30", for: 40m }

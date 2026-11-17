@@ -44,6 +44,88 @@ custom declarations reject regardless of labels, units or bounds. Follow the wor
 for cumulative value semantics, transport behavior and realistic volume assumptions; do not copy
 its illustrative fixture values as production defaults.
 
+For a sourced custom gauge that is truly empty in ordinary operation, keep `base: 0` and use
+`value: {shape: {base: 0, mode: error_spike, incident_value: 12}}` only with a deployment-justified
+endpoint (12 here is a fixture illustration). The metric-only opt-in interpolates from `base` to
+`incident_value` with scoped intensity, then scales by business load and master volume; it does
+not apply the legacy ×3 amplification. At unit load it returns to zero as soon as the matching
+incident ends; volume 0 pauses the shape gauge at zero. It models no backlog persistence or drain.
+For an outage level that must not shrink at night or at weekends (a duration such as a publish
+lag), add `incident_absolute: true`: the incident share then reads `incident_value` at any load.
+Both endpoints must be finite and `mode` nonblank; use an existing registered service failure mode
+and an exact service-node target to constrain scope. Do not add incident-dependent label values.
+Omit the option to preserve legacy multiplicative shape output. Follow the canonical workload
+DSL section for metric value semantics and the
+[canonical incident guide](https://github.com/rknightion/synthkit/blob/main/docs/incidents.md#incidents-scheduled-activations)
+for scheduled intensity: explicit `intensity: 0` is preserved as zero, omission defaults to 1,
+and fractional values are preserved. This applies to inline incidents and each effect of a
+scheduled scenario; put scenario intensity on the effect, not the referencing incident. Zero
+does not bypass target validation. It leaves intensity-scaled values at baseline, but consumers
+that check only window activity ignore intensity; end or omit their window to disable the effect.
+Live resolved-zero semantics are unchanged. Verify baseline → scoped onset → recovery through
+a loaded fixture before using the value in a composition.
+
+Declare batch pipelines once in an environment's `cloud.pipelines`; follow
+[the canonical pipeline guide](https://github.com/rknightion/synthkit/blob/main/docs/constructs.md#declared-pipelines)
+and [stage incident contract](https://github.com/rknightion/synthkit/blob/main/docs/incidents.md#pipeline_stage-axis).
+Pipeline names must be unique blueprint-wide, including disjoint stages in different environments.
+Use canonical `<pipeline>.<stage>` targets for local scope; `pipeline_stage:*` intentionally spans
+all environments. Glue and MWAA are the emitting consumers of the shared timeline; accepted
+Lambda/SQS/Redshift stages do not install emitting adapters or a log contract. For MWAA terminal
+outcomes, follow the [canonical CloudWatch outcome contract](https://github.com/rknightion/synthkit/blob/main/signals/cw.md):
+observations are sparse, so an empty completion window is not a zero-duration sample. Do not claim
+full pipeline/demo coverage or raise shipped rates to force a run; use a selected test fixture.
+
+## Declare causes, not rates
+
+When the blueprint models a failure, declare the cause and let the symptoms follow. A rate-only
+scenario (`error_spike`, `latency_storm` and similar) scales a number and leaves every other
+signal as it was; avoid it as the default way to model an incident. Use it only for an effect with
+no resource to name, and say so in a comment.
+
+1. Name what a real incident would break: a connection pool too small for its hold time, a
+   function's reserved concurrency, consumers that cannot keep up with a queue, a quota, a slow
+   dependency, an expired certificate or token, a validation rule or a bad release.
+2. Declare it under the environment's `resources:` and attach it where requests meet it: an `app`
+   service node's `uses`, or a `resource:` field on a Lambda function, SQS queue, Solace queue or
+   database. Read the `environments[].resources[]` rows of `BLUEPRINT-SCHEMA.md` for the exact
+   fields per kind.
+3. Write the scenario against the resource that is at fault, using one of the eight `resource`-axis
+   modes (`pool_exhausted`, `concurrency_reduced`, `quota_reduced`, `consumer_slowdown`,
+   `dependency_slow`, `dependency_unavailable`, `credential_expired`, `rule_regression`). Aim a
+   mode at the kind it acts on. Aim `dependency_slow` at the dependency, not at the pool that
+   holds connections across it: the exhaustion is emergent.
+4. Size the resource with arithmetic and put the sum in a comment: offered load is
+   `rps x hold seconds`, a pool is comfortable below about 80% of its size and exhausts above
+   100%, and a slow dependency stretches the hold. Every size, hold time, latency and rate carries
+   its real-world basis. Never raise a rate in `blueprints/` to make a signal appear; one-tick
+   forcing belongs in `e2e/fixtures/`.
+5. Verify through the loader and the dump (Procedure step 7), then confirm the incident moves the
+   state you expect: healthy before, the cause during, recovered after.
+
+For AgentCore runtimes bound to a concurrency resource, use resource-axis faults instead of legacy
+`agentcore_throttle`: loading rejects that legacy effect if its cloud scope reaches any bound
+runtime, including mixed deployments, `cloud:*` and omitted targets. Expanded cloud names must also
+survive scheduler parsing unchanged; malformed or whitespace-altered names are rejected even on
+unbound deployments. See the [cloud-axis contract](https://github.com/rknightion/synthkit/blob/main/docs/incidents.md#cloud-axis)
+for scope rules and the raw runtime escape-hatch boundary.
+
+Before using shared-legacy timeout/resend evaluation, follow the
+[canonical operating-use limit](https://github.com/rknightion/synthkit/blob/main/docs/blueprints.md#shared-legacy-operating-limit).
+This path is offline-only for individually measured, isolated inputs; generic fixture results do
+not admit deadline-driven ticks, concurrent-model throughput or unattended continuous emission.
+
+Follow the [Declaring causes guide](https://github.com/rknightion/synthkit/blob/main/docs/blueprints.md#declaring-causes)
+for the worked example (a connection pool held across a slow database, loaded from
+`e2e/fixtures/causal-example.yaml`) and the
+[fault catalogue](https://github.com/rknightion/synthkit/blob/main/docs/fault-catalogue.md) for a
+loadable blueprint per mode. Copy their structure, not their rates. An error class and message
+are values you choose in a resource's `error` block; the catalogue ships none. Do not name an
+attribute or log field for the cause: the signal contracts fix those names once sourced.
+For request/response function trace joins, follow the
+[canonical synchronous invocation contract](https://github.com/rknightion/synthkit/blob/main/docs/workloads.md#synchronously-invoked-functions-run-inside-the-call)
+alongside the [causal request guide](https://github.com/rknightion/synthkit/blob/main/docs/workloads.md#causal-requests).
+
 ## Procedure
 
 1. Give the blueprint a unique, stable `name` and `label`. `name` is the deterministic seed;
@@ -54,7 +136,12 @@ its illustrative fixture values as production defaults.
 3. Select emission switches only for lanes the scenario needs. For example,
    `databases[].observability.cloudwatch` and `.dbo11y` independently fan the same declared
    database into its supported construct lanes. A switch gates emission; it does not change the
-   declaration's identity.
+   declaration's identity. PostgreSQL/MySQL may combine dbo11y with a database `resource:` binding
+   to a dependency/pool, but the CloudWatch lane remains required. Follow
+   [database bindings](https://github.com/rknightion/synthkit/blob/main/docs/blueprints.md#the-emission-switch):
+   compare same-minute pool connections and duration/counter increments across both lanes, including
+   recovery and an unbound sibling. Do not infer server Lock/IO causes or SQL errors from acquisition
+   pressure, or schedule database-axis modes on a bound DB. DocumentDB/Neptune dbo11y is unsupported.
 4. Add workloads under `workloads:`. Set `type`, unique workload `name`, and `runs_on` to the
    exact declared cluster name. Add `calls[].db` / `calls[].cache` only with exact names from the
    same resolved environment. The loader rejects unknown references; do not work around that by
@@ -63,7 +150,10 @@ its illustrative fixture values as production defaults.
    systems. These are distinct schema sections; a kind in the wrong section is a load error.
    Use `for_each_env: true` only when the schema supports it and every selected environment has
    the required resolved resource.
-6. For multi-construct output, validate both the wiring and the intended inventory before
+6. For a failure scenario, declare the cause under `resources:` and aim the scenario at it, as
+   [Declare causes, not rates](#declare-causes-not-rates) describes. Do not model an incident with
+   a rate-only mode when a resource can be named.
+7. For multi-construct output, validate both the wiring and the intended inventory before
    declaring it done:
 
    ```bash
@@ -76,6 +166,30 @@ its illustrative fixture values as production defaults.
 
    Compare the dumped series inventory with the selected `signals/` contracts; do not make the
    catalogue match a new dump.
+
+For captured Lambda/SQS/DynamoDB/Redshift/Logs CloudWatch output, follow
+[the public consumer guide](https://github.com/rknightion/synthkit/blob/main/docs/blueprints.md#captured-cloudwatch-consumers)
+and the explicit emitted sections in `signals/cw.md`, not the larger positive-source tables.
+Use optional `cloud.lambda.functions`, `cloud.sqs.queues`, `cloud.dynamodb.tables`,
+`cloud.redshift.clusters` and `cloud.cloudwatch_logs.log_groups`; at most one
+block per blueprint/account/region/kind, including across environments with disjoint resources.
+These consumers reject native OTLP export and have no pipeline adapters. Preserve explicit
+non-global SQS/DynamoDB collector names, exact alternative dimensions and once-only account
+snapshots. Redshift additionally requires non-global collector names and all snapshot assumptions,
+including explicit zero/false. Optional read/write I/O uses seconds and independent completed-I/O
+rates; named queue stocks use the exact separate QueueName projection. Logs requires explicit
+rate and whole uncompressed bytes per event; its event unit remains AWS None, not Count.
+Optional group-owned `subscription_filters` require an unpadded unique name within the group,
+`destination_type: Lambda` and all four whole finite nonnegative `period_observation` fields:
+`delivery_errors`, `delivery_throttling`, `forwarded_log_events`, `forwarded_bytes`. Bytes are
+already compressed. These independent authored values observe once per active minute with
+four value statistics=x, sample_count=1, including explicit zero. Progress is independent of
+intake, even zero intake; this is not a delivery simulator, compression/retry/loss or intake model.
+Follow the guide's required-presence/bounds and exact carry/pause/first-resume rules. No captured
+enrichment, NodeID/user-query/managed-storage exception, other Logs selectors/profiles/by-data-source,
+compression calculation, info, pipeline or lifecycle attribution is admitted. ESM/fair/info remain withheld. Fixed rates/value assumptions need a real-world
+basis beside them; do not copy deliberate all-family populations from `e2e/fixtures/` into a
+shipped blueprint. Ordinary sparse rates may not emit every family in one CLI tick.
 
 For native OTLP pod logs, select `k8s_monitoring.pod_logs_collector: otel_collector`
 when modelling the captured OTel Collector shape. Inspect `collector_profile` in
@@ -123,8 +237,8 @@ not retrieval-only hooks or a fabricated backend tool-name predicate. Preserve t
 Every pipeline graph service must be bound and used in its stage plan. Do not declare
 inline logs, log-producing catalog profiles, pages or rum_faro: Build rejects these
 unsupported outputs rather than silently dropping them. Ordinary app graphs are unchanged.
-`metadata_only` thinking is explicitly unsupported/fail-closed because the current native
-encoder cannot preserve the empty thinking kind. The corpus path produces no media and
+`metadata_only` capture keeps a thinking part as an empty thinking payload through the
+explicit part kind, with no placeholder content. The corpus path produces no media and
 reduced Python media is refused. Default/no_tool_content/full_with_metadata_spans keep native
 generation content but omit shared tool-span content; only full includes accepted tool content
 in spans. Authored metadata/tags are not scrubbed. Follow the canonical SDK-specific exceptions,

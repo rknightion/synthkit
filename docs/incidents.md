@@ -45,6 +45,16 @@ The `target` field on an effect resolves to a specific declared instance:
 | `service:*` | All app service nodes across all app workloads |
 | `cloud:*` | All cloud-scoped constructs (Bedrock, AgentCore, Portkey, etc.) |
 | `network:*` | All network-topology instances |
+| `orders_daily.transform` | One declared pipeline stage, named `<pipeline>.<stage>` (see [pipeline_stage axis](#pipeline_stage-axis)) |
+| `pipeline_stage:*` | Every declared pipeline stage |
+| `orders-publisher` | One function declared under an environment's `cloud.lambda.functions` (see [function axis](#function-axis-lambda)) |
+| `function:*` | Every declared Lambda function |
+| `orders-out` | One queue declared under `integrations.solace` (see [queue axis](#queue-axis-solace)) |
+| `queue:*` | Every declared Solace queue |
+| `orders` | One table declared under an environment's `cloud.dynamodb.tables` (see [table axis](#table-axis-dynamodb)) |
+| `table:*` | Every declared DynamoDB table |
+| `checkout-pool` | One causal resource declared under an environment's `resources` (see [resource axis](#resource-axis-causal-resources)); a resource named `<base>-<lower(env)>` is also reached by `<base>` |
+| `resource:*` | Every declared causal resource of the mode's kind |
 | omitted | Valid only for single-axis modes — the mode's axis is inferred and all instances of that axis are targeted |
 
 The resolver validates every effect target against the blueprint's actual instance inventory at load time. An unknown name or an axis mismatch is a loud load error.
@@ -89,7 +99,35 @@ An `incidents:` block schedules when a scenario or single-mode effect fires:
 
 `scenario:` and `kind:` are mutually exclusive in one entry, and an entry needs exactly one of `at:` or `every:`. `at:` accepts either a full wall-clock timestamp (fires once) or a bare `HH:MM` (fires daily at that time); `every:` fires on the given interval continuously for the lifetime of the process.
 
-`intensity` in `[0, 1]`: 0 is a no-op; 1 is the maximum effect the construct physics implement. Fractional intensities affect a proportional fraction of pods or metric series.
+`intensity` is in `[0, 1]`: explicit `intensity: 0` is preserved as zero, while omission
+defaults to 1 (the maximum effect the construct physics implement). Fractional values are
+preserved. This presence rule applies to inline single-mode incidents and to each effect in a
+scheduled scenario reference; set the intensity on the scenario's effect, not on its referencing
+incident. Zero-intensity effects still undergo normal mode and target validation.
+
+For intensity-scaled effects, zero leaves the baseline unchanged and fractional intensities
+scale the effect. A zero-intensity window still exists: consumers that check only whether a
+window is active ignore intensity (for example, `node_not_ready` and `stage_stall`). End or omit
+the window to disable those effects. Scheduled presence handling does not change live
+resolved-zero values or live activation semantics.
+
+### Rate-only warning
+
+A scenario, or a single-mode incident row, that scales a request-path rate, error share, latency
+or throughput with no declared cause is reported as a validation warning. It is non-fatal: the
+blueprint still loads, and the warning appears in the loader log, the `warnings` of
+`synthkit validate`, and the control-plane diagnostics beside the other resolve-time warnings.
+
+The warned modes are `error_spike`, `latency_storm`, `throughput_drop`, `retry_storm` and
+`fallback_storm` on the service axis; `error_burst` and `latency_spike` on the workload axis;
+`function_error_spike`, `function_duration_storm` and `function_throttle_storm` on the function
+axis; `queue_consumer_stall` and `queue_publish_drop` on the queue axis; and `table_throttle_storm`
+on the table axis. A scenario is warned when at least one effect is in that set and none is a resource-axis effect. A resource-axis
+effect (for example `dependency_slow` or `concurrency_reduced` on a declared
+`environments[].resources` target) is the declared cause, so it clears the warning for the whole
+scenario. Cluster, database, cloud, network, GPU, pipeline-stage, quality and runtime-pressure
+modes (`cpu_hotspot`, `memory_leak`, `goroutine_leak`, `lock_contention`) are never warned. A
+scenario that an incident references is warned once, on the scenario, not again on the schedule row.
 
 ## Available failure modes
 
@@ -109,6 +147,29 @@ An `incidents:` block schedules when a scenario or single-mode effect fires:
 | `replication_lag` | Replica falls behind primary. |
 | `lock_contention` | Lock waits climb. (Also fires the `query_data_locks` dbo11y op when active.) |
 | `slow_query_storm` | Query latency right-tail spikes. |
+
+A database with `resource:` (bound to a `dependency` or `pool` under `environments[].resources`) is not
+a database-axis target: an effect naming it with a database-axis mode is an unknown-target load error.
+Its `aws_rds_*` latency and connection families follow the shared resource model instead, so the
+resource-axis modes reach it: `dependency_slow` on the dependency (or on the dependency the pool is
+held across) scales the latency component of `aws_rds_read_latency` and `aws_rds_write_latency` by
+the trailing-minute mean latency factor, and on a pool-bound database
+`aws_rds_database_connections` follows mean busy connections over that same minute (they rise as the
+hold stretches, and `pool_exhausted` caps them at the reduced size; capacity loss may reduce the count).
+Other CloudWatch families keep their baseline; recovery is visible as the fault leaves the minute window.
+
+With PostgreSQL/MySQL `observability.dbo11y: true`, the same binding also drives dbo11y: pool mean
+busy connections match CloudWatch, and mean latency scales statement-seconds increments and existing
+synthetic query/wait durations in metrics and logs. Recovery restores increments, never accumulated
+counter totals. Dependency-only binding retains baseline connections. Acquisition pressure is not
+server Lock/IO attribution or a SQL error code; existing synthetic wait categories and SQL-error
+baselines remain unchanged. Bound instances ignore all directly injected legacy database modes;
+unbound siblings still respond to them. The CloudWatch lane remains required, and
+DocumentDB/Neptune dbo11y is still unsupported.
+`dependency_unavailable` and `credential_expired` move nothing on a bound database, because no sourced
+CloudWatch metric records them. A bound DocumentDB cluster (`engine: docdb`) behaves the same way:
+`aws_docdb_read_latency` and `aws_docdb_write_latency` follow the latency factor, and
+`aws_docdb_database_connections` follows a pool's busy connections.
 
 ### workload axis (web_service)
 
@@ -136,6 +197,18 @@ An `incidents:` block schedules when a scenario or single-mode effect fires:
 | `goroutine_leak` | Goroutine accumulation on the targeted node (profiling). |
 | `web_vitals_degraded` | Browser web-vitals degrade on the targeted frontend node — LCP/INP/TTFB/FCP/CLS spike. |
 
+`error_spike` and `latency_storm` act the same way whether or not the workload declares causal
+resources, but what a failed hop does next differs. In a blueprint with no causal declarations
+(`uses`, `call_policies`, `worker` or `traffic.from_resource`) an `error_spike` or declared
+`error_rate` hop failure is independent: each hop draws its failure once, nothing resends it, and
+the request fails if the entry or any hop failed. In a causal workload the same failure is a request
+fact like a resource fault: it reaches the caller as the mapped status (a callee 5xx becomes 502, a
+429 becomes 503, or stays 429 with `propagate_throttle`) and a declared `call_policies` retry can
+absorb it, each resend drawing its own failure so a retry can recover a spike, including one at the
+entry. See [App workload](workloads.md#app) for the declarations and
+[`signals/traces.md`](https://github.com/rknightion/synthkit/blob/main/signals/traces.md)
+(`traces-app-causal`) for what the spans carry.
+
 ### cloud axis
 
 | Mode | Effect |
@@ -144,6 +217,25 @@ An `incidents:` block schedules when a scenario or single-mode effect fires:
 | `agentcore_throttle` | AgentCore request throttles + system_errors spike (region-scoped capacity constraint). |
 | `portkey_scrape_degraded` | Portkey analytics scrape degrades — API error_rate and 4xx/5xx share climb, latency rises, poller falls behind. |
 | `eval_quality_degraded` | LangSmith eval quality regresses — faithfulness/completeness/relevance and retrieval scores drop while retry/fallback/HITL rates and error/pending run-outcomes climb. |
+
+An AgentCore runtime listed under `cloud.agentcore.runtimes` with a `resource:` (a `concurrency`
+resource under `environments[].resources`) emits its own `aws_bedrock_agentcore_*` invocation-class
+series, named by the runtime ARN, from the shared resource model. Blueprint loading rejects
+`agentcore_throttle` incidents and scenario effects whose cloud target reaches a bound runtime,
+including mixed bound/unbound deployments, `cloud:*` and an omitted target. Name an unrelated
+unbound environment to retain the legacy switch there. The deployment-wide `.../runtime/global`
+series is unchanged; this validation does not remove its legacy throttle response. The resource-axis
+modes reach the bound runtime instead: `concurrency_reduced` on the resource (`throttles` rise,
+`invocations` fall), `dependency_slow` on its held-across dependency (`latency` rises, then
+`throttles` once the limit is reached) and `dependency_unavailable` or `credential_expired`
+(`system_errors` and `total_errors`). Each family drains back to the baseline when the incident ends.
+
+Before checking runtime bindings, legacy AgentCore throttle admission validates every expanded cloud
+scope, including names selected by `cloud:*`. The reserved characters `@`, `/`, `#`, space, tab,
+newline and carriage return, a `:*` suffix, or leading/trailing Unicode whitespace fail even for an
+unbound deployment. Names are never trimmed or silently skipped to make the schedule fit. An
+explicitly omitted target retains its unscoped meaning and still rejects if any runtime is bound.
+This declaration fence does not change the raw runtime shape-schedule escape hatch.
 
 ### network axis
 
@@ -154,6 +246,210 @@ An `incidents:` block schedules when a scenario or single-mode effect fires:
 | `nettopo_walker_degraded` | Walker outcome errors climb; edge count under-reports (partial topology visibility). |
 | `nettopo_auth_failures` | SNMP credential trials fail (credential_trials_total error rate rises). |
 | `nettopo_spoke_down` | A federation spoke goes offline (`network_topology_federation_spoke_up` drops to 0, hub/spoke session metrics degrade). |
+
+### pipeline_stage axis
+
+Every stage of a pipeline declared under an environment's `cloud.pipelines:` is a target named
+`<pipeline>.<stage>`. The modes act on the shared run timeline (`internal/pipelinerun`) that the
+`glue` and `mwaa` constructs both read, so one incident shows up consistently in both.
+Pipeline names must be unique across **all environments in the blueprint**: repeated names are
+rejected at load, even with disjoint stages. Pipeline and stage names match `[a-z0-9_-]+`;
+there is no environment-qualified target alias. Use distinct pipeline names (for example,
+`orders_prod.transform` and `orders_dev.transform`) for environment-local incidents;
+`pipeline_stage:*` deliberately spans every environment's stages.
+
+| Mode | Effect |
+|---|---|
+| `stage_stall` | The stage starts nothing while active. Work already executing finishes; runs arriving from upstream wait and age from their arrival. Upstream stages keep running, later stages complete nothing. MWAA `aws_mwaa_approximate_age_of_oldest_task` and `queued_tasks` climb; the stage's and later Glue jobs report zero completed tasks. When it clears, the backlog starts at once, oldest first. `intensity` is ignored. |
+| `run_failure` | Runs completing the stage fail, with `intensity` as the fraction (default 1.0, every run). A failed run ends with a FAILED terminal outcome and never reaches later stages. A Glue stage reports `aws_glue_driver_aggregate_num_failed_tasks` of 4 per failed run (Spark's default `spark.task.maxFailures`). |
+
+Name a stage or use `pipeline_stage:*`. The empty-target shorthand is rejected for these modes,
+because both `glue` and `mwaa` register them.
+
+Incidents are evaluated once per 60 s tick. A stall at the first stage makes each triggered run
+wait; a stall at a later stage only builds a backlog once a run reaches it, so on an hourly or daily
+pipeline a short stall may never meet a run. MWAA run-outcome metrics (DAG run duration success and
+failure, task-instance failures) are not yet sourced, so a failed run is visible through Glue only.
+
+### function axis (Lambda)
+
+Every function declared under an environment's `cloud.lambda.functions` is a target named by
+its function name. One function name declared in several environments is one target: an effect
+naming it reaches that function in every environment. The modes change only the targeted
+function's `aws_lambda_*` CloudWatch
+statistics (`signals/cw.md`); account-region concurrency follows from the changed durations.
+Magnitudes are synthetic operator assumptions, not AWS behaviour curves.
+
+| Mode | Effect |
+|---|---|
+| `function_error_spike` | Executions fail: `intensity` is the fraction of otherwise-successful executions that fail, so `aws_lambda_errors` over `aws_lambda_invocations` rises from the declared `error_fraction` to 1 at full intensity. Errors never exceed invocations. |
+| `function_throttle_storm` | Demand above concurrency is throttled while admitted executions continue: `aws_lambda_throttles` gains `intensity` × executions per window. Invocations are unchanged. |
+| `function_duration_storm` | Every execution's duration (mean and declared bounds) is multiplied by up to 4× at full intensity, raising `aws_lambda_duration` and the modelled concurrency. |
+
+A function with `resource:` (bound to a `concurrency` resource under `environments[].resources`) is not
+a function-axis target: an effect naming it with a function-axis mode is an unknown-target load error.
+Its `aws_lambda_*` families follow the shared resource model instead, so the resource-axis modes reach
+it: `concurrency_reduced` on the resource (throttles, fewer invocations, concurrency capped at the
+reduced limit), `dependency_slow` on its held-across dependency (longer `aws_lambda_duration`, more
+concurrency, throttles once the limit is reached) and `dependency_unavailable` or `credential_expired`
+(`aws_lambda_errors` over `aws_lambda_invocations`; a failed execution ends at its failed call, so
+`aws_lambda_duration` mixes the completing and failed executions and stays consistent with
+`aws_lambda_concurrent_executions`). A bound function omits every arrival-rate and
+duration field; `reserved_concurrency` and `zero_valued_samples` still apply. It may declare
+`error_fraction` (0..1), a background share of its admitted invocations that fail whatever the model
+says: `aws_lambda_errors` is that share at baseline and the model's failures are added to it during an
+incident, never exceeding `aws_lambda_invocations`. Each family drains back to the baseline once the
+incident ends.
+
+### queue axis (Solace)
+
+Every queue declared under `integrations.solace` is a target named by its queue name. Queue
+names are unique only within a VPN, so a name repeated in several VPNs or brokers addresses every
+queue carrying it. The queue's changes roll up into its VPN and broker totals.
+
+| Mode | Effect |
+|---|---|
+| `queue_publish_drop` | Publishes into the queue stop: the publish rate is scaled by 1 - `intensity`. `solace_queue_msg_spooled` and `solace_queue_byte_spooled` flatten, the backlog drains, and spool usage stops growing. |
+| `queue_consumer_stall` | The queue's consumers stop draining: the drain rate is scaled by 1 - `intensity`. `solace_queue_msg_total_deleted` flattens while `solace_queue_spool_usage_msgs` and spool bytes grow; once the queue's spool quota is full, arrivals are discarded into `solace_queue_msg_spool_usage_exceeded`. |
+
+There is no separate discard mode: the sourced discard counter records spool-full discards, which
+`queue_consumer_stall` reaches when the quota fills.
+
+A queue that declares a `drain_schedule` (a batch consumer that runs only inside periodic windows,
+so its spool is a sawtooth) is stalled the same way: the stall scales the drain rate inside each
+window, and the window schedule is unchanged. A queue bound to a causal resource cannot declare
+`drain_schedule`; its drain follows the resource's model. More generally a queue with `resource:`
+(a `queue` resource under `environments[].resources`) is not a queue-axis target: an effect naming it
+with `queue_publish_drop` or `queue_consumer_stall` is an unknown-target load error, and
+`publish_msgs_per_sec`, `consume_msgs_per_sec`, `rate_scale`, `shape_profile` and `drain_schedule`
+are rejected on it. The resource-axis modes reach it instead (see the next section).
+
+### table axis (DynamoDB)
+
+Every table declared under an environment's `cloud.dynamodb.tables` is a target named by its
+`name` (the TableName, not `collector_name`). One table name declared in several environments is
+one target. A table whose GetItem and PutItem operations are all bound to quota resources is not a
+target (see [Bound constructs](#bound-constructs)), and the storm never adds to a bound operation.
+
+| Mode | Effect |
+|---|---|
+| `table_throttle_storm` | GetItem and PutItem requests are rejected for exceeding provisioned throughput: each window gains `intensity` × the operation's admitted requests as throttled requests. `aws_dynamodb_throttled_requests` (TableName+Operation) and `aws_dynamodb_read_throttle_events` (GetItem) or `aws_dynamodb_write_throttle_events` (PutItem) on the table, otherwise absent, become positive and add to any declared `throttled_requests_per_second`. |
+
+Admitted requests, consumed capacity and latency are unchanged, as for `function_throttle_storm`.
+Query, Scan and ExecuteStatement were not captured and are unaffected. The magnitude is a synthetic
+operator assumption, not an AWS behaviour curve. With no incident active the output is unchanged.
+
+A function or queue name must be usable as a schedule scope: a name containing `@`, `/`, `#` or
+whitespace is not addressable, and naming it is an unknown-target error. The loader logs a warning
+for every such name, and again for each `function:*` or `queue:*` effect, listing the declared
+names that wildcard does not reach.
+
+A function or queue may share its name with a target on another axis, for example an app service
+node and the Lambda function that publishes for it. The name is then a target on both axes, and an
+effect naming it resolves on the axis that declares the effect's mode: `function_error_spike` on
+the function, `latency_storm` on the service node. It is an error when none of the name's axes
+declares the mode, or when more than one does. With no incident
+active on these axes the output is unchanged.
+
+One scenario can couple both with other axes, for example a publisher failing while its output
+queue receives nothing:
+
+```yaml
+scenarios:
+  - name: responses_unpublished
+    title: Responses decided but never published
+    effects:
+      - { mode: function_error_spike, target: orders-publisher, intensity: 1 }
+      - { mode: queue_publish_drop,   target: orders-out,       intensity: 1 }
+```
+
+### resource axis (causal resources)
+
+Every resource declared under an environment's `resources:` (a `pool`, `concurrency`, `queue`,
+`quota`, `dependency`, `credential` or `rule`) is a target named by its resource name. A resource is
+a shared cause: one declared state drives every signal that reads it, so an incident on the resource
+moves the app's request spans, logs and span metrics, any custom metric with a `resource:` or
+`outcomes:` value, and every bound construct below, in the same window. The authoring guide's
+["Declaring causes" section](blueprints.md#declaring-causes) and the [fault catalogue](fault-catalogue.md) give worked
+declarations and one story per mode.
+
+| Mode | Resource kind | Effect at intensity `i` |
+|---|---|---|
+| `pool_exhausted` | `pool` | Effective size shrinks to `size` × (1 − `i`). In-use connections cap there, acquisitions wait up to `acquire_timeout_ms` and then fail with a 503. |
+| `concurrency_reduced` | `concurrency` | Effective limit shrinks to `size` × (1 − `i`). Arrivals above it are rejected with a 429. |
+| `quota_reduced` | `quota` | Admitted rate shrinks to `limit_rps` × (1 − `i`). Arrivals above it are rejected with a 429. |
+| `consumer_slowdown` | `queue` | The consumers' service rate scales by (1 − `i`). Backlog and the oldest message's age grow, and arrivals beyond `max_depth` are rejected with a 503. |
+| `dependency_slow` | `dependency` | Latency factor 1 + (`slow_factor` − 1) × `i`. Every pool, concurrency limit and queue held across the dependency holds longer by the extra latency, so it saturates sooner. |
+| `dependency_unavailable` | `dependency` | A share `i` of calls fail to connect. The caller sees a transport failure with no HTTP status, which reaches its own caller as a 502. |
+| `credential_expired` | `credential` | A share `i` of calls to the credential's dependency fail: the handshake for a certificate, a 401 for a token. The caller that meets it does not resend it. |
+| `rule_regression` | `rule` | A share `i` × `reject_share` of arrivals fail validation with a 422. |
+
+Intensity follows the rules above: omitted is 1, an explicit `0` is kept, and every effect is
+validated at load. The modes are the vocabulary of `causal.FailureModes` in `internal/causal`, which
+every causal consumer registers. None shares a name with a mode on another axis, so an effect with an
+omitted target resolves to this axis. A dependency under both `dependency_unavailable` and
+`dependency_slow` follows the stronger, a tie going to unavailable.
+
+Targets:
+
+- A resource name is unique across the blueprint. An exact name targets one resource.
+- A resource named `<base>-<lower(env)>` is also reached by `<base>`, so one effect can hit that
+  resource in every environment that declares one. A base name equal to a declared resource name is a
+  load error.
+- `resource:*` expands to the declared resources of the mode's kind only, whether scheduled, set
+  live or created as a runtime incident. A runtime incident on any `<axis>:*` target reaches the
+  same targets a scheduled one does, and deleting it clears every expanded scope.
+- A resource may share its name with a service node, a Lambda function or a queue. The effect then
+  resolves on the axis that declares its mode, as for `function_error_spike` above.
+
+A resource also saturates without an incident. Demand above a pool's, concurrency's or quota's
+capacity rejects the excess by itself, and a queue whose service rate falls below its arrivals builds
+a backlog that drains afterwards, so an incident often only moves a resource across a threshold it
+was already near. Faults act through the shared 5 s model grid, so the same incident gives the same
+state to the app and to every bound construct however their ticks are spaced.
+
+#### Bound constructs
+
+A construct that declares a `resource:` binding is driven by the model, and its own rate or duration
+fields (and the legacy mode vocabulary built on them) no longer apply. A bound construct either
+rejects the legacy mode or ignores it; the resource-axis modes reach it instead. Unbound
+declarations are unchanged.
+
+| Construct | Binding | Legacy modes on the bound element | What a resource fault moves |
+|---|---|---|---|
+| `app` workload | `uses` on service nodes, `call_policies`, `traffic.from_resource` with `worker` | Service-axis modes still apply to the nodes; see the note under the service axis | Request outcome, status, duration, retries and the log, span, span-metric and custom-metric projections of each request |
+| `lambda` | `functions[].resource` (`concurrency`) | Not a function-axis target: an effect naming it with a function-axis mode is an unknown-target load error | `aws_lambda_*` (see the function axis above) |
+| `sqs` | `queues[].resource` (`queue` without `max_depth`) | None: SQS registers no legacy mode. `arrivals_per_second`, `receives_per_second`, `processing_seconds`, `delay_seconds`, `load` and `burst` must be omitted | `aws_sqs_number_of_messages_sent` (arrivals), `aws_sqs_number_of_messages_received` and `aws_sqs_number_of_messages_deleted` (served), `aws_sqs_approximate_number_of_messages_visible` (backlog) and `aws_sqs_approximate_age_of_oldest_message`. `consumer_slowdown`, or `dependency_slow` on the held-across dependency, grows the backlog and age, which drain after the incident |
+| `solace` | `queues[].resource` (`queue`) | Not a queue-axis target (unknown-target load error); `publish_msgs_per_sec`, `consume_msgs_per_sec`, `rate_scale`, `shape_profile`, `drain_schedule` and a `max_depth` on the resource are rejected | Publish and consume rates, queue depth, spool usage and spool-full discards (`solace_queue_msg_spool_usage_exceeded`) |
+| `dynamodb` | `tables[].operations[].resource` (`quota`, counted in `quota_unit`: `requests`, `read_units` or `write_units`), GetItem and PutItem only | A table whose GetItem and PutItem operations are all bound is not a table-axis target (unknown-target load error); `table_throttle_storm` never adds to a bound operation. `requests_per_second`, `throttled_requests_per_second` and `load` must be omitted | The quota's admitted volume is the operation's successful requests (`aws_dynamodb_successful_request_latency`, consumed capacity) and its rejected volume the throttled requests (`aws_dynamodb_throttled_requests`, and `aws_dynamodb_read_throttle_events` or `aws_dynamodb_write_throttle_events`), each divided by the operation's `read_units` or `write_units` when the quota counts capacity units. `quota_reduced` throttles them |
+| `rds`, optional PostgreSQL/MySQL `dbo11y`, and `docdb` databases | `databases[].resource` (`dependency` or `pool`), CloudWatch required | Not a database-axis target (unknown-target load error); direct legacy injection ignored. DocumentDB/Neptune dbo11y unsupported | Cloud read/write latency and pool mean connections; dbo11y statement-seconds increments and synthetic query/wait durations, without Lock/IO or SQL-error attribution (see the database axis above) |
+| `agentcore` | `runtimes[].resource` (`concurrency`) | Loader rejects `agentcore_throttle` targeting a deployment with a bound runtime (also `cloud:*` and omitted targets); unrelated unbound deployments retain the legacy switch, and deployment-global series stay unchanged | The runtime's own `invocations`, `throttles`, `system_errors`, `total_errors` and `latency` series, named by the runtime ARN |
+
+Counts agree across consumers, not only shares: a bound Lambda function's invocations plus throttles
+equal the attempts the app makes through it in expectation.
+
+#### Mode and resource kind validation
+
+Targets are the names under `environments[].resources`, plus the base name of a resource called
+`<base>-<lower(env)>`, which reaches that resource in every environment that declares one. Each mode
+acts on exactly one resource kind, and the loader rejects a mode aimed at any other kind, for a
+scenario effect and an incident row alike, because the fault would silently move nothing.
+
+| Mode | Acts on kind |
+|---|---|
+| `pool_exhausted` | `pool` |
+| `concurrency_reduced` | `concurrency` |
+| `quota_reduced` | `quota` |
+| `consumer_slowdown` | `queue` |
+| `dependency_slow`, `dependency_unavailable` | `dependency` |
+| `credential_expired` | `credential` |
+| `rule_regression` | `rule` |
+
+The error names the mode, the target, the resource of the wrong kind and the accepted kind. A base
+name is checked against every resource it reaches, so one resource of another kind in any environment
+fails the load. `resource:*` selects only the declared resources of the mode's kind (so
+`dependency_slow` on `resource:*` hits the dependencies and skips the pools), and it is a load error
+when the blueprint declares none of that kind. Environment base aliases are not repeated in the expansion.
 
 ## Optional gateway pool failures
 
@@ -199,8 +495,21 @@ Run the root-owned `just e2e-scenarios` recipe against a deployment with both qu
 configured. The harness discovers IDs from `GET /control/schema`, continues after failures, and
 prints one disposition per ID. For `eval_quality_degraded` and `portkey_scrape_degraded`, pass a
 sibling environment: their observations prove the target moves while that sibling remains at its
-baseline. The current query catalogue is sourced from `signals/agentcore.md`, `signals/cw.md`,
-`signals/apm.md`, `signals/k8s.md`, `signals/langsmith.md`, `signals/portkey.md`, and
+baseline. No emitted series carries a resource name, so a resource-axis effect is observed
+through its consumers: `GET /control/schema` lists, per declared resource, the app service nodes
+whose `uses` names it (with their callers, whose server spans include the stretched hop) and the
+constructs bound to it with the label values their series carry (lambda `dimension_FunctionName`,
+sqs `dimension_QueueName` and `name`, solace `instance`/`vpn_name`/`queue_name`, rds
+`dimension_DBInstanceIdentifier`, docdb `dimension_DBClusterIdentifier`, agentcore runtime ARN as
+`name`). The harness narrows `dependency_slow`, `pool_exhausted`, `quota_reduced`,
+`concurrency_reduced` and `consumer_slowdown` to those identities and keeps their floors, so an
+unrelated busy series no longer satisfies them. `dependency_slow` also reaches the consumers of
+every resource that holds its work across the slowed dependency. `rule_regression`,
+`dependency_unavailable` and `credential_expired` fail the caller's side of a call, which the
+schema does not name, and a resource with no consumer of a filterable kind keeps the
+blueprint-wide observation; each disposition's `scope` field says which it was. The current
+query catalogue is sourced from `signals/agentcore.md`, `signals/cw.md`,
+`signals/apm.md`, `signals/k8s.md`, `signals/langsmith.md`, `signals/portkey.md`, `signals/solace.md`, and
 `signals/logs.md`; adding a scenario whose effects have no catalogue entry is a failed disposition,
 not a control-plane pass.
 

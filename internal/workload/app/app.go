@@ -18,8 +18,12 @@
 package app
 
 import (
+	"fmt"
+	"math"
+	"strconv"
 	"time"
 
+	"github.com/rknightion/synthkit/internal/causal"
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/failuremode"
 	"github.com/rknightion/synthkit/internal/fixture"
@@ -69,6 +73,39 @@ type Config struct {
 	// not affect the -dump inventory (I32). Values are blueprint-declared (customer model lists stay
 	// out of the catalog).
 	Models []ModelChoice `yaml:"models"`
+
+	// ShapeProfile optionally gives this workload its own daily load curve (timezone, business
+	// hours, weekend factor) instead of the blueprint's shared curve. It drives entry request
+	// volume and every shape-scaled metric of the workload. Omitted keeps the blueprint curve.
+	ShapeProfile *ShapeProfile `yaml:"shape_profile"`
+
+	// resources is the blueprint's declared causal resources, injected by the resolver
+	// (UseResources) when the blueprint declares any; empty otherwise.
+	resources causal.Set
+}
+
+// ShapeProfile is a per-workload diurnal load curve: a floor before ramp_up_start_hour, a smooth
+// ramp to the 1.0 plateau at plateau_start_hour, the plateau until plateau_end_hour, a smooth
+// ramp back to the floor at ramp_down_end_hour. Hours are local wall-clock hours in [0,24] and
+// must be non-decreasing in that order. Each omitted field keeps the blueprint curve's default
+// (floor 0.1, 6/10/16/20). The blueprint's master volume, pause and incidents still apply.
+type ShapeProfile struct {
+	// Timezone is the IANA zone the hours are read in. Empty uses the blueprint timezone (the
+	// first region's when the blueprint declares regions).
+	Timezone string `yaml:"timezone"`
+	// Floor is the overnight load fraction of the plateau, in [0,1]. Default 0.1.
+	Floor *float64 `yaml:"floor"`
+	// RampUpStartHour is the local hour the morning ramp starts. Default 6.
+	RampUpStartHour *float64 `yaml:"ramp_up_start_hour"`
+	// PlateauStartHour is the local hour full load is reached. Default 10.
+	PlateauStartHour *float64 `yaml:"plateau_start_hour"`
+	// PlateauEndHour is the local hour the evening ramp starts. Default 16.
+	PlateauEndHour *float64 `yaml:"plateau_end_hour"`
+	// RampDownEndHour is the local hour the floor is reached again. Default 20.
+	RampDownEndHour *float64 `yaml:"ramp_down_end_hour"`
+	// WeekendFactor multiplies Saturday and Sunday load (>= 0). Omitted keeps the blueprint
+	// defaults: 0.3 for metrics, 0.2 (production) or 0.02 (non-production) for request volume.
+	WeekendFactor *float64 `yaml:"weekend_factor"`
 }
 
 // OTelObs is the per-workload native-OTLP metrics switch. Metrics gates emission;
@@ -193,6 +230,55 @@ type ServiceNode struct {
 	Controller   string   `yaml:"controller"`    // ""(⇒deployment) | statefulset
 	HasHPA       bool     `yaml:"hpa"`           // opt-in kube_horizontalpodautoscaler_* (Deployment/StatefulSet)
 	VolumeClaims []string `yaml:"volume_claims"` // PVC template names → kube_persistentvolumeclaim_*/kubelet_volume_stats_*/pv cost
+	// ErrorRate is the service's own failure fraction in [0,1]. On the entry it is the baseline
+	// share of requests with a non-success outcome (split 50% 5xx, 30% 4xx, 20% 429, as before),
+	// replacing the default 0.01; error_spike still raises from it. On a downstream service it is
+	// opt-in: that service's hop fails (server span and span metrics included) on this fraction of
+	// requests, independently of the entry, so a request fails with 1-(1-entry)(1-this) overall; a
+	// request only the hop failed is an upstream 5xx. The build rejects it on a service the entry
+	// cannot reach.
+	ErrorRate *float64 `yaml:"error_rate"`
+	// ShapeProfile overrides the workload's shape_profile for this service's metrics (and, on
+	// the entry, the request volume). Each field it sets replaces the workload's; omitted fields
+	// keep the workload's, then the blueprint default. Omitted keeps the workload's profile.
+	ShapeProfile *ShapeProfile `yaml:"shape_profile"`
+	// Uses names the declared environments[].resources a request meets on arrival at this
+	// service, in order (resolved as "<name>-<lower(env)>" first, then the exact name). A capacity
+	// resource (pool, concurrency, quota) or a rule applies at this service; a dependency (and every
+	// credential of it, applied after it) applies to the call into this service, so the entry may
+	// not use one. A service bound to a pool or concurrency resource takes its duration from the
+	// resource's effective hold, one bound to a dependency from its latency; a queue here is the
+	// producer side (an enqueue that fails only when the queue is full). Requires resources.
+	Uses []string `yaml:"uses"`
+	// CallPolicies is this service's per-callee client policy, keyed by names in calls:
+	// timeout_ms (0 = none), retries (0..3), backoff_ms (doubled per resend), retry_on (5xx,
+	// throttle, timeout, connect) and propagate_throttle (pass a callee 429 on as 429, not 503).
+	// timeout_ms and backoff_ms are at most 600000. The service that calls the target never
+	// resends a rule rejection or a credential failure. A rule rejection slower than timeout_ms
+	// reaches the caller as a timeout (the client cannot know the cause), which retry_on timeout
+	// resends. An upstream caller sees only the mapped status of an unabsorbed credential
+	// failure (a 502) and resends it under retry_on 5xx. Requires resources.
+	CallPolicies map[string]causal.CallPolicy `yaml:"call_policies"`
+	// Worker marks the entry as a message consumer of traffic.from_resource: its root span is a
+	// CONSUMER span and each request records the queue's backlog wait. Entry only.
+	Worker bool `yaml:"worker"`
+}
+
+// ErrorOutcome is one weighted entry of an app's error_mix.
+type ErrorOutcome struct {
+	// Status is the HTTP status of the failed request, 400 to 599 (429 is a throttle).
+	Status int `yaml:"status"`
+	// Code is the error code recorded on the request (log detail); empty records the status.
+	Code string `yaml:"code"`
+	// Weight is this entry's relative share of failed requests, > 0.
+	Weight float64 `yaml:"weight"`
+}
+
+func (e ErrorOutcome) errorCode() string {
+	if e.Code != "" {
+		return e.Code
+	}
+	return strconv.Itoa(e.Status)
 }
 
 // NodeSignals selects telemetry emitted by this service. Omitted block or key means enabled.
@@ -220,6 +306,27 @@ type Traffic struct {
 	// apps should set this to seconds (e.g. 9000) so http_server_request_duration + the in-process
 	// invoke_workflow/agent/chat span latencies reflect real LLM-wait time, not HTTP speed.
 	RequestLatencyP95Ms float64 `yaml:"request_latency_p95_ms"`
+	// FromResource names a declared queue resource whose served (processed) rate is this app's
+	// request rate, replacing off_peak_rps and peak_rps (which are then ignored); the entry is
+	// typically a worker. Requires resources.
+	FromResource string `yaml:"from_resource"`
+	// Synchronous marks each from_resource request as a request/response invocation by the hop
+	// that published it (an API calling a function and waiting for its answer), not a message
+	// consumed later. The entry's root is a SERVER span; a request that takes a published
+	// message continues the caller's trace under the caller's CLIENT span and is laid inside
+	// that span's window. Requires from_resource; the entry may not also be a worker.
+	Synchronous bool `yaml:"synchronous"`
+	// SuccessStatus is the HTTP status of a successful entry request, 200 to 299. Omitted is 200.
+	SuccessStatus int `yaml:"success_status"`
+	// ErrorMix is the weighted set of statuses and codes a failed entry request draws from.
+	// Omitted keeps 50% 500 upstream_5xx, 30% 400 bad_request and 20% 429 rate_limited.
+	ErrorMix []ErrorOutcome `yaml:"error_mix"`
+	// ClientRetry re-sends a failed entry request as a new request of the same logical request,
+	// which repeats that logical request's per-request draws. Omitted re-sends nothing. Graph apps
+	// only: rejected with an automation or agent_pipeline workload and with from_resource. Re-sends
+	// add to the declared request rate, a paused workload drops its due re-sends, and scheduled
+	// re-sends are in memory only (a restart forgets them). It is separate from call_policies.
+	ClientRetry *ClientRetry `yaml:"client_retry"`
 }
 
 // NewConfig returns a *Config with documented defaults. An app MUST declare services (no default
@@ -255,7 +362,9 @@ func Registration() core.WorkloadReg {
 		NewConfig:         NewConfig,
 		Build:             build,
 		AgentDeclarations: agentDeclarations,
-		FailureModes:      FailureModes,
+		// The resource-axis vocabulary is appended so resource-axis faults validate whichever causal
+		// consumers a build registers; the registry deduplicates repeats.
+		FailureModes: append(append([]failuremode.Mode(nil), FailureModes...), causal.FailureModes...),
 	}
 }
 
@@ -280,6 +389,26 @@ type Workload struct {
 	otlpColdStart time.Time
 	// automationMetricThrough bounds ledger-derived observations to unobserved request windows.
 	automationMetricThrough time.Time
+
+	// load is the resolved shape_profile (nil: the blueprint Engine's own curve).
+	load *loadProfile
+	// lastMetricTick is the previous metric tick (zero before the first), for stock_of's dt.
+	lastMetricTick time.Time
+	// nowHold holds each stallable `now` gauge's last advancing reading per node and metric, the
+	// value it keeps emitting while its stall_mode incident is active (see heartbeatNow).
+	nowHold map[string]time.Time
+	// carry holds the fractional observation remainder per scaled-rate histogram series.
+	carry map[string]float64
+	// stock holds each fluid stock_of gauge's current level per label combination.
+	stock map[string]float64
+	// exported holds, per service another node reads through count_of_service, the counter
+	// increments that node recorded at its latest tick.
+	exported map[string]nodeIncs
+	// items holds each item stock_of population per counter, residence, stall mode and series.
+	items map[string]*itemStock
+	// healthySpan holds a causal workload's latest healthy real span duration (seconds) per
+	// span-metric reference key, the basis a faulted row scales its legacy draws by.
+	healthySpan map[string]float64
 }
 
 // build constructs a Workload: decode-time defaults, resolve + validate the graph, freeze identity.
@@ -305,9 +434,28 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 	if err := validateAutomation(cfg); err != nil {
 		return nil, err
 	}
+	if err := validateOutcomeMix(cfg); err != nil {
+		return nil, err
+	}
+	if err := cfg.Traffic.ClientRetry.validate(cfg); err != nil {
+		return nil, err
+	}
+	load, err := resolveLoadProfile(cfg.ShapeProfile)
+	if err != nil {
+		return nil, err
+	}
 	g, err := buildGraph(cfg.Services)
 	if err != nil {
 		return nil, err
+	}
+	// One request's bundle spans every node's lines (its draws are shared across nodes), so the
+	// when gates are checked against the whole workload's log declarations.
+	var bundle []telemetryspec.LogSpec
+	for _, n := range g.nodes {
+		bundle = append(bundle, n.logs...)
+	}
+	if err := telemetryspec.ValidateLogBundle(bundle); err != nil {
+		return nil, fmt.Errorf("app: %w", err)
 	}
 	w := &Workload{
 		cfg:        *cfg,
@@ -315,6 +463,7 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 		graph:      g,
 		st:         state.NewState(),
 		otlpStates: make(map[string]*state.State),
+		load:       load,
 	}
 	w.resolveIdentity()
 	if err := w.buildPipeline(); err != nil {
@@ -325,13 +474,69 @@ func build(cfgAny any, b core.Binding) (core.Workload, error) {
 	if err := g.resolveDBIdentities(w.env, b.Databases); err != nil {
 		return nil, err
 	}
+	if err := resolveNodeLoads(g, cfg.ShapeProfile, load); err != nil {
+		return nil, err
+	}
+	if err := validateErrorRates(cfg.Services, g); err != nil {
+		return nil, err
+	}
+	if cfg.Automation != nil || cfg.AgentPipeline != nil {
+		// These flows mint no graph calls, so a downstream rate would never fire.
+		for _, s := range cfg.Services {
+			if s.ErrorRate != nil && s.Name != g.entry.decl.Name {
+				return nil, fmt.Errorf("app service %q: a downstream error_rate needs graph calls, which an automation or agent_pipeline workload does not mint", s.Name)
+			}
+		}
+	}
 	w.m = newMinter(w.b.Name, w.env, w.cluster, w.weight, w.nonProd, cfg.Traffic, cfg.Models, g)
+	w.m.load = g.entry.load
 	w.m.automation = cfg.Automation
 	w.m.agentPipeline = cfg.AgentPipeline
+	w.m.retry = cfg.Traffic.ClientRetry
 	// Wire BrowserOrigin minting: the minter sets r.BrowserOrigin only when RUM is active
 	// (entry has rum_faro + binding carries a Faro sink). Mirror webservice minter's cfg.RUM flag.
 	w.m.rumEnabled = w.rumEnabled()
+	plan, err := buildCausalPlan(cfg, g, w.env)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateCausalValues(g, plan, w.env, cfg.resources); err != nil {
+		return nil, err
+	}
+	w.m.causal = plan
 	return w, nil
+}
+
+// AdvanceCausal implements causal.Advancer: the runner advances the workload's causal model on
+// every master tick so every consumer samples live faults at the same instants. No-op when the
+// workload derives no causal outcomes.
+func (w *Workload) AdvanceCausal(now time.Time, c causal.Clock) {
+	if w.m != nil && w.m.causal != nil {
+		w.m.causal.model.Advance(now, c)
+	}
+}
+
+// validateOutcomeMix checks success_status and error_mix, which only the graph request path draws.
+func validateOutcomeMix(cfg *Config) error {
+	t := cfg.Traffic
+	if t.SuccessStatus == 0 && len(t.ErrorMix) == 0 {
+		return nil
+	}
+	if cfg.Automation != nil || cfg.AgentPipeline != nil {
+		return fmt.Errorf("app: traffic.success_status and traffic.error_mix apply to graph requests, which an automation or agent_pipeline workload does not mint")
+	}
+	if t.SuccessStatus != 0 && (t.SuccessStatus < 200 || t.SuccessStatus > 299) {
+		return fmt.Errorf("app: traffic.success_status %d must be in [200, 299]", t.SuccessStatus)
+	}
+	for i, e := range t.ErrorMix {
+		if e.Status < 400 || e.Status > 599 {
+			return fmt.Errorf("app: traffic.error_mix[%d]: status %d must be in [400, 599]", i, e.Status)
+		}
+		if math.IsNaN(e.Weight) || math.IsInf(e.Weight, 0) || e.Weight <= 0 {
+			return fmt.Errorf("app: traffic.error_mix[%d]: weight must be a finite number > 0", i)
+		}
+	}
+	return nil
 }
 
 // resolveIdentity pins cluster/env/weight from the binding once. Absent dimensions are OMITTED

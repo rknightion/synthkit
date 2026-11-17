@@ -32,6 +32,12 @@ package cw
 func streamTableDataPipelines() streamTable {
 	return streamTable{
 		entries: map[string]StreamEntry{
+			// Current AWS MWAA Airflow timers/counters table, retrieved through Firecrawl
+			// 2026-10-23: access-metrics-cw.html (URL above). DAGDuration uses Milliseconds;
+			// TaskInstanceFailures uses Count and literal DAG=All, Task=All.
+			"aws_amazonmwaa_dagduration_success":      {Namespace: "AmazonMWAA", MetricName: "DAGDurationSuccess", Unit: "ms"},
+			"aws_amazonmwaa_dagduration_failed":       {Namespace: "AmazonMWAA", MetricName: "DAGDurationFailed", Unit: "ms"},
+			"aws_amazonmwaa_task_instance_failures":   {Namespace: "AmazonMWAA", MetricName: "TaskInstanceFailures", Unit: "{Count}"},
 			"aws_mwaa_approximate_age_of_oldest_task": {Namespace: "AWS/MWAA", MetricName: "ApproximateAgeOfOldestTask", Unit: "s"},
 			"aws_mwaa_cpuutilization":                 {Namespace: "AWS/MWAA", MetricName: "CPUUtilization", Unit: "%"},
 			"aws_mwaa_database_connections":           {Namespace: "AWS/MWAA", MetricName: "DatabaseConnections", Unit: "{Count}"},
@@ -95,6 +101,15 @@ func streamTableDataPipelines() streamTable {
 			"aws_glue_driver_system_cpu_system_load":                {Namespace: "Glue", MetricName: "glue.driver.system.cpuSystemLoad", Unit: "%"},
 		},
 		dimensions: map[string]map[string]string{
+			"aws_amazonmwaa_dagduration_success": {
+				"dimension_Environment": "Environment", "dimension_DAG": "DAG",
+			},
+			"aws_amazonmwaa_dagduration_failed": {
+				"dimension_Environment": "Environment", "dimension_DAG": "DAG",
+			},
+			"aws_amazonmwaa_task_instance_failures": {
+				"dimension_Environment": "Environment", "dimension_DAG": "DAG", "dimension_Task": "Task",
+			},
 			"aws_mwaa_approximate_age_of_oldest_task": {
 				"dimension_Environment": "Environment",
 				"dimension_Queue":       "Queue",

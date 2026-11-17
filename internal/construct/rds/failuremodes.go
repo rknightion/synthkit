@@ -16,6 +16,10 @@ import "github.com/rknightion/synthkit/internal/failuremode"
 // NO RDS series: a standalone primary emits no ReplicaLag (live-reference-confirmed replica-only) — only the
 // dbo11y lane surfaces it (seconds_behind_source).
 //
+// An instance bound to a causal resource (databases[].resource) ignores all four: its cause is the
+// resource model (causal.FailureModes ride along on the registration), and the loader rejects a
+// legacy database mode scheduled against it.
+//
 // This vocabulary is intentionally identical to the dbo11y constructs' (same names + AxisDatabase).
 // The registry unions modes across constructs and the resolver validates incident references against
 // that union, so declaring the same set keeps an RDS-only database (cloudwatch:true, dbo11y:false)

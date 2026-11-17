@@ -46,6 +46,7 @@ Home = "index.md"
     { "Platform Automation Traces" = "ai-factory/automation.md" },
     { "Emission Switches" = "emission-switches.md" },
     { "Incidents & Scenarios" = "incidents.md" },
+    { "Fault Catalogue" = "fault-catalogue.md" },
     { "Example Blueprints" = "blueprint-examples.md" },
     { "Custom Blueprints" = "custom-blueprints.md" },
 ]
@@ -90,6 +91,7 @@ Home = "index.md"
     { "Kubernetes monitoring deployment permutations" = "k8s-monitoring-permutations.md" },
     { Runbook = "RUNBOOK.md" },
     { "Control Plane" = "control-plane.md" },
+    { "Chat Scenarios" = "chat-scenarios.md" },
     { "Checkpoint Foundations" = "checkpoint-foundations.md" },
     { "Synthetic Monitoring" = "synthetic-monitoring.md" },
     { "Fleet Management" = "fleet-management.md" },
@@ -110,6 +112,7 @@ Reference = [
     { "CLI & Commands" = "cli.md" },
     { "Constructs & Workloads" = "constructs.md" },
     { "Capture & Tooling" = "tools.md" },
+    { "Agent Observability Provisioning" = "agent-observability-provisioning.md" },
 ]
 
 [[site.nav]]

@@ -1,0 +1,41 @@
+# Test-only declaration, not a deployable blueprint. Two databases beside two causal resources: one
+# database bound to a `pool` held across a `dependency`, one left unbound. A scenario slows the
+# dependency for ten minutes. Loaded through the real blueprint loader by internal/integration (a
+# construct directory may not import the loader).
+name: rds-causal-dependency-slow
+label: rds-causal-dependency-slow
+environments:
+  - name: prod
+    cloud:
+      provider: aws
+      account_id: "111122223333"
+      region: eu-west-1
+      vpc_id: vpc-fixture
+      cloudwatch: {albs: 0, s3_buckets: 0, nlb: false, ebs: false, nat_gateway: false, eks: false, firehose: false, private_link: false}
+    databases:
+      - {engine: postgres, version: "16.2", name: orders-db, resource: orders-pool}
+      - {engine: postgres, version: "16.2", name: audit-db}
+    resources:
+      # 50 rps, each holding a connection 100 ms (80 ms of it the database's own query time):
+      # 5 of 20 connections busy. dependency_slow at intensity 1 (80 ms -> 320 ms) stretches the
+      # hold to 100 + 80 x 3 = 340 ms: 17 busy, utilization 0.85.
+      - name: orders-pool
+        kind: pool
+        size: 20
+        hold_ms: 100
+        held_across: orders-db-engine
+        acquire_timeout_ms: 2000
+        demand: {off_peak_rps: 50, peak_rps: 50, load: constant}
+      - name: orders-db-engine
+        kind: dependency
+        latency_ms: 80
+        slow_factor: 4
+scenarios:
+  - name: orders-db-slowdown
+    title: Orders database slowed
+    effects:
+      - {mode: dependency_slow, target: orders-db-engine, intensity: 1}
+incidents:
+  - scenario: orders-db-slowdown
+    at: "2026-10-24T10:30"
+    for: 10m

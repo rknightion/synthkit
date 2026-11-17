@@ -146,12 +146,12 @@ func TestScheduleEntry(t *testing.T) {
 		want             string
 	}{
 		{"latency_spike", "2026-06-19T14:00", "20m", 0.8, "mini-api", "latency_spike@2026-06-19T14:00/20m#0.8@mini-api"},
-		{"latency_spike", "2026-06-19T14:00", "20m", 0, "", "latency_spike@2026-06-19T14:00/20m"},
+		{"latency_spike", "2026-06-19T14:00", "20m", 0, "", "latency_spike@2026-06-19T14:00/20m#0"},
 		{"oom_kill", "t", "5m", 1, "", "oom_kill@t/5m#1"},
-		{"oom_kill", "t", "5m", 0, "cl", "oom_kill@t/5m@cl"},
+		{"oom_kill", "t", "5m", 0, "cl", "oom_kill@t/5m#0@cl"},
 	}
 	for _, c := range cases {
-		got := scheduleEntry(c.kind, c.at, c.forDur, c.intensity, c.scope)
+		got := scheduleEntry(c.kind, c.at, c.forDur, c.intensity, c.scope, true)
 		if got != c.want {
 			t.Errorf("scheduleEntry(%q,%q,%q,%v,%q) = %q, want %q", c.kind, c.at, c.forDur, c.intensity, c.scope, got, c.want)
 		}

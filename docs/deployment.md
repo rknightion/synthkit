@@ -25,29 +25,15 @@ from outside the process.
 
 === "Docker Compose (canonical)"
 
+    Follow the [Docker Quick Start](quickstart.md) for a fresh public clone. It contains the complete configuration, private state-directory preparation, offline preview, preflight and browser readback path without a host Go/Node/just installation.
+
+    For an already configured first deployment:
+
     ```bash
-    # 1. Clone the repo
-    git clone https://github.com/rknightion/synthkit.git
-    cd synthkit
-
-    # 2. Follow Installation's clean-host state preparation exactly. It uses a pinned helper
-    #    container and works without sudo, including through a mounted Docker socket.
-    #    https://github.com/rknightion/synthkit/blob/main/docs/installation.md#clean-public-clone-to-healthy-compose
-
-    # 3. Configure credentials
-    install -m 600 .env.example .env
-    # Edit .env: set BLUEPRINT_NAMES=otlp-native (or other exact names), set
-    # DRY_RUN=false, and fill GC_TOKEN, GC_PROM_RW/USER, GC_OTLP_ENDPOINT/USER,
-    # GC_LOKI/USER at minimum. Empty BLUEPRINT_NAMES emits nothing.
-
-    # 4. Validate the committed pin and start it, waiting for delivery readiness
-    just compose-check
-    docker compose up -d --wait
-
-    # 5. Verify
-    open http://127.0.0.1:8088/control/ui
-    curl -s -u control http://127.0.0.1:8088/control/status | jq
+    docker compose up -d --wait --wait-timeout 180 synthkit
     ```
+
+    Replacing an existing deployment is a different operation: use the [snapshot/CAS upgrade and rollback procedure](#reproducible-upgrade). Do not overwrite its `.env` or clear its state to restart onboarding.
 
 === "Kubernetes (Helm)"
 
@@ -85,6 +71,25 @@ from outside the process.
 
 ---
 
+## Helm startup command opt-in
+
+The chart defaults `probes.startupCommand` to `-healthcheck` for compatibility with older
+images. The only other accepted value is `-startupcheck`; it changes **only** the startup probe.
+Before opting in, verify the exact selected image digest and its binary's full source revision
+using [image verification](#container-image), and verify that this exact binary implements
+`-startupcheck`. Helm rendering cannot attest flag support or image compatibility. Do not assume
+the chart's current default image supports the new flag. Select a verified compatible image
+explicitly with `image.repository` and `image.digest` (or clear `image.digest` when deliberately
+using `image.tag`) alongside `probes.startupCommand: "-startupcheck"`.
+
+On a compatible binary, startup success proves boot only, not live delivery. Readiness continues
+to run `-healthcheck`: selecting `DRY_RUN` or a sparse lane without a current successful sink
+acknowledgement must not become Kubernetes Ready or Argo Healthy merely because startup passed.
+Keep readiness and startup probes enabled and retain their timing and failure thresholds; do not
+raise emission rates to force readiness. Liveness remains **off by default** and, if explicitly
+enabled, still uses the delivery-aware `-healthcheck`, which can crash-loop during a backend
+outage. This opt-in neither changes readiness/liveness commands nor certifies backend readback.
+
 ## The `/data` volume contract
 
 !!! warning "Must be a DIRECTORY — not a single-file bind mount"
@@ -101,7 +106,7 @@ The `/data` directory holds:
   ledger, adoption-preview marker, lock, and pending journal used by the version-matched one-shot
   provisioner.
 
-The container image runs as **uid 65532** (distroless nonroot). The bind-mount directory must be owned by this uid or state saves fail. Use the pinned helper command in [Installation](installation.md#clean-public-clone-to-healthy-compose), which avoids `sudo` and works when Docker owns the bind-mount filesystem:
+The container image runs as **uid 65532** (distroless nonroot). The bind-mount directory must be owned by this uid or state saves fail. Use the pinned helper command in the [Docker Quick Start](quickstart.md#2-prepare-private-storage-and-preview-offline), which avoids `sudo` and works when Docker owns the bind-mount filesystem:
 
 ```bash
 state_dir="$PWD/control-state-data"
@@ -250,7 +255,27 @@ with SBOM and provenance attestations.
 
 `SYNTHKIT_IMAGE_REF` is the preferred Compose selector and may contain a release tag or complete
 index-digest reference. The committed `.env.example` selects a published, healthcheck-capable image;
-copying it preserves that known-good pin. `SYNTHKIT_IMAGE_TAG` is legacy compatibility for a bare
+copying it preserves that known-good pin. The current default is 1.6.4. Earlier pins are retained
+below so their historical identities can still be checked. Independent publication inputs are:
+
+| Selection | Reference | Binary version | Full source revision | Publication |
+| --- | --- | --- | --- | --- |
+| Current Compose default | `ghcr.io/rknightion/synthkit@sha256:b675f4b2a7efa18b51f2b00e690aea134a83221fe5540a2e57e13a788718c5f4` | `1.6.4` | `affa09d9c59f76cd4ceec7c8545891c187d1c840` | [v1.6.4 release](https://github.com/rknightion/synthkit/releases/tag/v1.6.4), Git ref `refs/tags/v1.6.4`; OCI version label `1.6.4` |
+| Previous Compose default | `ghcr.io/rknightion/synthkit@sha256:6c63a879bbc2af4921392f2dc95ce08a633e9edc09435c8e190c0da582f2730d` | `1.6.3` | `87f8376f8551e73d7fa916a0f36ca65d38055cac` | [v1.6.3 release](https://github.com/rknightion/synthkit/releases/tag/v1.6.3), Git ref `refs/tags/v1.6.3`; OCI version label `1.6.3` |
+| Earlier Compose default | `ghcr.io/rknightion/synthkit@sha256:098eda6ae8bc36b72cffe7e1e81c3b809345e4680d404910fecb7e8d2a4eecf9` | `1.6.1` | `975f1bbe000e30ca3fd578e8872adfc3cc037fdd` | [v1.6.1 release](https://github.com/rknightion/synthkit/releases/tag/v1.6.1), Git ref `refs/tags/v1.6.1`; OCI version label `1.6.1` |
+| Historical Compose default | `ghcr.io/rknightion/synthkit@sha256:0ddf2e621d7a0023c058d39e366de4aa00fc947ca748cf31f6a4399a2069525f` | `1.3.1` | `bcf9a1e6dfe099bfd04bd7b69e4cb75c0a9999de` | [v1.3.1 release](https://github.com/rknightion/synthkit/releases/tag/v1.3.1), Git ref `refs/tags/v1.3.1`; OCI version label `v1.3.1` |
+
+The 1.6.4 default includes `/app/synthkit-dash` and the native HTTP template for `otlp-native`;
+use the [Docker dashboard export](tools.md#synthkit-dash-grafana-dashboard-generator) without a
+host development toolchain. The historical 1.3.1 pin contains neither. A current Dockerfile or a
+blueprint with the same name does not establish what an older image contains: check its independent
+publication inputs and supported commands before selecting it.
+
+The running-image inspector selects the explicitly expected index from Docker's local digest
+aliases. It still verifies the selected registry platform, config identity and running binary;
+additional index or platform aliases do not replace those checks.
+
+`SYNTHKIT_IMAGE_TAG` is legacy compatibility for a bare
 tag and is consulted only when `SYNTHKIT_IMAGE_REF` is absent or empty. A malformed or unavailable
 preferred reference fails: Compose and the deployment helper never fall back silently.
 
@@ -264,17 +289,33 @@ preferred reference fails: Compose and the deployment helper never fall back sil
 An image has several related identities. The **registry index digest** names the multi-platform
 artifact; the **platform manifest digest** selects one OS/architecture from that index; the **OCI
 config digest** identifies the selected image configuration; and Docker's **running image ID** is a
-distinct runtime observation. An accepted synthkit Compose deployment requires the OCI config
-digest and the running image ID to be byte-equal. Neither is a substitute for the binary's reported
-release version and complete source revision.
+distinct runtime observation. `inspect-running` accepts two closed identity paths:
 
-Verify a release before changing a deployment:
+- **Classic Docker config ID** (`runtime_identity: oci_config_digest`): the running image ID equals
+  the selected platform manifest's OCI config digest.
+- **Containerd index ID** (`runtime_identity: index_with_platform_descriptor`): the running image ID
+  equals the configured immutable index digest, and the container's `ImageManifestDescriptor.digest`
+  equals the exact child manifest selected from that index for the runtime OS/architecture. The
+  helper still resolves that child manifest's OCI config digest; it does not require the index ID
+  to equal the config digest.
+
+Both paths require the exact configured digest reference in `ghcr.io/rknightion/synthkit`, a matching
+runtime repository index digest, one matching platform manifest, and the running binary's expected
+version and complete source revision. Missing, malformed or mismatched descriptor evidence cannot
+close the containerd path. `inspect-running` binds runtime identity only: it does **not** verify a
+signature or provenance, and neither path replaces the artifact verification below.
+
+Verify a release before changing a deployment. The current publisher labels a stable Git tag
+`vX.Y.Z` with binary and OCI version `X.Y.Z`. Prereleases retain the Git tag spelling in the OCI
+label, such as `vX.Y.Z-rc.N`, while their binary version omits the leading `v`. Keep these inputs
+independent and use the publication record for older artifacts, including the prefixed `v1.3.1`
+label above. Never derive an expected label from the candidate being verified.
 
 ```bash
 python3 scripts/synthkit-deploy.py verify-image \
   --reference ghcr.io/rknightion/synthkit@sha256:<index> \
   --expected-version X.Y.Z \
-  --expected-oci-version vX.Y.Z \
+  --expected-oci-version X.Y.Z \
   --expected-revision <40-hex-source-sha> \
   --source-ref refs/tags/vX.Y.Z \
   --platform linux/amd64
@@ -288,6 +329,22 @@ pinned: verification accepts any revision of
 continued control of that repository and workflow. The source repository, source revision and ref,
 OCI version/revision labels, selected platform identity, and binary-reported identity remain exact
 requirements. Its output contains closed statuses and non-secret identities.
+
+The `verify-image` command above is release-only: its `--expected-oci-version` validation does not
+accept `main`. Do not substitute a made-up release version for a main build or treat a successful
+`inspect-running` report as cryptographic verification. For a main artifact, retain separate public
+signature and provenance verification bound to the exact index, source repository
+`rknightion/synthkit`, full source revision and `refs/heads/main`, the same reusable signer workflow
+and GitHub Actions OIDC issuer above. Also check the selected platform manifest/config, actual OCI
+version/revision labels and binary-reported version/revision. The helper's release verification
+interface does not automate that main-build verification.
+
+For example, the public [publish run 40035246758](https://github.com/rknightion/synthkit/actions/runs/40035246758)
+identifies `main-7573924`, source `7573924c31d51b1868dc4dfba1211f42aafd2b44`, and immutable index
+`ghcr.io/rknightion/synthkit@sha256:73995cff362e1da8429a8ff9562014730f6e511b83baeee31226b1d48ce2cb80`.
+These public identities locate the artifact; they are not a substitute for the verification
+requirements above. The cleanup workflow protects `main-7573924` alongside the current chart image
+and stable tags; ordinary unprotected main-SHA edge images retain their seven-day expiry.
 
 **Building from source (opt-in).** If you need to test local changes, override the compose file:
 
@@ -353,6 +410,7 @@ RECORDS_DIR="/absolute/private/path/synthkit-deployment-records"
 CONTAINER_ID="$(docker compose ps -q synthkit)"
 CANDIDATE_REF="ghcr.io/rknightion/synthkit@sha256:3a434bfbde910c71d7f98c81968f92a68a7bb854d563dcf1b34f4a622043c2cf"
 CANDIDATE_VERSION="1.4.0-rc.38"
+CANDIDATE_OCI_VERSION="v1.4.0-rc.38"
 CANDIDATE_REVISION="c6e4d1fa1776e4f7589acbb82bfde75f4773ccb2"
 PREVIOUS_RECORD="$RECORDS_DIR/current.json"
 
@@ -368,7 +426,7 @@ esac
 just compose-check
 python3 scripts/synthkit-deploy.py verify-image \
   --reference "$CANDIDATE_REF" --expected-version "$CANDIDATE_VERSION" \
-  --expected-oci-version "v$CANDIDATE_VERSION" --expected-revision "$CANDIDATE_REVISION" \
+  --expected-oci-version "$CANDIDATE_OCI_VERSION" --expected-revision "$CANDIDATE_REVISION" \
   --source-ref "refs/tags/v$CANDIDATE_VERSION" --platform linux/amd64
 ```
 

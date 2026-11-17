@@ -1,0 +1,48 @@
+# Test-only declaration, not a deployable blueprint. fixture-orders binds GetItem to a read
+# capacity quota (in read units) and PutItem to a request quota (in requests); fixture-audit stays
+# unbound. Loaded through the real blueprint loader by internal/integration (a construct directory
+# may not import the loader). Capacity per request follows the AWS provisioned capacity rule
+# (https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/provisioned-capacity-mode.html):
+# 0.5 RCU is one eventually consistent read of an item up to 4 KB, and 1 WCU one write of an item
+# up to 1 KB. Rates are small steady synthetic test streams, with quotas declared below the
+# provisioned capacity they model.
+name: ddb-quota-binding
+label: ddb-quota-binding
+environments:
+  - name: prod
+    cloud:
+      provider: aws
+      account_id: "111122223333"
+      region: us-east-1
+      vpc_id: vpc-fixture
+      cloudwatch: {albs: 0, s3_buckets: 0, nlb: false, ebs: false, nat_gateway: false, eks: false, firehose: false, private_link: false}
+      dynamodb:
+        # Explicit synthetic quotas with headroom for the test inventory, not AWS defaults.
+        account: {max_reads: 1000, max_writes: 1000, max_table_reads: 500, max_table_writes: 500}
+        tables:
+          - name: fixture-orders
+            collector_name: declared-orders-collector
+            provisioned_reads: 10
+            provisioned_writes: 10
+            operations:
+              - {name: GetItem, read_units: 0.5, latency_ms: 4, resource: orders-read-capacity, quota_unit: read_units}
+              - {name: PutItem, write_units: 1, latency_ms: 6, resource: orders-put-rate, quota_unit: requests}
+          - name: fixture-audit
+            collector_name: declared-audit-collector
+            provisioned_reads: 10
+            provisioned_writes: 10
+            operations:
+              - {name: GetItem, requests_per_second: 1, read_units: 1, latency_ms: 4}
+    resources:
+      # 5 RCU/s offered against 6 RCU/s: 10 reads/s at 0.5 RCU each, healthy.
+      - {name: orders-read-capacity, kind: quota, limit_rps: 6, demand: {off_peak_rps: 5, peak_rps: 5, load: constant}}
+      # 1.5 writes/s offered against 2 writes/s, healthy.
+      - {name: orders-put-rate, kind: quota, limit_rps: 2, demand: {off_peak_rps: 1.5, peak_rps: 1.5, load: constant}}
+scenarios:
+  - name: reads_reduced
+    effects: [{mode: quota_reduced, target: orders-read-capacity, intensity: 0.5}]
+  - name: writes_reduced
+    effects: [{mode: quota_reduced, target: orders-put-rate, intensity: 0.5}]
+incidents:
+  - {scenario: reads_reduced, at: "2026-10-24T09:10", for: 10m}
+  - {scenario: writes_reduced, at: "2026-10-24T09:30", for: 10m}

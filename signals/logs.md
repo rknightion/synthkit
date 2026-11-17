@@ -17,6 +17,22 @@ content-strip rules: see [`00-canon.md`](00-canon.md) `[slug: cardinality]`, `[s
 `service_name` not `service` so ONE Tempo trace→logs mapping `service.name→service_name` covers every
 stream), `level` ∈ {info,warn,error}, `source="app"`, `cluster`, `job`={service_namespace}/{service_name}.
 
+`web_service` request streams additionally index `service_namespace`, using the same namespace as
+the service's OTLP resource identity. They retain indexed `env` and expose its same value as
+`deployment_environment` structured metadata. This lets Grafana Application Observability's
+**New Format** query select service name/namespace and filter environment without adding a second
+indexed environment dimension. This consumer query was observed in Application Observability 1.86.0 on 2026-11-10;
+the label spellings follow the existing OTel resource-to-Loki projection documented below.
+The transport remains direct Loki: no `exporter="OTLP"` label or legacy OTLP JSON envelope is
+fabricated. Other app streams retain their own declared label contracts.
+
+The same app version's **Legacy JSON Format** instead selects `exporter="OTLP"` and
+`job="<namespace>/<service>"`, parses JSON, filters `resources_deployment_environment`, and reads
+the OTLP envelope's `body`. Direct-Loki request records do not have that envelope. Select
+**New Format** for these streams. Before the namespace compatibility projection, direct Explore
+returned request records while the native service-name/namespace selector returned none; successful
+ingestion alone did not satisfy native discovery.
+
 **Structured metadata (high-cardinality — NOT stream labels):** `trace_id` (32-hex), `span_id`
 (16-hex where available), `correlation_id`, `request_id`, `session_id`. ⚠ The log field key stays
 `correlation_id` (unchanged) — the span attribute is `app.correlation_id` (vendor-neutral; OTLP side only,
@@ -59,11 +75,13 @@ sink: loki
 stream_labels:
   env: <env>
   service_name: <service>
+  service_namespace: <namespace> # web_service request logs only
   level: info|warn|error
   source: app
   cluster: <cluster>
   job: <service_namespace>/<service_name>
 structured_metadata:
+  - deployment_environment # web_service request logs; same value as indexed env
   - trace_id       # 32-hex
   - span_id        # 16-hex, where available
   - correlation_id  # log field key unchanged; span attr is app.correlation_id (OTLP-side; 2026-06-23)

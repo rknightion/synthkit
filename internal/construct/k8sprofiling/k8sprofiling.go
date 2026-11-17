@@ -80,6 +80,13 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 		return nil
 	}
 
+	// An explicit volume_multiplier of 0 is a pause. pyroscope.Load maps a non-positive factor
+	// to full nominal weight, so passing the paused 0 through would push full-load profiles for
+	// every pod; emit nothing instead.
+	if w.Shape.Paused() {
+		return nil
+	}
+
 	factor := w.Shape.BusinessFactor(now)
 
 	// Build failure-mode intensities for Load.Modes.

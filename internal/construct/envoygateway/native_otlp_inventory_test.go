@@ -7,9 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"reflect"
-	"runtime"
 	"testing"
 	"time"
 
@@ -185,11 +183,7 @@ func TestNativeGaugeValuesUsePlausiblePrometheusLaneMagnitudes(t *testing.T) {
 
 func readEnvoyNativeCapture(t *testing.T) envoyCapture {
 	t.Helper()
-	_, source, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller failed while locating Envoy Gateway capture")
-	}
-	path := filepath.Join(filepath.Dir(source), "../../../e2e/lab/captures/envoy-gateway-otlp-a5b65705f1b85dee.json")
+	path := "../../../e2e/lab/captures/envoy-gateway-otlp-a5b65705f1b85dee.json"
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read capture %s: %v", path, err)

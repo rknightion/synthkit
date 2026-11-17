@@ -22,6 +22,30 @@ series or stream.
 
 ---
 
+## Causal database bindings
+
+PostgreSQL/MySQL declarations may combine `resource:` (`dependency` or `pool`) with dbo11y when
+the CloudWatch lane is enabled. This is a synthetic value-model contract, **not vendor evidence of
+causality**; sourced names, units, labels and log formats below are unchanged. Independent models
+advance on the same blueprint master clock and read the half-open trailing minute `(now-60s, now]`.
+
+- Pool `MeanInUse` drives `pg_stat_database_numbackends` or
+  `mysql_global_status_threads_connected`, agreeing with the same-minute CloudWatch connections.
+  Dependency-only binding leaves connection counts baseline. MySQL `threads_running` and
+  `max_connections` remain baseline; a client pool is not a server thread count or server limit.
+- Mean `LatencyFactor` scales statement-seconds **increments** and existing query/sample/CPU/wait
+  durations. MySQL existing lock-seconds and slow-query wait-seconds increments scale coherently as
+  synthetic duration exemplars. Metrics and logs use one reading per tick. Counter totals stay
+  cumulative; recovery restores increments and durations, not totals. Query-start timestamps retain
+  native duration formatting and existing per-sample offsets.
+- Pool acquisition wait is not PostgreSQL Lock/IO or MySQL InnoDB attribution. Existing wait types
+  remain baseline synthetic categories, not explanations of the fault; no new categories, SQL error
+  codes, causal labels or structured metadata are emitted. PostgreSQL still never emits the
+  MySQL-only `database_observability_wait_event_seconds_total`.
+- Bound instances ignore every legacy database-axis mode, including direct runtime injection.
+  Loader schedules/scenarios cannot target a bound database on that axis. Unbound siblings preserve
+  their prior output. DocumentDB and Neptune dbo11y remain unsupported.
+
 ## Shared identity model (the cross-app join key) [slug: dbo11y-identity]
 
 `DBInstance{Engine, Name, ServerID(64-hex sha256), InstanceKey, EngineVersion, Cloud, ProviderName,

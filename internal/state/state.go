@@ -166,6 +166,16 @@ func (s *State) setScalar(name string, labels map[string]string, value float64, 
 // are fixed by the data contract. bounds is cloned defensively (the canon bucket arrays are
 // shared package vars).
 func (s *State) Observe(name string, labels map[string]string, bounds []float64, style LEStyle, value float64) {
+	s.ObserveWeighted(name, labels, bounds, style, value, 1)
+}
+
+// ObserveWeighted records weight observations represented by one sampled value, preserving
+// logical count, cumulative buckets and sum without one call per modeled request. Zero weight
+// is a no-op. Bounds, style and label ownership follow Observe; this creates no exemplars.
+func (s *State) ObserveWeighted(name string, labels map[string]string, bounds []float64, style LEStyle, value float64, weight uint64) {
+	if weight == 0 {
+		return
+	}
 	sig := seriesSig(name, labels)
 	hs := s.histos[sig]
 	if hs == nil {
@@ -178,14 +188,14 @@ func (s *State) Observe(name string, labels map[string]string, bounds []float64,
 		}
 		s.histos[sig] = hs
 	}
-	hs.sum += value
-	hs.count++
+	hs.sum += value * float64(weight)
+	hs.count += float64(weight)
 	// Cumulative buckets: an observation ≤ bounds[i] is also ≤ every larger bound, so
 	// increment every boundary it satisfies — counts then stay monotonically
 	// non-decreasing in i.
 	for i, b := range hs.bounds {
 		if value <= b {
-			hs.counts[i]++
+			hs.counts[i] += float64(weight)
 		}
 	}
 }

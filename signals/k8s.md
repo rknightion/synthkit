@@ -616,6 +616,14 @@ note: "Integration-allowlist extras (node_md_disks*, node_systemd_*, node_memory
 Container-scoped series add `id` (cgroup path), `image`, `name` (containerd hash), `node`, `pod`,
 `namespace`, `container` (high-card `id`/`name` flagged above).
 
+The shared synthetic baseline memory model bounds total usage by the positive container memory
+limit before projecting working set, RSS and cache. Neither Gaussian jitter, the load multiplier
+nor the ordinary usage floor can override that budget, including a limit below the floor.
+Usage may exceed the memory request; the request is not a usage ceiling. Component proportions
+are synthetic modeling assumptions, not universal cAdvisor accounting identities. This bound
+does not infer or activate an OOM incident. Memory projection preserves the existing random-draw
+budget and unrelated filesystem values.
+
 | metric | type | extra labels | note |
 |---|---|---|---|
 | `container_cpu_usage_seconds_total` | C | `cpu="total"` | ⚠ only `cpu="total"` — no per-core breakdown (normal for containerd/EKS) |

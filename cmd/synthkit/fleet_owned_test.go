@@ -436,6 +436,11 @@ func TestFleetOwnedHALifecycleHelper(t *testing.T) {
 	}
 }
 
+// ownedHASlowLeaseLatency delays every Lease response during the recovery run, standing in for a
+// loaded host. It sits above the 400ms request timeout this test once used and far below the
+// production-sized fleetHAKubeRequestTimeout.
+const ownedHASlowLeaseLatency = 450 * time.Millisecond
+
 // AC2/AC3: lease mode runs only as the elected leader. While another emitter holds the Lease the
 // teardown makes no Fleet request and keeps the ledger; an interruption during a remote call keeps
 // intent; once authority is acquired a rerun retires the historical identities and releases.
@@ -455,9 +460,13 @@ func TestFleetUnregisterOwnedHAAuthorityInterruptionAndRecovery(t *testing.T) {
 	cfg.MasterTick = time.Hour
 	// Leadership lasts seconds here (paced teardown). client-go's default client-side limiter
 	// (5 QPS, burst 10) would throttle 50ms renewals while holding the renewal write slot, starving
-	// Seal; production renews every 2s. Keep renewals under that limit.
-	cfg.HARetryPeriod, cfg.HARenewDeadline, cfg.HAKubeRequestTimeout = 250*time.Millisecond, time.Second, 400*time.Millisecond
-	cfg.HAReleaseTimeout, cfg.SendDrainDeadline, cfg.HAFlushTimeout = time.Second, 10*time.Second, 8*time.Second
+	// Seal; production renews every 2s. The retry period stays at 250ms to keep renewals under that
+	// limit. The request timeout and renew deadline are production-sized, not figures only an idle
+	// host meets: every lookup and renewal is one bounded Lease request, and a loaded runner that
+	// answers one late would otherwise fail the startup lookup or cost the leader its Lease
+	// mid-teardown. Step 3 injects ownedHASlowLeaseLatency to prove that tolerance.
+	cfg.HARetryPeriod, cfg.HARenewDeadline, cfg.HAKubeRequestTimeout = 250*time.Millisecond, fleetHARenewDeadline, fleetHAKubeRequestTimeout
+	cfg.HAReleaseTimeout, cfg.SendDrainDeadline, cfg.HAFlushTimeout = 5*time.Second, 10*time.Second, 8*time.Second
 	cfg.BlueprintsDir, cfg.BlueprintDataDir, cfg.BlueprintNames = fx.baked, filepath.Join(fx.root, "data"), []string{"selected"}
 	cfg.SnapshotPath = fx.cfg.SnapshotPath
 	cfg.FMURL, cfg.FMStackID, cfg.FMToken = srv.URL, "stack-a", ""
@@ -572,6 +581,7 @@ func TestFleetUnregisterOwnedHAAuthorityInterruptionAndRecovery(t *testing.T) {
 	fm.onRequest = nil
 	fm.mu.Unlock()
 	api.allowAcquisition()
+	api.setLatency(ownedHASlowLeaseLatency)
 	cmd, out, cancel = start(leaseProxy.URL)
 	err = cmd.Wait()
 	cancel()

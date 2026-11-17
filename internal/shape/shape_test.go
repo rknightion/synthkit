@@ -3,6 +3,7 @@
 package shape
 
 import (
+	"math"
 	"strconv"
 	"testing"
 	"time"
@@ -554,6 +555,81 @@ func TestSpreadBounded(t *testing.T) {
 		v := e.Spread("key-"+strconv.Itoa(i), 0.05)
 		if v < 0.95 || v > 1.05 {
 			t.Fatalf("Spread out of [1±amp] bounds: %v", v)
+		}
+	}
+}
+
+// --- Master volume knob -----------------------------------------------------
+
+// TestVolumeMultiplierUnsetIsOneExplicitZeroIsZero pins the unset/zero distinction: a fresh
+// engine reads 1.0, an explicit 0 is a real zero (pause) that scales both factor curves to
+// exactly 0, and a later non-zero value restores scaling.
+func TestVolumeMultiplierUnsetIsOneExplicitZeroIsZero(t *testing.T) {
+	e := New("Europe/Zurich", nil)
+	now := time.Date(2026, 6, 10, 12, 0, 0, 0, e.Loc()) // Wednesday, inside the plateau
+	if got := e.VolumeMultiplier(); got != 1.0 {
+		t.Fatalf("unset volume = %v, want 1.0", got)
+	}
+	base := e.Factor(now, 1.0, false)
+	baseBusiness := e.BusinessFactor(now)
+	if base <= 0 || baseBusiness <= 0 {
+		t.Fatalf("precondition: plateau factors must be positive, got %v / %v", base, baseBusiness)
+	}
+
+	e.SetVolumeMultiplier(0)
+	if got := e.VolumeMultiplier(); got != 0 {
+		t.Fatalf("explicit 0 volume = %v, want 0 (never the unset 1.0)", got)
+	}
+	if got := e.Factor(now, 1.0, false); got != 0 {
+		t.Fatalf("Factor at volume 0 = %v, want 0", got)
+	}
+	if got := e.BusinessFactor(now); got != 0 {
+		t.Fatalf("BusinessFactor at volume 0 = %v, want 0", got)
+	}
+
+	e.SetVolumeMultiplier(2)
+	if got := e.Factor(now, 1.0, false); got != base*2 {
+		t.Fatalf("Factor at volume 2 = %v, want %v", got, base*2)
+	}
+	e.SetVolumeMultiplier(1)
+	if got := e.Factor(now, 1.0, false); got != base {
+		t.Fatalf("Factor at volume 1 = %v, want %v", got, base)
+	}
+}
+
+// TestVolumeMultiplierClamps pins the [0, 100] clamp, including that a negative value lands
+// on zero rather than unset.
+func TestVolumeMultiplierClamps(t *testing.T) {
+	e := New("", nil)
+	for in, want := range map[float64]float64{-3: 0, 0: 0, 0.25: 0.25, 100: 100, 250: 100} {
+		e.SetVolumeMultiplier(in)
+		if got := e.VolumeMultiplier(); got != want {
+			t.Errorf("SetVolumeMultiplier(%v) reads %v, want %v", in, got, want)
+		}
+	}
+}
+
+// TestVolumeMultiplierNegativeZero pins that -0 (valid JSON, not < 0) is an explicit zero, not a
+// bit pattern that decodes to -1.
+func TestVolumeMultiplierNegativeZero(t *testing.T) {
+	e := New("", nil)
+	e.SetVolumeMultiplier(math.Copysign(0, -1))
+	if got := e.VolumeMultiplier(); got != 0 || math.Signbit(got) {
+		t.Fatalf("volume after -0 = %v, want +0", got)
+	}
+}
+
+// TestPausedOnlyAtExplicitZero pins Paused: false when unset or any non-zero value, true only
+// for an explicit 0.
+func TestPausedOnlyAtExplicitZero(t *testing.T) {
+	e := New("", nil)
+	if e.Paused() {
+		t.Fatal("unset engine reports paused")
+	}
+	for v, want := range map[float64]bool{0: true, 0.001: false, 1: false, 5: false} {
+		e.SetVolumeMultiplier(v)
+		if got := e.Paused(); got != want {
+			t.Errorf("Paused at %v = %v, want %v", v, got, want)
 		}
 	}
 }

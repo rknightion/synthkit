@@ -37,9 +37,38 @@ just setup </dev/null
 just build </dev/null
 ```
 
-`setup` installs module/UI dependencies. The `lint` recipe runs `go vet`; no unused linter
+`setup` installs module/UI dependencies. `just build` compile-checks the module and installs no
+binary; build a single command with `just build-packages ./cmd/<name>`, as
+[agent-observability provisioning](agent-observability-provisioning.md) does. That command's
+`TestPublic*` proofs need Linux, where `SSL_CERT_FILE` is honoured; on macOS they fail the TLS
+handshake. The `lint` recipe runs `go vet`; no unused linter
 installation is required. Run `just ui` before building a binary whose operator UI you will use. You do not need to configure
 a live `.env` to contribute. Preserve any existing `.env` and never commit credentials.
+
+Run private-file provisioning proofs with a process umask of `0022` and a canonical temporary
+root with mode `0700`. Go creates fixture children using the process umask; a group-writable
+fixture is correctly refused by the private-parent admission check. Preserve that refusal rather
+than changing the command to accept writable parents.
+
+Linux runners can also inherit a setgid bit from a shared temporary volume. GNU `chmod 0700`
+preserves that bit on directories, while custody proofs require exact mode `0700`, including
+special permission bits. Prepare a fresh root in the environment where the tests execute:
+
+```bash
+(
+  set -euo pipefail
+  umask 0022
+  proof_tmp=$(mktemp -d /tmp/synthkit-private.XXXXXX)
+  chmod 0700 "$proof_tmp"
+  chmod g-s "$proof_tmp"
+  proof_tmp=$(cd "$proof_tmp" && pwd -P)
+  test "$(stat -c %a "$proof_tmp")" = 700
+  export TMPDIR="$proof_tmp" GOTMPDIR="$proof_tmp"
+  just check </dev/null
+)
+```
+
+This changes only the new proof directory. Keep the shared parent and admission checks intact.
 
 ## Work in a focused loop
 
@@ -98,8 +127,22 @@ just ci </dev/null
 `just check` is the pre-commit gate. Its dependencies in the `justfile` are authoritative; do not
 maintain a copied checklist of every recipe. It includes the full plain Go suite and a slow race
 suite. The race recipe deliberately excludes `internal/integration` for runner memory limits;
-that package is still covered by the plain suite. Run focused checks while iterating and the full
-gate on the final candidate. Read the repository agent instructions for change-specific slow tiers,
+that package is still covered by the plain suite. The race recipe also splits out the
+bound-sensitive tests listed in `scripts/race-isolated.txt`: the parallel sweep skips them and
+they run once afterwards, grouped by package, in a `go test -race -v` invocation. The HA subprocess
+tests have sub-second lease and renewal bounds; the Agent Observability lifecycle engine tests
+have 4 s and 20 s caller budgets, which they probe and log as `deadline-margin` after each engine
+return. A separate package aggregate resource-bound rule admits exactly three measured dominant
+teardown-forecast tests: admitted constructions, deactivation and bound dominance. Repeated
+large-state work pushed the hosted package past Go's default 600 s deadline even after the decoder
+shortcut; this is not caller-margin admission or evidence that an individual test hangs. These
+three join the existing isolated invocation for that package, preserving every test case, `-race`,
+caller bound and the default 600 s timeout in both invocations; other forecast tests stay in the sweep.
+To isolate another package's tests, add lines to that file; `just race-split-check` (part of
+`just check`) proves each listed test runs exactly once and that every test whose own body
+calls the deadline-margin probe is listed (a test reaching the probe only through a helper is
+not detected, so list it by hand). Run focused checks while iterating and the full gate on the
+final candidate. Read the repository agent instructions for change-specific slow tiers,
 such as the disposable collector capture lab.
 
 `just ci` adds Docker-backed checks and a full-history secret scan, so it requires a full-depth
@@ -120,7 +163,8 @@ to this guide and the same recipes. The repository agent instructions define whe
 apply. Skill usage alone is not evidence: include actual command outcomes and remaining gaps.
 
 Public contributors submit a focused pull request and use the project's hosted checks and review
-process. Maintainers also use CodeRabbit CLI review under their own configured policy; contributors
+process. Maintainers also use the combined Kodus and independent local exact-candidate review defined in
+the repository agent instructions, with pinned centrally managed rules; contributors
 are not required to obtain a personal paid CLI account or reproduce private maintainer tooling.
 Do not upload credentials or customer identifiers to any review service. Review and correct the
 final diff before reporting completion, and use the PR template to summarize the evidence.

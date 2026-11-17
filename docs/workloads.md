@@ -57,9 +57,15 @@ workloads:
       - { cache: mine-sessions } # resolved to the named cache fixture
 ```
 
-`traffic` drives the **metric lane** volume (span-metrics RPS). The correlation narrative (one request per master tick) is separate and smaller by design — it seeds realistic trace/log samples without inflating span-metric series cardinality.
+`traffic` drives both aggregate metric volume and the minted trace/log request population. Each lane advances at its own cadence, with stochastic rounding of its expected request count. Aggregate histogram duration draws are independent of individual request durations.
 
 `endpoints` are drawn uniformly across each minted request; `error_rate` and `p95_ms` shape the per-route latency distribution and error fraction in both spans and span-metrics.
+
+With `otel.metrics: true`, the native HTTP duration histogram also follows the endpoint latency
+model and a scoped `latency_spike` control. Its cumulative count represents modeled traffic,
+including at volumes above its sampling budget. See the
+[native HTTP value contract](https://github.com/rknightion/synthkit/blob/main/signals/otlp-metrics.md#httpserverrequestduration--explicit-bound-histogram-slug-otlp-duration)
+for weighted sampling, recovery and trace-correlation limits.
 
 ### gen_ai / LLM hops
 
@@ -111,11 +117,10 @@ Capture follows the pinned SDK native-generation versus tool-span split:
 Metadata-only removes SDK content mirrors, not arbitrary authored metadata/tags. The
 pinned Go policy removes current and legacy title mirrors plus call_error; the pinned
 Python policy removes current title and call_error, not an authored legacy-title key.
-Keep authored metadata/tags free of private content. Metadata-only thinking parts are
-explicitly unsupported: the current frozen native Part encoder cannot preserve the
-kind of an empty thinking payload. Such selected content rejects before execution,
-rather than silently retyping it as text; adding that shape requires a separately
-reviewed shared encoder change. The app corpus path also does not produce media parts;
+Keep authored metadata/tags free of private content. Metadata-only capture of a
+thinking part clears its content and keeps the part a thinking part through the explicit
+part kind, so it encodes as an empty thinking payload rather than text; no placeholder
+content is emitted. The app corpus path does not produce media parts;
 reduced Python media is refused rather than claimed as supported.
 
 Every service in a pipeline graph must have an Agent Observability binding and be used
@@ -143,8 +148,10 @@ Each node in `services:` is a `ServiceNode`:
 | `type` | Span semantics. Valid values: `frontend` / `web` / `grpc` / `worker` / `job` / `stream` / `gateway` / `db` / `cache` / `llm` / `agent` / `tool` / `workflow` / `retrieval`. Unknown types fall back to a default. |
 | `runtime` | `go` / `jvm` / `node` / `python` — selects the catalog runtime profile. |
 | `entry` | `true` on exactly one node: the graph's request entry point. |
+| `worker` | `true` on the entry only: it consumes `traffic.from_resource`, its root span is CONSUMER, and each request records the queue's backlog wait. |
 | `replicas` | Pod count for the k8s substrate cascade (default 2). |
 | `calls` | Downstream node names (graph edges). |
+| `uses` | Declared `environments[].resources` a request meets on arrival at this node, in order; a name resolves as `<name>-<lower(env)>` first, then exactly. Needs `environments[].resources`. See [Causal requests](#causal-requests). |
 | `routes` | Request routes drawn per-request. On the entry node these populate `r.Route`; on a callee they name its SERVER span. |
 | `profiles` | Catalog profile template names applied to this node. |
 | `metrics` / `logs` / `spans` | Inline custom telemetry via the DSL (the escape hatch). |
@@ -152,6 +159,109 @@ Each node in `services:` is a `ServiceNode`:
 | `agent_observability` | Bound-app SDK identity/content selection; requires `agent_pipeline` and injected collaborators, not yet ordinary CLI activation. |
 | `agentic_flow` | In-process LangGraph orchestration — emits `invoke_workflow` → `invoke_agent` → `execute_tool*` → `chat` span subtree inside this node's SERVER span. |
 | `pages` | RUM navigation inventory (frontend entry nodes only). Page-views are RUM-only: they model session navigation around the traced action and emit no backend trace. |
+
+### Call policies and retry semantics
+
+With declared `environments[].resources`, a service's `call_policies` give a per-callee client
+policy keyed by names in its `calls`: `timeout_ms` (0 = none), `retries` (0 to 3), `backoff_ms`
+(doubled per resend), `retry_on` (`5xx`, `throttle`, `timeout`, `connect`) and `propagate_throttle`.
+`timeout_ms` and `backoff_ms` are each at most 600000 (ten minutes); a larger value is rejected at
+load. The retry rules:
+
+- The service that calls the target never resends a rule rejection or a credential failure.
+- An upstream caller that only sees the mapped status may. An unabsorbed credential failure reaches
+  the next caller up as a 502, which a `retry_on: [5xx]` policy there resends; each resend meets the
+  same credential failure once more at the direct caller.
+- A rule rejection slower than the caller's `timeout_ms` reaches the caller as a timeout (a client
+  that times out cannot know the cause), so `retry_on: [timeout]` resends it. With no timeout, or a
+  timeout longer than the rejection, the same rejection is made once.
+
+### Entry-client retry
+
+`traffic.client_retry` models the entry client re-sending a failed request. It is opt-in and
+omitted by default. The re-send is a new request of the same logical request: fresh trace, span
+and request IDs, but the logical request's per-request draws (every `request_draw` value, and so
+every `when` gate) repeat, so a bundle shows the same source ID and the same drawn route on every
+attempt while distinct logical requests stay fresh.
+
+```yaml
+workloads:   # illustrative fixture values, not production defaults
+  - type: app
+    name: mine-app
+    traffic:
+      off_peak_rps: 1
+      peak_rps: 5
+      client_retry: {retries: 2, backoff_seconds: 30, retry_on: [5xx, throttle]}
+```
+
+| Key | Limits |
+|---|---|
+| `retries` | Re-sends after the first attempt, 1 to 3. |
+| `backoff_seconds` | Delay before the first re-send, greater than 0 and at most 600; doubled for each further re-send (`backoff × 2^k`). |
+| `retry_on` | At least one of `5xx` (any 5xx status) and `throttle` (429), no repeats. A 4xx other than 429 is never re-sent. |
+
+Behaviour and limits:
+
+- A re-send draws its own outcome, so it may succeed. It is re-sent in turn while it fails a listed
+  class and re-sends remain. Re-sends add to the declared request rate, as a real client's do, so
+  peak volume reads above `peak_rps`.
+- A re-send is minted on the first tick at or after its due time, so a short backoff is rounded up
+  to the tick spacing.
+- Applies to graph requests only. It is rejected on an `automation` or `agent_pipeline` workload
+  (which mint no graph calls) and with `traffic.from_resource` (a queue consumer mints exactly the
+  messages its queue served).
+- A paused workload (master volume 0) drops its due re-sends. Scheduled re-sends are held in
+  memory, so a restart forgets them.
+- Statuses come from the entry's `traffic.error_mix` and `error_rate`. A `retry_on`
+  class the mix never produces simply re-sends nothing.
+
+What this does NOT prove: it is the entry client's retry only. It is separate from a service's
+[`call_policies` retries](#call-policies-and-retry-semantics), which re-send between services inside
+one request. It models no server-side idempotency or deduplication, no client-side budget or circuit
+breaker, and no jitter. The shared draws are a synthetic identity for the logical request, never a
+label or a join key.
+
+### Worker apps continue the trace that queued their message
+
+An app whose `traffic.from_resource` names a queue and whose entry is a `worker` mints one request
+per message the queue serves. When a hop of another app in the blueprint publishes into that queue
+(its service `uses` the queue), the worker request continues the publishing request's trace instead
+of starting one: its CONSUMER span takes the publisher's span as its parent and links to it, as the
+messaging span conventions allow for a single message (semantic-conventions v1.44.0, messaging
+spans), and the worker's logs carry that trace id. The pairing is fixed, not drawn:
+
+- A request publishes one message per successful hop into a service that uses the queue. A failed
+  hop publishes nothing.
+- A worker request takes the oldest unconsumed message whose producing request started no later
+  than the worker request started minus its own duration, so a message becomes consumable one tick
+  after it was published and the consumer span never begins before its producer ends.
+- A worker request that finds no such message, or a queue nothing publishes into, keeps its own
+  trace exactly as before. At most 32768 messages wait per queue; beyond that the oldest are dropped.
+
+No span is added or removed, so span metrics and service-graph counts are unchanged. The entry
+service's own use of a queue is not a hop and publishes nothing.
+
+### Synchronously invoked functions run inside the call
+
+A function that a hop invokes request/response (an API calling a function and waiting for its
+answer) is declared like a worker's source, with `traffic: {from_resource: <invocations queue>,
+synchronous: true}` on the function's app, and the calling hop's service `uses` that queue. The
+entry must not also be a `worker`. Its root span is SERVER (semantic-conventions v1.44.0 FaaS spans:
+the incoming invocation span is SERVER, the outgoing one CLIENT). The pairing differs from a worker's:
+
+- A request takes the oldest unconsumed message whose producing request started no later than its
+  own mint instant, so a call minted earlier in the same tick is joined in that tick. A call made
+  before the function's previous mint went unserved while it was consumable and is dropped, never
+  joined.
+- The joined root is a child of the caller's CLIENT span for that hop, with no link, and is laid
+  centred inside that span's window; the request's child spans, its log lines and the calls it
+  makes in turn (a chained synchronous invocation nests inside it) move with it.
+- A run longer than the call it would join, or a message whose caller emits no CLIENT span, takes
+  the message (one invocation per call) but keeps its own trace, as a run with no message does.
+
+Set `signals: {traces: false}` on the caller's own stub node for the function, so the trace shows
+one SERVER span (the function's) under the CLIENT span rather than two. Without `synchronous` a
+`from_resource` app that is not a `worker` consumes no message and joins no trace.
 
 ### Service graph example
 
@@ -204,6 +314,11 @@ workloads:
         calls: []
 ```
 
+`db_instance` is optional. When present, it must resolve to a database in the environment whose
+engine is `postgres`, `mysql` or `redis`. An unresolved instance or unsupported/empty engine fails
+the app build; there is no PostgreSQL identity fallback. The outgoing database CLIENT span uses
+the resolved identity. A causal resource binding alone does not supply that trace identity.
+
 The resulting trace shape:
 
 ```mermaid
@@ -213,7 +328,7 @@ graph LR
     api["mine-api SERVER"]
     gw["mine-gateway SERVER"]
     llm["mine-llm CLIENT (external)"]
-    db["mine-db SERVER (db hop)"]
+    db["mine-db CLIENT (db operation)"]
 
     browser --> fe
     fe --> api
@@ -242,6 +357,62 @@ An `agentic_flow` on a node adds a nested gen_ai span subtree inside that node's
 
 Set `omit_chat: true` when a connected `gateway` or `llm` node already models the LLM call so it is not double-counted.
 
+### Causal requests
+
+An `app` becomes causal when it declares `uses` on a service node, `call_policies`, `worker` or
+`traffic.from_resource`, against `environments[].resources`. Each request's outcome, status and
+timing then derive from resource state and active faults (the
+[resource axis](incidents.md#resource-axis-causal-resources)) instead of an independent draw, and
+every signal projects the same request facts. The field reference is the generated
+`BLUEPRINT-SCHEMA.md` (`services[].uses`, `services[].worker`, `traffic.from_resource`,
+`traffic.success_status`, `traffic.error_mix`).
+
+- **Traces.** An execution failure's origin span is ERROR and carries the cause as its status
+  description, `error.type`, and the mapped HTTP status where one applies. A causal rule-origin
+  4xx rejection is handled gracefully only at the originating operation: that root or non-HTTP
+  callee remains UNSET with neither `error.type` nor a status description; the warning log
+  retains the cause. Non-HTTP callers with an unabsorbed child failure remain ERROR even when
+  they inherit the same rule fault. Rule 5xx,
+  timeout, transport, token and execution failures are not handled rejections. Workers carry no
+  HTTP attributes, and HTTP/gRPC SERVER spans retain their protocol rules. Retries are separate CLIENT
+  spans with `http.request.resend_count`; a `worker` entry's root span is CONSUMER. No `exception`
+  span event is emitted, because the pinned semantic conventions deprecate it. See
+  `signals/traces.md`, section `traces-app-causal`, for the status rules and sources.
+- **Logs.** In a request carrying a fault or a failure, each service logs from its own hop: the log
+  `ref` names listed in the Telemetry DSL section below. A service the request never reached logs nothing.
+- **Span metrics and service graph.** In a metric window that holds a faulted or failed request,
+  only the rows whose own spans carry the fault (a span with a fault, a failure or a resend, or one
+  above such a span) change their latency: each observation keeps the established 20 to 200 ms
+  draw, multiplied by that span's real duration over the row's healthy real duration (the mean of
+  the row's latest fault-free spans). A row the fault never reaches keeps the established latency
+  exactly, and a row with no healthy span observed yet (a fault active since start) keeps the draw
+  unscaled. An edge's volume is scaled by the calls to its callee per sampled request, so retries count. A
+  `worker` entry's row is `SPAN_KIND_CONSUMER`, and a `traffic.from_resource` app's request volume
+  is the queue's served rate. Windows with no fault or failure, and workloads that declare no
+  resources, take the established path unchanged.
+- **Custom metrics.** The `resource` and `outcomes` value models read the same state and the node's
+  hop outcomes for the window.
+- **Unbound nodes stay as they were.** A service that names no resource keeps its legacy request
+  facts (outcome, statuses and its own drawn duration), and a healthy causal request keeps the
+  legacy logs, span statuses and span-metric rows. Its spans are laid out on the engine's timeline,
+  as a faulted request's are: each call starts after the caller's pre-call work and the previous
+  call, and a caller's span covers its calls. A service a fault never reaches therefore keeps the
+  same span durations on healthy and faulted requests. A request failed only by the entry's
+  baseline error draw is laid out on the engine's timeline too, so its spans read the same
+  durations as a successful request's, and the healthy durations a faulted span-metric row is
+  scaled against come only from spans on that timeline. It keeps its drawn status and error code
+  and the legacy span statuses, attributes and log lines, except in a `traffic.from_resource` app
+  (a bound function's invocations), where that background failure is the entry's `error_rate`
+  cause: its entry carries `error.type` (the status), the status message
+  `<service>: <error code>` and the matching log fields, as a causal failure does. A hop that did
+  not fail answers with `traffic.success_status` (default 200) in its log fields and `outcomes`
+  values, as the entry does. The one
+  difference is a hop failure from
+  `error_spike` or a declared `error_rate`, which in a causal
+  workload propagates by the mapped status and can be absorbed by a retry, and in any other
+  blueprint stays independent (see the
+  [service axis](incidents.md#service-axis-app-workload-per-node)).
+
 ### Telemetry DSL
 
 Each node can declare custom metrics, log streams, and extra span attributes via inline DSL specs. The DSL is the `profiles:` escape hatch — use catalog profiles first, inline specs for anything not covered.
@@ -256,15 +427,90 @@ Each node can declare custom metrics, log streams, and extra span attributes via
 | `int_range` | `int_range: {min: 0, max: 100, p_zero: 0.95}` | Bounded integer; `p_zero` forces 0 with given probability |
 | `float_range` | `float_range: {min: 0.001, max: 2.5}` | Bounded float |
 | `normal` | `normal: {mean: 50.0, stddev: 10.0}` | Gaussian draw (negative clamped to 0) |
+| `lognormal` | `lognormal: {median: 120, p95: 3600}` | Right-skewed positive draw with the given median and 95th percentile (see below) |
 | `bool` | `bool: {p_true: 0.1}` | Weighted boolean |
-| `shape` | `shape: {base: 100.0, mode: latency_storm}` | `base × shape-engine reading`; incident-responsive when `mode` is set |
+| `shape` | `shape: {base: 100.0, mode: latency_storm}` | Legacy `base × load × incident multiplier`; optional metric-only `incident_value` selects an explicit endpoint instead, and `incident_absolute` keeps that endpoint off the load curve (see below). On a counter, `batch: {period, phase}` releases the arrivals in batches ([batch arrivals](#batch-arrivals)) |
+| `now` | `now: {}`, `now: {stall_mode: error_spike}`, `now: {arrivals_only: true}` or `now: {period: 15m, phase: 2m}` | The tick time in Unix seconds (gauge metric values only), for a collector heartbeat or a last-success timestamp. Plain `now: {}` advances every tick whether or not work succeeded. `stall_mode`, `arrivals_only`, `period` and `phase` turn it into a stalled, source-event or scheduled reading, and an enum label value may carry its own `stall_mode`; see [collector self-telemetry](#collector-self-telemetry). A stall already active on the first tick holds that tick's reading, and the hold is not persisted across a restart. Never the wall clock; `value_scale` is rejected on its labels |
+| `source_read` | `source_read: {measure: records_inspected, per_tick: 40, stall_mode: error_spike}` | A collector's own read work as a counter increment (counter metric values only): records inspected, checkpoint progress or read failures, derived from one stall state. See [collector self-telemetry](#collector-self-telemetry) |
+| `resource` | `resource: {name: db-pool, field: utilization}` | A field of a declared `resources:` entry's model state (metric values only). Gauge fields `demand_rps`, `capacity`, `utilization`, `in_use`, `waiting`, `wait_seconds`, `backlog`, `oldest_age_seconds`, `latency_factor`, `hold_seconds`, `served_rps`, `failed_share` need a gauge metric; counter fields `rejected`, `admitted`, `failed` (window sums since the last tick) need a counter metric. Reads 0 where the workload supplies no model |
+| `outcomes` | `outcomes: {status: [5xx], measure: share}` or `{status_label: code, measure: count}` | The node's hop outcomes in the metric window (metric values only). `status` lists `success`, `4xx`, `5xx` or exact three-digit statuses; alternatively `status_label` names an `enum` label of the same metric whose values are such statuses and select the status per series (set exactly one of the two). `measure` is `count` (default, counter metric), `share` (gauge metric) or `latency` (histogram metric, one observation per matching hop duration in seconds). Reads 0 where the workload supplies no outcomes |
+| `request_draw` | `request_draw: {key: order, format: "ORD-{digits:10}"}` or `{key: path, enum: [{value: /v1/orders, weight: 6}, {value: /v1/items, weight: 3}]}` | A value drawn once per request and shared by every log line of that request that names the same `key` (log body fields only), so a multi-line log bundle carries one fresh ID and one path instead of a fixed specimen. Set exactly one of `format` and `enum`. `format` is literal text with generated runs `{digits:N}`, `{hex:N}` (lower case) or `{upper:N}` (upper case letters and digits), N from 1 to 32 and at most 64 generated characters in all; literal braces are not supported. `enum` is a weighted categorical draw (weights are the share of requests; `rate_scale`, `value_scale` and `shape_profile` are rejected). The draw hashes the request's seed unit and mint instant, never the shape engine or the wall clock: it is deterministic for a given seed and clock, consumes no engine randomness, and an ID does not repeat across a restart. Repeat the same declaration on every line of the bundle; lines declaring a key differently draw different values. In a failing causal request every node's lines and every retried attempt share the one request's draw |
 | `ref` | `ref: trace_id` | Pulls a correlation field by name |
 
 **Capability matrix** (enforced at load time):
 
 - **Metric labels** and **Loki stream labels**: only `const` / `const_str` / `enum`. These must enumerate a stable, total domain on every run.
-- **Metric values**: only numeric models — `const`, `int_range`, `float_range`, `normal`, `bool`, `shape`.
-- **Log body fields** and **span attributes**: any model, including `ref`. High-cardinality correlation keys (`trace_id`, `portkey_trace_id`, `run_id`, etc.) ride here — never as labels or stream labels.
+- **Metric values**: only numeric models — `const`, `int_range`, `float_range`, `normal`, `lognormal`, `bool`, `shape`, `now` on gauges and `source_read` on counters, plus `resource` and `outcomes` under the instrument rules in the table above. `shape.batch` is valid on a counter's `shape` value only. A metric whose value is `resource` or `outcomes` rejects enum `rate_scale` and `value_scale` on its labels, since they would distort window counts.
+- Enum `rate_scale` / `value_scale` are admitted on **metric labels** only (see below); a log, stream-label or span enum carrying them is rejected.
+- **Log body fields** and **span attributes**: any model, including `ref`, except `shape.incident_value`, `shape.batch`, `now`, `source_read`, `resource` and `outcomes` (metric values only) and `request_draw` (log body fields only). High-cardinality correlation keys (`trace_id`, `portkey_trace_id`, `run_id`, etc.) ride here — never as labels or stream labels.
+  An app `ref` can also read `error_code` (the failed request's `error_mix` code; a causal failure
+  takes the code of the declared `error_mix` entry with its status, weighted when several match,
+  else the fault's error type). To distinguish healthy, handled and execution-error roots,
+  authors can decorate the structural span with an empty-kind span spec (still supplying
+  `name_template`) and application-owned attribute keys reading `ref: outcome` and
+  `ref: error_code`. The former distinguishes `success`, `client_error` (or `throttled` for
+  429), and `server_error`; the latter preserves the declared application code, not necessarily
+  the numeric status. This is not a universal handled-error marker: the author owns its meaning
+  in the declared rule/error mix. No new fixed catalogue attribute or conditional DSL is added.
+  A log body `ref` the line's request does not set (an error field
+  on a healthy line) is omitted, never written as `""`. In a causal
+  request that carries a fault or a failure, each service's log lines use that service's own hop:
+  `span_id`, `status`, `outcome` and the stream `level` follow it, a retried callee logs once per
+  attempt at the attempt's end, and a service the request never reached logs nothing. Those lines
+  can also read `error_type`, `error_message`, `exception_type`, `fault_resource`, `fault_mode`,
+  `attempt` and `upstream` (the called service whose failure this service answered with).
+
+For a metric that is genuinely zero normally but nonzero during an incident, opt into a finite,
+explicit endpoint rather than fabricating a positive baseline:
+
+```yaml
+value:
+  shape: {base: 0, mode: error_spike, incident_value: 12}
+```
+
+This value-only fixture illustrates the contract, not a catalog metric or a production backlog
+size. Cite the real instrument and choose its endpoint from the modeled deployment. With the
+option present, the metric value is `load × ((1 - intensity) × base + intensity × incident_value)`.
+`load` is the app's business-hours/weekly factor including the master volume multiplier;
+there is **no additional legacy ×3 incident amplification**. At unit load, the example emits
+0 normally, 3 at intensity 0.25, 12 at intensity 1, then 0 immediately on recovery. A nonzero
+base or an explicit zero endpoint is also supported; both endpoints must be finite numbers.
+
+`mode` must be nonblank. Intensity comes from the existing shape engine's matching mode and
+service-node scope: an exact target affects only that node, an unscoped incident affects all
+nodes, overlapping contributors use their maximum intensity, and an inactive mode supplies 0.
+A resolved intensity of 0 leaves the base unchanged. Scheduled explicit `intensity: 0` is a
+no-op; omitted intensity defaults to 1. This applies to inline incidents and the effects of
+scheduled scenario references. See the [incident presence contract](incidents.md#incidents-scheduled-activations).
+Live zero intensity remains a no-op.
+Master volume 0 retains the same series but emits shape gauges as exactly 0, even during an
+incident; counters and histograms stop observing while paused as before.
+
+For a duration or latency, an outage should read the same level whatever the traffic: at night the
+business curve may be 0.1, so a 4,600 s incident value would otherwise read 460 s, and 64-138 s on a
+weekend night. Add `incident_absolute: true` (it requires `incident_value`) to take the load curve
+off the incident share:
+
+```yaml
+value:
+  shape: {base: 100, mode: latency_storm, incident_value: 4600, incident_absolute: true}
+```
+
+The value is then `(1 - intensity) × base × load + intensity × incident_value`. The calm baseline
+still follows `load`, the incident endpoint does not, so at intensity 1 the reading is exactly
+`incident_value` at any hour, and at fractional intensity the incident share is `intensity ×
+incident_value`. Master volume is part of `load`, so it no longer scales the incident share either;
+an explicit volume 0 still pauses the gauge at exactly 0, and so does a `shape_profile` that reaches an
+exact zero load (floor 0 or `weekend_factor: 0`): no activity, nothing to read. Omitted or `false` keeps the
+`load × (...)` formula above, byte for byte. Choose it for values that are absolute levels
+(durations, latencies, ages), not for rates or counts that genuinely track traffic.
+
+`incident_value` is admitted only for metric values, never labels, log fields or span attributes.
+It is stateless interpolation, not a queue growth/drain or recovery state machine: for a reversible
+backlog reading choose a **gauge**. Counter values remain per-tick increments and histogram values
+remain per-tick observations. Omitting `incident_value` preserves the legacy shape calculation,
+including its zero-load evaluator fallback; in the metric lane an explicit master-volume pause
+continues to bypass that fallback.
 
 Example inline metric:
 
@@ -280,6 +526,195 @@ Example inline metric:
       value:
         shape: { base: 1.0, mode: throughput_drop }
 ```
+
+#### Collector self-telemetry
+
+Opt-in value sources model a collector's own health series (a heartbeat, a last-success time,
+records read, a checkpoint, read failures). All are metric values: the `now` gauge and the
+`source_read` counter. They share one stall mechanism, so a single incident can freeze the
+heartbeat, stop the read counters and start the failure counter together instead of three
+hand-aligned shapes.
+
+```yaml
+custom_metrics:   # illustrative fixture values, not production defaults
+  - name: collector_heartbeat_timestamp_seconds
+    source: <instrumentation contract>
+    instrument: gauge
+    value: {now: {stall_mode: error_spike}}
+  - name: collector_newest_event_timestamp_seconds
+    source: <instrumentation contract>
+    instrument: gauge
+    value: {now: {arrivals_only: true, stall_mode: error_spike}}
+  - name: collector_last_success_timestamp_seconds
+    source: <instrumentation contract>
+    instrument: gauge
+    value: {now: {period: 15m, phase: 2m, stall_mode: error_spike}}
+  - name: collector_records_inspected_total
+    source: <instrumentation contract>
+    instrument: counter
+    value: {source_read: {measure: records_inspected, per_tick: 40, stall_mode: error_spike}}
+  - name: collector_read_failures_total
+    source: <instrumentation contract>
+    instrument: counter
+    value: {source_read: {measure: read_failures, per_tick: 3, stall_mode: error_spike}}
+```
+
+**`now` options.** All four are optional and independent.
+
+| Key | Limits | Effect |
+|---|---|---|
+| `stall_mode` | An incident mode name, no surrounding whitespace. The name is not checked against the failure-mode registry at load; a mode no incident activates never stalls. | While that mode is active on the service the metric belongs to, at any intensity above 0, the gauge holds its last reading and resumes at the tick time when the incident ends. Intensity 0 does not stall. |
+| `arrivals_only` | `true` or omitted. | The gauge advances only on a tick where the node's source had arrivals: its load factor (its own `shape_profile` clock, else the blueprint curve, times the master volume) is above 0. A quiet period or a paused workload holds the reading, so a quiet source reads old while the collector is healthy. `stall_mode` still freezes it too. |
+| `period` | Greater than 0 and at most `24h` (a daily job is the longest cadence). Omitted or `0` reads the tick time. | The reading is the most recent schedule boundary at or before the tick time: epoch-aligned multiples of `period`, shifted by `phase`. A job that runs every 15 minutes steps every 15 minutes instead of every tick. A boundary that falls inside a stall or a quiet source is a missed run: the gauge keeps its last reading until the first boundary after the hold ends. |
+| `phase` | At least 0 and strictly less than `period`; needs a `period`. | Offsets the boundaries from the epoch grid. |
+
+Any enum label value of the same metric may carry its own `stall_mode` (`{value: alpha,
+stall_mode: error_spike}`): that series stalls and holds independently of its siblings, and every
+other series follows the value's `stall_mode`. At most one label of a metric may declare one, and
+only a `now` or `source_read` value accepts it. The hold is kept per series and is not persisted: a
+restart inside an incident re-holds from the first tick it sees. A stall already active on the
+first tick holds that tick's reading. The gauge reads the tick time the workload was driven with,
+never the wall clock, and uses no randomness.
+
+**`source_read`.** A counter value (any other instrument is rejected) with a required `measure` and
+a finite `per_tick` greater than 0. `per_tick` is added once per metric tick, not per second, so
+changing the metric interval changes the rate; it is cumulative across ticks like every counter.
+
+| `measure` | Per tick |
+|---|---|
+| `records_inspected` | Adds `per_tick` times the node's load factor (as a `shape` value reads it); adds nothing while stalled. |
+| `checkpoint` | Same as `records_inspected`, so the two advance and stop together. |
+| `read_failures` | Adds `per_tick` only while stalled, otherwise 0. It requires a `stall_mode` on the value or on an enum label value, since it has nothing to fail in otherwise. |
+
+`stall_mode` follows the same rules as for `now`, including the per-series enum override. The model
+reads no metric name: the blueprint names the counter, and the labels are whatever the metric
+declares.
+
+What this does NOT prove:
+
+- A heartbeat is collector freshness, not source health. Plain `now: {}` advances every tick
+  whether or not any work succeeded; only a `stall_mode` makes it stop, and only because an
+  incident says so.
+- `arrivals_only` reads the tick time of the last tick with arrivals. It is a proxy for the newest
+  source event, not a timestamp taken from any request or record.
+- A `period` gauge is a deterministic step on the tick clock. It records no job run, duration or
+  failure, and its missed runs are exactly the ticks held by a stall or a quiet source.
+- A stall is all or nothing for these sources (any intensity above 0). `records_inspected` and
+  `checkpoint` share one stall state, so no lag between reading and checkpointing is modelled, and
+  `read_failures` is a symptom of the stall, not an independent error process. For a graded slowdown
+  use the [item stock](#stock-gauges) `stall_mode`.
+
+#### Batch arrivals
+
+A counter whose source delivers in batches, rather than continuously, adds `batch: {period,
+phase}` to its `shape` value. The per-tick arrivals accumulate through each cadence window at the
+same smooth load a continuous source would see, and the whole window is released at once at its end,
+so the series is flat between releases and steps once per cadence.
+
+```yaml
+custom_metrics:   # illustrative fixture values, not production defaults
+  - name: records_received_total
+    source: <instrumentation contract>
+    instrument: counter
+    value: {shape: {base: 40, mode: throughput_drop, batch: {period: 15m, phase: 4m}}}
+```
+
+| Key | Limits |
+|---|---|
+| `batch.period` | Required, greater than 0 and at most `24h`. |
+| `batch.phase` | At least 0 and strictly less than `period`; default 0. Release boundaries sit at `phase + k × period` counted from the Unix epoch, so they are timezone independent. |
+
+Limits and behaviour:
+
+- Counter metric values only, on a `shape` value. A gauge reads a level rather than arrivals, and a
+  log, span or stream-label value rejects it.
+- Rejected on a metric that also declares `stock_of` or `count_of`, and with `incident_value`.
+  `stock_of` and `count_of` on a different metric follow the batched counter's releases instead,
+  so a stock over a batched counter fills in steps. A `count_of` histogram over a batched counter
+  sees a whole window in one tick, so load rejects a declaration whose release exceeds 10,000
+  observations (the window's ticks at the default 60 s metric cadence times the largest per-tick
+  increment); a blueprint ticking faster than the default releases more and meets the runtime clamp.
+- Over any run of whole windows the batched counter delivers exactly what the smooth curve would
+  have, including the incident amplification scheduled at each accumulated tick. It uses the
+  series' own `shape_profile` clock when one is declared, else the node's.
+- Each accumulated tick is read as it ran: under the master volume in force at that tick and
+  under the scheduled incident windows only. A volume change scales only the ticks it covered,
+  and a tick paused with volume 0 (including ticks paused from the start of the run) adds nothing
+  to its window. A live fault (the control plane's failure state) is read for the current tick
+  alone, and a release accumulates only past ticks, so a live fault never amplifies a batched
+  release and never rescales the ticks before it; scheduled incidents do amplify. Only a `period`
+  at or below the metric tick, which delivers continuously, reads the live fault. The first
+  release of a run reads the window before the run at the volume the run started with.
+- A release lands on the first tick at or after the window end. A `period` at or below the metric
+  tick degenerates to continuous delivery. A gap in ticks longer than one tick (a pause, a long
+  stall of the process) skips the window boundaries inside it, and those windows are not released.
+- No random draw: a release is a function of the tick time, the scheduled incidents and the
+  record of the master volume (a few change points per node, kept for at most a day and a window).
+
+What this does NOT prove: it models the shape of delivery (a spike per cadence), not any batch
+size, lateness, retry or partial delivery of a real source, and it says nothing about how a real
+collector acknowledges the batch.
+
+#### Gated and dwelled log lines
+
+Two fields on `services[].logs[]` shape a request's multi-line log bundle: `when` writes a line
+only for some requests, and `dwell_seconds` gives a line its own event time.
+
+```yaml
+logs:   # illustrative fixture values, not production defaults
+  - source: <instrumentation contract>
+    stream_labels: {channel: {const_str: audit}}
+    body:
+      route: {request_draw: {key: route, enum: [{value: ingest, weight: 3}, {value: export, weight: 1}]}}
+      msg:   {const_str: request accepted}
+  - source: <instrumentation contract>
+    stream_labels: {channel: {const_str: audit}}
+    when:
+      request_draw: {key: route, enum: [{value: ingest, weight: 3}, {value: export, weight: 1}]}
+      in: [export]
+    dwell_seconds: {lognormal: {median: 20, p95: 90}}
+    body:
+      msg: {const_str: export written}
+```
+
+**`when: {request_draw, in}`.** The line is written only when the request's drawn value of
+`request_draw` is one of `in`, so one bundle's line set follows a drawn route or outcome.
+
+- `request_draw` must be an `enum` (a formatted ID cannot select a line), declared the way the
+  bundle's body fields declare the same `key`. Every `request_draw` of that key in the workload, in
+  a body field or another gate, across all nodes' logs, must be an enum with the same weights in
+  the same order. The same request draw then picks the same entry index everywhere. The values may
+  differ (two enums of one key and one weight list pair their values by index).
+- `in` lists at least one value, each one of the enum's values, with no repeats.
+- The gate reads the request's seeded draw only, never the shape engine, and a gated-out line still
+  evaluates its body, so gating never shifts another field's values. A node with `signals.logs:
+  false` writes none either way.
+- Omitted writes the line for every request.
+
+**`dwell_seconds`.** A numeric value model (`const`, `int_range`, `float_range`, `normal` or
+`lognormal`; any other model is rejected at load) giving the seconds the request spent before this
+line. Within a bundle, a line's time is the previous written line's time plus its dwell, and the
+bundle's last written line keeps the request's completion time, so earlier lines are backdated
+and none is future-dated.
+
+- A bundle is the lines of one request on the legacy path, and one node's attempt on a causal
+  request.
+- The first written line's dwell places nothing (no line precedes it). A line without a dwell
+  shares the time of the line before it, and a bundle with no dwell on any line keeps every line at
+  the request's completion.
+- A gated-out line adds no dwell. A negative or NaN draw counts as 0, and a draw above 86,400
+  seconds (including infinity) is capped at 86,400.
+- The model is evaluated after the line's body, so it never shifts a body draw. It is a separate
+  draw from any body field that reports the same figure, so a logged `duration` and the gap to the
+  next line agree only if you declare them to.
+- Keep a bundle's summed dwell well inside the log backend's out-of-order acceptance window, which
+  is about an hour by default for Loki: a line backdated further than that can be rejected by the
+  backend. The 86,400 s cap only stops a runaway model; it is not a safe value, and the sum is not
+  checked at load.
+
+What this does NOT prove: `dwell_seconds` moves log timestamps only. Span times and metric
+durations are unchanged, so nothing ties a dwell to the trace for that request unless you choose
+matching values.
 
 ### Blueprint-owned custom metrics
 
@@ -314,7 +749,8 @@ services:
 A counter value is a **per-metric-tick increment**, accumulated across ticks. A histogram value is
 one observation per metric tick, accumulated into classic Prometheus `_bucket`, `_sum` and `_count`
 series; explicit strictly ascending `buckets` are required. Each label combination receives its own
-increment or observation: enum weights do not divide traffic among metric series. Values are not
+increment or observation: enum weights do not divide traffic among metric series (declare
+`rate_scale` / `value_scale` on the enum values for that, below). Values are not
 request-ledger-derived business outcomes; choose tick frequency and value models from the cited
 instrumentation and realistic workload volume, rather than treating these fixture values as
 production traffic defaults.
@@ -334,6 +770,195 @@ and its entire Prometheus family within the service node: a histogram also reser
 rejected even when labels are disjoint or units/bounds differ; declarations are never merged.
 Existing `metrics` declarations and catalog profiles retain their previous
 validation and emission behavior; `custom_metrics` is the additive, citation-required surface.
+
+### Per-value scales, derived metrics and workload load profiles
+
+These are opt-in. Omitting them leaves every series and value exactly as before.
+
+**Per-value scales.** A metric label enum value may declare `rate_scale` and `value_scale`
+(finite, `>= 0`, default 1). The label domain is unchanged; the scales only change what each
+combination observes. A histogram combination is absent until its first observation, so one with
+`rate_scale: 0` never appears and one below 0.5 first appears on a later tick. With several scaled labels the combination's multiplier is the product.
+
+| Instrument | `rate_scale` | `value_scale` |
+|---|---|---|
+| counter | multiplies the per-tick increment | rejected (an increment is a rate) |
+| histogram | observations per tick (each its own draw); fractions carry across ticks, rounding half up from the first tick | multiplies each observed value, so mean and p95 move together |
+| gauge | rejected | multiplies the reading |
+
+`weight` is unchanged: it still steers only per-request draws (log bodies, span attributes).
+They belong under `labels.<key>.enum[]`. The generated schema does not expand `labels` maps
+(it shows them as `map[string]ValueModel`) and so lists `rate_scale` / `value_scale` only under
+`value.enum[]`, where the loader rejects them, as it does in logs and spans.
+
+One series makes at most **10,000 histogram observations per tick** through `rate_scale` or
+`count_of`. A declaration whose nominal per-tick count exceeds that is rejected at load (the
+product of the largest `rate_scale` per label; for `count_of`, the largest summed increment of
+the counter series one histogram series follows, with a legacy `shape` incident at ×3, and for a
+batched counter the whole window one release carries at the default 60 s cadence). Rates that only grow at runtime (a master volume above 1,
+an unbounded `normal` / `lognormal` counter) are clamped at the bound and the excess is dropped.
+
+**Skewed durations.** `lognormal: {median, p95}` draws `median × exp(sigma × z)` with
+`sigma = ln(p95 / median) / 1.6449` and `z` from the blueprint's seeded generator. `median > 0`
+and `p95 >= median`; equal values give a constant. Its mean sits above the median with a long
+tail, unlike the symmetric `normal`, so a histogram's p95 and a threshold SLI behave like real
+durations. Choose bucket bounds that span the tail (seconds to days are fine).
+
+#### Stock gauges
+
+`stock_of: {metric, ...}` makes a gauge the level of a counter on the same
+service node (for example items in progress or a queue depth), instead of reading a value model.
+Omit `value`; `value_scale` is rejected on its labels (the stock counts items). Set exactly one of
+`dwell_seconds` (a fluid stock) and `residence` (an item stock).
+
+- **Which counter series.** `metric` names a counter on the same node (not the gauge itself). When
+  several same-named counter specs exist on the node (a blueprint may declare one spec per series),
+  the stock resolves all of them. With no `labels`, the gauge inherits the counter's label
+  combinations and each series stocks exactly its own counter series. With `labels`, the gauge is a
+  projection: each label must be a counter label, each value one the counter takes, every
+  combination must match at least one counter series, and a gauge series stocks the summed arrivals
+  of every counter series that matches it. A projection onto fewer labels, or none, sums the rest.
+- **Fluid stock: `dwell_seconds`** (finite, greater than 0). Each tick the level moves toward
+  `counter rate × dwell_seconds` (Little's law) by `1 - exp(-tick / dwell_seconds)`; the first tick
+  seeds the target, so a restart shows no ramp, and the first tick assumes the 60 s metric interval.
+  While the workload is paused the inflow is zero and the level drains. It is a smooth level, not
+  whole items, and it has no stall.
+- **Item stock: `residence: {median, p95}`.** The counter's increments arrive as whole items
+  (fractions carry deterministically), each item stays for its own lognormal residence draw
+  (`median > 0`, `p95 >= median`, both finite) and then completes, so the gauge is an integer that
+  settles near `counter rate × the residence mean` (the mean sits above the median). Draws hash the
+  series and the arrival tick, never the shape engine or the wall clock, so a run is a function of
+  its tick sequence. The first tick seeds the population the stock would hold had its arrivals
+  followed the counter's shape curve over the residence window before it (no ramp after a restart,
+  at the plateau or at night): the curve is integrated over that window in at most 4,096 steps, each
+  seeded item gets an age from that arrival density and a remaining residence drawn consistently with
+  it. A counter that is not shape-valued (a constant, a random draw) is held flat at that tick's
+  rate, which seeds rate x the residence mean as before. A paused workload adds no items so
+  completions drain the stock. One series holds at most 100,000 items; arrivals above that are
+  dropped, never carried.
+    - `stall_mode` (item stock only): an incident mode name. While it is active on the service at
+      intensity `i`, every item's residence advances at `(1 - i)` of real time. Intensity 1 stops
+      completions, so the count and the oldest age grow, and recovery drains the frozen items as
+      they finish. Unlike the `now` and `source_read` stall, it is graded. Without it an incident on
+      the same service leaves the stock at its baseline.
+    - `field` (item stock only): `count` (default) or `oldest_age_seconds`, the real seconds since
+      the oldest item still in the stock arrived (0 when empty). It has no horizon: it keeps growing
+      for as long as the stock is stalled.
+    - Two gauges with the same counter, labels, `residence` and `stall_mode` share one item
+      population, so a count gauge and an oldest-age gauge stay consistent with each other.
+
+```yaml
+custom_metrics:   # illustrative fixture values, not production defaults
+  - name: reviews_started_total
+    source: <instrumentation contract>
+    instrument: counter
+    value: {const: 3}
+  - name: reviews_open
+    source: <instrumentation contract>
+    instrument: gauge
+    stock_of: {metric: reviews_started_total, residence: {median: 600, p95: 1800}, stall_mode: latency_storm}
+  - name: reviews_oldest_age_seconds
+    source: <instrumentation contract>
+    instrument: gauge
+    stock_of: {metric: reviews_started_total, residence: {median: 600, p95: 1800}, stall_mode: latency_storm, field: oldest_age_seconds}
+```
+
+What this does NOT prove: a stock is a gauge derived from a counter, not a queue. Nothing the stock
+holds feeds back into the request path, the counter, latency or any capacity limit, and the items
+are anonymous (no per-item identity reaches a log or trace). The population lives in memory, so a
+restart re-seeds a steady state and forgets any stalled backlog.
+
+**Histogram counts from a counter.** `count_of: <counter>` makes a histogram observe, per label
+combination and tick, as many values as the named same-node counter incremented (fractions
+carry, rounding half up), so `_count` equals the counter's total rounded to a whole count, within
+the per-tick bound above. Its labels must be a subset of the counter's, each value one the
+counter takes, and every label combination must match at least one counter series. A histogram
+on every counter label follows one counter series per combination, and one on fewer labels (or
+none) observes the summed increments of the counter series that match it, so a latency
+histogram split by `outcome` still follows a counter split by `outcome` and `route`. The
+counter may be declared as one `metrics:` spec per series: the histogram reads every same-named
+counter spec on the node, so one histogram spec per series (each with its own `value`) takes its
+count from the matching counter series, and `_count` equals that series' increase each tick.
+A histogram label the counter lacks, a value it never takes, or a combination no counter series
+carries is rejected. Its own enum values may declare `value_scale` but not `rate_scale`.
+Two histogram specs of one name whose label selections overlap the same counter series each
+observe that series, so its arrivals are counted twice; this is not rejected, so give each counter
+series at most one matching histogram spec.
+`count_of_service: <service>` reads the counter on another node of the same workload (for
+example a counter a scenario targets through its own service): the named service must be
+declared before the histogram's service, an unknown or later service is rejected at load, and
+a source that is paused records nothing for the tick. A combination is absent until its counter first increments. Observation cost grows with the counter's increment, so keep it a
+plausible per-tick event count.
+
+```yaml
+custom_metrics:   # illustrative fixture values, not production defaults
+  - name: orders_total
+    source: <instrumentation contract>
+    instrument: counter
+    labels:
+      outcome: {enum: [{value: accepted, rate_scale: 4}, {value: rejected}]}
+    value: {const: 3}
+  - name: order_duration_seconds
+    source: <instrumentation contract>
+    instrument: histogram
+    count_of: orders_total
+    buckets: [60, 600, 3600, 86400]
+    labels:
+      outcome: {enum: [{value: accepted, value_scale: 3}, {value: rejected}]}
+    value: {lognormal: {median: 300, p95: 7200}}
+  - name: orders_in_progress
+    source: <instrumentation contract>
+    instrument: gauge
+    stock_of: {metric: orders_total, dwell_seconds: 1800}
+```
+
+**Request error rate.** The entry service may declare `error_rate` (0 to 1): the fraction of
+requests with a non-success outcome, split 50% 5xx, 30% 4xx and 20% 429 as before. It replaces
+the default 0.01, and an `error_spike` still raises the rate from it. Base it on the modelled
+service's observed error ratio.
+
+A downstream service may declare `error_rate` too, as an opt-in. It is that service's own hop
+failure fraction: on that share of requests the hop to it fails, so its CLIENT and SERVER spans
+are errors and its span metrics and service-graph failed counter count them. Each declared
+downstream rate is drawn independently of the entry and of the others, so a request fails with
+`1-(1-entry)(1-a)(1-b)...`. A request that only a downstream error_rate failed is an upstream 5xx; a
+request the entry also failed keeps the entry's drawn outcome. An `error_spike` on the same
+service still fails its hop through the incident's own draw, on top of the declared rate. The
+build rejects a rate outside 0 to 1, one on a service the entry cannot reach, and one on an
+automation or `agent_pipeline` app, which mint no graph calls. With no downstream `error_rate`
+(or a zero one) the draws are exactly the entry-only draws.
+
+**Workload load profile.** By default every workload follows the blueprint's one business-hours
+curve. An app may declare its own:
+
+```yaml
+workloads:
+  - type: app
+    name: mine-app
+    shape_profile:
+      timezone: America/New_York   # default: the blueprint timezone
+      floor: 0.05                  # default 0.1
+      ramp_up_start_hour: 7        # defaults 6 / 10 / 16 / 20
+      plateau_start_hour: 9
+      plateau_end_hour: 17
+      ramp_down_end_hour: 21
+      weekend_factor: 0.4          # default 0.3 for metrics, 0.2 / 0.02 for request volume
+```
+
+It drives the entry request volume (and so traces, logs and span metrics) and every `shape` value
+of the workload. A service may declare its own `shape_profile` with the same fields: each field it
+sets replaces the workload's, the rest are inherited from the workload's (then the defaults). It
+applies to that service's metrics and profiling, and, on the entry, to request volume and span
+metrics. This lets one workload model services in different timezones without adding a label. A custom metric, or one enum value of a metric label, may also declare `shape_profile`
+(for example `{value: apac, weight: 1, shape_profile: {timezone: Asia/Singapore}}`), merged field by
+field over workload, then service, then metric, then enum value; only that series follows the
+override clock and the label set is unchanged. It needs a `shape` value and is rejected with
+`stock_of` or `count_of` and on log or span enums. Hours must satisfy `0 <= ramp_up_start <= plateau_start <= plateau_end <=
+ramp_down_end <= 24`; an unknown timezone fails the build. `floor: 0` or `weekend_factor: 0` is
+a real zero load: `shape` values read exactly 0 then (as when paused), instead of the legacy
+evaluator's zero-means-full-load fallback, and request volume falls to `off_peak_rps`. The master volume, pause, environment
+weight and incidents still come from the blueprint. The curve is `shape.Curve`; the blueprint
+default equals `shape.DefaultCurve()` exactly.
 
 ### Catalog profiles
 

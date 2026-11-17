@@ -125,11 +125,11 @@ The adjacent connection panels also provide `GC_PROM_RW`, `GC_OTLP_ENDPOINT`, an
 Use the endpoint and numeric identifier from the same stack. Presence checks may confirm that a
 value is non-empty; never print `.env` or a token while diagnosing a failed identifier check.
 
-### Reading the data back needs a different credential, and a different identifier
+### Browser readback and optional API credentials
 
-The ingest credentials above are write-only. Verifying what actually landed needs a token carrying
-`metrics:read` (and `logs:read` for the log lanes), which is a separate Grafana Cloud access policy —
-an ingest token returns `401 authentication error: invalid scope requested` on a query.
+For the first run, use the selected stack's Grafana Explore in your ordinary browser, as shown in the [Docker Quick Start](quickstart.md#5-read-back-fresh-data-in-grafana). Your Grafana login supplies query access; neither `gcx` nor a second CLI credential is required for this route. Ask the stack administrator for access if you cannot open its data sources.
+
+An optional direct API client needs the corresponding read scopes, such as `metrics:read`, `logs:read` and `traces:read`. A CAP token created with only the minimum ingest write scopes cannot query data and returns `invalid scope requested`. Do not assume every token is write-only: inspect the granted scopes. Use the credential appropriate to that operation.
 
 **The query username is the per-signal instance ID, not the stack ID**, and the two are different
 numbers for the same stack. Mimir wants the Prometheus instance ID and Loki wants the Loki instance
@@ -156,10 +156,7 @@ and `invalid token` means revoked or malformed.
 
 ## Filling in `.env`
 
-```bash
-install -m 600 .env.example .env
-# open .env in your editor and fill in the values
-```
+Create `.env` with the no-overwrite procedure in the [Docker Quick Start](quickstart.md#1-clone-and-create-local-configuration), then enter the values in a local editor or a secure terminal prompt. Preserve existing settings; never copy the example over a configured file.
 
 Do not pass the real `.env` to raw `docker compose config`; rendered output can expose interpolated
 credentials. `just compose-check` uses `.env.example` as fake input for deployment rendering.

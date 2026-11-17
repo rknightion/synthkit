@@ -24,9 +24,9 @@ func TestDeliveryReadinessLanesFollowActiveBlueprints(t *testing.T) {
 	}
 	got := r.DeliveryReadinessLanes()
 	want := []DeliveryReadinessLane{
-		{Name: "loki", EmissionInterval: 60 * time.Second},
-		{Name: "otlp", EmissionInterval: 60 * time.Second},
-		{Name: "promrw", EmissionInterval: 60 * time.Second},
+		{Name: "loki", EmissionInterval: 60 * time.Second, Freshness: FreshnessScheduled},
+		{Name: "otlp", EmissionInterval: 60 * time.Second, Freshness: FreshnessRequestDriven},
+		{Name: "promrw", EmissionInterval: 60 * time.Second, Freshness: FreshnessScheduled},
 	}
 	if len(got) != len(want) {
 		t.Fatalf("lanes = %+v, want %+v", got, want)

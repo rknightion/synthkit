@@ -47,6 +47,7 @@ type namedLeaseRecorder struct {
 	updates  []string
 	released chan struct{}
 	once     sync.Once
+	latency  time.Duration
 }
 
 func leaseMicroTimestamp(now time.Time) string {
@@ -72,6 +73,17 @@ func newNamedLeaseRecorder(t *testing.T) (*namedLeaseRecorder, *httptest.Server)
 	a.document.Spec.LeaseDurationSeconds = 30
 	a.document.Spec.RenewTime = leaseMicroTimestamp(time.Now())
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		a.mu.Lock()
+		delay := a.latency
+		a.mu.Unlock()
+		if delay > 0 {
+			// A loaded host answers late; a request the client abandoned is not served.
+			select {
+			case <-time.After(delay):
+			case <-r.Context().Done():
+				return
+			}
+		}
 		a.mu.Lock()
 		defer a.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
@@ -109,6 +121,13 @@ func newNamedLeaseRecorder(t *testing.T) (*namedLeaseRecorder, *httptest.Server)
 	}))
 	return a, srv
 }
+
+// setLatency delays every subsequent Lease API response by d, standing in for a loaded host.
+func (a *namedLeaseRecorder) setLatency(d time.Duration) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.latency = d
+}
 func (a *namedLeaseRecorder) allowAcquisition() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -127,14 +146,23 @@ func writeHAJSON(t *testing.T, path string, value any) {
 }
 func haGet(t *testing.T, url string) (int, []byte) {
 	t.Helper()
+	code, body, _ := haGetDetail(url)
+	return code, body
+}
+
+// haGetDetail is haGet with the transport error kept, so a failed single-shot
+// observation can say whether it was a client timeout, a refused or reset
+// connection, or a completed response. It changes no bound or assertion.
+func haGetDetail(url string) (int, []byte, error) {
 	client := &http.Client{Timeout: 300 * time.Millisecond}
+	start := time.Now()
 	resp, err := client.Get(url)
 	if err != nil {
-		return 0, nil
+		return 0, nil, fmt.Errorf("after %s: %w", time.Since(start).Round(time.Millisecond), err)
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
-	return resp.StatusCode, body
+	return resp.StatusCode, body, nil
 }
 func awaitHA(t *testing.T, fn func() bool) {
 	t.Helper()
@@ -192,8 +220,8 @@ func exerciseHALeaseFileLifecycle(t *testing.T, expire, incompleteHeaders bool) 
 	cfg.SelfObsEnabled = false
 	cfg.MasterTick = time.Hour
 	cfg.HARetryPeriod = 50 * time.Millisecond
-	cfg.HARenewDeadline = 300 * time.Millisecond
-	cfg.HAKubeRequestTimeout = 100 * time.Millisecond
+	cfg.HARenewDeadline = fleetHARenewDeadline
+	cfg.HAKubeRequestTimeout = fleetHAKubeRequestTimeout
 	cfg.HAReleaseTimeout = time.Second
 	cfg.SendDrainDeadline = 2 * time.Second
 	if expire {
@@ -209,12 +237,8 @@ func exerciseHALeaseFileLifecycle(t *testing.T, expire, incompleteHeaders bool) 
 	cfg.FaroCollector = ""
 	cfg.ProfilesURL = ""
 	cfg.GitPollInterval = 0
-	listen, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.HTTPAddr = listen.Addr().String()
-	listen.Close()
+	cfg.HTTPAddr = childHTTPAddr
+	addrFile := filepath.Join(root, "http-addr")
 	cfgPath := filepath.Join(root, "config.json")
 	writeHAJSON(t, cfgPath, cfg)
 	exe, err := os.Executable()
@@ -224,7 +248,7 @@ func exerciseHALeaseFileLifecycle(t *testing.T, expire, incompleteHeaders bool) 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, exe, "-test.run=^TestHAGenericLeaseFileHelper$")
-	cmd.Env = append(os.Environ(), "SYNTHKIT_HA_CONFIG="+cfgPath, "SYNTHKIT_HA_API="+srv.URL, "GORACE="+os.Getenv("GORACE")+" atexit_sleep_ms=0")
+	cmd.Env = append(os.Environ(), "SYNTHKIT_HA_CONFIG="+cfgPath, "SYNTHKIT_HA_API="+srv.URL, childHTTPAddrFileEnv+"="+addrFile, "GORACE="+os.Getenv("GORACE")+" atexit_sleep_ms=0")
 	var headerRead <-chan error
 	if incompleteHeaders {
 		reader, writer, err := os.Pipe()
@@ -262,8 +286,8 @@ func exerciseHALeaseFileLifecycle(t *testing.T, expire, incompleteHeaders bool) 
 	}
 	wait := make(chan error, 1)
 	go func() { wait <- cmd.Wait() }()
-	endpoint := "http://" + cfg.HTTPAddr
-	awaitHA(t, func() bool { code, _ := haGet(t, endpoint+"/control/state"); return code == 200 })
+	boundAddr := awaitChildControl(t, addrFile)
+	endpoint := "http://" + boundAddr
 	before, err := os.ReadFile(statePath)
 	if err != nil {
 		t.Fatal(err)
@@ -306,12 +330,12 @@ func exerciseHALeaseFileLifecycle(t *testing.T, expire, incompleteHeaders bool) 
 		var current control.State
 		return json.Unmarshal(body, &current) == nil && current.VolumeMultiplier == 7 && len(current.BlueprintSources) == 1 && current.BlueprintSources[0].LoadedSHA == "after"
 	})
-	code, body := haGet(t, endpoint+"/control/inventory")
+	code, body, getErr := haGetDetail(endpoint + "/control/inventory")
 	if code != 200 || !strings.Contains(string(body), "second") {
-		t.Fatalf("acquisition retained stale topology: %d %s", code, body)
+		t.Fatalf("acquisition retained stale topology: %d %s (transport: %v)", code, body, getErr)
 	}
 	if incompleteHeaders {
-		conn, err := net.DialTimeout("tcp", cfg.HTTPAddr, time.Second)
+		conn, err := net.DialTimeout("tcp", boundAddr, time.Second)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -559,6 +583,7 @@ func TestHAGenericLeaseFileHelper(t *testing.T) {
 			os.Exit(code)
 		}
 	}
+	recordBoundHTTPAddr(&deps)
 	deps.Election = func(ctx context.Context, o lease.Options) (leaseElection, error) {
 		e, err := lease.NewForClient(ctx, o, os.Getenv("SYNTHKIT_HA_API"), &http.Client{Timeout: o.RequestTimeout})
 		return diagnosticElection{leaseElection: e}, err

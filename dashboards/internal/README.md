@@ -8,6 +8,101 @@ per-tick traces, continuous profiles, and its operational log stream to a **sepa
 Cloud **staff stack** over the `GC_SELF_OTLP_*` / `GC_PYROSCOPE_*` credentials (never `GC_TOKEN`).
 This folder visualises that self-telemetry.
 
+## Scoped offline export
+
+Use the offline exporter when several synthkit deployments share observability backends, or when
+dashboard resources need deployment-specific identities and datasource bindings. It imports the
+same generator as the staff dashboard, writes local resources only, and needs no credentials or
+network access. It requires Python 3.11 or newer, matching the repository's contributor prerequisites:
+
+```bash
+just selfobs-export \
+  --namespace demo-a --deployment demo-a --out /path/to/new-export \
+  --metrics-datasource metrics-main --logs-datasource logs-main \
+  --traces-datasource traces-main --profiles-datasource profiles-main
+```
+
+The output is `folder.json`, `dashboard.json` and `queries.json`. The query inventory records every
+enabled panel and variable query, its language, datasource, exact deployment scope and any omitted
+panels with reasons. Identical inputs produce identical resource bytes. Different resource
+namespaces produce distinct dashboard and folder UIDs, including when long namespaces share a
+prefix. Use `--folder` to choose a base folder UID and `--folder-title` for its base title. Both
+remain namespaced: the exported UID includes namespace identity and the title gains a namespace
+suffix, so two exports cannot replace each other's folder resource. These options do not target
+an existing shared folder. The output
+directory must be new; the command refuses an existing directory rather than replacing its files.
+The no-argument `build_selfobs_dashboard.py` command and its staff artifact retain their defaults.
+
+### Deployment identity and backend prerequisites
+
+`--namespace` names dashboard resources. `--deployment` filters telemetry. They are separate so a
+dashboard can be renamed without changing which deployment it observes.
+
+Set a stable, deployment-unique resource namespace on **every process** in the deployment through
+the existing `SELFOBS_TAGS` setting. Profiles use the existing `env` profile tag separately:
+
+```dotenv
+SELFOBS_TAGS=service.namespace=demo-a
+PYROSCOPE_TAGS=env=demo-a
+```
+
+Append these pairs to any existing tags instead of removing those tags. Keep the default
+`service.name=synthkit`. Reuse the same values after a restart and across HA processes, and choose
+different values for independent deployments. The exporter accepts deployment values of 1 to 128
+letters, digits, dots, underscores or hyphens, starting with a letter or digit. Quotes, backslashes
+and Grafana variable expressions are refused. It does not discover or change a running process's
+configuration.
+
+The supported projection is:
+
+| Signal | Required receiver projection | Query boundary |
+| --- | --- | --- |
+| Metrics | Standard OTLP conversion preserves `service.namespace` and `service.name` as `job=<deployment>/synthkit`, and `service.instance.id` as `instance`. | Every metric selector and variable query has the exact `job` matcher before aggregation. |
+| Logs | Native OTLP ingestion preserves `service.namespace` as `service_namespace`, either indexed or as structured metadata. | Every LogQL stream pipeline filters the exact `service_namespace` value. |
+| Traces | Resource attributes retain `service.namespace`. | Every TraceQL query filters the exact `resource.service.namespace` value. |
+| Profiles | `PYROSCOPE_TAGS` supplies the matching `env` tag. | Every profile selector filters the exact `env` value. |
+
+Grafana's [Mimir OTLP conversion guide](https://grafana.com/docs/mimir/latest/configure/configure-otel-collector/)
+defines the metrics job/instance projection. Loki's [OTLP mapping guide](https://grafana.com/docs/loki/latest/send-data/otel/)
+defines normalized attribute names and indexed versus structured metadata storage. A receiver that
+rewrites or drops these dimensions is unsupported. The exporter cannot verify backend configuration
+offline; preserve these dimensions before using its resources.
+
+The instance picker selects metric processes within the fixed deployment. Selecting All includes
+replacement processes without widening the deployment boundary. Logs, traces and profiles remain
+deployment-wide; the exporter makes no per-process profiling claim. A URL-provided instance value
+cannot widen the fixed metrics job matcher.
+
+Backend-derived Tempo spanmetrics are omitted with machine-readable diagnostics because their
+default dimensions do not establish a deployment namespace. They never fall back to all synthkit
+processes. Use `--signals metrics,logs,traces` if profile tags are unavailable, or a narrower list
+when another receiver projection is unavailable. Metrics are required for the dashboard's process
+and dimension variables. An unsupported signal name or malformed scope/binding refuses export
+before writing resources.
+
+These filters select data; they do not authorize datasource access. Configure Grafana datasource
+permissions separately. An empty result does not establish delivery or backend readiness.
+
+### Offline verification
+
+The Go receiver proof exercises actual self-observability providers and OTLP HTTP exports for two
+deployments and replacement process identities. The Python CLI suite checks resources, bindings,
+scope rejection, omissions and unchanged default generation. It also executes every exported
+PromQL query and variable selector with `promtool` when available, including foreign-deployment
+negative fixtures and multi-process positive fixtures. Run the additional query proof explicitly:
+
+```bash
+REQUIRE_PROMTOOL=1 python3 -m unittest discover -s dashboards/internal \
+  -p 'test_export_selfobs_dashboard.py'
+just test-packages ./dashboards/internal </dev/null
+```
+
+`REQUIRE_PROMTOOL=1` fails if the tool is missing. The portable Python suite otherwise reports that
+query-execution check as skipped when `promtool` is unavailable. These checks establish OTLP
+resource transport and offline PromQL behavior against the documented projection. They do not
+establish a live Mimir, Loki, Tempo or Pyroscope deployment, or prove Grafana rendering. Publishing
+and visual verification remain separate operations.
+
 ## Dashboard
 
 | File | Stack | Folder | UID |

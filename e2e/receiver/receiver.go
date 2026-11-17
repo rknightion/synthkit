@@ -83,6 +83,9 @@ type Receiver struct {
 	// resource, scope and datapoint attributes, plus the native metric metadata, available to
 	// a future envelope-aware capture without changing inventory.Schema.
 	otlpMetrics []*metricspb.ResourceMetrics
+	// guard is the deterministic hooks:evaluate and conversation-rating double (hooks.go).
+	// It has its own lock and emits no telemetry.
+	guard guardState
 }
 
 // CounterSample is one producer-declared RW2 counter observation. Timestamp is Unix
@@ -118,6 +121,8 @@ func (r *Receiver) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/generations:export", r.handleSigilGenerations)
 	mux.HandleFunc("POST /api/v1/workflow-steps:export", r.handleSigilWorkflowSteps)
 	mux.HandleFunc("POST /api/v1/scores:export", r.handleSigilScores)
+	// Request/response endpoints with deterministic decisions: hooks:evaluate and ratings.
+	r.registerGuardRoutes(mux)
 	mux.HandleFunc("GET /__inventory", r.handleInventory)
 	mux.HandleFunc("GET /__otlp_metrics", r.handleNativeOTLPMetrics)
 	mux.HandleFunc("GET /__counter_samples", r.handleCounterSamples)

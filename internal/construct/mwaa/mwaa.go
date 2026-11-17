@@ -24,6 +24,14 @@
 //
 // ⚠ aws_amazonmwaa_* series are sparse/event-driven in production; synthkit emits
 // representative values so dashboards remain non-empty.
+//
+// Declared pipelines (internal/pipelinerun, injected through Config.UsePipelines) that name an
+// environment drive that environment's task-queue series from the shared run simulation: every
+// stage is an Airflow task, so queued_tasks (both namespaces) counts stage executions waiting to
+// start, running_tasks counts executing ones, and aws_mwaa_approximate_age_of_oldest_task is the
+// oldest wait. A stage_stall therefore raises the age and the queue. Terminal pipeline outcomes
+// additionally supply sparse DAG duration and environment-wide task failure observations in
+// AmazonMWAA. All other series, and environments without declarations, keep the legacy formulas.
 package mwaa
 
 import (
@@ -34,6 +42,7 @@ import (
 	"github.com/rknightion/synthkit/internal/core"
 	"github.com/rknightion/synthkit/internal/cw"
 	"github.com/rknightion/synthkit/internal/fixture"
+	"github.com/rknightion/synthkit/internal/pipelinerun"
 	"github.com/rknightion/synthkit/internal/state"
 )
 
@@ -42,7 +51,14 @@ type Config struct {
 	// Environments is the list of MWAA environment names to emit.
 	// If empty, one synthetic environment derived from fx.Seed is used.
 	Environments []string `yaml:"environments"`
+
+	// Pipelines are the environment's declared pipelines, set by the composition root from the
+	// blueprint's single cloud.pipelines declaration (never decoded from this block).
+	Pipelines []pipelinerun.Pipeline `yaml:"-"`
 }
+
+// UsePipelines implements pipelinerun.Consumer.
+func (c *Config) UsePipelines(ps []pipelinerun.Pipeline) { c.Pipelines = ps }
 
 // Construct is the MWAA renderer. Not exported; callers use Build.
 type Construct struct {
@@ -52,6 +68,14 @@ type Construct struct {
 	cloud        *fixture.Cloud
 	exportMode   string
 	st           *state.State
+	tracker      *pipelinerun.Tracker
+	orchestrates map[string]bool // environments orchestrating a declared pipeline
+}
+
+// taskQueue is one environment's pipeline-derived Airflow task state at the tick.
+type taskQueue struct {
+	queued, running float64
+	oldestAgeSec    float64
 }
 
 // Compile-time interface check.
@@ -65,6 +89,27 @@ func Build(cfgAny any, fx *fixture.Set) (core.Construct, error) {
 	}
 	if fx == nil || fx.Cloud == nil {
 		return nil, fmt.Errorf("mwaa: Build requires a non-nil fixture.Cloud")
+	}
+
+	known := map[string]bool{}
+	for _, e := range c.Environments {
+		known[e] = true
+	}
+	var orchestrated []pipelinerun.Pipeline
+	orchestrates := map[string]bool{}
+	for _, p := range c.Pipelines {
+		if p.Environment == "" {
+			continue
+		}
+		if !known[p.Environment] {
+			return nil, fmt.Errorf("mwaa: pipeline %q names environment %q, not one of %v", p.Name, p.Environment, c.Environments)
+		}
+		orchestrates[p.Environment] = true
+		orchestrated = append(orchestrated, p)
+	}
+	tracker, err := pipelinerun.NewTracker(fx.Seed, orchestrated, 60*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("mwaa: %w", err)
 	}
 
 	environments := c.Environments
@@ -83,6 +128,8 @@ func Build(cfgAny any, fx *fixture.Set) (core.Construct, error) {
 		cloud:        fx.Cloud,
 		exportMode:   fx.Cloud.CloudWatchExportMode(),
 		st:           state.NewState(),
+		tracker:      tracker,
+		orchestrates: orchestrates,
 	}, nil
 }
 
@@ -99,13 +146,30 @@ func (c *Construct) Interval() time.Duration { return 60 * time.Second }
 // All series use state.Set (per-period gauges, ARCHITECTURE I5 — NEVER state.Add).
 func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) error {
 	bf := w.Shape.BusinessFactor(now)
+	var win pipelinerun.Window
+	if !c.tracker.Empty() {
+		win = c.tracker.Advance(now, w.Shape.Eval)
+	}
 
 	for _, envName := range c.environments {
-		c.emitMWAA(bf, envName)
-		c.emitAmazonMWAA(bf, envName)
+		var q *taskQueue
+		if c.orchestrates[envName] {
+			q = queueOf(win.ForEnvironment(envName))
+		}
+		c.emitMWAA(bf, envName, q)
+		c.emitAmazonMWAA(bf, envName, q)
 	}
 
 	batch := c.st.Collect(now)
+	// Outcome observations are per-window and sparse. A fresh state avoids retaining an earlier
+	// duration/failure in an empty window; legacy state and its series remain untouched.
+	outcomes := state.NewState()
+	for _, envName := range c.environments {
+		if c.orchestrates[envName] {
+			c.emitOutcomes(outcomes, envName, win.ForEnvironment(envName))
+		}
+	}
+	batch = append(batch, outcomes.Collect(now)...)
 	if c.exportMode == "otlp" {
 		_, err := cw.WriteMetricStreams(ctx, w.OTLPMetrics, c.cloud, batch)
 		return err
@@ -113,17 +177,39 @@ func (c *Construct) Tick(ctx context.Context, now time.Time, w *core.World) erro
 	return w.Metrics.Write(ctx, batch)
 }
 
+// queueOf folds an environment's pipeline windows into its Airflow task queue.
+func queueOf(ps []pipelinerun.PipelineWindow) *taskQueue {
+	q := &taskQueue{}
+	for _, p := range ps {
+		for _, s := range p.Stages {
+			q.queued += float64(s.Pending)
+			q.running += float64(s.Running)
+			if s.OldestPendingAgeSec > q.oldestAgeSec {
+				q.oldestAgeSec = s.OldestPendingAgeSec
+			}
+		}
+	}
+	return q
+}
+
 // emitMWAA emits the AWS/MWAA namespace series (17 base, infra metrics).
 // Base names sourced VERBATIM from signals/cw.md [slug: cw-mwaa].
-func (c *Construct) emitMWAA(bf float64, envName string) {
+// q is nil for an environment orchestrating no declared pipeline (legacy formulas).
+func (c *Construct) emitMWAA(bf float64, envName string, q *taskQueue) {
 	st := c.st
 
 	// Env-level metrics (dimension_Environment only).
 	envLbls := c.mwaaLabels(envName, nil)
 	setGauge(st, "aws_mwaa_active_connection_count", envLbls, 5+15*bf)
-	setGauge(st, "aws_mwaa_approximate_age_of_oldest_task", envLbls, bf*30)
-	setGauge(st, "aws_mwaa_queued_tasks", envLbls, bf*3)
-	setGauge(st, "aws_mwaa_running_tasks", envLbls, 2+8*bf)
+	if q != nil {
+		setGauge(st, "aws_mwaa_approximate_age_of_oldest_task", envLbls, q.oldestAgeSec)
+		setGauge(st, "aws_mwaa_queued_tasks", envLbls, q.queued)
+		setGauge(st, "aws_mwaa_running_tasks", envLbls, q.running)
+	} else {
+		setGauge(st, "aws_mwaa_approximate_age_of_oldest_task", envLbls, bf*30)
+		setGauge(st, "aws_mwaa_queued_tasks", envLbls, bf*3)
+		setGauge(st, "aws_mwaa_running_tasks", envLbls, 2+8*bf)
+	}
 
 	// Cluster-level metrics (dimension_Environment + dimension_Cluster).
 	for _, cluster := range []string{"AdditionalWorker", "BaseWorker", "Scheduler", "WebServer"} {
@@ -154,7 +240,7 @@ func (c *Construct) emitMWAA(bf float64, envName string) {
 
 // emitAmazonMWAA emits the AmazonMWAA namespace series (31 base, Airflow StatsD operational).
 // Base names sourced VERBATIM from signals/cw.md [slug: cw-mwaa].
-func (c *Construct) emitAmazonMWAA(bf float64, envName string) {
+func (c *Construct) emitAmazonMWAA(bf float64, envName string, q *taskQueue) {
 	st := c.st
 
 	// Most metrics carry dimension_Environment + dimension_Function (or dimension_Pool, etc).
@@ -187,8 +273,13 @@ func (c *Construct) emitAmazonMWAA(bf float64, envName string) {
 	setGauge(st, "aws_amazonmwaa_file_path_queue_update_count", dagLbls, bf*2)
 	setGauge(st, "aws_amazonmwaa_import_errors", dagLbls, 0)
 	setGauge(st, "aws_amazonmwaa_processes", schLbls, 3+2*bf)
-	setGauge(st, "aws_amazonmwaa_queued_tasks", execLbls, bf*3)
-	setGauge(st, "aws_amazonmwaa_running_tasks", execLbls, 2+8*bf)
+	if q != nil {
+		setGauge(st, "aws_amazonmwaa_queued_tasks", execLbls, q.queued)
+		setGauge(st, "aws_amazonmwaa_running_tasks", execLbls, q.running)
+	} else {
+		setGauge(st, "aws_amazonmwaa_queued_tasks", execLbls, bf*3)
+		setGauge(st, "aws_amazonmwaa_running_tasks", execLbls, 2+8*bf)
+	}
 	setGauge(st, "aws_amazonmwaa_tasks_executable", schLbls, 2+6*bf)
 	setGauge(st, "aws_amazonmwaa_tasks_starving", schLbls, 0)
 	setGauge(st, "aws_amazonmwaa_orphaned", schLbls, 0)
@@ -210,6 +301,42 @@ func (c *Construct) emitAmazonMWAA(bf float64, envName string) {
 
 	// Info series.
 	st.Set("aws_amazonmwaa_info", c.amazonMWAALabels(envName, nil), 1)
+}
+
+// emitOutcomes consumes terminal facts from the shared tracker, never a second timeline.
+// AWS names/units/dimensions: signals/cw.md [slug: cw-mwaa]. Each duration is a timer
+// observation in milliseconds; each failed stage contributes one Count=1 observation.
+func (c *Construct) emitOutcomes(st *state.State, env string, ps []pipelinerun.PipelineWindow) {
+	failures := 0
+	for _, p := range ps {
+		labels := c.amazonMWAALabels(env, map[string]string{"dimension_DAG": p.Name})
+		for _, o := range []struct {
+			base          string
+			count         int
+			sum, min, max float64
+		}{
+			{"aws_amazonmwaa_dagduration_success", p.Succeeded, p.SucceededDurSec, p.SucceededDurMinSec, p.SucceededDurMaxSec},
+			{"aws_amazonmwaa_dagduration_failed", p.Failed, p.FailedDurSec, p.FailedDurMinSec, p.FailedDurMaxSec},
+		} {
+			if o.count == 0 {
+				continue // storage zeros are not timer observations
+			}
+			sum := o.sum * 1000
+			cw.EmitStats(st, o.base, labels, cw.StatSet{
+				Sum: sum, Average: sum / float64(o.count), Minimum: o.min * 1000,
+				Maximum: o.max * 1000, SampleCount: float64(o.count),
+			})
+		}
+		for _, s := range p.Stages {
+			failures += s.Failed
+		}
+	}
+	if failures > 0 {
+		labels := c.amazonMWAALabels(env, map[string]string{"dimension_DAG": "All", "dimension_Task": "All"})
+		cw.EmitStats(st, "aws_amazonmwaa_task_instance_failures", labels, cw.StatSet{
+			Sum: float64(failures), Average: 1, Minimum: 1, Maximum: 1, SampleCount: float64(failures),
+		})
+	}
 }
 
 // mwaaLabels builds labels for the AWS/MWAA namespace.

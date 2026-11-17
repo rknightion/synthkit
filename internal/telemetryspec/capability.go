@@ -13,7 +13,8 @@ import (
 type position int
 
 const (
-	posLabel       position = iota // metric label / Loki stream label (a series/stream dimension)
+	posLabel       position = iota // Loki stream label (a stream dimension)
+	posMetricLabel                 // metric label (a series dimension; admits enum rate/value scales)
 	posMetricValue                 // a metric magnitude
 	posBody                        // a Loki log body field
 	posAttr                        // a span attribute
@@ -27,8 +28,48 @@ func checkValue(vm ValueModel, pos position, where string) error {
 	if err := vm.Validate(); err != nil {
 		return fmt.Errorf("%s: %w", where, err)
 	}
+	// Only the metric lane supplies scoped incident intensity. Reject the opt-in elsewhere
+	// rather than silently emitting the base from a log/span evaluator with no incident input.
+	if vm.Shape != nil && vm.Shape.IncidentValue != nil && pos != posMetricValue {
+		return fmt.Errorf("%s: shape incident_value is metric value only", where)
+	}
+	if vm.Shape != nil && vm.Shape.Batch != nil && pos != posMetricValue {
+		return fmt.Errorf("%s: shape batch is metric value only", where)
+	}
+	// The now model reads the metric lane's tick time; no other evaluator supplies it.
+	if vm.Now != nil && pos != posMetricValue {
+		return fmt.Errorf("%s: now is metric value only", where)
+	}
+	// A request draw reads the log projection's per-request seed; no other evaluator supplies one.
+	if vm.RequestDraw != nil && pos != posBody {
+		return fmt.Errorf("%s: request_draw is log body only", where)
+	}
+	// A source read draws on the metric lane's stall state; no other evaluator supplies one.
+	if vm.SourceRead != nil && pos != posMetricValue {
+		return fmt.Errorf("%s: source_read is metric value only", where)
+	}
+	// The causal models read model state or window outcomes, which only the metric lane supplies.
+	if (vm.Resource != nil || vm.Outcomes != nil) && pos != posMetricValue {
+		return fmt.Errorf("%s: %s is metric value only", where, vm.Kind())
+	}
+	// Per-value metric multipliers only mean something where an enum expands into metric series.
+	// MetricSpec.Validate checks them against the instrument; every other position rejects them
+	// rather than silently ignoring them.
+	if pos != posMetricLabel {
+		for _, e := range vm.Enum {
+			if e.Scaled() {
+				return fmt.Errorf("%s: enum rate_scale/value_scale is valid on metric labels only", where)
+			}
+			if e.ShapeProfile != nil {
+				return fmt.Errorf("%s: enum shape_profile is valid on metric labels only", where)
+			}
+			if e.StallMode != "" {
+				return fmt.Errorf("%s: enum stall_mode is valid on metric labels only", where)
+			}
+		}
+	}
 	switch pos {
-	case posLabel:
+	case posLabel, posMetricLabel:
 		// The high-card ref footgun gets a precise message (highcard is the single source of truth).
 		if vm.Kind() == KindRef && highcard.Contains(vm.Ref) {
 			return fmt.Errorf("%s: high-card ref %q is forbidden as a label/stream-label "+
@@ -46,9 +87,10 @@ func checkValue(vm ValueModel, pos position, where string) error {
 		// A metric magnitude must be numeric-producing — string models (const_str/enum/ref) can't be
 		// a metric value.
 		switch vm.Kind() {
-		case KindConst, KindIntRange, KindFloatRange, KindNormal, KindBool, KindShape:
+		case KindConst, KindIntRange, KindFloatRange, KindNormal, KindLognormal, KindBool, KindShape, KindNow,
+			KindResource, KindOutcomes, KindSourceRead:
 		default:
-			return fmt.Errorf("%s: metric value must be numeric (const|int_range|float_range|normal|bool|shape), got %q", where, vm.Kind())
+			return fmt.Errorf("%s: metric value must be numeric (const|int_range|float_range|normal|lognormal|bool|shape|now|resource|outcomes|source_read), got %q", where, vm.Kind())
 		}
 	case posBody, posAttr:
 		// Any validated model is allowed here — including a high-card ref (the correlation glue:

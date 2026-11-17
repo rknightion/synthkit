@@ -77,12 +77,17 @@ func EmitContainer(st *state.State, base map[string]string, c Container, prof Ca
 	if memBytes < 32*1024*1024 {
 		memBytes = 32 * 1024 * 1024
 	}
-	cache := memBytes * 0.25
-	set("container_memory_working_set_bytes", cbase, memBytes)
+	// Preserve the synthetic component proportions, but apply the limit to their
+	// total before splitting it. Neither jitter, load nor the floor can enlarge a
+	// declared budget. Keep the uncapped basis for the unrelated filesystem model.
+	usage := min(memBytes*1.25, memLimit)
+	workingSet := usage / 1.25
+	cache := usage - workingSet
+	set("container_memory_working_set_bytes", cbase, workingSet)
 	set("container_memory_cache", cbase, cache)
-	set("container_memory_rss", cbase, memBytes*0.8)
+	set("container_memory_rss", cbase, workingSet*0.8)
 	set("container_memory_swap", cbase, 0)
-	set("container_memory_usage_bytes", cbase, memBytes+cache)
+	set("container_memory_usage_bytes", cbase, usage)
 
 	// docker-only gauges
 	// container_fs_usage_bytes: approximate disk usage, similar to working-set magnitude.

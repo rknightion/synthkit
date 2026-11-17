@@ -354,12 +354,11 @@ func TestHACoordinatorRenewalLossSuppressesCleanup(t *testing.T) {
 			cfg.FMURL, cfg.FMToken, cfg.FMStackID = remote.URL+"/fleet", "test", "test"
 			cfg.FaroCollector, cfg.ProfilesURL, cfg.SigilEndpoint, cfg.ControlToken = "", "", "", ""
 			cfg.GitPollInterval = 0
-			listen, err := net.Listen("tcp", "127.0.0.1:0")
-			if err != nil {
-				t.Fatal(err)
-			}
-			cfg.HTTPAddr = listen.Addr().String()
-			_ = listen.Close()
+			// The helper binds its own ephemeral port and publishes the bound
+			// address. Reserving a port here and closing it let another process
+			// take it before the helper bound (bind failure, or probes answered
+			// by a foreign server).
+			cfg.HTTPAddr = "127.0.0.1:0"
 			cfgPath := filepath.Join(root, "config.json")
 			writeHAJSON(t, cfgPath, cfg)
 			exe, err := os.Executable()
@@ -377,13 +376,14 @@ func TestHACoordinatorRenewalLossSuppressesCleanup(t *testing.T) {
 			}
 			wait := make(chan error, 1)
 			go func() { wait <- cmd.Wait() }()
-			endpoint, events := "http://"+cfg.HTTPAddr, filepath.Join(root, "coordinator-events.jsonl")
-			awaitHA(t, func() bool { code, _ := haGet(t, endpoint+"/control/state"); return code == 200 })
+			events := filepath.Join(root, "coordinator-events.jsonl")
+			child := &haLossChild{cmd: cmd, wait: wait, output: &output}
+			endpoint := child.awaitReady(t, filepath.Join(root, haLossHTTPAddrFile))
 			api.allowAcquisition()
 			if scenario == "preparation" {
-				awaitHA(t, func() bool { return strings.Contains(readHALossEvents(events), "\"kind\":\"preparation\"") })
+				child.await(t, "preparation entry", func() bool { return strings.Contains(readHALossEvents(events), "\"kind\":\"preparation\"") })
 			} else {
-				awaitHA(t, func() bool {
+				child.await(t, "leader Fleet registration, heartbeat and delivery", func() bool {
 					remoteMu.Lock()
 					paths := append([]haLossHTTPRequest(nil), remotePaths...)
 					remoteMu.Unlock()
@@ -411,7 +411,7 @@ func TestHACoordinatorRenewalLossSuppressesCleanup(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			awaitHA(t, func() bool { return strings.Contains(readHALossEvents(events), "\"kind\":\"exit-1\"") })
+			child.await(t, "fatal exit-1 selection", func() bool { return strings.Contains(readHALossEvents(events), "\"kind\":\"exit-1\"") })
 			if scenario == "partial" && haBufferedDepth(t, endpoint) == 0 {
 				t.Fatal("loss drained the buffered partial batch")
 			}
@@ -532,6 +532,87 @@ func haLossStopTime(t *testing.T, log string) int64 {
 	return 0
 }
 
+// haLossChild retains evidence when a coordinator-loss helper misses an awaited
+// observation. Each wait keeps awaitHA's six-second bound, 20ms poll and exact
+// predicate. A helper that exits first fails at once with its exit and output;
+// one still running at the bound is sent SIGQUIT so its goroutine dump shows
+// where it stood. output is read only after the helper has exited.
+type haLossChild struct {
+	cmd    *exec.Cmd
+	wait   chan error
+	output *bytes.Buffer
+}
+
+// haLossHTTPAddrFile holds the helper's actually bound control address.
+const haLossHTTPAddrFile = "http-addr"
+
+func (c *haLossChild) awaitReady(t *testing.T, addrPath string) string {
+	t.Helper()
+	client := &http.Client{Timeout: 300 * time.Millisecond}
+	last, endpoint := "no probe", ""
+	c.awaitDetail(t, "/control/state 200 before Lease acquisition", func() (bool, string) {
+		if endpoint == "" {
+			addr, err := os.ReadFile(addrPath)
+			if err != nil || len(addr) == 0 {
+				last = "bound address not yet published"
+				return false, last
+			}
+			endpoint = "http://" + string(addr)
+		}
+		resp, err := client.Get(endpoint + "/control/state")
+		if err != nil {
+			last = err.Error()
+			return false, last
+		}
+		_, _ = io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+		last = "status " + strconv.Itoa(resp.StatusCode)
+		return resp.StatusCode == 200, last
+	})
+	return endpoint
+}
+
+func (c *haLossChild) await(t *testing.T, what string, fn func() bool) {
+	t.Helper()
+	c.awaitDetail(t, what, func() (bool, string) { return fn(), "" })
+}
+
+func (c *haLossChild) awaitDetail(t *testing.T, what string, fn func() (bool, string)) {
+	t.Helper()
+	start := time.Now()
+	deadline := start.Add(6 * time.Second)
+	polls, last := 0, ""
+	for time.Now().Before(deadline) {
+		polls++
+		ok, detail := fn()
+		if ok {
+			t.Logf("observed %s after %v (%d polls)", what, time.Since(start), polls)
+			return
+		}
+		last = detail
+		select {
+		case err := <-c.wait:
+			if ok, _ := fn(); ok {
+				c.wait <- err
+				return
+			}
+			t.Fatalf("HA helper exited before %s after %v (%d polls, last %q): %v\n%s", what, time.Since(start), polls, last, err, c.output.String())
+		default:
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	elapsed := time.Since(start)
+	_ = c.cmd.Process.Signal(syscall.SIGQUIT)
+	var err error
+	select {
+	case err = <-c.wait:
+	case <-time.After(5 * time.Second):
+		_ = c.cmd.Process.Kill()
+		err = <-c.wait
+	}
+	t.Fatalf("HA local behavior was not observed within bound: %s not observed after %v (%d polls, last %q); helper exit after SIGQUIT: %v\n%s", what, elapsed, polls, last, err, c.output.String())
+}
+
 func readHALossEvents(path string) string { b, _ := os.ReadFile(path); return string(b) }
 func haBufferedDepth(t *testing.T, endpoint string) int {
 	t.Helper()
@@ -633,6 +714,18 @@ func TestHACoordinatorLossHelper(t *testing.T) {
 		return nil
 	}
 	deps.BeforeHandoff = func(step string) { events.record(step + "-handoff") }
+	deps.WrapHTTPListener = func(l net.Listener) net.Listener {
+		// Publish atomically so the parent never reads a partial address.
+		dir := filepath.Dir(path)
+		tmp := filepath.Join(dir, haLossHTTPAddrFile+".tmp")
+		if err := os.WriteFile(tmp, []byte(l.Addr().String()), 0600); err != nil {
+			panic(err)
+		}
+		if err := os.Rename(tmp, filepath.Join(dir, haLossHTTPAddrFile)); err != nil {
+			panic(err)
+		}
+		return l
+	}
 	deps.Exit = func(code int) {
 		events.record("exit-" + strconv.Itoa(code))
 		// Test-only delay exposes earlier-admitted actions still in flight.

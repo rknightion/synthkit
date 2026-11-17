@@ -6,7 +6,7 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o /out/receiver ./e2e/receiver/cmd
 
 # Debian security carries the patched trust store before the distroless rebuild.
-FROM debian:bookworm-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8 AS trust
+FROM debian:bookworm-slim@sha256:99c0b25c46d0214d5a2091092e7908907dcaecd6a962cde0ac700acee222b6f3 AS trust
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates=20250419~deb12u2 && \
     dpkg-query -s ca-certificates > /ca-certificates.status && \
     mkdir /selected-certs && cp -L /etc/ssl/certs/*.pem /selected-certs/

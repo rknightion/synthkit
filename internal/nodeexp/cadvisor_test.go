@@ -4,11 +4,49 @@
 package nodeexp
 
 import (
+	"fmt"
+	"math"
+	"strings"
 	"testing"
 
 	"github.com/rknightion/synthkit/internal/sink/promrw"
 	"github.com/rknightion/synthkit/internal/state"
 )
+
+func TestCadvisorMemoryBudgetAcrossProfiles(t *testing.T) {
+	for _, profile := range []struct {
+		name string
+		kind CadvisorProfile
+		c    Container
+	}{
+		{"kubernetes", CadvisorK8s, testContainerK8s()},
+		{"docker", CadvisorDocker, testContainerDocker()},
+	} {
+		for _, limit := range []float64{8 * 1024 * 1024, 128 * 1024 * 1024} {
+			t.Run(fmt.Sprintf("%s/%g", profile.name, limit), func(t *testing.T) {
+				c := profile.c
+				c.MemLimit = limit
+				st, sh := state.NewState(), testEngine()
+				for _, load := range []float64{0, 1, 20, .1} {
+					EmitContainer(st, testCadvisorBase(), c, profile.kind, load, 60, 2, sh)
+					foundUsage := false
+					for _, s := range st.Collect(testNow()) {
+						if !strings.HasPrefix(s.Name, "container_memory_") {
+							continue
+						}
+						foundUsage = foundUsage || s.Name == "container_memory_usage_bytes"
+						if math.IsNaN(s.Value) || math.IsInf(s.Value, 0) || s.Value < 0 || s.Value > limit {
+							t.Errorf("load%g: %s=%g outside memory budget [0,%g]", load, s.Name, s.Value, limit)
+						}
+					}
+					if !foundUsage {
+						t.Fatal("container usage absent; an empty profile cannot prove the memory budget")
+					}
+				}
+			})
+		}
+	}
+}
 
 // testContainer returns a representative Container for tests.
 // k8s-style: Labels has {container,id,image,name,pod,namespace,node}; NetLabels drops

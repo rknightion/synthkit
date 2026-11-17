@@ -104,6 +104,9 @@ func (s *Sink) Write(ctx context.Context, batches []nativesigil.Export) (termina
 		if err := validateScores(b.Scores); err != nil {
 			return err
 		}
+		if err := validatePartKinds(b.Generations); err != nil {
+			return err
+		}
 		allGens = append(allGens, toProtoGenerations(b.Generations)...)
 		allSteps = append(allSteps, toProtoWorkflowSteps(b.WorkflowSteps)...)
 		allScores = append(allScores, toProtoScores(b.Scores)...)

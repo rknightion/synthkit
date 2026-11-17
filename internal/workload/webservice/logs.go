@@ -18,7 +18,7 @@ import (
 // projectLogs emits app logs for the batch. ONE request-lifecycle line per request, plus
 // an error-detail line on failures. Stream labels are low-cardinality only (I14); the
 // high-card correlation keys ride in structured metadata. Lines are grouped into streams
-// keyed by {env, service_name, level, source, cluster, job} — level is the only
+// keyed by {env, service_namespace, service_name, level, source, cluster, job} — level is the only
 // per-request-varying stream label and it is low-card (info|warn|error).
 func (w *Workload) projectLogs(ctx context.Context, world *core.World, batch []*ledger.Request) error {
 	// Group lines by level so each stream has a single low-card label set.
@@ -252,26 +252,18 @@ type langsmithRunBody struct {
 
 // calleeStreamLabels are the low-card stream labels for a service-hop callee's log stream.
 func (w *Workload) calleeStreamLabels(callee string) map[string]string {
-	return map[string]string{
-		"env":          w.env,
-		"service_name": callee,
-		"level":        "error",
-		"source":       "app",
-		"cluster":      w.cluster,
-		"job":          w.namespace + "/" + callee,
-	}
+	labels := w.logStreamLabels("error")
+	labels["service_name"] = callee
+	labels["job"] = w.namespace + "/" + callee
+	return labels
 }
 
 // hopLogMeta is the structured metadata for a per-hop callee log line: the hop's CLIENT
 // span_id (so the callee log joins the callee SERVER span via trace+span id) + correlation.
 func (w *Workload) hopLogMeta(r *ledger.Request, call ledger.Call) map[string]string {
-	return map[string]string{
-		"trace_id":                 r.TraceID,
-		"span_id":                  call.SpanID,
-		semconv.FieldCorrelationID: r.CorrelationID,
-		"request_id":               r.RequestID,
-		"session_id":               r.SessionID,
-	}
+	metadata := w.logMeta(r)
+	metadata["span_id"] = call.SpanID
+	return metadata
 }
 
 // logStreamLabels are the low-card Loki stream labels (the index key). source="app".
@@ -279,25 +271,31 @@ func (w *Workload) hopLogMeta(r *ledger.Request, call ledger.Call) map[string]st
 // service.name→service_name covers every stream (extract §3.1).
 func (w *Workload) logStreamLabels(level string) map[string]string {
 	return map[string]string{
-		"env":          w.env,
-		"service_name": w.name,
-		"level":        level,
-		"source":       "app",
-		"cluster":      w.cluster,
-		"job":          w.job(),
+		"env":                         w.env,
+		semconv.LabelServiceNamespace: w.namespace,
+		"service_name":                w.name,
+		"level":                       level,
+		"source":                      "app",
+		"cluster":                     w.cluster,
+		"job":                         w.job(),
 	}
 }
 
-// logMeta is the high-card structured metadata (NEVER stream labels — I14). Only ledger
-// IDs (I9). span_id is the backend SERVER span id.
+// logMeta keeps ledger correlation outside the index (I14/I9). The native app's
+// environment filter uses deployment_environment metadata; env remains the indexed key.
+// span_id is the backend SERVER span id.
 func (w *Workload) logMeta(r *ledger.Request) map[string]string {
-	return map[string]string{
+	metadata := map[string]string{
 		"trace_id":                 r.TraceID,
 		"span_id":                  r.SpanID,
 		semconv.FieldCorrelationID: r.CorrelationID,
 		"request_id":               r.RequestID,
 		"session_id":               r.SessionID,
 	}
+	if w.env != "" {
+		metadata["deployment_environment"] = w.env
+	}
+	return metadata
 }
 
 // lifecycleBody is the per-request completion log body (content-stripped — no row data).

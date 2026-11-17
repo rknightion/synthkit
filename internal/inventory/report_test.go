@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -389,11 +388,11 @@ func TestWriteFindingsReportCommittedCorpusPreservesTuplesAndBound(t *testing.T)
 
 func reportTestRepoRoot(t *testing.T) string {
 	t.Helper()
-	_, sourcePath, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("resolve report test source path")
+	wd, err := os.Getwd() // go test runs with cwd = the package directory
+	if err != nil {
+		t.Fatalf("resolve report test working directory: %v", err)
 	}
-	return filepath.Clean(filepath.Join(filepath.Dir(sourcePath), "..", ".."))
+	return filepath.Clean(filepath.Join(wd, "..", ".."))
 }
 
 func readReportTestInventory(t *testing.T, path string) Schema {
