@@ -5,7 +5,8 @@ go_version=$(awk '$1 == "go" { print $2; exit }' go.mod)
 node_version=$(awk '$1 == "node-version:" { print $2; exit }' .github/workflows/ci.yml)
 tool_bin="${XDG_CACHE_HOME:-$HOME/.cache}/synthkit/cursor/bin"
 export GOTOOLCHAIN="go$go_version" GOWORK=off GOPROXY=https://proxy.golang.org
-export PATH="$tool_bin:$PATH"
+go_bin="$(go env GOROOT)/bin"
+export PATH="$go_bin:$tool_bin:$PATH"
 
 if (( $# )); then
     exec fnm exec --using="$node_version" -- "$@"
