@@ -1,0 +1,5 @@
+# Generated from released versions and the Go blueprint types.
+/.release-please-manifest.json linguist-generated=true
+/BLUEPRINT-SCHEMA.md linguist-generated=true
+/internal/blueprintschema/fielddocs.json linguist-generated=true
+/internal/control/ui/package-lock.json linguist-generated=true
