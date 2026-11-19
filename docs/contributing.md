@@ -163,9 +163,8 @@ to this guide and the same recipes. The repository agent instructions define whe
 apply. Skill usage alone is not evidence: include actual command outcomes and remaining gaps.
 
 Public contributors submit a focused pull request and use the project's hosted checks and review
-process. Maintainers also use the combined Kodus and independent local exact-candidate review defined in
-the repository agent instructions, with pinned centrally managed rules; contributors
-are not required to obtain a personal paid CLI account or reproduce private maintainer tooling.
+process. Pull requests are reviewed by Cursor Bugbot, as the repository agent instructions describe;
+contributors are not required to obtain a personal paid account or reproduce private maintainer tooling.
 Do not upload credentials or customer identifiers to any review service. Review and correct the
 final diff before reporting completion, and use the PR template to summarize the evidence.
 
