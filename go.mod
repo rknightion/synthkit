@@ -14,8 +14,8 @@ require (
 	filippo.io/age v1.3.2
 	github.com/golang/snappy v1.0.0
 	github.com/grafana/grafana-foundation-sdk/go v0.0.22
-	github.com/grafana/nanogit v1.7.4
-	github.com/grafana/pyroscope-go v1.4.3
+	github.com/grafana/nanogit v1.7.6
+	github.com/grafana/pyroscope-go v1.5.0
 	github.com/moby/moby/api v1.56.1
 	github.com/slack-go/slack v0.33.0
 	github.com/testcontainers/testcontainers-go v0.44.0
@@ -83,7 +83,7 @@ require (
 	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // indirect
-	github.com/grafana/pyroscope-go/godeltaprof v0.1.11 // indirect
+	github.com/grafana/pyroscope-go/godeltaprof v0.1.12 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.31.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.20.3 // indirect
