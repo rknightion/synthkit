@@ -2,6 +2,24 @@
 
 All notable changes to synthkit. Generated from Conventional Commits.
 
+## [1.6.5](https://github.com/rknightion/synthkit/compare/v1.6.4...v1.6.5) (2026-11-21)
+
+
+### Bug Fixes
+
+* **deps:** update go modules (non-major) ([#770](https://github.com/rknightion/synthkit/issues/770)) ([f41ea7c](https://github.com/rknightion/synthkit/commit/f41ea7cddc436ab5f72123905481f345c07070c9))
+* **deps:** update grafana ([#766](https://github.com/rknightion/synthkit/issues/766)) ([f929197](https://github.com/rknightion/synthkit/commit/f92919796e76812eada8fbfa5ca9bcebaf2c1baf))
+
+
+### Documentation
+
+* pull requests are reviewed by Cursor Bugbot ([#749](https://github.com/rknightion/synthkit/issues/749)) ([2769d81](https://github.com/rknightion/synthkit/commit/2769d8199233c3da171229bc7779c3b9db255f73))
+
+
+### Build & CI
+
+* fix setup-go pin version comment for zizmor ([#743](https://github.com/rknightion/synthkit/issues/743)) ([8fffe15](https://github.com/rknightion/synthkit/commit/8fffe153def478cb3a25dcac6524186a168ee904))
+
 ## [1.6.4](https://github.com/rknightion/synthkit/compare/v1.6.3...v1.6.4) (2026-11-10)
 
 
