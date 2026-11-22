@@ -163,7 +163,8 @@ to this guide and the same recipes. The repository agent instructions define whe
 apply. Skill usage alone is not evidence: include actual command outcomes and remaining gaps.
 
 Public contributors submit a focused pull request and use the project's hosted checks and review
-process. Pull requests are reviewed by Cursor Bugbot, as the repository agent instructions describe;
+process. Pull requests that need it are reviewed by Codex or Cursor Bugbot, as the repository agent instructions
+describe;
 contributors are not required to obtain a personal paid account or reproduce private maintainer tooling.
 Do not upload credentials or customer identifiers to any review service. Review and correct the
 final diff before reporting completion, and use the PR template to summarize the evidence.
