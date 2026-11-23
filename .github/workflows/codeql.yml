@@ -3,7 +3,7 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: '11 3 * * 1'
+    - cron: '7 4 * * 1'
 permissions: {}
 jobs:
   codeql:
@@ -14,4 +14,5 @@ jobs:
       contents: read
     uses: rknightion/.github/.github/workflows/codeql.yml@84486af028f18f4a2d93ee5c4eb954fdd541d800 # v1.31.10
     with:
-      languages: '[{"language":"go","build-mode":"autobuild"},{"language":"actions","build-mode":"none"}]'
+      languages: '[{"language":"go","build-mode":"autobuild"},{"language":"actions","build-mode":"none"},{"language":"javascript-typescript","build-mode":"none"}]'
+      timeout-minutes: 30
