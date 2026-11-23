@@ -19,7 +19,12 @@
     "vitest": "^5.0.0",
     "jsdom": "^31.0.0",
     "@solidjs/testing-library": "^0.8.0",
-    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/jest-dom": "^8.0.0",
     "@testing-library/user-event": "^14.5.0"
+  },
+  "overrides": {
+    "vite-plugin-solid": {
+      "@testing-library/jest-dom": "$@testing-library/jest-dom"
+    }
   }
 }
