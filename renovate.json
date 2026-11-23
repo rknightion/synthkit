@@ -81,6 +81,14 @@
       "groupName": "go toolchain (docker base)"
     },
     {
+      "description": "Hold the Solid 2.x line: solid-js 2 needs @solidjs/web, @solidjs/router 2 and a vite-plugin-solid whose v3 and @solidjs/testing-library 1.0 are still prerelease (next/rc); the control UI is ~10k lines of Solid 1 code. Lift once vite-plugin-solid 3 and @solidjs/testing-library 1 are stable.",
+      "matchManagers": ["npm"],
+      "matchFileNames": ["internal/control/ui/package.json"],
+      "matchPackageNames": ["solid-js", "@solidjs/router"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
       "description": "CI actions grouped — they're all pinned to full SHA digests.",
       "matchManagers": ["github-actions"],
       "groupName": "ci actions"
