@@ -23,15 +23,6 @@ default:
 setup: _ui-install
     go mod download
 
-# prepare locked dependencies, the embedded UI and Go test binaries for Cursor Cloud
-cloud-bootstrap:
-    bash .cursor/bootstrap.sh
-
-# run a command with the Cursor Cloud toolchain
-[positional-arguments]
-cloud-run command *args:
-    bash .cursor/bootstrap.sh "$@"
-
 [private]
 [working-directory('internal/control/ui')]
 _ui-install:
