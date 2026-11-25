@@ -14,7 +14,7 @@ require (
 	filippo.io/age v1.3.2
 	github.com/golang/snappy v1.0.0
 	github.com/grafana/grafana-foundation-sdk/go v0.0.22
-	github.com/grafana/nanogit v1.7.6
+	github.com/grafana/nanogit v1.7.7
 	github.com/grafana/pyroscope-go v1.5.0
 	github.com/moby/moby/api v1.57.0
 	github.com/slack-go/slack v0.36.0
@@ -86,7 +86,7 @@ require (
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.12 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.31.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.20.3 // indirect
+	github.com/klauspost/compress v1.20.5 // indirect
 	github.com/lufia/plan9stats v0.0.0-20260330125221-c963978e514e // indirect
 	github.com/magiconair/properties v1.18.12 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
