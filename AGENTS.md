@@ -490,20 +490,3 @@ freeze.
 Public contributors need no maintainer configuration or review account; normal contribution and
 hosted-check requirements still apply. Hosted review never replaces required tests, deployment
 authority or human approval.
-
-## Cursor Cloud specific instructions
-
-The Build runs `just cloud-bootstrap </dev/null` to install locked Go and npm dependencies, build
-the embedded control UI, and compile Go packages and test binaries. The agent starts its local
-Docker daemon separately for E2E work and reuses it when it is already ready.
-
-- For a fast check, run `just cloud-run just fmt-check docs-check </dev/null` and
-  `just cloud-run go test ./internal/control </dev/null`. Use `just cloud-run just ui-check </dev/null`
-  for control UI changes.
-- The full gate is `just cloud-run just check </dev/null`. Use the private temporary directory and
-  umask from the [contribution guide](docs/contributing.md#prepare-a-development-checkout) for
-  custody tests. Allow time and memory for the race tier.
-- For Docker E2E, check `docker info` and run `just cloud-run just e2e </dev/null` when the image
-  build dependencies are available. The optional chart E2E and fidelity lab require a disposable
-  k3d cluster and its supporting tools. Run `just ci` with full Git history. Use hosted CI for its
-  required checks and keep live Grafana provisioning and telemetry outside the development gate.
