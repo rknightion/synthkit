@@ -14,7 +14,7 @@ require (
 	filippo.io/age v1.3.2
 	github.com/golang/snappy v1.0.0
 	github.com/grafana/grafana-foundation-sdk/go v0.0.22
-	github.com/grafana/nanogit v1.7.7
+	github.com/grafana/nanogit v1.7.8
 	github.com/grafana/pyroscope-go v1.5.0
 	github.com/moby/moby/api v1.57.0
 	github.com/slack-go/slack v0.36.0
