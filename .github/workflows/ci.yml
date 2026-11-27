@@ -184,7 +184,7 @@ jobs:
   helm-validate:
     permissions:
       contents: read
-    uses: rknightion/.github/.github/workflows/helm-validate.yml@3dacb3010d3967dfa9d7619c2d61dc7af14d72dc # v1.34.1
+    uses: rknightion/.github/.github/workflows/helm-validate.yml@a6e7f83c8fd233841120fc14c0412124a445c306 # v1.35.0
     with:
       chart-path: charts/synthkit
       release-name: synthkit
@@ -199,7 +199,7 @@ jobs:
     needs: [helm-validate]
     permissions:
       contents: read
-    uses: rknightion/.github/.github/workflows/helm-validate.yml@3dacb3010d3967dfa9d7619c2d61dc7af14d72dc # v1.34.1
+    uses: rknightion/.github/.github/workflows/helm-validate.yml@a6e7f83c8fd233841120fc14c0412124a445c306 # v1.35.0
     with:
       chart-path: charts/synthkit
       release-name: synthkit
@@ -218,7 +218,7 @@ jobs:
       contents: read
       issues: read
       pull-requests: read
-    uses: rknightion/.github/.github/workflows/ac-evidence.yml@3dacb3010d3967dfa9d7619c2d61dc7af14d72dc # v1.34.1
+    uses: rknightion/.github/.github/workflows/ac-evidence.yml@a6e7f83c8fd233841120fc14c0412124a445c306 # v1.35.0
 
   # The lines a pull request adds carry no identifier, email address, public address or credential
   # shape. Pull requests only, like ac-evidence. Check run: `privacy-sweep / Privacy sweep`.
@@ -226,7 +226,7 @@ jobs:
     if: github.event_name == 'pull_request'
     permissions:
       contents: read
-    uses: rknightion/.github/.github/workflows/privacy-sweep.yml@3dacb3010d3967dfa9d7619c2d61dc7af14d72dc # v1.34.1
+    uses: rknightion/.github/.github/workflows/privacy-sweep.yml@a6e7f83c8fd233841120fc14c0412124a445c306 # v1.35.0
 
   # The Backlog.md board is retired: issues are the queue. A pull request may delete files under
   # backlog/ or move them out, never add or change one there. Reads the file list from the API, so
@@ -272,7 +272,7 @@ jobs:
       contents: read
       security-events: write
       actions: read
-    uses: rknightion/.github/.github/workflows/zizmor.yml@3dacb3010d3967dfa9d7619c2d61dc7af14d72dc # v1.34.1
+    uses: rknightion/.github/.github/workflows/zizmor.yml@a6e7f83c8fd233841120fc14c0412124a445c306 # v1.35.0
     with:
       enforce: true
 
