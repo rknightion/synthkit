@@ -2,6 +2,28 @@
 
 All notable changes to synthkit. Generated from Conventional Commits.
 
+## [1.6.5](https://github.com/rknightion/synthkit/compare/v1.6.4...v1.6.5) (2026-11-27)
+
+
+### Bug Fixes
+
+* **deps:** update go modules (non-major) ([#770](https://github.com/rknightion/synthkit/issues/770)) ([f41ea7c](https://github.com/rknightion/synthkit/commit/f41ea7cddc436ab5f72123905481f345c07070c9))
+* **deps:** update grafana ([#766](https://github.com/rknightion/synthkit/issues/766)) ([f929197](https://github.com/rknightion/synthkit/commit/f92919796e76812eada8fbfa5ca9bcebaf2c1baf))
+* **deps:** update kubernetes libraries to v0.37.3 ([#827](https://github.com/rknightion/synthkit/issues/827)) ([33d6c92](https://github.com/rknightion/synthkit/commit/33d6c926c0fec623c880e35984713c0408399f1a))
+* **deps:** update module github.com/grafana/nanogit to v1.7.7 ([#825](https://github.com/rknightion/synthkit/issues/825)) ([5612321](https://github.com/rknightion/synthkit/commit/5612321844880eecc204215e663b170780e30298))
+
+
+### Documentation
+
+* pull requests are reviewed by Cursor Bugbot ([#749](https://github.com/rknightion/synthkit/issues/749)) ([2769d81](https://github.com/rknightion/synthkit/commit/2769d8199233c3da171229bc7779c3b9db255f73))
+* pull requests are reviewed on demand, Codex first and Bugbot second ([#796](https://github.com/rknightion/synthkit/issues/796)) ([65e6975](https://github.com/rknightion/synthkit/commit/65e6975524970adaca6a46a446fd478b44593163))
+
+
+### Build & CI
+
+* align security workflows with the fleet standard ([7e97eab](https://github.com/rknightion/synthkit/commit/7e97eab7af23b3ec5f62b47fb88c39443305adae))
+* fix setup-go pin version comment for zizmor ([#743](https://github.com/rknightion/synthkit/issues/743)) ([8fffe15](https://github.com/rknightion/synthkit/commit/8fffe153def478cb3a25dcac6524186a168ee904))
+
 ## [1.6.4](https://github.com/rknightion/synthkit/compare/v1.6.3...v1.6.4) (2026-11-10)
 
 
